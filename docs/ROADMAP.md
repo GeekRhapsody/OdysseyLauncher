@@ -3,7 +3,7 @@
 Each milestone ends when all of its acceptance criteria are met, including a bench run on the baseline hardware in both modes. The baseline is a Steam Deck on Windows 11, run handheld at 1280×800 and docked at 3840×2160 and 59.94 Hz. Record the results in [Progress](#progress). The design lives in [ARCHITECTURE.md](ARCHITECTURE.md).
 
 Performance targets are provisional until M1 signs them off:
-- First interactive frame under 1 s from process start, on a warm start with a 10,000-game library.
+- First interactive frame under 1 s **for our code**, on a warm start with a 10,000-game library. It's timed from the first autoload's `_EnterTree` to `interactive` (`app_startup_ms` in the bench). Engine and .NET start-up before our code is reported, but it isn't part of the target.
 - No dropped frames while scrolling.
 - No hitches while textures stream in.
 
@@ -14,9 +14,9 @@ A hitch is any frame interval longer than 1.5× the refresh interval.
 Prove, or revise with evidence, the targets on the Deck before building features.
 
 **Scope**
-- Prerequisites:
+- Prerequisites (done 2026-09-27):
   - Install the Godot 4.7.2 .NET export templates.
-  - Add an ExportRelease export preset, plus a script to export and bench.
+  - Add an ExportRelease export preset (`godot/export_presets.cfg`), plus a script to export and bench (`tools/bench-export.ps1`).
 - Add Tomlyn and Microsoft.Data.Sqlite. Both are part of the decided stack.
 - Build a synthetic-library generator: 10,000 games in one system, plus 20 small systems, with generated JPEG covers.
 - Build a prototype virtualised grid, with pooled items and texture streaming, using a placeholder box template.
@@ -36,7 +36,7 @@ Prove, or revise with evidence, the targets on the Deck before building features
 **Acceptance**
 - `docs/perf/m1-spike.md` gives, for every configuration tried: the bench JSON, the exact commands, and the machine details.
 - On an exported build of the chosen configuration, in both modes:
-  - The median of 5 warm starts is under 1000 ms from process start to `interactive`.
+  - Over 5 warm starts, the median `app_startup_ms` (our code: first autoload to `interactive`) is under 1000 ms. Engine and .NET start-up is recorded alongside.
   - A 60 s scripted scroll across the 10,000-game system has 0 hitches after the first 60 frames.
   - The p99 frame interval is at most 1.1× the refresh interval.
   - The main-thread allocation ceiling during the scroll is set, and met.
@@ -147,7 +147,7 @@ Update this at the end of every milestone: the status, the date, and the evidenc
 | Milestone | Status | Finished | Evidence |
 |---|---|---|---|
 | Scaffold | Done | 2026-09-27 | Initial commit; `tools/verify.ps1` green; capture corners exact; bench baseline below |
-| M1 Performance spike | Not started | | |
+| M1 Performance spike | In progress | | Prerequisites done; scaffold-scene renderer × driver matrix in [perf/m1-spike.md](perf/m1-spike.md) |
 | M2 Core data layer | Not started | | |
 | M3 Launching | Not started | | |
 | M4 Scraping and media pipeline | Not started | | |
@@ -172,3 +172,15 @@ Update this at the end of every milestone: the status, the date, and the evidenc
     - Process start to `interactive`: about 1.44 s warm (about 1.28 s of that before the first script runs).
     - An idle 300-frame bench: mean 16.63 ms, p99 18.07 ms, and 0 or 1 hitches per run.
     - 216 bytes allocated on the main thread, with no GCs.
+- **2026-09-27: M1 prerequisites.**
+  - **What was added:**
+    - The export templates are installed.
+    - `godot/export_presets.cfg` (Windows Desktop, ExportRelease).
+    - `tools/bench-export.ps1`, which exports, runs one warm-up plus N measured runs, and prints medians.
+    - `app_startup_ms` in the bench report, after the owner confirmed that the 1 s target covers our code only.
+  - **Results:**
+    - Exports are self-contained and bundle .NET 8.0.31.
+    - On the scaffold scene at 1280×800, our code's start-up is a median **122–151 ms** in every renderer and driver combination.
+    - Engine and .NET start-up before our code takes 962–1373 ms. Compatibility/OpenGL is fastest and Forward+/Vulkan slowest.
+    - Frame pacing is about 16.5 ms mean and 18 ms p99 everywhere. The odd 26–30 ms frame shows up early in short runs.
+    - Details are in [perf/m1-spike.md](perf/m1-spike.md).

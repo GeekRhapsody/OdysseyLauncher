@@ -124,7 +124,9 @@ Once matched, re-scrapes use `FetchAsync(id)` and never search again. Saved resp
 ## A3. Performance design
 
 **Targets.** These are provisional; M1 validates them on the baseline hardware.
-- First interactive frame under 1 s from process start, on a warm start with a 10,000-game library.
+- First interactive frame under 1 s **for our code**, on a warm start with a 10,000-game library.
+  - The clock starts at our first code, the first autoload's `_EnterTree` (mark `autoload_enter_tree`), and stops at `interactive`. The bench reports this as `app_startup_ms`.
+  - Engine and .NET start-up before our code is outside the target, but it's still reported in `startup_ms`. On the scaffold it takes about 1.0–1.35 s, depending on the renderer and driver (see [perf/m1-spike.md](perf/m1-spike.md)).
 - Locked to the display refresh rate while scrolling.
 - No visible hitches while textures stream in.
 
@@ -133,12 +135,13 @@ Once matched, re-scrapes use `FetchAsync(id)` and never search again. Saved resp
 - docked to a 3840×2160 display at 59.94 Hz, with 3D rendered at a capped internal resolution
 
 **Measurement:**
-- `--bench`, on an exported ExportRelease build only. Editor runs use Debug assemblies and the editor binary.
+- `--bench`, on an exported ExportRelease build only (`tools/bench-export.ps1`). Editor runs use Debug assemblies and the editor binary.
+- `app_startup_ms` = `interactive` − `autoload_enter_tree`. `DebugHooks` must stay the first autoload, and it warns if it isn't.
 - Frame times come from raw `Time.GetTicksUsec()` at `frame_post_draw`. Godot smooths `_Process` delta, which hides hitches.
 - A **hitch** is any frame interval longer than 1.5× the refresh interval.
 
 **Boot path:**
-1. Engine and .NET start-up. M1 measures ReadyToRun and the shader baker.
+1. Engine and .NET start-up. This is outside the target, but M1 still measures ReadyToRun and the shader baker, because they also cut the JIT and shader work inside it.
 2. Settings, theme and systems config, in about 10 ms. M1 measures Tomlyn's first-use cost.
 3. Open `library.db` read-only and run `SELECT system_id, game_count FROM systems`, in about 5 ms.
 4. System models: built-ins are Godot-imported, and user models come from the converted-scene cache, behind proxies.
@@ -185,7 +188,7 @@ Everything else waits until after `interactive`, and nothing is scanned at boot.
 - The bench reports `GC.GetAllocatedBytesForCurrentThread()` for the main thread, and M1 sets its ceiling.
 
 **M1 experiments:**
-- Renderer (Forward+, Mobile, Compatibility) × driver (D3D12, Vulkan).
+- Renderer (Forward+, Mobile, Compatibility) × driver (D3D12, Vulkan). The target excludes engine start-up, so the choice rests on frame pacing, GPU cost and features.
 - Per-node materials versus a budgeted `Texture2DArray` of covers indexed per instance. MultiMesh versus nodes is secondary.
 - Derivative format and upload path.
 - Upload budget and decode worker count.
@@ -539,7 +542,9 @@ The built-in templates are `dvd_case`, `jewel_case`, `tall_jewel_case`, `cartrid
 |---|---|---|
 | 2026-09-27 | Stack: Godot 4 .NET (C#), Tomlyn, Microsoft.Data.Sqlite (WAL, versioned migrations), glTF `.glb` only, platform code behind interfaces. | The owner decided it. Don't revisit without asking. |
 | 2026-09-27 | TFMs follow Godot's generated csproj: net8.0 for 4.7.2. Tests use `RollForward=Major`. | The owner's rule. This machine has no .NET 8 runtime, and the editor already rolls forward to .NET 10. |
-| 2026-09-27 | **Open risk:** .NET 8 support ends on 10 November 2026, and exports bundle the runtime they target. M1 benches a net10.0 build; switching needs the owner's approval. | Godot keeps a higher TFM if one is set; it only raises TFMs below net8.0. |
+| 2026-09-27 | **Open risk:** .NET 8 support ends on 10 November 2026, and exports bundle the runtime they target (confirmed: .NET 8.0.31, self-contained). M1 benches a net10.0 build; switching needs the owner's approval. | Godot keeps a higher TFM if one is set; it only raises TFMs below net8.0. |
+| 2026-09-27 | The 1 s start-up target covers **our code only**: `app_startup_ms`, from the first autoload's `_EnterTree` to `interactive`. Engine and .NET start-up is reported separately. `DebugHooks` stays the first autoload. | The owner clarified this. Engine and runtime start-up isn't ours to optimise beyond renderer and publish settings. |
+| 2026-09-27 | Windows export preset: ExportRelease, separate PCK, S3TC/BPTC textures, `modify_resources` off, console wrapper for debug exports only. `tools/bench-export.ps1` starts the exe directly and reads its JSON. | This is enough for benchmarking. An embedded icon and version info can come later. |
 | 2026-09-27 | `.slnx` solution, with Godot's three configurations. | .NET 10 default. Godot 4.6+ finds `.slnx` files; its builds use the csproj directly. |
 | 2026-09-27 | xUnit v3 on Microsoft.Testing.Platform (`global.json` test runner). The VSTest packages are kept for IDE test explorers. | xUnit v3 4.x can't use VSTest mode under the .NET 10 SDK. |
 | 2026-09-27 | `path_key` (lower-invariant NFC `rel_path`) is the identity everywhere, including `userdata.db` and media file names. | Survives case-only renames, keeps `Game.cue` and `Game.chd` apart, and makes keys portable. |

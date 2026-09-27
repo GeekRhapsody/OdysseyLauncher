@@ -54,6 +54,28 @@ public class StartupTimelineTests
     }
 
     [Fact]
+    public void Between_measures_from_one_mark_to_another()
+    {
+        var timeline = new StartupTimeline(ProcessStart, new ManualClock(ProcessStart));
+
+        timeline.MarkAt(StartupMarks.AutoloadEnterTree, 1200);
+        timeline.MarkAt(StartupMarks.Interactive, 1325.5);
+
+        Assert.Equal(125.5, timeline.Between(StartupMarks.AutoloadEnterTree, StartupMarks.Interactive));
+    }
+
+    [Fact]
+    public void Between_is_null_until_both_marks_exist()
+    {
+        var timeline = new StartupTimeline(ProcessStart, new ManualClock(ProcessStart));
+
+        timeline.MarkAt(StartupMarks.AutoloadEnterTree, 1200);
+
+        Assert.Null(timeline.Between(StartupMarks.AutoloadEnterTree, StartupMarks.Interactive));
+        Assert.Null(timeline.Between(StartupMarks.MainReady, StartupMarks.AutoloadEnterTree));
+    }
+
+    [Fact]
     public void The_current_process_timeline_is_after_process_creation()
     {
         var timeline = StartupTimeline.ForCurrentProcess();

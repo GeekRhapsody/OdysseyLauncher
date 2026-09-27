@@ -18,6 +18,7 @@ public class BenchReportWriterTests
             var root = json.RootElement;
             Assert.Equal(BenchReport.CurrentFormat, root.GetProperty("format").GetInt32());
             Assert.Equal("0.1.0+abc", root.GetProperty("app_version").GetString());
+            Assert.Equal(125.25, root.GetProperty("app_startup_ms").GetDouble());
             Assert.Equal(401.5, root.GetProperty("startup_ms").GetProperty("interactive").GetDouble());
             Assert.Equal(16.8, root.GetProperty("frames").GetProperty("p99_ms").GetDouble());
             Assert.Equal(2, root.GetProperty("frames").GetProperty("worst")[0].GetProperty("frame").GetInt32());
@@ -39,6 +40,15 @@ public class BenchReportWriterTests
         Assert.DoesNotContain("\r", BenchReportWriter.Serialize(SampleReport()), StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void A_missing_app_startup_is_written_as_null()
+    {
+        var json = BenchReportWriter.Serialize(SampleReport() with { AppStartupMs = null });
+
+        using var document = JsonDocument.Parse(json);
+        Assert.Equal(JsonValueKind.Null, document.RootElement.GetProperty("app_startup_ms").ValueKind);
+    }
+
     private static BenchReport SampleReport()
     {
         double[] intervals = [16.6, 16.7, 16.8];
@@ -46,6 +56,7 @@ public class BenchReportWriterTests
         {
             CreatedUtc = new DateTimeOffset(2026, 9, 27, 12, 0, 0, TimeSpan.Zero),
             AppVersion = "0.1.0+abc",
+            AppStartupMs = 125.25,
             GodotVersion = "4.7.2.stable.mono.official.ed1daf0bf",
             DotnetVersion = ".NET 10.0.12",
             Machine = new BenchMachine("Windows", "AMD Custom APU 0405", "AMD Custom GPU 0405", "forward_plus", "d3d12"),

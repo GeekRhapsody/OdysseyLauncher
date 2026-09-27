@@ -25,6 +25,8 @@ A fully 3D game launcher frontend (systems grid → games grid → emulator), st
 | `godot --headless --path godot --quit-after 10` | Smoke run. Prints the `Launcher.Core ...` line. |
 | `.\tools\verify.ps1` | All of the above, in order. |
 | `godot --path godot` | Runs the app windowed. Use `godot --path godot -e` for the editor. |
+| `godot --headless --path godot --export-release "Windows Desktop" $PWD/artifacts/export/windows/OdysseyLauncher.exe` | Exports an ExportRelease build (the preset is in `godot/export_presets.cfg`). |
+| `.\tools\bench-export.ps1` | Exports, then runs one warm-up plus 5 benched runs of the export and prints the medians. Options: `-SkipExport`, `-Runs`, `-Frames`, `-Resolution`, `-Fullscreen`, `-EngineArgs '--rendering-driver', 'vulkan'`, `-Label`. **Use this for any number you compare with a target.** |
 
 `godot` is `C:\Users\claudio\Coding\Godot\godot.cmd`. It forwards to the 4.7.2 .NET console build, which waits for exit and passes the exit code through.
 
@@ -39,6 +41,7 @@ godot --path godot --resolution 1280x800 -- --bench=$PWD/artifacts/bench.json --
 
 - **`--capture`** saves a PNG of the viewport after n drawn frames (`--capture-frame`, default 60), then quits.
 - **`--bench`** samples n frame intervals after the first drawn frame (`--bench-frames`, default 600), writes JSON, then quits. The JSON contains:
+  - `app_startup_ms`: **our code's start-up**, from the first autoload's `_EnterTree` to `interactive`. The 1 s target applies to this number only. Engine and .NET start-up before it is excluded.
   - `startup_ms`: ms since the process started, with `engine_start`, `autoload_enter_tree`, `main_ready`, `first_frame_drawn` and `interactive`.
   - `frames`: mean, p50, p95, p99, max, `hitch_count` (over 1.5× the refresh interval) and the worst frames.
   - `render_ms`: render CPU and GPU times.
@@ -48,7 +51,8 @@ godot --path godot --resolution 1280x800 -- --bench=$PWD/artifacts/bench.json --
 - Use `--fixed-fps 60` for captures, so animation is deterministic. **Never** use it with `--bench`.
 - Don't combine `--capture` with `--bench` for measurements, because the PNG write shows up as one long frame.
 - Exit codes: 0 means success; 1 means a failure, including a headless run or a watchdog timeout (30 s plus 100 ms per requested frame); 2 means invalid debug arguments.
-- Timings from the editor binary with Debug assemblies aren't comparable with the performance targets. M1 adds exported-build benchmarks.
+- Timings from the editor binary with Debug assemblies aren't comparable with the performance targets. Use `tools/bench-export.ps1` for those.
+- `DebugHooks` must stay the **first autoload**, because `app_startup_ms` is timed from its `_EnterTree`. It warns if it isn't first.
 
 ## Decided stack (don't change without asking)
 

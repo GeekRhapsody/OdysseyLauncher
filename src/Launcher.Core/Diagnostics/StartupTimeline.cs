@@ -8,6 +8,10 @@ public static class StartupMarks
     /// <summary>When Godot's own clock started (derived from <c>Time.GetTicksUsec</c>).</summary>
     public const string EngineStart = "engine_start";
 
+    /// <summary>
+    /// Where our code starts: the first autoload's <c>_EnterTree</c>. The start-up target covers
+    /// our code only, so it's measured from here to <see cref="Interactive"/>.
+    /// </summary>
     public const string AutoloadEnterTree = "autoload_enter_tree";
 
     public const string MainReady = "main_ready";
@@ -83,6 +87,29 @@ public sealed class StartupTimeline
             _marks.Add(new StartupMark(name, milliseconds));
             return milliseconds;
         }
+    }
+
+    /// <summary>Milliseconds from one mark to another, or null if either hasn't been recorded.</summary>
+    public double? Between(string from, string to)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(from);
+        ArgumentException.ThrowIfNullOrEmpty(to);
+        double? start = null;
+        double? end = null;
+        foreach (var mark in Marks)
+        {
+            if (mark.Name == from)
+            {
+                start = mark.Milliseconds;
+            }
+
+            if (mark.Name == to)
+            {
+                end = mark.Milliseconds;
+            }
+        }
+
+        return end - start;
     }
 
     /// <summary>

@@ -20,7 +20,16 @@ public sealed record BenchReport
 
     public required BenchDisplay Display { get; init; }
 
-    /// <summary>Startup marks in milliseconds since the OS created the process.</summary>
+    /// <summary>
+    /// Our code's start-up, from <see cref="StartupMarks.AutoloadEnterTree"/> to
+    /// <see cref="StartupMarks.Interactive"/>; the 1 s target applies to this. Null if either mark is missing.
+    /// </summary>
+    public required double? AppStartupMs { get; init; }
+
+    /// <summary>
+    /// Startup marks in milliseconds since the OS created the process. Everything before
+    /// <see cref="StartupMarks.AutoloadEnterTree"/> is engine and .NET start-up, outside the target.
+    /// </summary>
     public required IReadOnlyDictionary<string, double> StartupMs { get; init; }
 
     /// <summary>Frame intervals measured at <c>frame_post_draw</c> (not Godot's smoothed delta).</summary>

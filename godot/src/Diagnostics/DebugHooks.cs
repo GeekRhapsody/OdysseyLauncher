@@ -52,6 +52,12 @@ public partial class DebugHooks : Node
         Timeline.MarkAt(StartupMarks.EngineStart, sinceProcessStartMs - Time.GetTicksUsec() / 1000.0);
         Timeline.MarkAt(StartupMarks.AutoloadEnterTree, sinceProcessStartMs);
 
+        // The start-up target covers our code only and is timed from this mark, so it must come first.
+        if (GetIndex() != 0)
+        {
+            GD.PushWarning("DebugHooks isn't the first autoload, so app_startup_ms misses code that ran before it. Move it to the top of the autoload list.");
+        }
+
         var parsed = DebugOptions.Parse(OS.GetCmdlineUserArgs());
         if (!parsed.IsValid)
         {
@@ -229,6 +235,7 @@ public partial class DebugHooks : Node
                     windowSize.Y,
                     DisplayServer.WindowGetVsyncMode().ToString(),
                     Headless: false),
+                AppStartupMs = Timeline.Between(StartupMarks.AutoloadEnterTree, StartupMarks.Interactive),
                 StartupMs = Timeline.ToDictionary(),
                 Frames = FrameTimeStats.Compute(_intervalsMs, refreshHz),
                 RenderMs = new BenchRenderTimes(FrameTimeStats.Mean(_cpuMs), FrameTimeStats.Mean(_gpuMs)),
