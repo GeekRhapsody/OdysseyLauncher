@@ -1,0 +1,23 @@
+# Godot 4
+.godot/
+/android/
+mono_crash.*.json
+
+# .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+.idea/
+.vscode/
+TestResults/
+*.DotSettings.user
+
+# Local outputs (captures, bench JSON) and secrets
+/artifacts/
+secrets.toml
+.env
+
+# Claude Code per-user settings
+.claude/settings.local.json

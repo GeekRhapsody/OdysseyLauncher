@@ -1,0 +1,15 @@
+<Project>
+  <!-- Imported by every project in the repo, including the Godot project (via Microsoft.Common.props). -->
+  <PropertyGroup>
+    <Version>0.1.0</Version>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <!--
+    Godot.NET.Sdk only turns on optimisation for ExportRelease in the Godot project itself.
+    Referenced projects (Launcher.Core) are built with the same configuration name and need it too.
+  -->
+  <PropertyGroup Condition="'$(Configuration)' == 'ExportRelease'">
+    <Optimize>true</Optimize>
+  </PropertyGroup>
+</Project>

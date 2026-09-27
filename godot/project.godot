@@ -1,0 +1,39 @@
+; Engine configuration file.
+; It's best edited using the editor UI and not directly,
+; since the parameters that go here are not all obvious.
+;
+; Format:
+;   [section] ; section goes between []
+;   param=value ; assign values to parameters
+
+config_version=5
+
+[application]
+
+config/name="Odyssey Launcher"
+config/version="0.1.0"
+run/main_scene="res://scenes/main.tscn"
+config/features=PackedStringArray("4.7", "C#", "Forward Plus")
+boot_splash/show_image=false
+boot_splash/bg_color=Color(0.015686275, 0.015686275, 0.047058824, 1)
+config/icon="res://icon.svg"
+
+[autoload]
+
+DebugHooks="*res://src/Diagnostics/DebugHooks.cs"
+
+[display]
+
+window/size/viewport_width=1280
+window/size/viewport_height=800
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
+
+[dotnet]
+
+project/assembly_name="OdysseyLauncher"
+project/solution_directory=".."
+
+[rendering]
+
+rendering_device/driver.windows="d3d12"

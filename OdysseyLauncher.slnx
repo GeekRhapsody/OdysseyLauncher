@@ -1,0 +1,17 @@
+<Solution>
+  <!-- Godot's configurations. ExportRelease is optimised for every project (Directory.Build.props). -->
+  <Configurations>
+    <BuildType Name="Debug" />
+    <BuildType Name="ExportDebug" />
+    <BuildType Name="ExportRelease" />
+  </Configurations>
+  <Folder Name="/godot/">
+    <Project Path="godot/OdysseyLauncher.csproj" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/Launcher.Core/Launcher.Core.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Launcher.Core.Tests/Launcher.Core.Tests.csproj" />
+  </Folder>
+</Solution>

@@ -1,0 +1,30 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+
+[*.{csproj,props,targets,slnx,json,toml,yml,yaml}]
+indent_size = 2
+
+[*.{gdshader,tscn,tres,godot,cfg}]
+indent_style = tab
+
+[*.md]
+trim_trailing_whitespace = false
+
+[*.{cmd,bat}]
+end_of_line = crlf
+
+[*.cs]
+csharp_style_namespace_declarations = file_scoped:warning
+dotnet_sort_system_directives_first = true
+
+# Launcher.Core never resumes on the caller's context: Godot's SynchronizationContext has no
+# per-frame budget, so continuations must not land on the main thread (docs/ARCHITECTURE.md, A1/A3).
+[src/**/*.cs]
+dotnet_diagnostic.CA2007.severity = error
