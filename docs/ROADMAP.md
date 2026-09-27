@@ -2,10 +2,15 @@
 
 Each milestone ends when all of its acceptance criteria are met, including a bench run on the baseline hardware in both modes. The baseline is a Steam Deck on Windows 11, run handheld at 1280×800 and docked at 3840×2160 and 59.94 Hz. Record the results in [Progress](#progress). The design lives in [ARCHITECTURE.md](ARCHITECTURE.md).
 
-Performance targets are provisional until M1 signs them off:
+Performance targets, as revised by M1 ([SPIKE_RESULTS.md](SPIKE_RESULTS.md); the full list is in ARCHITECTURE.md A3). The reworded hitch target and the new targets are proposals awaiting the owner's sign-off.
 - First interactive frame under 1 s **for our code**, on a warm start with a 10,000-game library. It's timed from the first autoload's `_EnterTree` to `interactive` (`app_startup_ms` in the bench). Engine and .NET start-up before our code is reported, but it isn't part of the target.
-- No dropped frames while scrolling.
-- No hitches while textures stream in.
+- No dropped frames while scrolling: p99 frame interval ≤ 1.1× the refresh interval.
+- **No hitches caused by the launcher** while textures stream in. Over 3 × 60 s scrolls:
+  - hitches are no more than the same session's no-texture control
+  - 0 frames exceed 2× the refresh interval
+  - there are 0 hitches in fullscreen
+- The visible grid is textured ≤ 100 ms after the first frame, and ≥ 99% textured while scrolling at the maximum repeat speed.
+- The working set is ≤ 512 MB while browsing. The main thread allocates ≤ 4 KB per 60 s scroll.
 
 A hitch is any frame interval longer than 1.5× the refresh interval.
 
@@ -43,6 +48,13 @@ Prove, or revise with evidence, the targets on the Deck before building features
 - For any missed target, the doc records the best result, the bottleneck and a proposed revised target. The owner signs this off before M2 starts.
 - The decisions log in ARCHITECTURE.md records the choices (renderer, driver, item rendering, texture pipeline, budgets).
 
+**Closed on 2026-09-27 with a reduced scope.** The owner scoped M1 to the grid, texture and renderer spike. The results are in [SPIKE_RESULTS.md](SPIKE_RESULTS.md), and the spike code is on branch `spike/grid-perf`. These items weren't done, and moved:
+- to M2: Tomlyn and Microsoft.Data.Sqlite; the config-parse cost; SQLite's native load; the 20-system synthetic library and the `boot` scenario; the net10.0 build
+- to M5: ReadyToRun and the shader baker; handheld (undocked) mode; 3840×2160 docked; FSR1 against bilinear; PresentMon for the periodic present delay
+- to M6: `.glb` conversion on a worker thread
+
+The hitch target was met by the chosen configuration, but it's reworded (see above). The owner still needs to sign off the revised targets.
+
 ## M2: Core data layer
 
 **Scope**
@@ -65,6 +77,12 @@ Prove, or revise with evidence, the targets on the Deck before building features
   - A rescan with no changes takes under 0.5 s.
   - `GetGamesAsync` for 10,000 games takes under 50 ms.
 - The M1 boot target still holds with real config and DB loading.
+- Carried over from M1, with results in `docs/perf/`:
+  - add Tomlyn and Microsoft.Data.Sqlite
+  - measure the config-parse options (A3)
+  - measure SQLite's native load in an editor run and in an export
+  - add the 20-system synthetic library and a `boot` bench scenario
+  - bench a net10.0 comparison build (adopting it needs the owner's approval)
 
 ## M3: Launching
 
@@ -113,6 +131,12 @@ Prove, or revise with evidence, the targets on the Deck before building features
 - The M1 targets hold in both modes, with a real library of at least 2,000 games and with the 10,000-game synthetic set.
 - Captures of both grids, the focus state and the transition have been reviewed.
 - Every screen can be driven with a gamepad only.
+- Carried over from M1:
+  - measure ReadyToRun and the export shader baker
+  - bench handheld (undocked, 1280×800 fullscreen) and 3840×2160 docked
+  - compare FSR1 with bilinear at 0.5 scale
+  - test the proposed 8-uploads-per-frame cap
+  - identify the periodic ~5 s present delay, with PresentMon if the owner approves installing it
 
 ## M6: Theming and custom models
 
@@ -127,6 +151,7 @@ Prove, or revise with evidence, the targets on the Deck before building features
 - Tests use fixture `.glb` files that are in budget, over budget and more than 2× over (rejected, with fallback), plus slot and clip name matching.
 - Captures of the default theme and one alternative theme. The corner colours match their hex values.
 - The M1 targets hold with in-budget custom models on screen.
+- Carried over from M1: runtime `.glb` conversion on a worker thread is measured.
 
 ## M7: Settings UI
 
@@ -147,7 +172,7 @@ Update this at the end of every milestone: the status, the date, and the evidenc
 | Milestone | Status | Finished | Evidence |
 |---|---|---|---|
 | Scaffold | Done | 2026-09-27 | Initial commit; `tools/verify.ps1` green; capture corners exact; bench baseline below |
-| M1 Performance spike | In progress | | Prerequisites done; scaffold-scene renderer × driver matrix in [perf/m1-spike.md](perf/m1-spike.md) |
+| M1 Performance spike | Done (reduced scope; the revised targets need the owner's sign-off) | 2026-09-27 | [SPIKE_RESULTS.md](SPIKE_RESULTS.md); per-configuration JSON in [perf/m1/](perf/m1/); spike code on branch `spike/grid-perf` (`e165f58`, `7fe35ea`); scaffold matrix in [perf/m1-spike.md](perf/m1-spike.md) |
 | M2 Core data layer | Not started | | |
 | M3 Launching | Not started | | |
 | M4 Scraping and media pipeline | Not started | | |
@@ -184,3 +209,22 @@ Update this at the end of every milestone: the status, the date, and the evidenc
     - Engine and .NET start-up before our code takes 962–1373 ms. Compatibility/OpenGL is fastest and Forward+/Vulkan slowest.
     - Frame pacing is about 16.5 ms mean and 18 ms p99 everywhere. The odd 26–30 ms frame shows up early in short runs.
     - Details are in [perf/m1-spike.md](perf/m1-spike.md).
+- **2026-09-27: M1 grid spike, and M1 closed.**
+  - **What was built** (on branch `spike/grid-perf`, not merged):
+    - A 10,000-game synthetic library, with a distinct numbered 512² cover per game in 7 formats.
+    - A virtualised 8-column grid over a 64-cell pool, with a front/spine/back box mesh, focus lift and spin, hold-to-repeat navigation and a scripted whole-library scroll.
+    - Node and MultiMesh/`Texture2DArray` renderers.
+    - Off-thread decoding with a byte-budgeted upload.
+    - A per-format load test, and bench scripts.
+  - **How it was measured:** 21 configurations × 3 runs (plus a warm-up each) on the ExportRelease build, and 6 load-test runs.
+  - **Results:**
+    - Every configuration holds vsync: mean 16.68 ms, p99 17.65–18.34 ms.
+    - Covers are 100% textured while scrolling the whole library in 60 s.
+    - Our code's start-up is 186–449 ms.
+    - The main thread allocates 0.6 KB per 60 s scroll.
+    - The chosen configuration (Mobile, MultiMesh, BC7) had 0 hitches in all 3 runs.
+  - **Decided:** Mobile/D3D12; MultiMesh plus `Texture2DArray`; BC7 DDS derivatives; update-only uploads with 2 workers.
+  - **New risk:** there's no BCn encoder in the export templates (M4).
+  - **Not done** (moved to M2, M5 and M6; see M1 above):
+    - handheld mode and true 4K. The desktop ran at 2560×1440 during the spike, although WMI reports 3840×2160, so the docked fullscreen runs are at 1440p. Check the display mode before any 4K run.
+    - the other A3 experiments

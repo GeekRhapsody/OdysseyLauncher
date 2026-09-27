@@ -1,0 +1,261 @@
+{
+  "rendering_method": "mobile",
+  "rendering_driver": "d3d12",
+  "godot": "4.7.2-stable (official)",
+  "editor_build": false,
+  "items_per_format": 300,
+  "probes": {
+    "compress_bptc": "Unavailable",
+    "compress_s3tc": "Unavailable",
+    "save_dds_to_buffer_bytes": "12416",
+    "save_png_to_buffer_bytes": "169",
+    "save_webp_to_buffer_bytes": "38",
+    "load_from_file_dds": "failed",
+    "load_from_file_ktx": "failed",
+    "load_png": "Rgba8 512x512 mipmaps=9",
+    "load_jpg": "Rgba8 512x512 mipmaps=9",
+    "load_dds-bc7": "BptcRgba 512x512 mipmaps=9",
+    "load_dds-bc1": "Dxt1 512x512 mipmaps=9",
+    "load_ktx-bc7": "BptcRgba 512x512 mipmaps=9",
+    "load_res-bc7": "BptcRgba 512x512 mipmaps=9",
+    "load_raw-bc7": "BptcRgba 512x512 mipmaps=9",
+    "create_phase_format": "dds-bc7",
+    "worker_create_frame_intervals": "n=71 p50=16.73 max=25.23",
+    "main_create_frame_intervals": "n=15 p50=16.36 max=58.63"
+  },
+  "worker_texture2d_create_ms": {
+    "count": 60,
+    "mean": 11.528651666666667,
+    "p50": 12.071,
+    "p95": 12.5955,
+    "p99": 12.7738,
+    "max": 12.7738
+  },
+  "main_texture2d_create_ms": {
+    "count": 60,
+    "mean": 1.436056666666667,
+    "p50": 0.4651,
+    "p95": 0.9704,
+    "p99": 56.0335,
+    "max": 56.0335
+  },
+  "formats": [
+    {
+      "format": "png",
+      "mean_file_bytes": 250702,
+      "gpu_bytes": 1398100,
+      "failures": 0,
+      "decode_wall_ms": 1674.5515,
+      "decode_ms": {
+        "count": 300,
+        "mean": 5.374275666666665,
+        "p50": 5.2838,
+        "p95": 6.2193,
+        "p99": 6.6377,
+        "max": 6.7582
+      },
+      "texture_update_ms": {
+        "count": 299,
+        "mean": 0.365749498327759,
+        "p50": 0.3302,
+        "p95": 0.4624,
+        "p99": 0.5815,
+        "max": 8.4996
+      },
+      "array_layer_update_ms": {
+        "count": 299,
+        "mean": 0.17426989966555176,
+        "p50": 0.1318,
+        "p95": 0.3734,
+        "p99": 0.4498,
+        "max": 0.4876
+      }
+    },
+    {
+      "format": "jpg",
+      "mean_file_bytes": 66748,
+      "gpu_bytes": 1398100,
+      "failures": 0,
+      "decode_wall_ms": 1305.7938,
+      "decode_ms": {
+        "count": 300,
+        "mean": 4.163900666666664,
+        "p50": 4.0577,
+        "p95": 4.974,
+        "p99": 5.2223,
+        "max": 5.8701
+      },
+      "texture_update_ms": {
+        "count": 299,
+        "mean": 0.29637090301003355,
+        "p50": 0.2875,
+        "p95": 0.4097,
+        "p99": 0.5528,
+        "max": 1.0623
+      },
+      "array_layer_update_ms": {
+        "count": 299,
+        "mean": 0.14530501672240817,
+        "p50": 0.0961,
+        "p95": 0.2539,
+        "p99": 0.3634,
+        "max": 8.2954
+      }
+    },
+    {
+      "format": "dds-bc7",
+      "mean_file_bytes": 349700,
+      "gpu_bytes": 349552,
+      "failures": 0,
+      "decode_wall_ms": 1184.3601,
+      "decode_ms": {
+        "count": 300,
+        "mean": 0.26348733333333335,
+        "p50": 0.2436,
+        "p95": 0.4246,
+        "p99": 0.5757,
+        "max": 0.8208
+      },
+      "texture_update_ms": {
+        "count": 299,
+        "mean": 0.0999023411371237,
+        "p50": 0.0843,
+        "p95": 0.1907,
+        "p99": 0.3407,
+        "max": 0.4225
+      },
+      "array_layer_update_ms": {
+        "count": 299,
+        "mean": 0.026842809364548487,
+        "p50": 0.0227,
+        "p95": 0.0488,
+        "p99": 0.077,
+        "max": 0.0861
+      }
+    },
+    {
+      "format": "dds-bc1",
+      "mean_file_bytes": 174904,
+      "gpu_bytes": 174776,
+      "failures": 0,
+      "decode_wall_ms": 1185.7849,
+      "decode_ms": {
+        "count": 300,
+        "mean": 0.1566726666666668,
+        "p50": 0.1255,
+        "p95": 0.2887,
+        "p99": 0.4452,
+        "max": 0.5073
+      },
+      "texture_update_ms": {
+        "count": 299,
+        "mean": 0.07480568561872909,
+        "p50": 0.0625,
+        "p95": 0.1368,
+        "p99": 0.2785,
+        "max": 0.3932
+      },
+      "array_layer_update_ms": {
+        "count": 299,
+        "mean": 0.0214989966555184,
+        "p50": 0.0178,
+        "p95": 0.0357,
+        "p99": 0.0528,
+        "max": 0.1997
+      }
+    },
+    {
+      "format": "ktx-bc7",
+      "mean_file_bytes": 349656,
+      "gpu_bytes": 349552,
+      "failures": 0,
+      "decode_wall_ms": 1185.3742,
+      "decode_ms": {
+        "count": 300,
+        "mean": 0.3533606666666666,
+        "p50": 0.3382,
+        "p95": 0.5437,
+        "p99": 0.7342,
+        "max": 0.9377
+      },
+      "texture_update_ms": {
+        "count": 299,
+        "mean": 0.10522742474916393,
+        "p50": 0.0864,
+        "p95": 0.2233,
+        "p99": 0.3159,
+        "max": 0.3342
+      },
+      "array_layer_update_ms": {
+        "count": 299,
+        "mean": 0.029422408026755827,
+        "p50": 0.0228,
+        "p95": 0.0574,
+        "p99": 0.1395,
+        "max": 0.2088
+      }
+    },
+    {
+      "format": "res-bc7",
+      "mean_file_bytes": 349921,
+      "gpu_bytes": 349552,
+      "failures": 0,
+      "decode_wall_ms": 1186.656,
+      "decode_ms": {
+        "count": 300,
+        "mean": 0.45001666666666656,
+        "p50": 0.3941,
+        "p95": 0.7652,
+        "p99": 0.9243,
+        "max": 1.3041
+      },
+      "texture_update_ms": {
+        "count": 299,
+        "mean": 0.10047926421404683,
+        "p50": 0.0838,
+        "p95": 0.2057,
+        "p99": 0.2993,
+        "max": 0.356
+      },
+      "array_layer_update_ms": {
+        "count": 299,
+        "mean": 0.025951505016722422,
+        "p50": 0.0221,
+        "p95": 0.0456,
+        "p99": 0.062,
+        "max": 0.0803
+      }
+    },
+    {
+      "format": "raw-bc7",
+      "mean_file_bytes": 349552,
+      "gpu_bytes": 349552,
+      "failures": 0,
+      "decode_wall_ms": 1185.2915,
+      "decode_ms": {
+        "count": 300,
+        "mean": 0.2207476666666667,
+        "p50": 0.2031,
+        "p95": 0.3853,
+        "p99": 0.4833,
+        "max": 0.722
+      },
+      "texture_update_ms": {
+        "count": 299,
+        "mean": 0.11288093645484946,
+        "p50": 0.0936,
+        "p95": 0.2526,
+        "p99": 0.4255,
+        "max": 0.646
+      },
+      "array_layer_update_ms": {
+        "count": 299,
+        "mean": 0.03219598662207357,
+        "p50": 0.0251,
+        "p95": 0.0673,
+        "p99": 0.1114,
+        "max": 0.2585
+      }
+    }
+  ]
+}

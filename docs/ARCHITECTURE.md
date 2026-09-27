@@ -48,9 +48,9 @@ Every `await` in Core uses `ConfigureAwait(false)`. Analyser rule CA2007 is an e
 |---|---|
 | `Boot` | Main scene. Loads settings, theme and the systems summary, builds the systems grid, then marks `interactive`. |
 | `Screens` | State machine: Systems → Games → Launching → back. Includes the Favourites and Recently played virtual systems. |
-| `Grid` | Virtualised 3D grid. <br>A node pool covers the visible cells plus one row of margin, and nodes are re-bound rather than recreated. <br>**One `_Process` drives every item.** <br>Each pooled node carries a bind generation, so late results for an old binding are dropped. <br>Critically damped scrolling. <br>Hold-to-scroll acceleration, plus page and letter jumps. |
+| `Grid` | Virtualised 3D grid. <br>A cell pool covers the visible rows plus one row of margin on each side (8 × 8 cells in M1), and cells are re-bound rather than recreated. <br>Template items are drawn as **one `MultiMesh` per template**. Each pool cell has a fixed instance and a fixed `Texture2DArray` layer, and `INSTANCE_CUSTOM` = (layer, fade, phase). <br>Per-game custom `.glb` models use per-node instances bound to the same cells. <br>**The camera scrolls and the grid stays still**, so a frame only touches newly bound rows, the focused items and fading covers. <br>**One `_Process` drives every item.** <br>Each pooled cell carries a bind generation, so late results for an old binding are dropped. <br>Critically damped scrolling. <br>Hold-to-scroll acceleration, plus page and letter jumps. |
 | `Models` | Resolves each item's model (order in A7). <br>Converts each user `.glb` once into a cached native scene. <br>Remaps its materials onto the launcher's fixed shader set. <br>Binds media slots and plays idle, focused and launch clips, or the procedural fallbacks. |
-| `Textures` | `TextureStreamer`: prioritised, cancellable requests; dedicated decode workers; mandatory baked derivatives; an upload budget in bytes; an LRU memory budget; and an opaque placeholder-to-cover fade. |
+| `Textures` | `TextureStreamer`: prioritised, cancellable requests (one per pool cell); 2 dedicated decode workers; mandatory baked derivatives (BC7 DDS, 512² with mips); pool textures created at boot and only updated while browsing; a per-frame upload budget; an LRU memory budget; and an opaque placeholder-to-cover fade. |
 | `Theming` | Four-corner gradient on a background canvas layer (`Environment` background mode Canvas). <br>Three `DirectionalLight3D` children of the camera, plus an ambient colour. <br>Cross-fades between per-system looks. |
 | `Diagnostics` | `DebugHooks` autoload (`--capture`, `--bench`), timeline marks, and a log sink that writes to Godot's output and a file. |
 | Platform glue | A main-thread queue with a per-frame time budget. <br>Hands the native window handle to `IWindowFocus`. <br>While an emulator runs: `RenderLoopEnabled = false`, textures are evicted and input is ignored until focus returns. |
@@ -123,12 +123,21 @@ Once matched, re-scrapes use `FetchAsync(id)` and never search again. Saved resp
 
 ## A3. Performance design
 
-**Targets.** These are provisional; M1 validates them on the baseline hardware.
+**Targets.** M1 measured these on the baseline hardware ([SPIKE_RESULTS.md](SPIKE_RESULTS.md)). The hitch wording and the new targets marked *(M1)* are proposals awaiting the owner's sign-off.
 - First interactive frame under 1 s **for our code**, on a warm start with a 10,000-game library.
   - The clock starts at our first code, the first autoload's `_EnterTree` (mark `autoload_enter_tree`), and stops at `interactive`. The bench reports this as `app_startup_ms`.
-  - Engine and .NET start-up before our code is outside the target, but it's still reported in `startup_ms`. On the scaffold it takes about 1.0–1.35 s, depending on the renderer and driver (see [perf/m1-spike.md](perf/m1-spike.md)).
-- Locked to the display refresh rate while scrolling.
-- No visible hitches while textures stream in.
+  - M1 measured 186–449 ms on the synthetic grid (204 ms for the chosen configuration). M2 re-checks it with real config and DB loading.
+  - Engine and .NET start-up before our code is outside the target, but it's still reported in `startup_ms`. It takes about 1.0–1.7 s, depending on the renderer, driver and session (see [perf/m1-spike.md](perf/m1-spike.md) and [SPIKE_RESULTS.md](SPIKE_RESULTS.md)).
+- Locked to the display refresh rate while scrolling: p99 frame interval ≤ 1.1× the refresh interval.
+- **No hitches caused by the launcher** *(reworded by M1)*. Over 3 × 60 s scripted scrolls:
+  - hitches are no more than the no-texture control's in the same session
+  - 0 frames exceed 2× the refresh interval
+  - there are 0 hitches in fullscreen
+
+  Windowed on the Deck, the environment alone gives 0–2 hitches per 60 s run, through a periodic present delay about every 5 s that isn't caused by the launcher.
+- *(M1)* The visible grid is textured ≤ 100 ms after the first frame, with derivatives in cache. M1 measured 10 ms with BC7.
+- *(M1)* While scrolling at the maximum repeat speed, ≥ 99% of on-screen cell-frames show their cover. M1 measured 100%.
+- *(M1)* The working set is ≤ 512 MB while browsing 10,000 games (M1: 324–481 MB). The cover pool's texture memory is ≤ 64 MB with BC7 (M1: 40–45 MB).
 
 **Baseline hardware:** a Steam Deck (LCD APU: 4c/8t Zen 2, 8 CU RDNA2, 16 GB shared memory) running Windows 11. The targets must hold in two modes:
 - handheld at 1280×800
@@ -139,6 +148,9 @@ Once matched, re-scrapes use `FetchAsync(id)` and never search again. Saved resp
 - `app_startup_ms` = `interactive` − `autoload_enter_tree`. `DebugHooks` must stay the first autoload, and it warns if it isn't.
 - Frame times come from raw `Time.GetTicksUsec()` at `frame_post_draw`. Godot smooths `_Process` delta, which hides hitches.
 - A **hitch** is any frame interval longer than 1.5× the refresh interval.
+- Scroll statistics cover only the scripted scroll frames. Each hitch-target run is paired with a no-texture control in the same session.
+- Don't poll Windows performance counters during a frame-time run: in M1 it added hitches.
+- Compare start-up only within one session. It moves by 100–200 ms from one session to the next.
 
 **Boot path:**
 1. Engine and .NET start-up. This is outside the target, but M1 still measures ReadyToRun and the shader baker, because they also cut the JIT and shader work inside it.
@@ -158,22 +170,40 @@ Everything else waits until after `interactive`, and nothing is scanned at boot.
 - **Baked derivatives are mandatory.** The grid only reads cached derivatives from `CacheDir/textures/`: one canonical size, with mipmaps, keyed by source path, size and mtime.
   - They're baked at scrape time and by a background job.
   - A missing derivative shows the placeholder and queues a low-priority bake.
-  - M1 chooses the format:
-    - BC1/BC7 via `Image.Compress`, if export templates include the encoder
-    - uncompressed RGBA8 at a smaller size
-    - a managed BCn encoder, which would need a package, so ask first
+  - **Format (M1): BC7 in DDS, 512×512, full mip chain (341 KB).**
+    - Decode is 0.26 ms per cover, against 5.4 ms for PNG and 4.1 ms for JPEG.
+    - GPU memory is 4× smaller than RGBA8.
+    - The visible grid is textured 10 ms after the first frame, against about 100 ms.
+    - BC1 (171 KB) is an option for a low-memory setting. KTX, Godot `.res` and raw blobs were measured and rejected.
+    - Real art is centre-cropped to the square canonical size.
+  - **Open (M4): the encoder.** `Image.Compress` returns `Unavailable` in export templates (measured), so the shipped app can't bake BCn itself. The options:
+    - a managed BCn encoder package (ask the owner first)
+    - our own encoder
+    - a `RenderingDevice` compute port of Godot's Betsy encoder
+    - JPEG derivatives, which met every frame target in M1 at 4× the VRAM and 5× less disk
 - **Loading:**
-  - Workers load natively, via `Image.LoadFromFile` or `ResourceLoader`. **They never create per-texture managed `byte[]`s**, because those churn the large object heap and cause gen2 GC pauses.
-  - There are `clamp(ProcessorCount / 4, 1, 4)` workers, which is 2 on the Deck.
-- **Priority:** distance from the focused item, weighted towards the scroll direction. Requests for rows already scrolled past are cancelled.
-- **Upload:** budgeted in **bytes per frame**, starting at 4 MB, because the cost lands on the render thread. M1 checks whether `RenderingServer.Texture2DCreate` from a worker uploads asynchronously on Forward+/Mobile.
+  - Workers read each file into a **per-worker pooled buffer** (`File.OpenHandle` plus `RandomAccess.Read`) and decode it with `Image.LoadDdsFromBuffer(ReadOnlySpan<byte>)`.
+  - `Image.LoadFromFile` can't read DDS or KTX in 4.7.
+  - **Workers never create per-texture managed `byte[]`s**, because those churn the large object heap and cause gen2 GC pauses. Cache path strings per binding too: M1's worker allocations caused 4–7 gen0 collections a minute.
+  - There are `clamp(ProcessorCount / 4, 1, 4)` workers, which is 2 on the Deck. M1 confirmed 2: 4 workers didn't help PNG, and raised each decode by about 1 ms through contention.
+- **Priority:** distance from the view centre, with rows ahead of the scroll counting 0.6× as far. Requests for rows already scrolled past are cancelled by re-binding (the generation changes).
+- **Upload:**
+  - **Every pool texture is created at boot, and only *updated* while browsing**, on the main thread: `Texture2DArray.UpdateLayer` takes 0.03 ms for BC7 and 0.17 ms for RGBA8.
+  - Creating a texture on the main thread has 17–66 ms outliers, so it never happens while browsing.
+  - `RenderingServer.Texture2DCreate` from a worker works in 4.7 without stalling the main thread, but it blocks the worker for about 12 ms per call. It's only for one-off textures outside the pool, such as the focused item's full-resolution art.
+  - The budget is **4 MB per frame**; BC7 only reaches it in the first frames. Add a cap of at most 8 uploads per frame (proposed, untested), because a few M1 hitch frames followed a burst of uploads.
+  - Warm the first upload during the post-`interactive` warm-up, because the first one takes up to 43 ms.
 - **Memory:** an LRU cache with a starting budget of 256 MB.
   - Evicted textures and uploaded `Image`s are `Dispose()`d at once.
   - The focused item upgrades to the full-resolution art.
 
 **Rendering:**
+- **The Mobile renderer, on D3D12** (M1). Its GPU time is 36–42% lower than Forward+ with the same frame pacing, and its output matches within 4/255.
 - No shadows, GI, SSAO, SSR or glow; the tonemapper is Linear.
-- 3D renders at ≤1080p internally when docked at 4K, upscaled with FSR1 or bilinear (M1 decides). The 2D UI renders at native resolution.
+- 3D renders at ≤1080p internally when docked at 4K, upscaled with bilinear. The 2D UI renders at native resolution.
+  - At 2560×1440 fullscreen, Forward+ took 6.45 ms of GPU time native and 2.43 ms at 0.5 scale; Mobile took 1.70 ms at 0.5 scale.
+  - Native 4K on Forward+ would be about 14.5 ms.
+  - FSR1 and 3840×2160 still need measuring (M5).
 - Unfocused idle motion runs in the vertex shader (`TIME` plus a per-instance phase), so it costs nothing in C#.
 - The placeholder-to-cover fade happens **inside one opaque cover shader**, through a per-instance `fade` parameter. There's no alpha blending and no extra variant.
 - User `.glb` materials are remapped onto the fixed shader set.
@@ -185,20 +215,20 @@ Everything else waits until after `interactive`, and nothing is scanned at boot.
 - `GCSettings.LatencyMode = SustainedLowLatency` while browsing.
 - Update transforms only for items that move.
 - Never `.Wait()` or `.Result` on the main thread.
-- The bench reports `GC.GetAllocatedBytesForCurrentThread()` for the main thread, and M1 sets its ceiling.
+- The bench reports `GC.GetAllocatedBytesForCurrentThread()` for the main thread. **The ceiling is 4 KB per 60 s scripted scroll** (M1 measured 0.6 KB), with no GC caused by the main thread.
 
-**M1 experiments:**
-- Renderer (Forward+, Mobile, Compatibility) × driver (D3D12, Vulkan). The target excludes engine start-up, so the choice rests on frame pacing, GPU cost and features.
-- Per-node materials versus a budgeted `Texture2DArray` of covers indexed per instance. MultiMesh versus nodes is secondary.
-- Derivative format and upload path.
-- Upload budget and decode worker count.
-- ReadyToRun, and the export shader baker.
-- Config parse: Tomlyn reflection mapping, versus hand mapping from `TomlTable`, versus a cached snapshot keyed by file mtimes.
-- The 4K render scale.
-- Microsoft.Data.Sqlite loading its native library, both in an editor run and in an export.
-- Runtime `.glb` conversion on a worker thread.
-- A net10.0 comparison build. Adopting it needs the owner's approval.
-- PresentMon as an optional cross-check, if the owner is happy to install it.
+**M1 experiments.** Results are in [SPIKE_RESULTS.md](SPIKE_RESULTS.md). Items marked "later" moved to the milestone named when M1 closed.
+- Done: renderer (Forward+ against Mobile, on the grid) → Mobile/D3D12. The driver matrix was run on the scaffold only; Compatibility wasn't benched on the grid.
+- Done: per-node materials against a `Texture2DArray` indexed per instance, and MultiMesh against nodes → MultiMesh plus `Texture2DArray` for templates.
+- Done: derivative format and upload path → BC7 DDS; update pre-created textures on the main thread. The encoder is open (M4).
+- Done: upload budget and decode worker count → 4 MB per frame (measured) and 2 workers. The cap of 8 uploads per frame is proposed but untested (M5).
+- Partly done: the 4K render scale. Measured at 2560×1440 only; 3840×2160 and FSR1 are later (M5).
+- Later (M5): ReadyToRun, and the export shader baker.
+- Later (M2): config parse. Tomlyn reflection mapping, versus hand mapping from `TomlTable`, versus a cached snapshot keyed by file mtimes.
+- Later (M2): Microsoft.Data.Sqlite loading its native library, both in an editor run and in an export.
+- Later (M6): runtime `.glb` conversion on a worker thread.
+- Later (M2): a net10.0 comparison build. Adopting it needs the owner's approval.
+- Later (M5): PresentMon, to explain the periodic present delay, if the owner is happy to install it.
 
 ## A4. Storage
 
@@ -555,3 +585,9 @@ The built-in templates are `dvd_case`, `jewel_case`, `tall_jewel_case`, `cartrid
 | 2026-09-27 | `.bat` and `.cmd` emulator targets are rejected. | cmd.exe re-parses arguments, so `&` and `%` in ROM names would break or inject commands. |
 | 2026-09-27 | Forward+ with D3D12, set explicitly in `project.godot`. | What 4.7's project manager writes for new projects; the engine's fallback is Vulkan. M1 compares the two. |
 | 2026-09-27 | UK English for docs, UI text, our identifiers and our config keys. External names keep their spelling. | Owner's locale and the organisation's standard. |
+| 2026-09-27 | **Renderer: Mobile on D3D12**, replacing Forward+. `project.godot` switches when the real grid lands (M5). | M1: the same frame pacing, 36–42% less GPU time at 1280×800, the same or faster start-up, and output within 4/255. The design uses no Forward+-only feature. ([SPIKE_RESULTS.md](SPIKE_RESULTS.md) §3) |
+| 2026-09-27 | **Item rendering:** one `MultiMesh` per template plus a `Texture2DArray` with a layer per pool cell, indexed through `INSTANCE_CUSTOM`. Per-node instances only for per-game custom models. The camera scrolls and the grid stays still. | M1: both approaches hold vsync with 64 cells. MultiMesh uses 3 draw calls against 42 and about 20% less render CPU, and its pool memory is fixed (§1). Nodes-only is the fallback. |
+| 2026-09-27 | **Cover derivative: BC7 DDS, 512², full mips**, loaded with `Image.LoadDdsFromBuffer(span)` from a pooled buffer. BC1 is optional for low memory. | M1: 0.26 ms to decode against 4–5.4 ms for JPEG and PNG, 4× less VRAM, and the grid textured in 10 ms against about 100 ms. KTX, `.res` and raw were measured and rejected (§2). |
+| 2026-09-27 | **Open risk:** the export templates have no BCn encoder (`Image.Compress` returns `Unavailable`). M4 picks an encoder: a package (needs approval), our own, or a GPU compute port. JPEG derivatives are the fallback. | Measured in the export (§2a). JPEG met every frame target at 4× the VRAM. |
+| 2026-09-27 | **Uploads:** pool textures are created at boot and only updated on the main thread (4 MB per frame). No texture is created on the main thread while browsing. 2 decode workers. | M1: a BC7 layer update takes 0.03 ms. Main-thread creation has 17–66 ms outliers. Creation on a worker doesn't stall the main thread, but blocks the worker for about 12 ms per call. 4 workers didn't help (§2d). |
+| 2026-09-27 | **Targets:** the hitch target is reworded as "no hitches caused by the launcher" (measured against a no-texture control, 0 frames over 2×, 0 hitches fullscreen). New targets: textured ≤ 100 ms, ≥ 99% textured while scrolling, working set ≤ 512 MB, pool ≤ 64 MB. Main-thread allocation ceiling: 4 KB per 60 s scroll. **These wait for the owner's sign-off.** | M1: a periodic present delay about every 5 s, outside our code, gives 0–2 hitches per 60 s run in windowed mode even with nothing streaming. The other targets were met with headroom. |

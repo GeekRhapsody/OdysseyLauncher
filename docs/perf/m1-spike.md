@@ -2,6 +2,10 @@
 
 The spike's acceptance criteria are in [ROADMAP.md](../ROADMAP.md#m1-performance-spike), and the design questions are in [ARCHITECTURE.md](../ARCHITECTURE.md#a3-performance-design) (A3).
 
+**The grid spike's results are in [SPIKE_RESULTS.md](../SPIKE_RESULTS.md).** That covers the 10,000-game grid, the texture formats and Forward+ against Mobile. Its per-configuration JSON (the per-run values and medians, and the machine) is in [m1/](m1/). This file keeps the earlier scaffold-scene matrix.
+
+**Display note:** during the grid spike, the desktop ran at 2560×1440 at 59.94 Hz with 100% scaling, according to DPI-aware `GetSystemMetrics`. WMI reports the monitor as 3840×2160. Check the desktop mode before any run described as 4K.
+
 ## Machine
 
 - **Hardware:** Steam Deck, LCD model.
