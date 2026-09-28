@@ -153,4 +153,107 @@ public class DebugOptionsTests
 
         Assert.Contains("absolute path", Assert.Single(result.Errors), StringComparison.Ordinal);
     }
+
+    // ---- Bench scenarios and rendering options (M5) ------------------------------------------------
+
+    [Fact]
+    public void The_defaults_are_the_boot_scenario_with_textures_bilinear_and_the_upload_cap()
+    {
+        var options = DebugOptions.Parse([$"--bench={BenchPath}"]).Options;
+
+        Assert.Equal(BenchScenario.Boot, options.BenchScenario);
+        Assert.Null(options.BenchSystem);
+        Assert.Equal(DebugOptions.DefaultBenchScrollSeconds, options.BenchScrollSeconds);
+        Assert.False(options.NoTextures);
+        Assert.Null(options.RenderScale);
+        Assert.Equal(Upscaler.Bilinear, options.Upscaler);
+        Assert.Equal(DebugOptions.DefaultUploadCap, options.UploadCap);
+    }
+
+    [Fact]
+    public void The_scroll_scenario_takes_a_system_and_a_duration()
+    {
+        var result = DebugOptions.Parse(
+            [$"--bench={BenchPath}", "--bench-scenario=Scroll", "--bench-system=ps2", "--bench-scroll-seconds=30.5", "--no-textures"]);
+
+        Assert.True(result.IsValid, string.Join("; ", result.Errors));
+        Assert.Equal(BenchScenario.Scroll, result.Options.BenchScenario);
+        Assert.Equal("ps2", result.Options.BenchSystem);
+        Assert.Equal(30.5, result.Options.BenchScrollSeconds);
+        Assert.True(result.Options.NoTextures);
+    }
+
+    [Theory]
+    [InlineData("--bench-scenario=fly", "must be one of boot, scroll")]
+    [InlineData("--bench-scroll-seconds=0", "number from 1 to 3600")]
+    [InlineData("--bench-system=PS 2", "needs a system id")]
+    public void Scenario_values_are_checked(string arg, string expected)
+    {
+        string[] scenario = arg.StartsWith("--bench-scenario", StringComparison.Ordinal) ? [] : ["--bench-scenario=scroll"];
+
+        var result = DebugOptions.Parse([$"--bench={BenchPath}", .. scenario, arg]);
+
+        Assert.Contains(expected, Assert.Single(result.Errors), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Scroll_options_need_the_scroll_scenario_and_frames_belong_to_boot()
+    {
+        Assert.Contains("only applies to --bench-scenario=scroll", Assert.Single(
+            DebugOptions.Parse([$"--bench={BenchPath}", "--bench-scenario=boot", "--bench-system=ps2"]).Errors), StringComparison.Ordinal);
+        Assert.Contains("needs --bench-scenario=scroll", Assert.Single(
+            DebugOptions.Parse([$"--bench={BenchPath}", "--bench-scroll-seconds=5"]).Errors), StringComparison.Ordinal);
+        Assert.Contains("only applies to the boot scenario", Assert.Single(
+            DebugOptions.Parse([$"--bench={BenchPath}", "--bench-scenario=scroll", "--bench-frames=10"]).Errors), StringComparison.Ordinal);
+        Assert.Contains("needs --bench=", Assert.Single(DebugOptions.Parse(["--bench-scenario=scroll"]).Errors), StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("--render-scale=0.5", 0.5, "bilinear", 8)]
+    [InlineData("--upscaler=FSR", null, "fsr", 8)]
+    [InlineData("--upload-cap=0", null, "bilinear", 0)]
+    public void Rendering_options_parse(string arg, double? scale, string upscaler, int cap)
+    {
+        var result = DebugOptions.Parse([arg]);
+
+        Assert.True(result.IsValid, string.Join("; ", result.Errors));
+        Assert.Equal(scale, result.Options.RenderScale);
+        Assert.Equal(upscaler, result.Options.Upscaler.ToString().ToLowerInvariant());
+        Assert.Equal(cap, result.Options.UploadCap);
+    }
+
+    [Theory]
+    [InlineData("--render-scale=0.1")]
+    [InlineData("--render-scale=1.5")]
+    [InlineData("--render-scale=half")]
+    [InlineData("--upload-cap=65")]
+    public void Rendering_options_are_range_checked(string arg)
+    {
+        Assert.Single(DebugOptions.Parse([arg]).Errors);
+    }
+
+    [Fact]
+    public void Start_system_and_index_pick_the_first_screen_for_captures()
+    {
+        var result = DebugOptions.Parse(["--start-system=megadrive", "--start-index=12"]);
+
+        Assert.True(result.IsValid, string.Join("; ", result.Errors));
+        Assert.Equal("megadrive", result.Options.StartSystem);
+        Assert.Equal(12, result.Options.StartIndex);
+        Assert.Contains("needs --start-system", Assert.Single(DebugOptions.Parse(["--start-index=3"]).Errors), StringComparison.Ordinal);
+        Assert.Contains("can't be combined", Assert.Single(
+            DebugOptions.Parse([$"--bench={BenchPath}", "--bench-scenario=scroll", "--start-system=nes"]).Errors), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_nav_script_is_a_list_of_known_steps()
+    {
+        var result = DebugOptions.Parse(["--nav-script=Down, right,accept,wait,LetterNext,back"]);
+
+        Assert.True(result.IsValid, string.Join("; ", result.Errors));
+        Assert.Equal(["down", "right", "accept", "wait", "letternext", "back"], result.Options.NavScript);
+        Assert.Contains("doesn't know the step 'jump'", Assert.Single(DebugOptions.Parse(["--nav-script=down,jump"]).Errors), StringComparison.Ordinal);
+        Assert.Contains("at least one step", Assert.Single(DebugOptions.Parse(["--nav-script=,"]).Errors), StringComparison.Ordinal);
+        Assert.Empty(DebugOptions.Parse([]).Options.NavScript);
+    }
 }

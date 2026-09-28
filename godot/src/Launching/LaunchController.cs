@@ -1,11 +1,10 @@
 using System;
 using System.Globalization;
-using System.IO;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Godot;
-using Launcher.Core.Config;
+using Launcher.App.Boot;
 using Launcher.Core.Diagnostics;
 using Launcher.Core.Launching;
 using Launcher.Core.Library;
@@ -39,9 +38,9 @@ public partial class LaunchController : Node
     private const double MessageSeconds = 10.0;
 
     private readonly CancellationTokenSource _shutdown = new();
+    private readonly AppServices _services;
     private IWindowFocus _focus = NullWindowFocus.Instance;
     private nint _window;
-    private LibraryService? _library;
     private LaunchService? _service;
     private Timer _foregroundTimer = null!;
     private Timer _messageTimer = null!;
@@ -54,9 +53,15 @@ public partial class LaunchController : Node
     private ulong _inputBlockedUntilMs;
     private SavedState _saved;
 
+    public LaunchController(AppServices services)
+    {
+        _services = services;
+        Name = "Launch";
+    }
+
     /// <summary>
-    /// True while a game runs and just after it. The navigation input router (M5) must drop input while this is set;
-    /// until then, <see cref="_Input"/> swallows what it can.
+    /// True while a game runs and just after it. The navigator drops its input while this is set, and
+    /// <see cref="_Input"/> swallows what reaches the GUI.
     /// </summary>
     public bool IsInputBlocked => _gameMode || Time.GetTicksMsec() < _inputBlockedUntilMs;
 
@@ -103,7 +108,7 @@ public partial class LaunchController : Node
         }
 
         // The token source isn't disposed: the background launch may still be looking at its token.
-        _library?.Dispose();
+        // The library belongs to AppServices.
     }
 
     /// <summary>Only while <see cref="IsInputBlocked"/>; it turns itself off at the first event after that.</summary>
@@ -140,70 +145,74 @@ public partial class LaunchController : Node
         }
     }
 
+    /// <summary>Raised on the main thread when a game starts: the navigator frees its textures.</summary>
+    public event Action? GameModeEntered;
+
+    /// <summary>Raised on the main thread when the launcher is back: the navigator restores its textures.</summary>
+    public event Action? GameModeLeft;
+
+    /// <summary>Raised on the main thread when a launch is over; the message is the failure, or null if the game ran.</summary>
+    public event Action<string?>? LaunchEnded;
+
     /// <summary>
-    /// <c>--launch=&lt;system&gt;/&lt;rel path&gt;</c>: loads config and the library off the main thread, rescans the
-    /// system if the game isn't in the library yet, and launches it.
+    /// <c>--launch=&lt;system&gt;/&lt;rel path&gt;</c>: rescans the system if the game isn't in the library yet,
+    /// then launches it.
     /// </summary>
     public void StartDebugLaunch(DebugOptions options)
     {
         _quitAfterLaunch = options.QuitAfterLaunch;
-        var executableDir = Path.GetDirectoryName(OS.GetExecutablePath()) ?? ".";
         var token = _shutdown.Token;
-        _ = Task.Run(() => DebugLaunchAsync(options, executableDir, token), token);
+        _ = Task.Run(() => DebugLaunchAsync(options, token), token);
     }
 
-    private async Task DebugLaunchAsync(DebugOptions options, string executableDir, CancellationToken cancellationToken)
+    /// <summary>Main thread: launches a game the player picked.</summary>
+    public void Launch(GameDetails game)
+    {
+        var token = _shutdown.Token;
+        _ = Task.Run(() => LaunchAsync(game, token), token);
+    }
+
+    private async Task DebugLaunchAsync(DebugOptions options, CancellationToken cancellationToken)
     {
         try
         {
-            var home = System.Environment.GetFolderPath(System.Environment.SpecialFolder.UserProfile);
-            var paths = options.UserDir is { } userDir ? PlatformPaths.InOneFolder(userDir, home) : PlatformPaths.Detect(executableDir);
-            GD.Print($"Launch: config in {paths.ConfigDir}, data in {paths.DataDir}");
-
-            var loaded = new ConfigLoader().Load(ConfigSources.FromDirectory(paths.ConfigDir, paths.HomeDir));
-            foreach (var diagnostic in loaded.Diagnostics)
-            {
-                GD.Print(diagnostic.ToString());
-            }
-
-            _library = await LibraryService.OpenAsync(loaded.Config, paths.DataDir, null, cancellationToken).ConfigureAwait(false);
-            if (_library.ClosedOrphanSessions > 0)
-            {
-                GD.Print($"Launch: closed {_library.ClosedOrphanSessions} play session(s) left open by a crash.");
-            }
-
+            var library = _services.Library;
+            var config = _services.Config;
             var key = new GameKey(options.LaunchSystem!, PathKeys.ToPathKey(PathKeys.ToRelPath(options.LaunchRelPath!)));
-            var game = await _library.GetGameAsync(key, cancellationToken).ConfigureAwait(false);
-            if (game is null && loaded.Config.FindSystem(key.SystemId) is not null)
+            var game = await library.GetGameAsync(key, cancellationToken).ConfigureAwait(false);
+            if (game is null && config.FindSystem(key.SystemId) is not null)
             {
                 GD.Print($"Launch: {options.LaunchSystem}/{options.LaunchRelPath} isn't in the library yet, so {key.SystemId} is being scanned.");
-                await _library.RescanAsync(key.SystemId, null, cancellationToken).ConfigureAwait(false);
-                game = await _library.GetGameAsync(key, cancellationToken).ConfigureAwait(false);
+                await library.RescanAsync(key.SystemId, null, cancellationToken).ConfigureAwait(false);
+                game = await library.GetGameAsync(key, cancellationToken).ConfigureAwait(false);
             }
 
             if (game is null)
             {
-                var reason = loaded.Config.FindSystem(key.SystemId) is null
+                var reason = config.FindSystem(key.SystemId) is null
                     ? $"'{key.SystemId}' isn't an enabled system."
                     : $"There's no '{options.LaunchRelPath}' in {key.SystemId}'s ROM folders.";
                 CallDeferred(MethodName.OnLaunchEnded, true, reason);
                 return;
             }
 
-            _service = new LaunchService(loaded.Config, PlatformServices.CreateProcessRunner(), _library);
-            _service.Starting += (_, e) =>
-            {
-                GD.Print($"Launch: {e.Game.Title} with {e.Plan.EmulatorName}: {CommandLine(e.Plan)}");
-                CallDeferred(MethodName.OnStarting);
-            };
-            _service.Running += (_, e) => CallDeferred(MethodName.OnRunning, e.ProcessId);
-            _service.Exited += (_, e) => CallDeferred(
-                MethodName.OnLaunchEnded,
-                false,
-                string.Create(CultureInfo.InvariantCulture, $"{e.Game.Title} ended after {e.Duration.TotalSeconds:0.0} s (exit code {e.ExitCode})."));
-            _service.Failed += (_, e) => CallDeferred(MethodName.OnLaunchEnded, true, e.Reason);
+            await LaunchAsync(game, cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // The launcher is closing.
+        }
+        catch (Exception e)
+        {
+            CallDeferred(MethodName.OnLaunchEnded, true, $"The launch failed unexpectedly: {e.Message}");
+        }
+    }
 
-            var outcome = await _service.LaunchAsync(game, null, cancellationToken).ConfigureAwait(false);
+    private async Task LaunchAsync(GameDetails game, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var outcome = await Service().LaunchAsync(game, null, cancellationToken).ConfigureAwait(false);
             if (outcome.HistoryError is { } historyError)
             {
                 GD.PrintErr($"Launch: {historyError}");
@@ -216,6 +225,33 @@ public partial class LaunchController : Node
         catch (Exception e)
         {
             CallDeferred(MethodName.OnLaunchEnded, true, $"The launch failed unexpectedly: {e.Message}");
+        }
+    }
+
+    /// <summary>Built on first use, with its event handlers; thread-safe.</summary>
+    private LaunchService Service()
+    {
+        lock (_shutdown)
+        {
+            if (_service is not null)
+            {
+                return _service;
+            }
+
+            var service = new LaunchService(_services.Config, PlatformServices.CreateProcessRunner(), _services.Library);
+            service.Starting += (_, e) =>
+            {
+                GD.Print($"Launch: {e.Game.Title} with {e.Plan.EmulatorName}: {CommandLine(e.Plan)}");
+                CallDeferred(MethodName.OnStarting);
+            };
+            service.Running += (_, e) => CallDeferred(MethodName.OnRunning, e.ProcessId);
+            service.Exited += (_, e) => CallDeferred(
+                MethodName.OnLaunchEnded,
+                false,
+                string.Create(CultureInfo.InvariantCulture, $"{e.Game.Title} ended after {e.Duration.TotalSeconds:0.0} s (exit code {e.ExitCode})."));
+            service.Failed += (_, e) => CallDeferred(MethodName.OnLaunchEnded, true, e.Reason);
+            _service = service;
+            return service;
         }
     }
 
@@ -238,7 +274,11 @@ public partial class LaunchController : Node
 
     // ---- Main thread, through CallDeferred ------------------------------------------------------
 
-    private void OnStarting() => EnterGameMode();
+    private void OnStarting()
+    {
+        EnterGameMode();
+        GameModeEntered?.Invoke();
+    }
 
     private void OnRunning(int processId)
     {
@@ -277,6 +317,7 @@ public partial class LaunchController : Node
                 DisplayServer.WindowSetMode(_saved.WindowMode);
             }
 
+            GameModeLeft?.Invoke();
             GD.Print($"Launch: back in the launcher; foreground: {result}.");
             if (result is ForegroundResult.AlreadyForeground or ForegroundResult.NotSupported)
             {
@@ -297,6 +338,7 @@ public partial class LaunchController : Node
             GD.Print($"Launch: {message}");
         }
 
+        LaunchEnded?.Invoke(failed ? message : null);
         if (_quitAfterLaunch)
         {
             GetTree().Quit(failed ? 1 : 0);

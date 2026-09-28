@@ -41,9 +41,23 @@ public sealed class LibraryServiceTests : IAsyncLifetime
         return result.Config;
     }
 
-    private Task<LibraryService> Open(AppConfig config) => LibraryService.OpenAsync(config, DataDir, _clock, Ct);
+    private async Task<LibraryService> Open(AppConfig config)
+    {
+        var library = await LibraryService.OpenAsync(config, DataDir, _clock, Ct);
+        library.ConfigDir = _dir.Combine("config");
+        return library;
+    }
 
     private string Rom(string relPath, string content = "rom", DateTime? modified = null) => _dir.File("ROMs/" + relPath, content, modified);
+
+    /// <summary>The user's own art: <c>config/media/&lt;relPath&gt;</c>.</summary>
+    private string Art(string relPath, byte[] content, DateTime? modified = null)
+    {
+        var path = _dir.File("config/media/" + relPath);
+        File.WriteAllBytes(path, content);
+        File.SetLastWriteTimeUtc(path, modified ?? new DateTime(2020, 1, 1, 0, 0, 0, DateTimeKind.Utc));
+        return path;
+    }
 
     private async Task<string[]> Titles(string system) =>
         (await _library.GetGamesAsync(system, Ct)).Games.Select(g => g.Title).ToArray();
@@ -317,6 +331,108 @@ public sealed class LibraryServiceTests : IAsyncLifetime
         Assert.True((await Game("megadrive", "Sonic")).IsFavourite);
     }
 
+    // ---- The user's own art (M5) ---------------------------------------------------------------
+
+    [Fact]
+    public async Task User_art_is_indexed_as_covers_with_their_aspect()
+    {
+        Rom("ps2/Game A (USA).iso");
+        Rom("ps2/Sub/Game B.chd");
+        Rom("ps2/No Art.iso");
+        Art("ps2/cover/Game A (USA).png", TestImages.Png(700, 1000));
+        Art("ps2/cover/Sub/Game B.chd.jpg", TestImages.Jpeg(1000, 1000));
+
+        var summary = await _library.RescanAsync("ps2", null, Ct);
+
+        Assert.Empty(summary.Diagnostics);
+        var a = await Game("ps2", "Game A");
+        Assert.Equal(("media/ps2/cover/Game A (USA).png", MediaRoot.Config), (a.CoverPath, a.CoverRoot));
+        Assert.Equal(0.7f, a.CoverAspect, 3);
+        var b = await Game("ps2", "Game B");
+        Assert.Equal("media/ps2/cover/Sub/Game B.chd.jpg", b.CoverPath);
+        Assert.Equal(1f, b.CoverAspect);
+        var none = await Game("ps2", "No Art");
+        Assert.Equal((null, MediaRoot.None, 0f), (none.CoverPath, none.CoverRoot, none.CoverAspect));
+    }
+
+    [Fact]
+    public async Task An_exact_match_beats_a_stem_match_and_a_stem_match_covers_every_format()
+    {
+        Rom("psx/Crash.cue", "");
+        Rom("psx/Crash.chd");
+        Rom("psx/Spyro.chd");
+        Art("psx/cover/Crash.png", TestImages.Png(10, 10));
+        Art("psx/cover/Crash.chd.webp", TestImages.WebPLossy(20, 10));
+        Art("psx/cover/spyro.JPG", TestImages.Jpeg(30, 10));
+
+        await _library.RescanAsync("psx", null, Ct);
+
+        var games = (await _library.GetGamesAsync("psx", Ct)).Games;
+        Assert.Equal(
+            ["media/psx/cover/Crash.chd.webp", "media/psx/cover/Crash.png", "media/psx/cover/spyro.JPG"],
+            games.Select(g => g.CoverPath).Order(StringComparer.Ordinal));
+    }
+
+    [Fact]
+    public async Task Unchanged_art_isnt_read_again_and_changed_or_removed_art_is_picked_up()
+    {
+        Rom("snes/Game.sfc");
+        var art = Art("snes/cover/Game.png", TestImages.Png(700, 1000));
+        await _library.RescanAsync("snes", null, Ct);
+
+        // Same size and time: the stored header stands, so the new content isn't read.
+        Art("snes/cover/Game.png", TestImages.Png(800, 1000));
+        await _library.RescanAsync("snes", null, Ct);
+        Assert.Equal(0.7f, (await Game("snes", "Game")).CoverAspect, 3);
+
+        Art("snes/cover/Game.png", TestImages.Png(800, 1000), new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc));
+        await _library.RescanAsync("snes", null, Ct);
+        Assert.Equal(0.8f, (await Game("snes", "Game")).CoverAspect, 3);
+
+        File.Delete(art);
+        await _library.RescanAsync("snes", null, Ct);
+        Assert.Null((await Game("snes", "Game")).CoverPath);
+    }
+
+    [Fact]
+    public async Task Art_that_isnt_an_image_is_a_warning_and_other_kinds_are_indexed_too()
+    {
+        Rom("snes/Game.sfc");
+        Art("snes/cover/Game.png", "not an image"u8.ToArray());
+        Art("snes/back/Game.png", TestImages.Png(10, 10));
+        Art("snes/unknown/Game.png", TestImages.Png(10, 10));
+
+        var summary = await _library.RescanAsync("snes", null, Ct);
+
+        var warning = Assert.Single(summary.Diagnostics);
+        Assert.Contains("isn't a PNG, JPEG or WebP", warning.Message, StringComparison.Ordinal);
+        Assert.Null((await Game("snes", "Game")).CoverPath);
+        using var connection = Sqlite.Open(Path.Combine(DataDir, LibraryService.LibraryFileName));
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT kind || ':' || path FROM media";
+        Assert.Equal("back:media/snes/back/Game.png", command.ExecuteScalar());
+    }
+
+    [Fact]
+    public async Task Scraped_metadata_comes_with_the_game_details()
+    {
+        Rom("snes/Game.sfc");
+        await _library.RescanAsync("snes", null, Ct);
+        var id = (await Game("snes", "Game")).GameId;
+        Assert.Null((await _library.GetGameAsync(id, Ct))!.Metadata);
+        using (var connection = Sqlite.Open(Path.Combine(DataDir, LibraryService.LibraryFileName)))
+        {
+            MigrationRunner.Execute(connection, $"""
+                INSERT INTO metadata (game_id, description, release_date, developer, genre, players, rating, source)
+                VALUES ({id}, 'A game.', '1991-06', 'Someone', 'Platform', '1-2', 0.8, 'screenscraper')
+                """);
+        }
+
+        var metadata = (await _library.GetGameAsync(id, Ct))!.Metadata;
+
+        Assert.Equal(new GameMetadata("A game.", "1991-06", "Someone", null, "Platform", "1-2", 0.8, "screenscraper"), metadata);
+    }
+
     // ---- Rebuild -------------------------------------------------------------------------------
 
     [Fact]
@@ -329,9 +445,13 @@ public sealed class LibraryServiceTests : IAsyncLifetime
         Rom("psx/FF7 (Disc 2).chd");
         Rom("psx/Crash (USA).cue", "FILE \"Crash (USA).bin\" BINARY\n");
         Rom("megadrive/Sonic (USA).md");
+        Art("megadrive/cover/Sonic (USA).png", TestImages.Png(640, 896));
+        Art("psx/cover/FF7 (Disc 1).jpg", TestImages.Jpeg(500, 500));
         await _library.RescanAsync(null, null, Ct);
 
         Rom("psx/FF7.m3u", "FF7 (Disc 1).chd\nFF7 (Disc 2).chd\n");
+        Art("psx/cover/FF7.png", TestImages.Png(500, 500));
+        Art("snes/spine/zelda.png", TestImages.Png(30, 500));
         Rom("megadrive/Sonic (USA).md", "changed", new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc));
         File.Move(_dir.Combine("ROMs", "snes", "zelda.sfc"), _dir.Combine("ROMs", "snes", "Zelda.sfc"));
         Rom("nes/Metroid (USA).nes");
@@ -380,6 +500,10 @@ public sealed class LibraryServiceTests : IAsyncLifetime
             FROM games g JOIN rom_dirs d ON d.dir_id = g.dir_id ORDER BY g.system_id, g.path_key
             """,
             "SELECT system_id, path_key, size_bytes, mtime_ms, refs FROM playlists ORDER BY system_id, path_key",
+            """
+            SELECT g.system_id, g.path_key, m.kind, m.path, m.width, m.height, m.source, m.size_bytes, m.mtime_ms
+            FROM media m JOIN games g ON g.game_id = m.game_id ORDER BY g.system_id, g.path_key, m.kind
+            """,
         ])
         {
             using var command = connection.CreateCommand();

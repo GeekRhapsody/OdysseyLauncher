@@ -19,6 +19,9 @@ A fully 3D game launcher frontend (systems grid → games grid → emulator), st
 | `tools/launch-smoke.ps1` | Runs the app with `--launch` against the fake emulator, in an isolated user folder. |
 | `docs/manual-tests.md` | Checks a script can't observe (window focus with a real emulator). |
 | `tools/core-bench/` | Times Core's config, scan and query paths on self-contained .NET 8 (the export's runtime). Not in the solution. |
+| `tools/synthetic-library/` | Writes a portable user folder with 20 systems and 14,215 games (10,000 on PS2), with covers and BC7 derivatives hardlinked from the M1 spike library (`artifacts/spike-library`). Not in the solution. |
+| `tools/bench-summary.py` | One line per bench run (scroll, textures, memory) from `artifacts/bench/<folder>`. |
+| `godot/src/Tools/`, `godot/scenes/tools/` | The `[Tool]` generator for the built-in models; its output is `godot/assets/models/{templates,systems}/*.glb`. Excluded from exports. |
 
 ## Commands (PowerShell, repo root)
 
@@ -34,8 +37,11 @@ A fully 3D game launcher frontend (systems grid → games grid → emulator), st
 | `.\tools\launch-smoke.ps1` | Headless `--launch` of the fake emulator; checks the exit code, arguments and working folder. `-Windowed` shows the window, `-SleepMs` sets the play time, and `-Executable artifacts/export/windows/OdysseyLauncher.exe` runs the export. Needs `dotnet build` first. |
 | `.\tools\verify.ps1` | All of the above, in order. |
 | `godot --path godot` | Runs the app windowed. Use `godot --path godot -e` for the editor. |
-| `godot --headless --path godot --export-release "Windows Desktop" $PWD/artifacts/export/windows/OdysseyLauncher.exe` | Exports an ExportRelease build (the preset is in `godot/export_presets.cfg`). |
-| `.\tools\bench-export.ps1` | Exports, then runs one warm-up plus 5 benched runs of the export and prints the medians. Options: `-SkipExport`, `-Runs`, `-Frames`, `-Resolution`, `-Fullscreen`, `-EngineArgs '--rendering-driver', 'vulkan'`, `-Label`. **Use this for any number you compare with a target.** |
+| `godot --path godot --export-release "Windows Desktop" $PWD/artifacts/export/windows/OdysseyLauncher.exe` | Exports an ExportRelease build (the preset is in `godot/export_presets.cfg`). **Not `--headless`:** the shader baker needs a rendering device, and a headless export silently bakes nothing (a 49 KB PCK instead of about 2.6 MB). |
+| `.\tools\bench-export.ps1` | Exports, then runs one warm-up plus 5 benched runs of the export and prints the medians. Options: `-SkipExport`, `-Runs`, `-Frames`, `-Resolution`, `-Fullscreen`, `-EngineArgs '--rendering-driver', 'vulkan'`, `-Label`, `-AppArgs "--user-dir=$PWD\artifacts\synthetic", '--bench-scenario=scroll'`, `-TimeoutSeconds`. **Use this for any number you compare with a target**, with nothing else running on the machine. |
+| `godot --headless --path godot res://scenes/tools/generate_box_templates.tscn` | Regenerates the built-in models (deterministic), then `--import`. Commit the `.glb` and `.import` files. `BuiltInModelTests` checks them against the model spec. |
+| `dotnet run --project tools/synthetic-library -c ExportRelease -- "--out=$PWD\artifacts\synthetic" "--covers=$PWD\artifacts\spike-library"` | The synthetic library, for `--user-dir`. About 50 s. |
+| `python tools/bench-summary.py "artifacts/bench/*-<label>"` | Per-run summary of bench folders. |
 
 `godot` is `C:\Users\claudio\Coding\Godot\godot.cmd`. It forwards to the 4.7.2 .NET console build, which waits for exit and passes the exit code through.
 
@@ -49,12 +55,16 @@ godot --path godot --resolution 1280x800 -- --bench=$PWD/artifacts/bench.json --
 ```
 
 - **`--capture`** saves a PNG of the viewport after n drawn frames (`--capture-frame`, default 60), then quits.
-- **`--bench`** samples n frame intervals after the first drawn frame (`--bench-frames`, default 600), writes JSON, then quits. The JSON contains:
+- **`--bench`** samples n frame intervals from `interactive` (`--bench-frames`, default 600), writes JSON, then quits. The JSON (format 2) contains:
   - `app_startup_ms`: **our code's start-up**, from the first autoload's `_EnterTree` to `interactive`. The 1 s target applies to this number only. Engine and .NET start-up before it is excluded.
   - `startup_ms`: ms since the process started, with `engine_start`, `autoload_enter_tree`, `main_ready`, `first_frame_drawn` and `interactive`.
   - `frames`: mean, p50, p95, p99, max, `hitch_count` (over 1.5× the refresh interval) and the worst frames.
   - `render_ms`: render CPU and GPU times.
   - `gc`: GC activity, including `main_thread_allocated_bytes`.
+  - `scenario`, `options`, `library`, `memory`, and in the scroll scenario `scroll` (the scroll frames alone, textured fraction, main-thread allocation) and `textures`.
+- **`--bench-scenario=scroll`** enters the biggest system (or `--bench-system=<id>`) and scrolls from the first row to the last in `--bench-scroll-seconds` (default 60, the M1 rate). **`--no-textures`** is the control the hitch target is compared with, in the same session.
+- **`--render-scale=<0.25–1>`** and **`--upscaler=bilinear|fsr`** override the automatic cap of 1080p for 3D (FSR1 needs Forward+). **`--upload-cap=<n>`** sets the covers uploaded per frame (default 8, 0 = no cap).
+- **`--start-system=<id>`** (with **`--start-index=<n>`**) enters a system once interactive, and **`--nav-script=down,right,accept,back,...`** plays navigation commands through the controller's path, one every 30 frames, logging each (`Nav script:`). Use them with `--capture` for transitions, focus and screens.
 - **`--launch=<system>/<rel path>`** launches that game once the app is interactive, scanning the system first if the game isn't in the library. It works headless too.
   - **`--user-dir=<folder>`** keeps config, data and cache in that folder (the portable layout), instead of AppData.
   - **`--quit-after-launch`** quits once the game has ended: exit code 0 if it ran, 1 if the launch failed.
@@ -66,6 +76,7 @@ godot --path godot --resolution 1280x800 -- --bench=$PWD/artifacts/bench.json --
 - Don't combine `--capture` with `--bench` for measurements, because the PNG write shows up as one long frame.
 - Exit codes: 0 means success; 1 means a failure, including a headless run or a watchdog timeout (30 s plus 100 ms per requested frame); 2 means invalid debug arguments.
 - Timings from the editor binary with Debug assemblies aren't comparable with the performance targets. Use `tools/bench-export.ps1` for those.
+- Libraries for runs: `--user-dir=$PWD/artifacts/synthetic` (see above), or a user folder whose `systems.toml` points `rom_dirs` at the owner's NAS (`S:\`, read only; see docs/perf/m5-navigation.md). The app scans systems never scanned in the background, except in benches.
 - `DebugHooks` must stay the **first autoload**, because `app_startup_ms` is timed from its `_EnterTree`. It warns if it isn't first.
 
 ## Decided stack (don't change without asking)
@@ -98,3 +109,4 @@ godot --path godot --resolution 1280x800 -- --bench=$PWD/artifacts/bench.json --
 - A schema change means a new numbered migration file. Never edit a shipped migration.
 - Tests never touch the network. Scraper tests use recorded fixtures.
 - Use UK English in docs, comments, UI text, our own identifiers and our config keys (`favourite`, `colour`). External names keep their own spelling (Godot `Color`, glTF `baseColorTexture`).
+- Don't rewrite source files with Windows PowerShell's `Get-Content`/`Set-Content`: it reads UTF-8 without a BOM as ANSI and mangles non-ASCII characters. Use the editor tools, or Python with `encoding='utf-8'` and LF line endings.

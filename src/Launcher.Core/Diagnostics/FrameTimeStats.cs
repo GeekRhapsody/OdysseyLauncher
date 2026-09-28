@@ -27,6 +27,9 @@ public sealed record FrameTimeSummary
 
     public required int HitchCount { get; init; }
 
+    /// <summary>Intervals longer than twice the refresh interval: the target is none (A3).</summary>
+    public required int Over2xCount { get; init; }
+
     /// <summary>The longest intervals, longest first.</summary>
     public required IReadOnlyList<FrameSample> Worst { get; init; }
 }
@@ -62,14 +65,17 @@ public static class FrameTimeStats
                 StdDevMs = 0,
                 HitchThresholdMs = threshold,
                 HitchCount = 0,
+                Over2xCount = 0,
                 Worst = [],
             };
         }
 
+        var twice = 2000.0 / refreshHz;
         var sum = 0.0;
         var min = double.MaxValue;
         var max = double.MinValue;
         var hitches = 0;
+        var over2x = 0;
         foreach (var ms in intervalsMs)
         {
             sum += ms;
@@ -78,6 +84,11 @@ public static class FrameTimeStats
             if (ms > threshold)
             {
                 hitches++;
+            }
+
+            if (ms > twice)
+            {
+                over2x++;
             }
         }
 
@@ -103,6 +114,7 @@ public static class FrameTimeStats
             StdDevMs = Math.Sqrt(squares / count),
             HitchThresholdMs = threshold,
             HitchCount = hitches,
+            Over2xCount = over2x,
             Worst = WorstFrames(intervalsMs, WorstFrameCount),
         };
     }

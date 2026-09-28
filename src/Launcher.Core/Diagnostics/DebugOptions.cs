@@ -2,6 +2,26 @@ using System.Globalization;
 
 namespace Launcher.Core.Diagnostics;
 
+/// <summary>What <c>--bench</c> measures.</summary>
+public enum BenchScenario
+{
+    /// <summary>Boot into the systems grid and sample <see cref="DebugOptions.BenchFrames"/> frames.</summary>
+    Boot,
+
+    /// <summary>
+    /// Boot, enter a system, then scroll its games grid from the first row to the last at a steady speed over
+    /// <see cref="DebugOptions.BenchScrollSeconds"/>, sampling the scroll frames.
+    /// </summary>
+    Scroll,
+}
+
+/// <summary>How the 3D scene is upscaled when it renders below the window's resolution.</summary>
+public enum Upscaler
+{
+    Bilinear,
+    Fsr,
+}
+
 /// <summary>
 /// Debug facilities requested on the command line. The Godot app passes only its user arguments
 /// (everything after <c>--</c> or <c>++</c>), so engine arguments never reach this parser.
@@ -12,6 +32,16 @@ public sealed record DebugOptions
     public const string CaptureFrameArg = "--capture-frame";
     public const string BenchArg = "--bench";
     public const string BenchFramesArg = "--bench-frames";
+    public const string BenchScenarioArg = "--bench-scenario";
+    public const string BenchSystemArg = "--bench-system";
+    public const string BenchScrollSecondsArg = "--bench-scroll-seconds";
+    public const string NoTexturesArg = "--no-textures";
+    public const string RenderScaleArg = "--render-scale";
+    public const string UpscalerArg = "--upscaler";
+    public const string UploadCapArg = "--upload-cap";
+    public const string StartSystemArg = "--start-system";
+    public const string StartIndexArg = "--start-index";
+    public const string NavScriptArg = "--nav-script";
     public const string LaunchArg = "--launch";
     public const string UserDirArg = "--user-dir";
     public const string QuitAfterLaunchArg = "--quit-after-launch";
@@ -19,11 +49,36 @@ public sealed record DebugOptions
     public const int DefaultCaptureFrame = 60;
     public const int DefaultBenchFrames = 600;
     public const int MaxFrames = 1_000_000;
+    public const double DefaultBenchScrollSeconds = 60;
 
-    private static readonly string[] KnownArgs = [CaptureArg, CaptureFrameArg, BenchArg, BenchFramesArg, LaunchArg, UserDirArg, QuitAfterLaunchArg];
+    /// <summary>
+    /// Cover uploads in one frame, at most (ARCHITECTURE.md A3). M1 proposed 8, because a few of its hitch frames
+    /// followed a burst of uploads.
+    /// </summary>
+    public const int DefaultUploadCap = 8;
+
+    private static readonly string[] KnownArgs =
+    [
+        CaptureArg, CaptureFrameArg, BenchArg, BenchFramesArg, BenchScenarioArg, BenchSystemArg, BenchScrollSecondsArg,
+        NoTexturesArg, RenderScaleArg, UpscalerArg, UploadCapArg, StartSystemArg, StartIndexArg, NavScriptArg, LaunchArg,
+        UserDirArg, QuitAfterLaunchArg,
+    ];
+
+    /// <summary>
+    /// The steps <c>--nav-script</c> takes: the navigation commands (as the controller sends them), and
+    /// <c>wait</c>, which does nothing for a step.
+    /// </summary>
+    public static IReadOnlyList<string> NavScriptSteps { get; } =
+    [
+        "up", "down", "left", "right", "pageup", "pagedown", "letterprevious", "letternext", "first", "last",
+        "accept", "back", "favourite", "wait",
+    ];
+
+    /// <summary>Frames between <c>--nav-script</c> steps: long enough for a transition to finish.</summary>
+    public const int NavScriptStepFrames = 30;
 
     /// <summary>Arguments that are switches, with no value.</summary>
-    private static readonly string[] FlagArgs = [QuitAfterLaunchArg];
+    private static readonly string[] FlagArgs = [QuitAfterLaunchArg, NoTexturesArg];
 
     public static DebugOptions None { get; } = new();
 
@@ -36,8 +91,39 @@ public sealed record DebugOptions
     /// <summary>Absolute path of the JSON report to write, or null when no bench was requested.</summary>
     public string? BenchPath { get; init; }
 
-    /// <summary>Number of frame intervals to sample after the first drawn frame.</summary>
+    /// <summary>Number of frame intervals to sample after the first drawn frame (the boot scenario).</summary>
     public int BenchFrames { get; init; } = DefaultBenchFrames;
+
+    public BenchScenario BenchScenario { get; init; } = BenchScenario.Boot;
+
+    /// <summary>The system the scroll scenario enters; null means the one with the most games.</summary>
+    public string? BenchSystem { get; init; }
+
+    /// <summary>How long the scroll scenario takes to go from the first row to the last.</summary>
+    public double BenchScrollSeconds { get; init; } = DefaultBenchScrollSeconds;
+
+    /// <summary>The no-texture control: covers aren't streamed, so the grid shows every box as it looks without art.</summary>
+    public bool NoTextures { get; init; }
+
+    /// <summary>The 3D render scale, overriding the automatic cap of 1080p; null for automatic.</summary>
+    public double? RenderScale { get; init; }
+
+    public Upscaler Upscaler { get; init; } = Upscaler.Bilinear;
+
+    /// <summary>Cover uploads per frame, at most; 0 means no cap.</summary>
+    public int UploadCap { get; init; } = DefaultUploadCap;
+
+    /// <summary>Enter this system once interactive (for captures), or null.</summary>
+    public string? StartSystem { get; init; }
+
+    /// <summary>With <see cref="StartSystem"/>: focus this game, counting from 0 in grid order.</summary>
+    public int? StartIndex { get; init; }
+
+    /// <summary>
+    /// Navigation steps to play once interactive (after <see cref="StartSystem"/>), one every
+    /// <see cref="NavScriptStepFrames"/> frames, through the same path as the controller; empty for none.
+    /// </summary>
+    public IReadOnlyList<string> NavScript { get; init; } = [];
 
     /// <summary>The system id of the game <c>--launch</c> names, or null.</summary>
     public string? LaunchSystem { get; init; }
@@ -73,13 +159,7 @@ public sealed record DebugOptions
 
         var errors = new List<string>();
         var seen = new HashSet<string>(StringComparer.Ordinal);
-        string? capturePath = null;
-        string? benchPath = null;
-        int? captureFrame = null;
-        int? benchFrames = null;
-        string? launchSystem = null;
-        string? launchRelPath = null;
-        string? userDir = null;
+        var options = new DebugOptions();
 
         foreach (var arg in args)
         {
@@ -104,75 +184,103 @@ public sealed record DebugOptions
             }
 
             var value = isFlag ? string.Empty : arg[(separator + 1)..];
-            switch (name)
+            options = name switch
             {
-                case CaptureArg:
-                    capturePath = ParsePath(name, value, ".png", errors);
-                    break;
-                case CaptureFrameArg:
-                    captureFrame = ParseFrames(name, value, errors);
-                    break;
-                case BenchArg:
-                    benchPath = ParsePath(name, value, ".json", errors);
-                    break;
-                case BenchFramesArg:
-                    benchFrames = ParseFrames(name, value, errors);
-                    break;
-                case LaunchArg:
-                    (launchSystem, launchRelPath) = ParseLaunch(value, errors);
-                    break;
-                case UserDirArg:
-                    userDir = ParsePath(name, value, null, errors);
-                    break;
+                CaptureArg => options with { CapturePath = ParsePath(name, value, ".png", errors) },
+                CaptureFrameArg => options with { CaptureFrame = ParseInt(name, value, 1, MaxFrames, errors) ?? DefaultCaptureFrame },
+                BenchArg => options with { BenchPath = ParsePath(name, value, ".json", errors) },
+                BenchFramesArg => options with { BenchFrames = ParseInt(name, value, 1, MaxFrames, errors) ?? DefaultBenchFrames },
+                BenchScenarioArg => options with { BenchScenario = ParseEnum(name, value, BenchScenario.Boot, errors) },
+                BenchSystemArg => options with { BenchSystem = ParseId(name, value, errors) },
+                BenchScrollSecondsArg => options with { BenchScrollSeconds = ParseDouble(name, value, 1, 3600, errors) ?? DefaultBenchScrollSeconds },
+                NoTexturesArg => options with { NoTextures = true },
+                RenderScaleArg => options with { RenderScale = ParseDouble(name, value, 0.25, 1, errors) },
+                UpscalerArg => options with { Upscaler = ParseEnum(name, value, Upscaler.Bilinear, errors) },
+                UploadCapArg => options with { UploadCap = ParseInt(name, value, 0, 64, errors) ?? DefaultUploadCap },
+                StartSystemArg => options with { StartSystem = ParseId(name, value, errors) },
+                StartIndexArg => options with { StartIndex = ParseInt(name, value, 0, MaxFrames, errors) },
+                NavScriptArg => options with { NavScript = ParseNavScript(value, errors) },
+                LaunchArg => ParseLaunch(options, value, errors),
+                UserDirArg => options with { UserDir = ParsePath(name, value, null, errors) },
+                QuitAfterLaunchArg => options with { QuitAfterLaunch = true },
+                _ => options,
+            };
+        }
+
+        Requires(seen, QuitAfterLaunchArg, LaunchArg, $"{LaunchArg}=<system>/<path>", errors);
+        Requires(seen, CaptureFrameArg, CaptureArg, $"{CaptureArg}=<path.png>", errors);
+        Requires(seen, BenchFramesArg, BenchArg, $"{BenchArg}=<path.json>", errors);
+        Requires(seen, BenchScenarioArg, BenchArg, $"{BenchArg}=<path.json>", errors);
+        Requires(seen, BenchSystemArg, BenchScenarioArg, $"{BenchScenarioArg}=scroll", errors);
+        Requires(seen, BenchScrollSecondsArg, BenchScenarioArg, $"{BenchScenarioArg}=scroll", errors);
+        Requires(seen, StartIndexArg, StartSystemArg, $"{StartSystemArg}=<system>", errors);
+        if (options.BenchScenario != BenchScenario.Scroll)
+        {
+            foreach (var scrollOnly in (ReadOnlySpan<string>)[BenchSystemArg, BenchScrollSecondsArg])
+            {
+                if (seen.Contains(scrollOnly) && seen.Contains(BenchScenarioArg))
+                {
+                    errors.Add($"{scrollOnly} only applies to {BenchScenarioArg}=scroll.");
+                }
             }
         }
-
-        if (seen.Contains(QuitAfterLaunchArg) && !seen.Contains(LaunchArg))
+        else if (seen.Contains(BenchFramesArg))
         {
-            errors.Add($"{QuitAfterLaunchArg} needs {LaunchArg}=<system>/<path>.");
+            errors.Add($"{BenchFramesArg} only applies to the boot scenario; the scroll scenario samples the scroll ({BenchScrollSecondsArg}).");
         }
 
-        if (seen.Contains(CaptureFrameArg) && !seen.Contains(CaptureArg))
+        if (options.BenchScenario == BenchScenario.Scroll && (seen.Contains(StartSystemArg) || seen.Contains(NavScriptArg)))
         {
-            errors.Add($"{CaptureFrameArg} needs {CaptureArg}=<path.png>.");
+            errors.Add($"{StartSystemArg} and {NavScriptArg} can't be combined with {BenchScenarioArg}=scroll, which drives the grid itself.");
         }
 
-        if (seen.Contains(BenchFramesArg) && !seen.Contains(BenchArg))
+        return errors.Count > 0 ? new DebugOptionsParseResult(None, errors) : new DebugOptionsParseResult(options, errors);
+    }
+
+    private static void Requires(HashSet<string> seen, string arg, string needs, string example, List<string> errors)
+    {
+        if (seen.Contains(arg) && !seen.Contains(needs))
         {
-            errors.Add($"{BenchFramesArg} needs {BenchArg}=<path.json>.");
+            errors.Add($"{arg} needs {example}.");
+        }
+    }
+
+    /// <summary>Comma-separated steps from <see cref="NavScriptSteps"/>, ignoring case.</summary>
+    private static List<string> ParseNavScript(string value, List<string> errors)
+    {
+        var steps = new List<string>();
+        foreach (var part in value.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
+        {
+            var step = part.ToLowerInvariant();
+            if (!NavScriptSteps.Contains(step))
+            {
+                errors.Add($"{NavScriptArg} doesn't know the step '{part}'. The steps are {string.Join(", ", NavScriptSteps)}.");
+                continue;
+            }
+
+            steps.Add(step);
         }
 
-        if (errors.Count > 0)
+        if (steps.Count == 0 && errors.Count == 0)
         {
-            return new DebugOptionsParseResult(None, errors);
+            errors.Add($"{NavScriptArg} needs at least one step, e.g. {Example(NavScriptArg)}.");
         }
 
-        var options = new DebugOptions
-        {
-            CapturePath = capturePath,
-            CaptureFrame = captureFrame ?? DefaultCaptureFrame,
-            BenchPath = benchPath,
-            BenchFrames = benchFrames ?? DefaultBenchFrames,
-            LaunchSystem = launchSystem,
-            LaunchRelPath = launchRelPath,
-            UserDir = userDir,
-            QuitAfterLaunch = seen.Contains(QuitAfterLaunchArg),
-        };
-        return new DebugOptionsParseResult(options, errors);
+        return steps;
     }
 
     /// <summary><c>&lt;system&gt;/&lt;path relative to its ROM folder&gt;</c>; either slash separates.</summary>
-    private static (string? System, string? RelPath) ParseLaunch(string value, List<string> errors)
+    private static DebugOptions ParseLaunch(DebugOptions options, string value, List<string> errors)
     {
         var path = value.Replace('\\', '/');
         var slash = path.IndexOf('/', StringComparison.Ordinal);
         if (slash <= 0 || slash == path.Length - 1 || path.StartsWith("//", StringComparison.Ordinal))
         {
             errors.Add($"{LaunchArg} needs a system and a ROM path, e.g. {Example(LaunchArg)}; got '{value}'.");
-            return (null, null);
+            return options;
         }
 
-        return (path[..slash], path[(slash + 1)..]);
+        return options with { LaunchSystem = path[..slash], LaunchRelPath = path[(slash + 1)..] };
     }
 
     /// <param name="extension">The file extension the path must have, or null for a folder.</param>
@@ -199,15 +307,53 @@ public sealed record DebugOptions
         return Path.GetFullPath(value);
     }
 
-    private static int? ParseFrames(string name, string value, List<string> errors)
+    private static int? ParseInt(string name, string value, int min, int max, List<string> errors)
     {
-        if (int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out var frames)
-            && frames is >= 1 and <= MaxFrames)
+        if (int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out var number) && number >= min && number <= max)
         {
-            return frames;
+            return number;
         }
 
-        errors.Add($"{name} needs a whole number from 1 to {MaxFrames:N0}; got '{value}'.");
+        errors.Add(string.Create(CultureInfo.InvariantCulture, $"{name} needs a whole number from {min:N0} to {max:N0}; got '{value}'."));
+        return null;
+    }
+
+    private static double? ParseDouble(string name, string value, double min, double max, List<string> errors)
+    {
+        if (double.TryParse(value, NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out var number) && number >= min && number <= max)
+        {
+            return number;
+        }
+
+        errors.Add(string.Create(CultureInfo.InvariantCulture, $"{name} needs a number from {min} to {max}; got '{value}'."));
+        return null;
+    }
+
+    private static T ParseEnum<T>(string name, string value, T fallback, List<string> errors)
+        where T : struct, Enum
+    {
+        foreach (var candidate in Enum.GetValues<T>())
+        {
+            if (string.Equals(candidate.ToString(), value, StringComparison.OrdinalIgnoreCase))
+            {
+                return candidate;
+            }
+        }
+
+        var names = string.Join(", ", Enum.GetNames<T>().Select(n => n.ToLowerInvariant()));
+        errors.Add($"{name} must be one of {names}; got '{value}'.");
+        return fallback;
+    }
+
+    /// <summary>A config id: lower-case letters, digits, '_' and '-' (A5).</summary>
+    private static string? ParseId(string name, string value, List<string> errors)
+    {
+        if (value.Length > 0 && value.All(c => c is (>= 'a' and <= 'z') or (>= '0' and <= '9') or '_' or '-'))
+        {
+            return value;
+        }
+
+        errors.Add($"{name} needs a system id, e.g. {Example(name)}; got '{value}'.");
         return null;
     }
 
@@ -216,6 +362,14 @@ public sealed record DebugOptions
         CaptureArg => $"{CaptureArg}=C:/captures/shot.png",
         CaptureFrameArg => $"{CaptureFrameArg}={DefaultCaptureFrame}",
         BenchArg => $"{BenchArg}=C:/bench/run.json",
+        BenchScenarioArg => $"{BenchScenarioArg}=scroll",
+        BenchSystemArg or StartSystemArg => $"{name}=ps2",
+        BenchScrollSecondsArg => $"{BenchScrollSecondsArg}=60",
+        RenderScaleArg => $"{RenderScaleArg}=0.5",
+        UpscalerArg => $"{UpscalerArg}=fsr",
+        UploadCapArg => $"{UploadCapArg}={DefaultUploadCap}",
+        StartIndexArg => $"{StartIndexArg}=12",
+        NavScriptArg => $"{NavScriptArg}=down,right,accept,back",
         LaunchArg => $"{LaunchArg}=megadrive/Sonic the Hedgehog (USA, Europe).md",
         UserDirArg => $"{UserDirArg}=C:/OdysseyTest",
         _ => $"{BenchFramesArg}={DefaultBenchFrames}",

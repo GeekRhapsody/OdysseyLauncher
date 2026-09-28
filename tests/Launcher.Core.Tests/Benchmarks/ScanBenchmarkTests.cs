@@ -159,7 +159,7 @@ public sealed class ScanBenchmarkTests : IDisposable
         var path = Path.Combine(_dir.Combine("data"), LibraryService.LibraryFileName);
         using (var connection = Launcher.Core.Data.Sqlite.Open(path))
         {
-            LibraryStore.Apply(connection, [scan], null, 0);
+            LibraryStore.Apply(connection, [scan], null, null, 0);
         }
 
         // Some user data to join against.

@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Runtime.ExceptionServices;
 using Launcher.Core.Config;
 using Launcher.Core.Data;
+using Launcher.Core.Media;
 using Launcher.Core.Scanning;
 using Microsoft.Data.Sqlite;
 
@@ -58,6 +59,12 @@ public sealed class LibraryService : ILibrary, IPlayHistory, IDisposable
     /// with 8 or 14 (docs/perf/m2-core.md). Local scans neither gain nor lose.
     /// </summary>
     public const int DefaultScanParallelism = 8;
+
+    /// <summary>
+    /// The user's ConfigDir, whose <c>media/&lt;system&gt;/&lt;kind&gt;/</c> art scans index (source <c>user</c>). Null
+    /// indexes none and leaves existing rows alone. Set it before scanning.
+    /// </summary>
+    public string? ConfigDir { get; set; }
 
     /// <summary>Config for the next query or scan. Takes effect at once; rescan to apply new ROM folders.</summary>
     public AppConfig Config
@@ -211,13 +218,17 @@ public sealed class LibraryService : ILibrary, IPlayHistory, IDisposable
         try
         {
             var stopwatch = Stopwatch.StartNew();
+            var configDir = ConfigDir;
             var caches = await _readers.RunAsync(
-                c => systems.Select(s => LibraryStore.LoadPlaylists(c, s.Id)).ToList(), cancellationToken).ConfigureAwait(false);
-            var scans = await Task.Run(() => Scan(systems, caches, progress, cancellationToken), cancellationToken).ConfigureAwait(false);
+                c => systems.Select(s => new ScanCache(
+                    LibraryStore.LoadPlaylists(c, s.Id), configDir is null ? null : LibraryStore.LoadUserMedia(c, s.Id))).ToList(),
+                cancellationToken).ConfigureAwait(false);
+            var scans = await Task.Run(() => Scan(systems, caches, configDir, progress, cancellationToken), cancellationToken).ConfigureAwait(false);
             var keepOnly = systemId is null ? config.Systems.Select(s => s.Id).ToHashSet(StringComparer.Ordinal) : null;
             var now = _clock.GetUtcNow().ToUnixTimeMilliseconds();
-            var summaries = await _writer.RunAsync(c => LibraryStore.Apply(c, scans, keepOnly, now), cancellationToken).ConfigureAwait(false);
-            return new ScanSummary(summaries, scans.SelectMany(s => s.Diagnostics).ToList(), stopwatch.Elapsed);
+            var summaries = await _writer.RunAsync(
+                c => LibraryStore.Apply(c, scans.Roms, scans.Media, keepOnly, now), cancellationToken).ConfigureAwait(false);
+            return new ScanSummary(summaries, scans.Diagnostics(), stopwatch.Elapsed);
         }
         finally
         {
@@ -233,15 +244,16 @@ public sealed class LibraryService : ILibrary, IPlayHistory, IDisposable
         {
             var stopwatch = Stopwatch.StartNew();
             var rebuildPath = _libraryPath + ".rebuild";
+            var configDir = ConfigDir;
             var (scans, summaries) = await Task.Run(() =>
             {
-                // Offline and from scratch: no playlist cache, nothing from the current library.
+                // Offline and from scratch: no playlist or header cache, nothing from the current library.
                 Sqlite.DeleteFiles(rebuildPath);
                 LibraryDatabase.Prepare(rebuildPath, out _);
-                var scanned = Scan(config.Systems, null, progress, cancellationToken);
+                var scanned = Scan(config.Systems, null, configDir, progress, cancellationToken);
                 using var connection = Sqlite.Open(rebuildPath);
                 var written = LibraryStore.Apply(
-                    connection, scanned, null, _clock.GetUtcNow().ToUnixTimeMilliseconds());
+                    connection, scanned.Roms, scanned.Media, null, _clock.GetUtcNow().ToUnixTimeMilliseconds());
 
                 // Leave a single self-contained file behind, with no -wal to carry over.
                 MigrationRunner.Execute(connection, "PRAGMA journal_mode = DELETE");
@@ -259,7 +271,7 @@ public sealed class LibraryService : ILibrary, IPlayHistory, IDisposable
                 }),
                 CancellationToken.None).ConfigureAwait(false);
             progress?.Report(new JobProgress("swap", 1, 1));
-            return new ScanSummary(summaries, scans.SelectMany(s => s.Diagnostics).ToList(), stopwatch.Elapsed);
+            return new ScanSummary(summaries, scans.Diagnostics(), stopwatch.Elapsed);
         }
         finally
         {
@@ -279,14 +291,16 @@ public sealed class LibraryService : ILibrary, IPlayHistory, IDisposable
     /// listing refill is a round trip), and blocking that many thread-pool threads would starve the pool.
     /// Results keep config order, so the writes and diagnostics don't depend on timing.
     /// </summary>
-    private List<SystemScan> Scan(
+    private ScanResults Scan(
         IReadOnlyList<SystemConfig> systems,
-        IReadOnlyList<Dictionary<string, PlaylistEntry>>? caches,
+        IReadOnlyList<ScanCache>? caches,
+        string? configDir,
         IProgress<JobProgress>? progress,
         CancellationToken cancellationToken)
     {
         var count = systems.Count;
         var results = new SystemScan[count];
+        var media = new UserMediaScan?[count];
         var next = -1;
         var done = 0;
         Exception? failure = null;
@@ -304,7 +318,12 @@ public sealed class LibraryService : ILibrary, IPlayHistory, IDisposable
 
                 try
                 {
-                    results[i] = _scanner.Scan(systems[i], caches?[i], cancellationToken);
+                    results[i] = _scanner.Scan(systems[i], caches?[i].Playlists, cancellationToken);
+                    if (configDir is not null)
+                    {
+                        media[i] = UserMedia.Scan(configDir, systems[i].Id, caches?[i].UserMedia, cancellationToken);
+                    }
+
                     progress?.Report(new JobProgress("scan", Interlocked.Increment(ref done), count));
                 }
                 catch (Exception e)
@@ -331,6 +350,28 @@ public sealed class LibraryService : ILibrary, IPlayHistory, IDisposable
             ExceptionDispatchInfo.Throw(failure);
         }
 
-        return [.. results];
+        return new ScanResults(results, media);
+    }
+
+    /// <summary>What the previous scan left in the library, so unchanged playlists and images aren't read again.</summary>
+    private sealed record ScanCache(Dictionary<string, PlaylistEntry> Playlists, Dictionary<string, UserMediaEntry>? UserMedia);
+
+    /// <summary>Per system, in config order: the ROM scan and the user art found (null when art isn't indexed).</summary>
+    private sealed record ScanResults(IReadOnlyList<SystemScan> Roms, IReadOnlyList<UserMediaScan?> Media)
+    {
+        public List<Diagnostic> Diagnostics()
+        {
+            var diagnostics = new List<Diagnostic>();
+            for (var i = 0; i < Roms.Count; i++)
+            {
+                diagnostics.AddRange(Roms[i].Diagnostics);
+                if (Media[i] is { } media)
+                {
+                    diagnostics.AddRange(media.Diagnostics);
+                }
+            }
+
+            return diagnostics;
+        }
     }
 }

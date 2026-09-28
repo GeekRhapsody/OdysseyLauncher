@@ -22,7 +22,11 @@ param(
     # Extra engine arguments, placed before the user arguments (e.g. --rendering-method mobile).
     [string[]] $EngineArgs = @(),
     # Appended to the report folder name, to tell experiments apart.
-    [ValidatePattern('^[A-Za-z0-9_-]*$')] [string] $Label = ''
+    [ValidatePattern('^[A-Za-z0-9_-]*$')] [string] $Label = '',
+    # Extra user arguments, after --bench (e.g. --user-dir=..., --bench-scenario=scroll, --no-textures).
+    [string[]] $AppArgs = @(),
+    # Longest a run may take before it's stopped.
+    [ValidateRange(10, 3600)] [int] $TimeoutSeconds = 300
 )
 
 $ErrorActionPreference = 'Stop'
@@ -34,7 +38,8 @@ if (-not $SkipExport) {
     Write-Host '==> Exporting ExportRelease build' -ForegroundColor Cyan
     # Godot writes progress to stderr, so judge the export by its exit code (as verify.ps1 does).
     $ErrorActionPreference = 'Continue'
-    $output = @(godot --headless --path (Join-Path $root 'godot') --export-release 'Windows Desktop' $exe 2>&1 | ForEach-Object { "$_" })
+    # Not headless: the shader baker (export_presets.cfg) needs a rendering device, and a headless export bakes nothing.
+    $output = @(godot --path (Join-Path $root 'godot') --export-release 'Windows Desktop' $exe 2>&1 | ForEach-Object { "$_" })
     $code = $LASTEXITCODE
     $ErrorActionPreference = 'Stop'
     if ($code -ne 0) {
@@ -54,7 +59,9 @@ if ($Label) {
 
 $reports = Join-Path $root "artifacts\bench\$folder"
 New-Item -ItemType Directory -Force $reports | Out-Null
-$display = if ($Fullscreen) { @('--fullscreen') } else { @('--resolution', $Resolution) }
+# @(...) around the if: PowerShell unrolls a one-element array returned by an if into a plain string, and adding
+# arrays to a string concatenates them into one argument (which broke -Fullscreen).
+$display = @(if ($Fullscreen) { '--fullscreen' } else { '--resolution', $Resolution })
 $display += $EngineArgs
 
 $rows = @()
@@ -62,8 +69,17 @@ for ($run = 0; $run -le $Runs; $run++) {
     $phase = if ($run -eq 0) { 'warm-up' } else { "run $run of $Runs" }
     Write-Host "==> Bench $phase" -ForegroundColor Cyan
     $json = Join-Path $reports ('run-{0}.json' -f $run)
-    $arguments = $display + @('--', ('"--bench={0}"' -f $json), "--bench-frames=$Frames")
-    $process = Start-Process -FilePath $exe -ArgumentList $arguments -Wait -PassThru
+    $user = @(('"--bench={0}"' -f $json))
+    if (-not ($AppArgs -match '^--bench-scenario=scroll$')) { $user += "--bench-frames=$Frames" }
+    $user += $AppArgs | ForEach-Object { '"{0}"' -f $_ }
+    $arguments = $display + @('--') + $user
+    $process = Start-Process -FilePath $exe -ArgumentList $arguments -PassThru
+    $null = $process.Handle  # Caches the handle, so ExitCode is available after WaitForExit.
+    # The app's own watchdog ends a stalled bench, but not a run whose bench arguments never arrived.
+    if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
+        Stop-Process -Id $process.Id -Force
+        throw "Run $run didn't finish within $TimeoutSeconds s, so it was stopped. Check the arguments: $($arguments -join ' ')"
+    }
     if ($process.ExitCode -ne 0) {
         throw "The app exited with code $($process.ExitCode). See the log in %APPDATA%\Godot\app_userdata\Odyssey Launcher\logs."
     }
@@ -88,6 +104,15 @@ for ($run = 0; $run -le $Runs; $run++) {
         MaxMs           = [math]::Round($report.frames.max_ms, 2)
         Hitches         = $report.frames.hitch_count
         GpuMs           = [math]::Round($report.render_ms.gpu_mean_ms, 2)
+        ScrollP99Ms     = if ($report.scroll) { [math]::Round($report.scroll.frames.p99_ms, 2) } else { $null }
+        ScrollHitches   = if ($report.scroll) { $report.scroll.frames.hitch_count } else { $null }
+        ScrollOver2x    = if ($report.scroll) { $report.scroll.frames.over2x_count } else { $null }
+        TexturedPct     = if ($report.scroll) { [math]::Round($report.scroll.textured_fraction_mean * 100, 2) } else { $null }
+        TexturedMinPct  = if ($report.scroll) { [math]::Round($report.scroll.textured_fraction_min * 100, 1) } else { $null }
+        VisibleTexMs    = if ($report.scroll -and $null -ne $report.scroll.visible_textured_ms) { [math]::Round($report.scroll.visible_textured_ms, 1) } else { $null }
+        ScrollAllocB    = if ($report.scroll) { $report.scroll.main_thread_allocated_bytes } else { $null }
+        WorkingSetMB    = [math]::Round($report.memory.working_set_bytes / 1MB, 0)
+        TexMemMB        = [math]::Round($report.memory.texture_mem_bytes / 1MB, 1)
     }
 }
 

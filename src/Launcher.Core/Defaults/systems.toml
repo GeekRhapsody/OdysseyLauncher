@@ -117,7 +117,7 @@ manufacturer = "Sega"
 year = 1994
 extensions = [".cue", ".chd", ".ccd", ".m3u"]
 emulator = "retroarch-beetle-saturn"
-game_model = "tall_jewel_case"
+game_model = "jewel_case"
 screenscraper_id = 22
 
 [systems.dreamcast]
@@ -157,5 +157,5 @@ year = 2004
 extensions = [".iso", ".cso", ".pbp", ".chd"]
 emulator = "retroarch-ppsspp"
 alt_emulators = ["ppsspp"]
-game_model = "dvd_case"
+game_model = "umd_case"
 screenscraper_id = 61

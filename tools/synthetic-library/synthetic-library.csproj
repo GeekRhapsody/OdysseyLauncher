@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Writes a synthetic library into a user folder (the portable layout of the app's user-dir option): 20 systems, one with
+    10,000 games, with covers and baked BC7 derivatives taken from the M1 spike library by hardlink. Not part of
+    the solution. Usage is in Program.cs and docs/perf/m5-navigation.md.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <RollForward>Major</RollForward>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <Configurations>Debug;ExportDebug;ExportRelease</Configurations>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Launcher.Core\Launcher.Core.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -24,7 +24,19 @@ public enum MediaRoot
 /// One cell of a games grid: only what the grid draws, plus the id to ask for more
 /// (<see cref="ILibrary.GetGameAsync"/>).
 /// </summary>
-public readonly record struct GameRow(long GameId, string Title, string? CoverPath, MediaRoot CoverRoot, bool IsFavourite);
+/// <param name="CoverPath">Relative to the folder <paramref name="CoverRoot"/> names; null when the game has no cover.</param>
+/// <param name="CoverAspect">The cover's width over its height, which the grid crops it by; 0 when unknown.</param>
+/// <param name="CoverSizeBytes">The cover file's size when it was indexed, for its derivative's key; 0 when unknown.</param>
+/// <param name="CoverMtimeMs">The cover file's modification time (unix ms) when it was indexed; 0 when unknown.</param>
+public readonly record struct GameRow(
+    long GameId,
+    string Title,
+    string? CoverPath,
+    MediaRoot CoverRoot,
+    bool IsFavourite,
+    float CoverAspect = 0,
+    long CoverSizeBytes = 0,
+    long CoverMtimeMs = 0);
 
 /// <summary>A system's games, visible ones only, already in grid order.</summary>
 public sealed record GameList(string SystemId, IReadOnlyList<GameRow> Games);
@@ -50,7 +62,22 @@ public sealed record GameDetails(
     bool IsFavourite,
     bool IsHidden,
     string? TitleOverride,
-    string? EmulatorOverride = null);
+    string? EmulatorOverride = null,
+    GameMetadata? Metadata = null);
+
+/// <summary>A game's scraped <c>metadata</c> row (A4). Every field can be missing.</summary>
+/// <param name="ReleaseDate">ISO 8601, possibly partial: '1991', '1991-06' or '1991-06-23'.</param>
+/// <param name="Rating">0 to 1.</param>
+/// <param name="Source">The scraper it came from.</param>
+public sealed record GameMetadata(
+    string? Description,
+    string? ReleaseDate,
+    string? Developer,
+    string? Publisher,
+    string? Genre,
+    string? Players,
+    double? Rating,
+    string Source);
 
 /// <summary>A game's play statistics from userdata.db.</summary>
 public sealed record PlayStats(int PlayCount, TimeSpan TotalPlayTime, DateTimeOffset? LastPlayedAt);

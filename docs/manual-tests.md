@@ -14,7 +14,7 @@ It uses the RetroArch that RetroBat installed (`C:\RetroBat\emulators\retroarch`
 
    ```powershell
    dotnet build
-   godot --headless --path godot --export-release "Windows Desktop" $PWD/artifacts/export/windows/OdysseyLauncher.exe
+   godot --path godot --export-release "Windows Desktop" $PWD/artifacts/export/windows/OdysseyLauncher.exe
    ```
 
 2. Create `C:\OdysseyTest\settings.toml`:
@@ -54,7 +54,7 @@ It uses the RetroArch that RetroBat installed (`C:\RetroBat\emulators\retroarch`
 ```
 
 While it starts:
-- The launcher window (the spinning case) appears, then RetroArch opens full screen in front of it within a few seconds, and the game responds to the keyboard straight away, with no click needed.
+- The launcher window (the systems grid) appears, then RetroArch opens full screen in front of it within a few seconds, and the game responds to the keyboard straight away, with no click needed.
 - Don't Alt+Tab to check on the launcher: switching windows is user input, and it changes what Windows allows afterwards. The log shows whether it minimised (`the emulator took the foreground after <n> ms, so the launcher minimised`).
 
 While you play, in a second PowerShell window, measure the launcher's CPU use over 10 s:
@@ -64,7 +64,7 @@ $p = Get-Process OdysseyLauncher; $a = $p.TotalProcessorTime; Start-Sleep 10; $p
 ```
 
 - Expected: close to 0, a few ms per second at most. In Task Manager, Details tab, the GPU column for OdysseyLauncher.exe should read 0.
-- For comparison, run the same measurement against the launcher with no `--launch` (just the spinning case).
+- For comparison, run the same measurement against the launcher with no `--launch` (idle on the systems grid).
 
 Then quit RetroArch with the keyboard: F1, then Quit RetroArch, or Esc (twice if it asks to confirm).
 - Expected: within about a second, the launcher window is restored at its old size and position, in front, with an active title bar.
@@ -130,3 +130,37 @@ Each should leave the launcher in front, not minimised, with a message at the to
 - The `Select-String` output from the log for A, B and C.
 - The CPU figures from A, with and without a game running.
 - Anything that differed from what's expected above, especially a `foreground:` result of `Failed`, or a window that didn't come to the front.
+
+## M5: navigation with a controller
+
+This checks what `--nav-script` can't: real buttons, the stick, held moves speeding up, and launching from the grid, where the launcher frees its textures while the game runs. It uses the set-up from M3 (`C:\OdysseyTest`, RetroBat's RetroArch and a Mega Drive ROM of your own). Add a second ROM or two to `ROMs\megadrive` so the grid has something to move through.
+
+```powershell
+& .\artifacts\export\windows\OdysseyLauncher.exe --fullscreen ++ --user-dir=C:\OdysseyTest
+```
+
+Use only the gamepad from here on.
+
+1. **Systems grid.** The launcher opens on the systems grid with a system focused (the first one with games). Its name and details are top and bottom left.
+   - The D-pad and the left stick move the focus. Held, a move repeats after about a third of a second, then speeds up over the next second and a half.
+   - LB and RB move four rows at a time.
+   - View rescans: "Scanning your ROM folders…" shows, then the counts update.
+2. **Games grid.** Press A on Mega Drive.
+   - The systems grid flies towards you and fades while the games come up from behind: clamshell cases with your ROMs' titles, and plain boxes (no art until M4).
+   - The title top left follows the focus. After a moment, the details bottom left fill in (Played: Never, Region...).
+   - LT and RT jump between letters.
+   - Y adds a favourite: "Favourite" shows top right. Y again removes it.
+3. **Back and focus memory.** Move to another game and press B.
+   - The games fade back and the systems return.
+   - Press A on Mega Drive again: the game you left is focused.
+   - Favourites (top left of the systems grid) shows the game you added.
+4. **Launching.** Focus your test ROM and press A.
+   - The box spins and flies towards you, then RetroArch starts, as in M3 A.
+   - While it runs, the launcher's GPU memory (Task Manager, Details, "Dedicated GPU memory" and "Shared GPU memory") should drop by about 20 MB: the cover array is freed.
+   - Quit RetroArch from the gamepad. The launcher comes back to the same game, and ignores the button you quit with.
+   - Its details now say Played: Once, with the play time. Recently played lists it.
+
+### Send back
+
+- Anything that differed, especially: the stick not moving the focus, a held move that doesn't speed up or overshoots, a button that acts twice, the wrong game focused when you come back, or input reaching the launcher while RetroArch is in front.
+- The log lines from the launch: `Select-String -Path "$env:APPDATA\Godot\app_userdata\Odyssey Launcher\logs\godot.log" -Pattern '^Launch|^Boot|error'`.

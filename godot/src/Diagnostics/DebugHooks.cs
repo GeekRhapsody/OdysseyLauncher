@@ -26,6 +26,7 @@ public partial class DebugHooks : Node
 
     private DebugOptions _options = DebugOptions.None;
     private bool _hooked;
+    private bool _sampling;
     private bool _finished;
     private bool _captureDone = true;
     private bool _benchDone = true;
@@ -47,6 +48,14 @@ public partial class DebugHooks : Node
 
     /// <summary>The parsed user arguments, for the facilities other nodes run (<c>--launch</c>). Set in <c>_EnterTree</c>.</summary>
     public static DebugOptions Options { get; private set; } = DebugOptions.None;
+
+    /// <summary>What the library held at boot, for the report. Set by the main scene.</summary>
+    public static BenchLibrary? Library { get; set; }
+
+    /// <summary>The 3D render scale in use, for the report.</summary>
+    public static double RenderScale { get; set; } = 1;
+
+    private static DebugHooks? _instance;
 
     public override void _EnterTree()
     {
@@ -75,6 +84,7 @@ public partial class DebugHooks : Node
 
         _options = parsed.Options;
         Options = _options;
+        _instance = this;
         if (_options.IsActive && DisplayServer.GetName() == "headless")
         {
             GD.PrintErr("--capture and --bench need a windowed run; headless mode doesn't render.");
@@ -93,16 +103,19 @@ public partial class DebugHooks : Node
         _benchDone = !_options.BenchRequested;
         if (_options.BenchRequested)
         {
-            _intervalsMs = new double[_options.BenchFrames];
-            _cpuMs = new double[_options.BenchFrames];
-            _gpuMs = new double[_options.BenchFrames];
+            // The scroll scenario samples until the scroll has finished (CompleteScroll), at up to 250 Hz.
+            var capacity = _options.BenchScenario == BenchScenario.Scroll ? ScrollCapacity(_options) : _options.BenchFrames;
+            _intervalsMs = new double[capacity];
+            _cpuMs = new double[capacity];
+            _gpuMs = new double[capacity];
             _viewport = GetViewport().GetViewportRid();
             RenderingServer.ViewportSetMeasureRenderTime(_viewport, true);
         }
 
         var frames = Math.Max(
             _options.CaptureRequested ? _options.CaptureFrame : 0,
-            _options.BenchRequested ? _options.BenchFrames + 1 : 0);
+            !_options.BenchRequested ? 0
+                : _options.BenchScenario == BenchScenario.Scroll ? (int)((_options.BenchScrollSeconds + 60) * 60) : _options.BenchFrames + 1);
         _deadlineMs = Time.GetTicksMsec() + WatchdogBaseMs + (ulong)frames * WatchdogPerFrameMs;
         ProcessMode = ProcessModeEnum.Always;
     }
@@ -164,12 +177,31 @@ public partial class DebugHooks : Node
         }
     }
 
+    /// <summary>
+    /// Main thread, in the frame the app becomes interactive: records the mark and starts the bench's window. Frames
+    /// before it are start-up, which <c>app_startup_ms</c> covers: the engine can draw an empty frame before the
+    /// scene is built, and an interval spanning the build isn't a hitch anyone sees while browsing.
+    /// </summary>
+    public static void MarkInteractive()
+    {
+        Timeline.Mark(StartupMarks.Interactive);
+        if (_instance is { } hooks && !hooks._sampling)
+        {
+            hooks._sampling = true;
+            hooks._gcAtStart = GcSnapshot.Take();
+        }
+    }
+
     private void SampleBench(ulong nowUsec)
     {
-        // Intervals are measured from the first drawn frame onwards.
-        if (_framesDrawn == 1)
+        // Intervals are measured from the interactive frame onwards.
+        if (!_sampling || _framesDrawn == 1)
         {
-            _gcAtStart = GcSnapshot.Take();
+            return;
+        }
+
+        if (_samples == _intervalsMs.Length)
+        {
             return;
         }
 
@@ -177,11 +209,40 @@ public partial class DebugHooks : Node
         _intervalsMs[i] = (nowUsec - _lastFrameUsec) / 1000.0;
         _cpuMs[i] = RenderingServer.ViewportGetMeasuredRenderTimeCpu(_viewport);
         _gpuMs[i] = RenderingServer.ViewportGetMeasuredRenderTimeGpu(_viewport);
-        if (_samples == _intervalsMs.Length)
+        if (_samples == _intervalsMs.Length && _options.BenchScenario == BenchScenario.Boot)
         {
-            WriteBench();
+            WriteBench(null, null);
             _benchDone = true;
         }
+    }
+
+    private static int ScrollCapacity(DebugOptions options) => (int)((options.BenchScrollSeconds + 90) * 250);
+
+    /// <summary>
+    /// The scroll scenario has finished: writes the report with its measurements, then quits once any capture is
+    /// done too. Main thread.
+    /// </summary>
+    public static void CompleteScroll(BenchScroll scroll, BenchTextures? textures, BenchLibrary library)
+    {
+        if (_instance is not { } hooks || hooks._benchDone)
+        {
+            return;
+        }
+
+        Library = library;
+        hooks.WriteBench(scroll, textures);
+        hooks._benchDone = true;
+        if (hooks._captureDone)
+        {
+            hooks.Finish(hooks._exitCode);
+        }
+    }
+
+    /// <summary>The scroll scenario couldn't run (no such system, nothing to scroll): fail the run.</summary>
+    public static void FailScroll(string reason)
+    {
+        GD.PrintErr($"--bench-scenario=scroll: {reason}");
+        _instance?.Finish(ExitFailed);
     }
 
     private void Capture()
@@ -209,7 +270,7 @@ public partial class DebugHooks : Node
         }
     }
 
-    private void WriteBench()
+    private void WriteBench(BenchScroll? scroll, BenchTextures? textures)
     {
         var gcAtEnd = GcSnapshot.Take();
         var path = _options.BenchPath!;
@@ -219,6 +280,9 @@ public partial class DebugHooks : Node
             var refreshAssumed = !(reportedHz > 0);
             var refreshHz = refreshAssumed ? AssumedRefreshHz : reportedHz;
             var windowSize = DisplayServer.WindowGetSize();
+            var screenSize = DisplayServer.ScreenGetSize();
+            using var process = System.Diagnostics.Process.GetCurrentProcess();
+            process.Refresh();
 
             var report = new BenchReport
             {
@@ -238,11 +302,29 @@ public partial class DebugHooks : Node
                     windowSize.X,
                     windowSize.Y,
                     DisplayServer.WindowGetVsyncMode().ToString(),
-                    Headless: false),
+                    Headless: false)
+                {
+                    WindowMode = DisplayServer.WindowGetMode().ToString(),
+                    SceneRenderWidth = (int)(windowSize.X * RenderScale),
+                    SceneRenderHeight = (int)(windowSize.Y * RenderScale),
+                    ScreenWidth = screenSize.X,
+                    ScreenHeight = screenSize.Y,
+                },
+                Scenario = _options.BenchScenario.ToString().ToLowerInvariant(),
+                Options = new BenchOptions(RenderScale, _options.Upscaler.ToString().ToLowerInvariant(), _options.UploadCap, _options.NoTextures),
+                Library = Library,
                 AppStartupMs = Timeline.Between(StartupMarks.AutoloadEnterTree, StartupMarks.Interactive),
                 StartupMs = Timeline.ToDictionary(),
-                Frames = FrameTimeStats.Compute(_intervalsMs, refreshHz),
-                RenderMs = new BenchRenderTimes(FrameTimeStats.Mean(_cpuMs), FrameTimeStats.Mean(_gpuMs)),
+                Frames = FrameTimeStats.Compute(_intervalsMs.AsSpan(0, _samples), refreshHz),
+                RenderMs = new BenchRenderTimes(FrameTimeStats.Mean(_cpuMs.AsSpan(0, _samples)), FrameTimeStats.Mean(_gpuMs.AsSpan(0, _samples))),
+                Scroll = scroll,
+                Textures = textures,
+                Memory = new BenchMemory(
+                    process.WorkingSet64,
+                    process.PeakWorkingSet64,
+                    GC.GetTotalMemory(false),
+                    (long)Performance.GetMonitor(Performance.Monitor.RenderTextureMemUsed),
+                    (long)Performance.GetMonitor(Performance.Monitor.RenderVideoMemUsed)),
                 Gc = new BenchGc(
                     gcAtEnd.Gen0 - _gcAtStart.Gen0,
                     gcAtEnd.Gen1 - _gcAtStart.Gen1,
