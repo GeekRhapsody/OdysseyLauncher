@@ -84,6 +84,11 @@ The hitch target was met by the chosen configuration, but it's reworded (see abo
   - add the 20-system synthetic library and a `boot` bench scenario
   - bench a net10.0 comparison build (adopting it needs the owner's approval)
 
+**Closed on 2026-09-28 with a reduced scope.** The owner scoped M2 to Launcher.Core (config, database and ROM scanning), with no Godot code. Every Core criterion above is met; the numbers are in [perf/m2-core.md](perf/m2-core.md) and the [log](#log). These items need the app, or belong with later features, so they moved:
+- to M4: indexing the user's art override files; re-checking the ScreenScraper system ids against `systemesListe.php`
+- to M5: the M1 boot target with real config and DB loading; SQLite's native load in an editor run and in a Godot export; the 20-system synthetic library and the `boot` bench scenario; the Godot side of the net10.0 comparison
+- to M6: indexing the user's model override files
+
 ## M3: Launching
 
 **Scope**
@@ -117,6 +122,9 @@ The hitch target was met by the chosen configuration, but it's reworded (see abo
 - A live scrape of a 50-game set is documented, with its commands and results.
 - Secrets appear in no log, saved JSON or bench output (a test scans for them).
 - Derivatives regenerate when their source file changes.
+- Carried over from M2:
+  - the scanner indexes the user's art overrides (`ConfigDir/media/`) into `media` with source `user`
+  - the default systems' `screenscraper_id` values are checked against `systemesListe.php`
 
 ## M5: 3D navigation
 
@@ -137,6 +145,11 @@ The hitch target was met by the chosen configuration, but it's reworded (see abo
   - compare FSR1 with bilinear at 0.5 scale
   - test the proposed 8-uploads-per-frame cap
   - identify the periodic ~5 s present delay, with PresentMon if the owner approves installing it
+- Carried over from M2:
+  - the M1 boot target holds with real config and DB loading, in an export
+  - measure SQLite's native load in an editor run and in an export
+  - add the 20-system synthetic library and a `boot` bench scenario
+  - the Godot side of the net10.0 comparison (Core alone gained nothing: [perf/m2-core.md](perf/m2-core.md))
 
 ## M6: Theming and custom models
 
@@ -152,6 +165,7 @@ The hitch target was met by the chosen configuration, but it's reworded (see abo
 - Captures of the default theme and one alternative theme. The corner colours match their hex values.
 - The M1 targets hold with in-budget custom models on screen.
 - Carried over from M1: runtime `.glb` conversion on a worker thread is measured.
+- Carried over from M2: the scanner indexes the user's model overrides (`ConfigDir/models/games/`), so nothing is probed per item at runtime.
 
 ## M7: Settings UI
 
@@ -173,7 +187,7 @@ Update this at the end of every milestone: the status, the date, and the evidenc
 |---|---|---|---|
 | Scaffold | Done | 2026-09-27 | Initial commit; `tools/verify.ps1` green; capture corners exact; bench baseline below |
 | M1 Performance spike | Done (reduced scope; the revised targets need the owner's sign-off) | 2026-09-27 | [SPIKE_RESULTS.md](SPIKE_RESULTS.md); per-configuration JSON in [perf/m1/](perf/m1/); spike code on branch `spike/grid-perf` (`e165f58`, `7fe35ea`); scaffold matrix in [perf/m1-spike.md](perf/m1-spike.md) |
-| M2 Core data layer | Not started | | |
+| M2 Core data layer | Done (reduced scope: Core only; app-side items moved to M4–M6) | 2026-09-28 | [perf/m2-core.md](perf/m2-core.md); 134 tests, including the scan benchmarks; see the log below |
 | M3 Launching | Not started | | |
 | M4 Scraping and media pipeline | Not started | | |
 | M5 3D navigation | Not started | | |
@@ -228,3 +242,33 @@ Update this at the end of every milestone: the status, the date, and the evidenc
   - **Not done** (moved to M2, M5 and M6; see M1 above):
     - handheld mode and true 4K. The desktop ran at 2560×1440 during the spike, although WMI reports 3840×2160, so the docked fullscreen runs are at 1440p. Check the display mode before any 4K run.
     - the other A3 experiments
+- **2026-09-28: M2 core data layer, closed with a reduced scope** (Launcher.Core only, no Godot code).
+  - **What was added:**
+    - Tomlyn 2.10.1 and Microsoft.Data.Sqlite 10.0.12 in Launcher.Core.
+    - `Config`: `ConfigLoader` layers `settings.toml`, `systems.toml` and `emulators.toml` over embedded defaults, with variables (cycles detected), templates with `{{`/`}}` escaping, and diagnostics that give file, line, column and key. The default systems are Game Boy, Game Boy Color, Game Boy Advance, NES, SNES, N64, GameCube, Master System, Mega Drive, Saturn, Dreamcast, PlayStation, PlayStation 2 and PSP, with 16 built-in emulator profiles.
+    - ScreenScraper ids: all 14 were confirmed on ScreenScraper's own system pages and match ES-DE's table. ScreenScraper's API documentation has no system list, and `systemesListe.php` needs developer credentials, so that check moved to M4.
+    - ROM folders: `{rom_root}/<id>` by default (then each alias), or one or more `rom_dirs` per system.
+    - `Data`: both schemas as migration 0001, the migration runner, `userdata.db` backups (3 kept), refusal of a newer `userdata.db`, and recreation of a newer or broken `library.db`.
+    - `Scanning`: `RomScanner` (extensions, recursion, excludes, several folders, `.m3u`/`.cue`/`.gdi` grouping with a playlist cache, NFC `rel_path` and `path_key`, collision warnings) and `TitleParser` (display title, sort key, and region, languages, revision, disc and tags as separate fields).
+    - `Library`: `LibraryService`, with the boot, games, Favourites and Recently played queries, favourites, title and hidden overrides, alias re-keying, incremental rescans in one transaction, and `RebuildAsync` with an atomic swap.
+    - `Platform`: `IPlatformPaths`, with Windows and portable-mode paths.
+    - `tools/core-bench`, which times Core on self-contained .NET 8.0.31, ExportRelease.
+  - **Verification:**
+    - `dotnet build`: 0 warnings. 134 tests pass, covering config errors of every class, variable cycles, title cleaning, multi-file grouping, add/remove/rename/case-only rename, incremental rescans, migrations from an empty DB and every previous version, backups and the golden rebuild.
+  - **Results** (Steam Deck; ExportRelease on .NET 8.0.31; 10,000 files, 12 systems, 6,213 games; warm file cache):
+    - Full scan: 275–281 ms (target < 3 s).
+    - Rescan with no changes: 65–71 ms (target < 0.5 s). With 1% changed: 55–57 ms.
+    - `GetGamesAsync` for one 10,000-game system: 17.6–19.2 ms (target < 50 ms).
+    - Config load: 2.1–2.6 ms warm, about 50 ms first in a process (JIT). Boot query: 0.03 ms.
+    - net10.0 gives Core no gain (full scan 304 ms against 274 ms).
+  - **Budgets in `ScanBenchmarkTests`** (Debug on .NET 10, as `dotnet test` runs them; medians over 3–4 invocations):
+
+    | Benchmark | Budget | Measured (Debug) |
+    |---|---|---|
+    | Full scan, 10,000 files, 12 systems | 1,000 ms | 235–314 ms |
+    | Rescan, nothing changed | 200 ms | 63–72 ms |
+    | Rescan, 1% changed | 250 ms | 63–75 ms |
+    | `GetGamesAsync`, 10,000 games | 45 ms | 20–28 ms |
+    | Config load, warm | 10 ms | 0.6–2.8 ms |
+
+  - **Moved** (see M2 above): the boot target with real config and DB, SQLite's native load inside Godot, the 20-system `boot` scenario and the Godot-side net10.0 comparison to M5; override indexing to M4 (art) and M6 (models).

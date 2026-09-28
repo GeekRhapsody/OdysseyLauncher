@@ -1,0 +1,1022 @@
+using System.Text;
+using Launcher.Core.Scanning;
+
+namespace Launcher.Core.Config;
+
+/// <summary>
+/// Loads <c>settings.toml</c>, <c>systems.toml</c> and <c>emulators.toml</c>, each layered over its
+/// embedded default, and validates them (ARCHITECTURE.md A5).
+/// <list type="bullet">
+/// <item>A TOML syntax error ignores that whole file.</item>
+/// <item>A semantic error disables only the offending system or emulator. A bad setting falls back to its default.</item>
+/// <item>Unknown keys are warnings, with a "did you mean" suggestion.</item>
+/// </list>
+/// </summary>
+public sealed class ConfigLoader : IConfigLoader
+{
+    public const int SupportedFormat = 1;
+
+    /// <summary>Used when <c>paths.rom_root</c> is missing or invalid.</summary>
+    public const string DefaultRomRoot = "{home}/ROMs";
+
+    /// <summary>The built-in box templates a system's <c>game_model</c> can name (A7).</summary>
+    public static IReadOnlyList<string> GameModels { get; } =
+        ["dvd_case", "jewel_case", "tall_jewel_case", "cartridge_box", "clamshell"];
+
+    public static IReadOnlyList<string> Scrapers { get; } = ["screenscraper", "steamgriddb"];
+
+    private static readonly string[] SettingsRootKeys = ["format", "paths", "variables", "display", "scraping"];
+    private static readonly string[] SystemsRootKeys = ["format", "systems"];
+    private static readonly string[] EmulatorsRootKeys = ["format", "emulators"];
+    private static readonly string[] PathsKeys = ["rom_root"];
+    private static readonly string[] DisplayKeys = ["theme", "fullscreen"];
+    private static readonly string[] ScrapingKeys = ["regions", "languages", "cover_sources"];
+
+    private static readonly string[] SystemKeys =
+    [
+        "enabled", "name", "manufacturer", "year", "aliases", "extensions", "emulator", "alt_emulators",
+        "game_model", "screenscraper_id", "rom_dirs", "recursive", "exclude",
+    ];
+
+    private static readonly string[] SystemRequiredKeys = ["name", "extensions", "emulator"];
+    private static readonly string[] EmulatorKeys = ["enabled", "name", "executable", "args", "working_dir"];
+    private static readonly string[] EmulatorRequiredKeys = ["name", "executable"];
+
+    public ConfigLoadResult Load(ConfigSources sources)
+    {
+        ArgumentNullException.ThrowIfNull(sources);
+        return new Run(sources).Execute();
+    }
+
+    /// <summary>One load: holds the diagnostics and the resolved variables.</summary>
+    private sealed class Run(ConfigSources sources)
+    {
+        private readonly List<Diagnostic> _diagnostics = [];
+        private readonly Dictionary<string, string?> _variables = new(StringComparer.Ordinal);
+        private readonly List<TemplatePart> _parts = [];
+        private TomlTableNode? _rawVariables;
+        private string _romRoot = string.Empty;
+
+        public ConfigLoadResult Execute()
+        {
+            // Settings keep a pristine copy of the defaults: a bad user value falls back to the default one.
+            var settingsDefaults = ParseDefault(sources.DefaultSettings);
+            var settingsTree = LoadLayered(sources.DefaultSettings, sources.Settings, out _);
+            var emulatorsTree = LoadLayered(sources.DefaultEmulators, sources.Emulators, out var builtInEmulators);
+            var systemsTree = LoadLayered(sources.DefaultSystems, sources.Systems, out var builtInSystems);
+
+            var settings = ReadSettings(settingsTree, settingsDefaults);
+            CheckRoot(emulatorsTree, EmulatorsRootKeys);
+            CheckRoot(systemsTree, SystemsRootKeys);
+
+            var rawEmulators = SubTable(emulatorsTree, "emulators", "emulators");
+            var emulators = ReadEmulators(rawEmulators, builtInEmulators);
+            var systems = ReadSystems(SubTable(systemsTree, "systems", "systems"), builtInSystems, rawEmulators, emulators);
+
+            return new ConfigLoadResult(new AppConfig(settings, systems, emulators), _diagnostics);
+        }
+
+        // ---- Files and layering ------------------------------------------------------------------
+
+        /// <summary>Parses the default and the user file and merges them. Also returns the ids the default defines.</summary>
+        private TomlTableNode LoadLayered(ConfigFile defaults, ConfigFile? user, out HashSet<string> builtInIds)
+        {
+            var merged = ParseDefault(defaults);
+
+            // The ids of [section.<id>] tables in the default file: a new id must be complete, a built-in one needn't be.
+            builtInIds = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var key in merged.Keys)
+            {
+                if (merged.TryGet(key, out var section) && section is TomlTableNode sectionTable)
+                {
+                    foreach (var id in sectionTable.Keys)
+                    {
+                        builtInIds.Add(id);
+                    }
+                }
+            }
+
+            if (user is not null)
+            {
+                var userTree = TomlTree.Parse(user.Text, user.Source, _diagnostics);
+                if (userTree is not null)
+                {
+                    merged.MergeFrom(userTree);
+                }
+            }
+
+            return merged;
+        }
+
+        private TomlTableNode ParseDefault(ConfigFile defaults) =>
+            TomlTree.Parse(defaults.Text, defaults.Source, _diagnostics)
+            ?? new TomlTableNode(new SourcePos(defaults.Source, 0, 0));
+
+        private void CheckRoot(TomlTableNode root, string[] knownKeys)
+        {
+            WarnUnknownKeys(root, string.Empty, knownKeys);
+            if (root.TryGet("format", out var node))
+            {
+                if (node is not TomlScalar { Kind: TomlKind.Integer, Value: long format })
+                {
+                    Error(node, "format", $"expected an integer, found {TomlNode.KindName(node.Kind)}");
+                }
+                else if (format != SupportedFormat)
+                {
+                    Error(node, "format", $"format {format} isn't supported: this version reads format {SupportedFormat}");
+                }
+            }
+        }
+
+        private TomlTableNode? SubTable(TomlTableNode root, string key, string path)
+        {
+            if (!root.TryGet(key, out var node))
+            {
+                return null;
+            }
+
+            if (node is TomlTableNode table)
+            {
+                return table;
+            }
+
+            Error(node, path, $"expected a table, found {TomlNode.KindName(node.Kind)}");
+            return null;
+        }
+
+        // ---- settings.toml -----------------------------------------------------------------------
+
+        private Settings ReadSettings(TomlTableNode tree, TomlTableNode defaults)
+        {
+            CheckRoot(tree, SettingsRootKeys);
+
+            _rawVariables = SubTable(tree, "variables", "variables");
+            if (_rawVariables is not null)
+            {
+                foreach (var name in _rawVariables.Keys)
+                {
+                    ResolveVariable(name, []);
+                }
+            }
+
+            var paths = SubTable(tree, "paths", "paths");
+            if (paths is not null)
+            {
+                WarnUnknownKeys(paths, "paths", PathsKeys);
+            }
+
+            var romRootSetting = SettingString(tree, defaults, "paths", "rom_root");
+            TomlNode romRootNode = romRootSetting?.Node ?? tree;
+            _romRoot = ExpandPath(romRootSetting?.Value ?? DefaultRomRoot, romRootNode, "paths.rom_root", allowRomRoot: false)
+                ?? ExpandPath(DefaultRomRoot, romRootNode, "paths.rom_root", allowRomRoot: false)
+                ?? sources.HomeDir;
+
+            var display = SubTable(tree, "display", "display");
+            if (display is not null)
+            {
+                WarnUnknownKeys(display, "display", DisplayKeys);
+            }
+
+            var scraping = SubTable(tree, "scraping", "scraping");
+            if (scraping is not null)
+            {
+                WarnUnknownKeys(scraping, "scraping", ScrapingKeys);
+            }
+
+            var theme = SettingString(tree, defaults, "display", "theme")?.Value ?? "memory-card";
+            var fullscreen = SettingBool(tree, defaults, "display", "fullscreen") ?? true;
+            var regions = SettingStrings(tree, defaults, "scraping", "regions", null) ?? [];
+            var languages = SettingStrings(tree, defaults, "scraping", "languages", null) ?? [];
+            var coverSources = SettingStrings(tree, defaults, "scraping", "cover_sources", Scrapers) ?? [];
+
+            var variables = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (var (name, value) in _variables)
+            {
+                if (value is not null)
+                {
+                    variables[name] = value;
+                }
+            }
+
+            return new Settings(
+                SupportedFormat,
+                _romRoot,
+                variables,
+                new DisplaySettings(theme, fullscreen),
+                new ScrapingSettings(regions, languages, coverSources));
+        }
+
+        private readonly record struct Located(string Value, TomlNode Node);
+
+        private Located? SettingString(TomlTableNode tree, TomlTableNode defaults, string section, string key)
+        {
+            foreach (var source in (ReadOnlySpan<TomlTableNode>)[tree, defaults])
+            {
+                if (!TryGetSetting(source, section, key, out var node))
+                {
+                    continue;
+                }
+
+                if (node is TomlScalar { Kind: TomlKind.String, Value: string value })
+                {
+                    return new Located(value, node);
+                }
+
+                Error(node, $"{section}.{key}", $"expected a string, found {TomlNode.KindName(node.Kind)}. Using the default");
+            }
+
+            return null;
+        }
+
+        private bool? SettingBool(TomlTableNode tree, TomlTableNode defaults, string section, string key)
+        {
+            foreach (var source in (ReadOnlySpan<TomlTableNode>)[tree, defaults])
+            {
+                if (!TryGetSetting(source, section, key, out var node))
+                {
+                    continue;
+                }
+
+                if (node is TomlScalar { Kind: TomlKind.Boolean, Value: bool value })
+                {
+                    return value;
+                }
+
+                Error(node, $"{section}.{key}", $"expected a boolean, found {TomlNode.KindName(node.Kind)}. Using the default");
+            }
+
+            return null;
+        }
+
+        private List<string>? SettingStrings(
+            TomlTableNode tree, TomlTableNode defaults, string section, string key, IReadOnlyList<string>? allowed)
+        {
+            foreach (var source in (ReadOnlySpan<TomlTableNode>)[tree, defaults])
+            {
+                if (!TryGetSetting(source, section, key, out var node))
+                {
+                    continue;
+                }
+
+                var values = StringArray(node, $"{section}.{key}", ". Using the default");
+                if (values is null)
+                {
+                    continue;
+                }
+
+                if (allowed is not null)
+                {
+                    var bad = false;
+                    for (var i = 0; i < values.Count; i++)
+                    {
+                        if (!allowed.Contains(values[i]))
+                        {
+                            Error(node, $"{section}.{key}",
+                                $"unknown value '{values[i]}'{Suggest(values[i], allowed)}. Using the default");
+                            bad = true;
+                        }
+                    }
+
+                    if (bad)
+                    {
+                        continue;
+                    }
+                }
+
+                return values;
+            }
+
+            return null;
+        }
+
+        private static bool TryGetSetting(TomlTableNode root, string section, string key, out TomlNode node)
+        {
+            node = null!;
+            return root.TryGet(section, out var sectionNode)
+                && sectionNode is TomlTableNode table
+                && table.TryGet(key, out node);
+        }
+
+        // ---- Variables and templates -------------------------------------------------------------
+
+        /// <summary>Resolves a <c>[variables]</c> entry, recursively. Null means it has an error (already reported).</summary>
+        private string? ResolveVariable(string name, List<string> chain)
+        {
+            if (_variables.TryGetValue(name, out var done))
+            {
+                return done;
+            }
+
+            var key = "variables." + name;
+            if (_rawVariables is null || !_rawVariables.TryGet(name, out var node))
+            {
+                return null;
+            }
+
+            if (chain.Contains(name))
+            {
+                var cycle = string.Join(" -> ", chain.SkipWhile(n => n != name).Append(name));
+                Error(node, key, $"variables refer to each other in a cycle: {cycle}");
+                foreach (var member in chain.SkipWhile(n => n != name))
+                {
+                    _variables[member] = null;
+                }
+
+                return null;
+            }
+
+            if (!Template.IsValidName(name))
+            {
+                Error(node, key, "variable names can only use letters, digits, '_' and '-'");
+                _variables[name] = null;
+                return null;
+            }
+
+            if (Template.BuiltInVariables.Contains(name) || Template.LaunchPlaceholders.Contains(name))
+            {
+                Error(node, key, $"'{name}' is a built-in placeholder, so it can't be redefined");
+                _variables[name] = null;
+                return null;
+            }
+
+            if (node is not TomlScalar { Kind: TomlKind.String, Value: string raw })
+            {
+                Error(node, key, $"expected a string, found {TomlNode.KindName(node.Kind)}");
+                _variables[name] = null;
+                return null;
+            }
+
+            if (Template.TryParse(raw, _parts) is { } syntaxError)
+            {
+                Error(node, key, syntaxError);
+                _variables[name] = null;
+                return null;
+            }
+
+            var parts = _parts.ToArray();
+            var result = new StringBuilder();
+            chain.Add(name);
+            foreach (var part in parts)
+            {
+                if (!part.IsPlaceholder)
+                {
+                    result.Append(part.Text);
+                    continue;
+                }
+
+                if (part.Text == "home")
+                {
+                    result.Append(sources.HomeDir);
+                    continue;
+                }
+
+                if (part.Text == "rom_root" || Template.LaunchPlaceholders.Contains(part.Text))
+                {
+                    Error(node, key, $"{{{part.Text}}} can't be used in [variables]; only {{home}} and other variables can");
+                    chain.RemoveAt(chain.Count - 1);
+                    _variables[name] = null;
+                    return null;
+                }
+
+                if (_rawVariables.Contains(part.Text))
+                {
+                    var value = ResolveVariable(part.Text, chain);
+                    if (value is null)
+                    {
+                        if (!_variables.ContainsKey(name))
+                        {
+                            Error(node, key, $"{{{part.Text}}} couldn't be resolved (see its own error)");
+                            _variables[name] = null;
+                        }
+
+                        chain.RemoveAt(chain.Count - 1);
+                        return null;
+                    }
+
+                    result.Append(value);
+                    continue;
+                }
+
+                Error(node, key, $"unknown placeholder {{{part.Text}}}{Suggest(part.Text, VariableNames())}");
+                chain.RemoveAt(chain.Count - 1);
+                _variables[name] = null;
+                return null;
+            }
+
+            chain.RemoveAt(chain.Count - 1);
+            var resolved = result.ToString();
+            _variables[name] = resolved;
+            return resolved;
+        }
+
+        private List<string> VariableNames()
+        {
+            var names = new List<string> { "home", "rom_root" };
+            if (_rawVariables is not null)
+            {
+                names.AddRange(_rawVariables.Keys);
+            }
+
+            return names;
+        }
+
+        /// <summary>
+        /// Expands config variables in <paramref name="raw"/>. When <paramref name="keepLaunchPlaceholders"/>
+        /// is true the result is still a template: literals are re-escaped and launch placeholders stay.
+        /// Otherwise launch placeholders are errors and the result is plain text. Null means an error was reported.
+        /// </summary>
+        private string? Expand(string raw, TomlNode at, string key, bool keepLaunchPlaceholders, bool allowRomRoot)
+        {
+            if (Template.TryParse(raw, _parts) is { } syntaxError)
+            {
+                Error(at, key, syntaxError);
+                return null;
+            }
+
+            var result = new StringBuilder();
+            foreach (var part in _parts)
+            {
+                if (!part.IsPlaceholder)
+                {
+                    result.Append(keepLaunchPlaceholders ? Template.Escape(part.Text) : part.Text);
+                    continue;
+                }
+
+                string? value;
+                if (part.Text == "home")
+                {
+                    value = sources.HomeDir;
+                }
+                else if (part.Text == "rom_root" && allowRomRoot)
+                {
+                    value = _romRoot;
+                }
+                else if (Template.LaunchPlaceholders.Contains(part.Text))
+                {
+                    if (!keepLaunchPlaceholders)
+                    {
+                        Error(at, key, $"{{{part.Text}}} is only known at launch time, so it can't be used here");
+                        return null;
+                    }
+
+                    result.Append('{').Append(part.Text).Append('}');
+                    continue;
+                }
+                else if (_rawVariables is not null && _rawVariables.Contains(part.Text))
+                {
+                    value = ResolveVariable(part.Text, []);
+                    if (value is null)
+                    {
+                        Error(at, key, $"variable {{{part.Text}}} has an error (see variables.{part.Text})");
+                        return null;
+                    }
+                }
+                else
+                {
+                    var known = VariableNames();
+                    if (!allowRomRoot)
+                    {
+                        known.Remove("rom_root");
+                    }
+
+                    if (keepLaunchPlaceholders)
+                    {
+                        known.AddRange(Template.LaunchPlaceholders);
+                    }
+
+                    Error(at, key, part.Text == "rom_root"
+                        ? "{rom_root} can't be used here"
+                        : $"unknown placeholder {{{part.Text}}}{Suggest(part.Text, known)}. Define it under [variables] in settings.toml");
+                    return null;
+                }
+
+                result.Append(keepLaunchPlaceholders ? Template.Escape(value) : value);
+            }
+
+            return result.ToString();
+        }
+
+        /// <summary>Expands a path and makes it absolute (relative paths resolve against ConfigDir).</summary>
+        private string? ExpandPath(string raw, TomlNode at, string key, bool allowRomRoot)
+        {
+            var expanded = Expand(raw, at, key, keepLaunchPlaceholders: false, allowRomRoot);
+            if (expanded is null)
+            {
+                return null;
+            }
+
+            if (expanded.Length == 0)
+            {
+                Error(at, key, "the path is empty");
+                return null;
+            }
+
+            try
+            {
+                return Path.GetFullPath(Path.IsPathRooted(expanded) ? expanded : Path.Combine(sources.ConfigDir, expanded));
+            }
+            catch (Exception e) when (e is ArgumentException or NotSupportedException or PathTooLongException)
+            {
+                Error(at, key, $"'{expanded}' isn't a valid path: {e.Message}");
+                return null;
+            }
+        }
+
+        // ---- emulators.toml ----------------------------------------------------------------------
+
+        private Dictionary<string, EmulatorConfig> ReadEmulators(TomlTableNode? table, HashSet<string> builtIn)
+        {
+            var result = new Dictionary<string, EmulatorConfig>(StringComparer.Ordinal);
+            if (table is null)
+            {
+                return result;
+            }
+
+            foreach (var id in table.Keys)
+            {
+                table.TryGet(id, out var node);
+                var prefix = "emulators." + id;
+                if (node is not TomlTableNode entry)
+                {
+                    Error(node, prefix, $"expected a table, found {TomlNode.KindName(node.Kind)}");
+                    continue;
+                }
+
+                var errorsBefore = ErrorCount;
+                if (!IsValidId(id))
+                {
+                    Error(entry, prefix, "ids can only use lower-case letters, digits, '_' and '-'");
+                }
+
+                WarnUnknownKeys(entry, prefix, EmulatorKeys);
+                if (Bool(entry, prefix, "enabled") == false)
+                {
+                    continue;
+                }
+
+                if (!builtIn.Contains(id))
+                {
+                    RequireKeys(entry, prefix, EmulatorRequiredKeys);
+                }
+
+                var name = NonEmptyString(entry, prefix, "name") ?? id;
+                string? executable = null;
+                if (entry.TryGet("executable", out var exeNode) && String(entry, prefix, "executable") is { } rawExe)
+                {
+                    executable = ExpandPath(rawExe, exeNode, prefix + ".executable", allowRomRoot: true);
+                    var extension = executable is null ? string.Empty : Path.GetExtension(executable);
+                    if (extension.Equals(".bat", StringComparison.OrdinalIgnoreCase)
+                        || extension.Equals(".cmd", StringComparison.OrdinalIgnoreCase))
+                    {
+                        Error(exeNode, prefix + ".executable",
+                            ".bat and .cmd files can't be emulators: cmd.exe re-parses their arguments, so names like " +
+                            "'Sonic & Knuckles' would break or run commands. Point at the emulator's .exe instead");
+                    }
+                }
+
+                var args = new List<string>();
+                if (entry.TryGet("args", out var argsNode) && StringArray(argsNode, prefix + ".args", string.Empty) is { } rawArgs)
+                {
+                    foreach (var rawArg in rawArgs)
+                    {
+                        if (Expand(rawArg, argsNode, prefix + ".args", keepLaunchPlaceholders: true, allowRomRoot: true) is { } arg)
+                        {
+                            args.Add(arg);
+                        }
+                    }
+                }
+
+                var workingDir = "{emulator_dir}";
+                if (entry.TryGet("working_dir", out var wdNode) && String(entry, prefix, "working_dir") is { } rawWd)
+                {
+                    workingDir = Expand(rawWd, wdNode, prefix + ".working_dir", keepLaunchPlaceholders: true, allowRomRoot: true)
+                        ?? workingDir;
+                }
+
+                if (ErrorCount > errorsBefore || executable is null)
+                {
+                    Info(entry, prefix, "this emulator is disabled until its errors are fixed");
+                    continue;
+                }
+
+                result[id] = new EmulatorConfig(id, name, executable, args, workingDir);
+            }
+
+            return result;
+        }
+
+        // ---- systems.toml ------------------------------------------------------------------------
+
+        private List<SystemConfig> ReadSystems(
+            TomlTableNode? table,
+            HashSet<string> builtIn,
+            TomlTableNode? rawEmulators,
+            Dictionary<string, EmulatorConfig> emulators)
+        {
+            var result = new List<SystemConfig>();
+            if (table is null)
+            {
+                return result;
+            }
+
+            var claimedNames = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (var id in table.Keys)
+            {
+                claimedNames.TryAdd(id, id);
+            }
+
+            foreach (var id in table.Keys)
+            {
+                table.TryGet(id, out var node);
+                var prefix = "systems." + id;
+                if (node is not TomlTableNode entry)
+                {
+                    Error(node, prefix, $"expected a table, found {TomlNode.KindName(node.Kind)}");
+                    continue;
+                }
+
+                var errorsBefore = ErrorCount;
+                if (!IsValidId(id))
+                {
+                    Error(entry, prefix, "ids can only use lower-case letters, digits, '_' and '-'");
+                }
+
+                WarnUnknownKeys(entry, prefix, SystemKeys);
+                if (Bool(entry, prefix, "enabled") == false)
+                {
+                    continue;
+                }
+
+                if (!builtIn.Contains(id))
+                {
+                    RequireKeys(entry, prefix, SystemRequiredKeys);
+                }
+
+                var name = NonEmptyString(entry, prefix, "name") ?? id;
+                var manufacturer = String(entry, prefix, "manufacturer");
+                var year = Integer(entry, prefix, "year", 1950, 2100);
+                var screenScraperId = Integer(entry, prefix, "screenscraper_id", 1, int.MaxValue);
+                var recursive = Bool(entry, prefix, "recursive") ?? true;
+
+                var aliases = new List<string>();
+                if (entry.TryGet("aliases", out var aliasesNode) && StringArray(aliasesNode, prefix + ".aliases", string.Empty) is { } rawAliases)
+                {
+                    foreach (var alias in rawAliases)
+                    {
+                        if (!IsValidId(alias))
+                        {
+                            Error(aliasesNode, prefix + ".aliases", $"'{alias}' isn't a valid id: use lower-case letters, digits, '_' and '-'");
+                        }
+                        else if (alias == id || aliases.Contains(alias))
+                        {
+                            continue;
+                        }
+                        else if (!claimedNames.TryAdd(alias, id) && claimedNames[alias] != id)
+                        {
+                            Warning(aliasesNode, prefix + ".aliases", $"'{alias}' is already used by systems.{claimedNames[alias]}, so it's ignored here");
+                        }
+                        else
+                        {
+                            aliases.Add(alias);
+                        }
+                    }
+                }
+
+                var extensions = new List<string>();
+                if (entry.TryGet("extensions", out var extNode) && StringArray(extNode, prefix + ".extensions", string.Empty) is { } rawExtensions)
+                {
+                    foreach (var raw in rawExtensions)
+                    {
+                        var extension = raw.ToLowerInvariant();
+                        if (extension.Length < 2 || extension[0] != '.' || extension.IndexOfAny(['/', '\\', '*', '?', ' ']) >= 0
+                            || extension.IndexOf('.', 1) >= 0)
+                        {
+                            Error(extNode, prefix + ".extensions", $"'{raw}' isn't a file extension: write it like \".md\"");
+                        }
+                        else if (!extensions.Contains(extension))
+                        {
+                            extensions.Add(extension);
+                        }
+                    }
+
+                    if (rawExtensions.Count == 0)
+                    {
+                        Error(extNode, prefix + ".extensions", "needs at least one extension");
+                    }
+                }
+
+                var emulator = String(entry, prefix, "emulator");
+                if (emulator is not null && entry.TryGet("emulator", out var emuNode))
+                {
+                    CheckEmulator(emulator, emuNode, prefix + ".emulator", rawEmulators, emulators, isError: true);
+                }
+
+                var altEmulators = new List<string>();
+                if (entry.TryGet("alt_emulators", out var altNode) && StringArray(altNode, prefix + ".alt_emulators", string.Empty) is { } rawAlts)
+                {
+                    foreach (var alt in rawAlts)
+                    {
+                        if (CheckEmulator(alt, altNode, prefix + ".alt_emulators", rawEmulators, emulators, isError: false)
+                            && !altEmulators.Contains(alt) && alt != emulator)
+                        {
+                            altEmulators.Add(alt);
+                        }
+                    }
+                }
+
+                var gameModel = String(entry, prefix, "game_model") ?? "dvd_case";
+                if (!GameModels.Contains(gameModel) && entry.TryGet("game_model", out var modelNode))
+                {
+                    Error(modelNode, prefix + ".game_model",
+                        $"unknown box template '{gameModel}'{Suggest(gameModel, GameModels)}. The templates are {string.Join(", ", GameModels)}");
+                }
+
+                var romDirs = new List<string>();
+                var romDirSource = RomDirSource.Default;
+                if (entry.TryGet("rom_dirs", out var dirsNode) && StringArray(dirsNode, prefix + ".rom_dirs", string.Empty) is { } rawDirs)
+                {
+                    romDirSource = RomDirSource.Configured;
+                    foreach (var rawDir in rawDirs)
+                    {
+                        if (ExpandPath(rawDir, dirsNode, prefix + ".rom_dirs", allowRomRoot: true) is { } dir
+                            && !romDirs.Contains(dir, StringComparer.OrdinalIgnoreCase))
+                        {
+                            romDirs.Add(dir);
+                        }
+                    }
+
+                    if (rawDirs.Count == 0)
+                    {
+                        Error(dirsNode, prefix + ".rom_dirs", "needs at least one folder. Leave it out to use {rom_root}/" + id);
+                    }
+                }
+                else
+                {
+                    romDirs.Add(Path.Combine(_romRoot, id));
+                    foreach (var alias in aliases)
+                    {
+                        romDirs.Add(Path.Combine(_romRoot, alias));
+                    }
+                }
+
+                var exclude = new List<string>();
+                if (entry.TryGet("exclude", out var excludeNode) && StringArray(excludeNode, prefix + ".exclude", string.Empty) is { } rawExclude)
+                {
+                    foreach (var pattern in rawExclude)
+                    {
+                        if (GlobPattern.Validate(pattern) is { } globError)
+                        {
+                            Error(excludeNode, prefix + ".exclude", $"'{pattern}': {globError}");
+                        }
+                        else
+                        {
+                            exclude.Add(pattern);
+                        }
+                    }
+                }
+
+                if (ErrorCount > errorsBefore || emulator is null || extensions.Count == 0)
+                {
+                    Info(entry, prefix, "this system is disabled until its errors are fixed");
+                    continue;
+                }
+
+                result.Add(new SystemConfig(
+                    id, name, manufacturer, (int?)year, aliases, extensions, emulator, altEmulators, gameModel,
+                    (int?)screenScraperId, romDirs, romDirSource, recursive, exclude));
+            }
+
+            return result;
+        }
+
+        private bool CheckEmulator(
+            string id, TomlNode at, string key, TomlTableNode? raw, Dictionary<string, EmulatorConfig> valid, bool isError)
+        {
+            if (valid.ContainsKey(id))
+            {
+                return true;
+            }
+
+            string message;
+            if (raw is not null && raw.TryGet(id, out var rawNode))
+            {
+                message = rawNode is TomlTableNode rawEntry
+                    && rawEntry.TryGet("enabled", out var enabled)
+                    && enabled is TomlScalar { Value: false }
+                    ? $"emulator '{id}' is disabled"
+                    : $"emulator '{id}' has errors (see emulators.{id})";
+            }
+            else
+            {
+                message = $"unknown emulator '{id}'{Suggest(id, valid.Keys.ToList())}";
+            }
+
+            if (isError)
+            {
+                Error(at, key, message);
+            }
+            else
+            {
+                Warning(at, key, message + ", so it's left out");
+            }
+
+            return false;
+        }
+
+        // ---- Typed reads -------------------------------------------------------------------------
+
+        private string? String(TomlTableNode table, string prefix, string key)
+        {
+            if (!table.TryGet(key, out var node))
+            {
+                return null;
+            }
+
+            if (node is TomlScalar { Kind: TomlKind.String, Value: string value })
+            {
+                return value;
+            }
+
+            Error(node, $"{prefix}.{key}", $"expected a string, found {TomlNode.KindName(node.Kind)}");
+            return null;
+        }
+
+        private string? NonEmptyString(TomlTableNode table, string prefix, string key)
+        {
+            var value = String(table, prefix, key);
+            if (value is not null && value.Trim().Length == 0 && table.TryGet(key, out var node))
+            {
+                Error(node, $"{prefix}.{key}", "can't be empty");
+                return null;
+            }
+
+            return value;
+        }
+
+        private bool? Bool(TomlTableNode table, string prefix, string key)
+        {
+            if (!table.TryGet(key, out var node))
+            {
+                return null;
+            }
+
+            if (node is TomlScalar { Kind: TomlKind.Boolean, Value: bool value })
+            {
+                return value;
+            }
+
+            Error(node, $"{prefix}.{key}", $"expected true or false, found {TomlNode.KindName(node.Kind)}");
+            return null;
+        }
+
+        private long? Integer(TomlTableNode table, string prefix, string key, long min, long max)
+        {
+            if (!table.TryGet(key, out var node))
+            {
+                return null;
+            }
+
+            if (node is not TomlScalar { Kind: TomlKind.Integer, Value: long value })
+            {
+                Error(node, $"{prefix}.{key}", $"expected an integer, found {TomlNode.KindName(node.Kind)}");
+                return null;
+            }
+
+            if (value < min || value > max)
+            {
+                Error(node, $"{prefix}.{key}", $"{value} is out of range ({min} to {max})");
+                return null;
+            }
+
+            return value;
+        }
+
+        private List<string>? StringArray(TomlNode node, string key, string suffix)
+        {
+            if (node is not TomlArrayNode array)
+            {
+                Error(node, key, $"expected an array of strings, found {TomlNode.KindName(node.Kind)}{suffix}");
+                return null;
+            }
+
+            var values = new List<string>(array.Items.Count);
+            foreach (var item in array.Items)
+            {
+                if (item is TomlScalar { Kind: TomlKind.String, Value: string value })
+                {
+                    values.Add(value);
+                }
+                else
+                {
+                    Error(item, key, $"expected an array of strings, but an item is {TomlNode.KindName(item.Kind)}{suffix}");
+                    return null;
+                }
+            }
+
+            return values;
+        }
+
+        private void RequireKeys(TomlTableNode entry, string prefix, string[] required)
+        {
+            var missing = required.Where(key => !entry.Contains(key)).ToList();
+            if (missing.Count > 0)
+            {
+                Error(entry, prefix, $"a new entry needs every required key; missing: {string.Join(", ", missing)}");
+            }
+        }
+
+        private void WarnUnknownKeys(TomlTableNode table, string prefix, string[] known)
+        {
+            foreach (var key in table.Keys)
+            {
+                if (Array.IndexOf(known, key) >= 0)
+                {
+                    continue;
+                }
+
+                table.TryGet(key, out var node);
+                var path = prefix.Length == 0 ? key : $"{prefix}.{key}";
+                Warning(node, path, $"unknown key{Suggest(key, known)}. It's ignored");
+            }
+        }
+
+        private static bool IsValidId(string id)
+        {
+            if (id.Length == 0 || !(char.IsAsciiLetterLower(id[0]) || char.IsAsciiDigit(id[0])))
+            {
+                return false;
+            }
+
+            foreach (var c in id)
+            {
+                if (!(char.IsAsciiLetterLower(c) || char.IsAsciiDigit(c) || c == '_' || c == '-'))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        // ---- Diagnostics -------------------------------------------------------------------------
+
+        private int ErrorCount { get; set; }
+
+        private void Error(TomlNode node, string key, string message)
+        {
+            ErrorCount++;
+            Add(Severity.Error, node, key, message);
+        }
+
+        private void Warning(TomlNode node, string key, string message) => Add(Severity.Warning, node, key, message);
+
+        private void Info(TomlNode node, string key, string message) => Add(Severity.Info, node, key, message);
+
+        private void Add(Severity severity, TomlNode node, string key, string message) =>
+            _diagnostics.Add(new Diagnostic(severity, node.Pos.Source, node.Pos.Line, node.Pos.Column, key, message));
+
+        /// <summary>", did you mean 'x'?" for the closest candidate within two edits, else empty.</summary>
+        private static string Suggest(string value, IEnumerable<string> candidates)
+        {
+            string? best = null;
+            var bestDistance = int.MaxValue;
+            foreach (var candidate in candidates)
+            {
+                var distance = EditDistance(value, candidate);
+                if (distance < bestDistance)
+                {
+                    best = candidate;
+                    bestDistance = distance;
+                }
+            }
+
+            return best is not null && bestDistance <= Math.Min(2, Math.Max(1, value.Length / 3))
+                ? $" (did you mean '{best}'?)"
+                : string.Empty;
+        }
+
+        private static int EditDistance(string a, string b)
+        {
+            var previous = new int[b.Length + 1];
+            var current = new int[b.Length + 1];
+            for (var j = 0; j <= b.Length; j++)
+            {
+                previous[j] = j;
+            }
+
+            for (var i = 1; i <= a.Length; i++)
+            {
+                current[0] = i;
+                for (var j = 1; j <= b.Length; j++)
+                {
+                    var cost = char.ToLowerInvariant(a[i - 1]) == char.ToLowerInvariant(b[j - 1]) ? 0 : 1;
+                    current[j] = Math.Min(Math.Min(current[j - 1] + 1, previous[j] + 1), previous[j - 1] + cost);
+                }
+
+                (previous, current) = (current, previous);
+            }
+
+            return previous[b.Length];
+        }
+    }
+}

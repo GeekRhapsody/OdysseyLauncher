@@ -8,4 +8,20 @@
     <Configurations>Debug;ExportDebug;ExportRelease</Configurations>
   </PropertyGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="Launcher.Core.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Stable resource names, independent of MSBuild's folder-name mangling: defaults/<file>, migrations/<db>/<file>. -->
+    <EmbeddedResource Include="Defaults\*.toml" LogicalName="defaults/%(Filename)%(Extension)" />
+    <EmbeddedResource Include="Data\Migrations\Library\*.sql" LogicalName="migrations/library/%(Filename)%(Extension)" />
+    <EmbeddedResource Include="Data\Migrations\User\*.sql" LogicalName="migrations/user/%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.12" />
+    <PackageReference Include="Tomlyn" Version="2.10.1" />
+  </ItemGroup>
+
 </Project>

@@ -1,0 +1,585 @@
+using Launcher.Core.Config;
+using Launcher.Core.Scanning;
+using Microsoft.Data.Sqlite;
+
+namespace Launcher.Core.Library;
+
+/// <summary>The SQL behind <see cref="LibraryService"/>. Every method runs on a connection it's given.</summary>
+internal static class LibraryStore
+{
+    // ---- Reads -----------------------------------------------------------------------------------
+
+    public static Dictionary<string, PlaylistEntry> LoadPlaylists(SqliteConnection connection, string systemId)
+    {
+        var playlists = new Dictionary<string, PlaylistEntry>(StringComparer.Ordinal);
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT path_key, size_bytes, mtime_ms, refs FROM playlists WHERE system_id = $system";
+        command.Parameters.AddWithValue("$system", systemId);
+        using var reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            var refs = reader.GetString(3);
+            var key = reader.GetString(0);
+            playlists[key] = new PlaylistEntry(
+                key, reader.GetInt64(1), reader.GetInt64(2), refs.Length == 0 ? [] : refs.Split('\n'));
+        }
+
+        return playlists;
+    }
+
+    public static List<SystemSummary> GetSystems(SqliteConnection connection, AppConfig config)
+    {
+        var rows = new Dictionary<string, (int Count, long? ScannedAt)>(StringComparer.Ordinal);
+        using (var command = connection.CreateCommand())
+        {
+            command.CommandText = "SELECT system_id, game_count, scanned_at FROM systems";
+            using var reader = command.ExecuteReader();
+            while (reader.Read())
+            {
+                rows[reader.GetString(0)] = (reader.GetInt32(1), reader.IsDBNull(2) ? null : reader.GetInt64(2));
+            }
+        }
+
+        var systems = new List<SystemSummary>(config.Systems.Count);
+        foreach (var system in config.Systems)
+        {
+            var found = rows.TryGetValue(system.Id, out var row);
+            systems.Add(new SystemSummary(
+                system.Id,
+                system.Name,
+                found ? row.Count : 0,
+                found && row.ScannedAt is { } ms ? DateTimeOffset.FromUnixTimeMilliseconds(ms) : null));
+        }
+
+        return systems;
+    }
+
+    // The grid queries select only what a cell draws. Title order uses games_by_system when no title is
+    // overridden; the COALESCE keeps overridden titles in their own place.
+    private const string GamesSql = """
+        SELECT g.game_id, COALESCE(o.title, g.title), m.path, m.source, f.added_at IS NOT NULL
+        FROM games g
+        LEFT JOIN user.game_overrides o ON o.system_id = g.system_id AND o.path_key = g.path_key
+        LEFT JOIN user.favourites f ON f.system_id = g.system_id AND f.path_key = g.path_key
+        LEFT JOIN media m ON m.game_id = g.game_id AND m.kind = 'cover'
+        WHERE g.system_id = $system AND COALESCE(o.hidden, 0) = 0
+        ORDER BY COALESCE(o.sort_title, g.sort_title), g.game_id
+        """;
+
+    private const string FavouritesSql = """
+        SELECT g.system_id, g.game_id, COALESCE(o.title, g.title), m.path, m.source, 1
+        FROM user.favourites f
+        JOIN games g ON g.system_id = f.system_id AND g.path_key = f.path_key
+        LEFT JOIN user.game_overrides o ON o.system_id = g.system_id AND o.path_key = g.path_key
+        LEFT JOIN media m ON m.game_id = g.game_id AND m.kind = 'cover'
+        WHERE COALESCE(o.hidden, 0) = 0
+        ORDER BY COALESCE(o.sort_title, g.sort_title), g.system_id, g.game_id
+        """;
+
+    // Uses the partial index play_stats_recent.
+    private const string RecentSql = """
+        SELECT g.system_id, g.game_id, COALESCE(o.title, g.title), m.path, m.source, f.added_at IS NOT NULL
+        FROM user.play_stats p
+        JOIN games g ON g.system_id = p.system_id AND g.path_key = p.path_key
+        LEFT JOIN user.game_overrides o ON o.system_id = g.system_id AND o.path_key = g.path_key
+        LEFT JOIN user.favourites f ON f.system_id = g.system_id AND f.path_key = g.path_key
+        LEFT JOIN media m ON m.game_id = g.game_id AND m.kind = 'cover'
+        WHERE p.last_played_at IS NOT NULL AND COALESCE(o.hidden, 0) = 0
+        ORDER BY p.last_played_at DESC
+        LIMIT $limit
+        """;
+
+    public static List<GameRow> GetGames(SqliteConnection connection, string systemId, int capacityHint)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = GamesSql;
+        command.Parameters.AddWithValue("$system", systemId);
+        using var reader = command.ExecuteReader();
+        var games = new List<GameRow>(capacityHint);
+        while (reader.Read())
+        {
+            games.Add(new GameRow(
+                reader.GetInt64(0),
+                reader.GetString(1),
+                reader.IsDBNull(2) ? null : reader.GetString(2),
+                reader.IsDBNull(3) ? MediaRoot.None : RootOf(reader.GetString(3)),
+                reader.GetBoolean(4)));
+        }
+
+        return games;
+    }
+
+    public static List<VirtualGameRow> GetFavourites(SqliteConnection connection, AppConfig config) =>
+        ReadVirtual(connection, FavouritesSql, null, config);
+
+    public static List<VirtualGameRow> GetRecentlyPlayed(SqliteConnection connection, int limit, AppConfig config) =>
+        ReadVirtual(connection, RecentSql, limit, config);
+
+    private static List<VirtualGameRow> ReadVirtual(SqliteConnection connection, string sql, int? limit, AppConfig config)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = sql;
+        if (limit is not null)
+        {
+            command.Parameters.AddWithValue("$limit", limit.Value);
+        }
+
+        using var reader = command.ExecuteReader();
+        var rows = new List<VirtualGameRow>();
+        while (reader.Read())
+        {
+            // Rows of systems that are now disabled stay until the next full rescan drops them.
+            var system = config.FindSystem(reader.GetString(0));
+            if (system is null)
+            {
+                continue;
+            }
+
+            rows.Add(new VirtualGameRow(system.Id, new GameRow(
+                reader.GetInt64(1),
+                reader.GetString(2),
+                reader.IsDBNull(3) ? null : reader.GetString(3),
+                reader.IsDBNull(4) ? MediaRoot.None : RootOf(reader.GetString(4)),
+                reader.GetBoolean(5))));
+        }
+
+        return rows;
+    }
+
+    public static GameDetails? GetGame(SqliteConnection connection, long gameId)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT g.system_id, g.path_key, d.path, g.rel_path, COALESCE(o.title, g.title), g.region, g.languages,
+                   g.revision, g.disc, g.tags, g.size_bytes, f.added_at IS NOT NULL, COALESCE(o.hidden, 0), o.title
+            FROM games g
+            JOIN rom_dirs d ON d.dir_id = g.dir_id
+            LEFT JOIN user.game_overrides o ON o.system_id = g.system_id AND o.path_key = g.path_key
+            LEFT JOIN user.favourites f ON f.system_id = g.system_id AND f.path_key = g.path_key
+            WHERE g.game_id = $id
+            """;
+        command.Parameters.AddWithValue("$id", gameId);
+        using var reader = command.ExecuteReader();
+        if (!reader.Read())
+        {
+            return null;
+        }
+
+        var romDir = reader.GetString(2);
+        var relPath = reader.GetString(3);
+        return new GameDetails(
+            new GameKey(reader.GetString(0), reader.GetString(1)),
+            gameId,
+            romDir,
+            relPath,
+            Path.GetFullPath(Path.Combine(romDir, relPath.Replace('/', Path.DirectorySeparatorChar))),
+            reader.GetString(4),
+            NullableString(reader, 5),
+            NullableString(reader, 6),
+            NullableString(reader, 7),
+            reader.IsDBNull(8) ? null : reader.GetInt32(8),
+            NullableString(reader, 9),
+            reader.GetInt64(10),
+            reader.GetBoolean(11),
+            reader.GetInt64(12) != 0,
+            NullableString(reader, 13));
+    }
+
+    private static string? NullableString(SqliteDataReader reader, int ordinal) =>
+        reader.IsDBNull(ordinal) ? null : reader.GetString(ordinal);
+
+    private static MediaRoot RootOf(string source) => source == "user" ? MediaRoot.Config : MediaRoot.Data;
+
+    // ---- User data writes --------------------------------------------------------------------------
+
+    public static void SetFavourite(SqliteConnection connection, GameKey game, bool favourite, long now)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = favourite
+            ? "INSERT INTO user.favourites (system_id, path_key, added_at) VALUES ($system, $key, $now) ON CONFLICT DO NOTHING"
+            : "DELETE FROM user.favourites WHERE system_id = $system AND path_key = $key";
+        command.Parameters.AddWithValue("$system", game.SystemId);
+        command.Parameters.AddWithValue("$key", game.PathKey);
+        command.Parameters.AddWithValue("$now", now);
+        command.ExecuteNonQuery();
+    }
+
+    public static void SetTitleOverride(SqliteConnection connection, GameKey game, string? title)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            INSERT INTO user.game_overrides (system_id, path_key, title, sort_title) VALUES ($system, $key, $title, $sort)
+            ON CONFLICT (system_id, path_key) DO UPDATE SET title = excluded.title, sort_title = excluded.sort_title
+            """;
+        command.Parameters.AddWithValue("$system", game.SystemId);
+        command.Parameters.AddWithValue("$key", game.PathKey);
+        command.Parameters.AddWithValue("$title", (object?)title ?? DBNull.Value);
+        command.Parameters.AddWithValue("$sort", title is null ? DBNull.Value : TitleParser.SortKey(title));
+        command.ExecuteNonQuery();
+    }
+
+    public static void SetHidden(SqliteConnection connection, GameKey game, bool hidden)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            INSERT INTO user.game_overrides (system_id, path_key, hidden) VALUES ($system, $key, $hidden)
+            ON CONFLICT (system_id, path_key) DO UPDATE SET hidden = excluded.hidden
+            """;
+        command.Parameters.AddWithValue("$system", game.SystemId);
+        command.Parameters.AddWithValue("$key", game.PathKey);
+        command.Parameters.AddWithValue("$hidden", hidden ? 1 : 0);
+        command.ExecuteNonQuery();
+    }
+
+    /// <summary>User data stored under an alias (e.g. imported as 'genesis') moves to the canonical id (A4).</summary>
+    public static void RekeyAliases(SqliteConnection connection, AppConfig config)
+    {
+        using var transaction = connection.BeginTransaction();
+        foreach (var system in config.Systems)
+        {
+            foreach (var alias in system.Aliases)
+            {
+                foreach (var table in (ReadOnlySpan<string>)["favourites", "play_stats", "manual_matches", "game_overrides"])
+                {
+                    // OR IGNORE: a row that already exists under the canonical id wins; the alias row stays as an orphan.
+                    Execute(connection, transaction, $"UPDATE OR IGNORE user.{table} SET system_id = $id WHERE system_id = $alias", system.Id, alias);
+                }
+
+                Execute(connection, transaction, "UPDATE user.play_sessions SET system_id = $id WHERE system_id = $alias", system.Id, alias);
+            }
+        }
+
+        transaction.Commit();
+    }
+
+    private static void Execute(SqliteConnection connection, SqliteTransaction transaction, string sql, string id, string alias)
+    {
+        using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = sql;
+        command.Parameters.AddWithValue("$id", id);
+        command.Parameters.AddWithValue("$alias", alias);
+        command.ExecuteNonQuery();
+    }
+
+    // ---- Scan results ----------------------------------------------------------------------------
+
+    private sealed record Existing(long GameId, long DirId, string RelPath, long SizeBytes, long MtimeMs);
+
+    /// <summary>
+    /// Writes scan results in one transaction: rows are inserted, updated or deleted by <c>path_key</c>, so a
+    /// case-only rename keeps its game id and its user data, and unchanged rows aren't written at all.
+    /// </summary>
+    /// <param name="keepOnly">When set, systems not in this set are deleted (a full rescan).</param>
+    public static List<SystemScanSummary> Apply(
+        SqliteConnection connection, IReadOnlyList<SystemScan> scans, IReadOnlySet<string>? keepOnly, long now)
+    {
+        var summaries = new List<SystemScanSummary>(scans.Count);
+        using var transaction = connection.BeginTransaction();
+        using var statements = new Statements(connection, transaction);
+        foreach (var scan in scans)
+        {
+            summaries.Add(ApplyOne(connection, transaction, statements, scan, now));
+        }
+
+        if (keepOnly is not null)
+        {
+            using var list = connection.CreateCommand();
+            list.Transaction = transaction;
+            list.CommandText = "SELECT system_id FROM systems";
+            var stale = new List<string>();
+            using (var reader = list.ExecuteReader())
+            {
+                while (reader.Read())
+                {
+                    if (!keepOnly.Contains(reader.GetString(0)))
+                    {
+                        stale.Add(reader.GetString(0));
+                    }
+                }
+            }
+
+            foreach (var systemId in stale)
+            {
+                using var delete = connection.CreateCommand();
+                delete.Transaction = transaction;
+                delete.CommandText = "DELETE FROM systems WHERE system_id = $system";
+                delete.Parameters.AddWithValue("$system", systemId);
+                delete.ExecuteNonQuery();
+            }
+        }
+
+        transaction.Commit();
+        return summaries;
+    }
+
+    private static SystemScanSummary ApplyOne(
+        SqliteConnection connection, SqliteTransaction transaction, Statements s, SystemScan scan, long now)
+    {
+        var system = scan.SystemId;
+        s.Bind(s.InsertSystem, ("$system", system));
+        s.InsertSystem.ExecuteNonQuery();
+
+        // Folders: keep ids for folders that are still listed, so their games aren't touched.
+        var oldDirs = new Dictionary<string, (long Id, long Position)>(StringComparer.Ordinal);
+        s.Bind(s.SelectDirs, ("$system", system));
+        using (var reader = s.SelectDirs.ExecuteReader())
+        {
+            while (reader.Read())
+            {
+                oldDirs[reader.GetString(1)] = (reader.GetInt64(0), reader.GetInt64(2));
+            }
+        }
+
+        var dirIds = new long[scan.RomDirs.Count];
+        for (var i = 0; i < scan.RomDirs.Count; i++)
+        {
+            if (oldDirs.Remove(scan.RomDirs[i], out var old))
+            {
+                dirIds[i] = old.Id;
+                if (old.Position != i)
+                {
+                    s.Bind(s.UpdateDirPosition, ("$id", old.Id), ("$position", i));
+                    s.UpdateDirPosition.ExecuteNonQuery();
+                }
+            }
+            else
+            {
+                s.Bind(s.InsertDir, ("$system", system), ("$position", i), ("$path", scan.RomDirs[i]));
+                dirIds[i] = (long)s.InsertDir.ExecuteScalar()!;
+            }
+        }
+
+        var existing = new Dictionary<string, Existing>(StringComparer.Ordinal);
+        s.Bind(s.SelectGames, ("$system", system));
+        using (var reader = s.SelectGames.ExecuteReader())
+        {
+            while (reader.Read())
+            {
+                existing[reader.GetString(1)] = new Existing(
+                    reader.GetInt64(0), reader.GetInt64(2), reader.GetString(3), reader.GetInt64(4), reader.GetInt64(5));
+            }
+        }
+
+        int added = 0, updated = 0, unchanged = 0;
+        foreach (var game in scan.Games)
+        {
+            var dirId = dirIds[game.DirIndex];
+            if (!existing.Remove(game.PathKey, out var old))
+            {
+                var title = TitleParser.Parse(FileStem(game.RelPath));
+                s.Bind(s.InsertGame,
+                    ("$system", system), ("$dir", dirId), ("$rel", game.RelPath), ("$key", game.PathKey),
+                    ("$size", game.SizeBytes), ("$mtime", game.MtimeMs));
+                BindTitle(s, s.InsertGame, title);
+                s.InsertGame.ExecuteNonQuery();
+                added++;
+                continue;
+            }
+
+            var renamed = !string.Equals(old.RelPath, game.RelPath, StringComparison.Ordinal);
+            var contentChanged = old.SizeBytes != game.SizeBytes || old.MtimeMs != game.MtimeMs;
+            if (!renamed && !contentChanged && old.DirId == dirId)
+            {
+                unchanged++;
+                continue;
+            }
+
+            s.Bind(s.UpdateGame,
+                ("$id", old.GameId), ("$dir", dirId), ("$rel", game.RelPath), ("$size", game.SizeBytes),
+                ("$mtime", game.MtimeMs), ("$changed", contentChanged ? 1 : 0));
+            s.UpdateGame.ExecuteNonQuery();
+            if (renamed)
+            {
+                // A case-only rename changes the file-name title too.
+                var title = TitleParser.Parse(FileStem(game.RelPath));
+                s.Bind(s.UpdateTitle, ("$id", old.GameId));
+                BindTitle(s, s.UpdateTitle, title);
+                s.UpdateTitle.ExecuteNonQuery();
+            }
+
+            updated++;
+        }
+
+        foreach (var gone in existing.Values)
+        {
+            s.Bind(s.DeleteGame, ("$id", gone.GameId));
+            s.DeleteGame.ExecuteNonQuery();
+        }
+
+        foreach (var (_, oldDir) in oldDirs)
+        {
+            s.Bind(s.DeleteDir, ("$id", oldDir.Id));
+            s.DeleteDir.ExecuteNonQuery();
+        }
+
+        ApplyPlaylists(connection, transaction, s, system, scan.Playlists);
+
+        s.Bind(s.UpdateSystem, ("$system", system), ("$now", now));
+        s.UpdateSystem.ExecuteNonQuery();
+        return new SystemScanSummary(system, added, updated, existing.Count, unchanged, scan.FilesSeen, scan.PlaylistsRead);
+    }
+
+    private static void ApplyPlaylists(
+        SqliteConnection connection, SqliteTransaction transaction, Statements s, string system, IReadOnlyList<PlaylistEntry> playlists)
+    {
+        var old = new Dictionary<string, (long Size, long Mtime, string Refs)>(StringComparer.Ordinal);
+        using (var select = connection.CreateCommand())
+        {
+            select.Transaction = transaction;
+            select.CommandText = "SELECT path_key, size_bytes, mtime_ms, refs FROM playlists WHERE system_id = $system";
+            select.Parameters.AddWithValue("$system", system);
+            using var reader = select.ExecuteReader();
+            while (reader.Read())
+            {
+                old[reader.GetString(0)] = (reader.GetInt64(1), reader.GetInt64(2), reader.GetString(3));
+            }
+        }
+
+        foreach (var playlist in playlists)
+        {
+            var refs = string.Join('\n', playlist.Refs);
+            if (old.Remove(playlist.PathKey, out var previous)
+                && previous.Size == playlist.SizeBytes && previous.Mtime == playlist.MtimeMs && previous.Refs == refs)
+            {
+                continue;
+            }
+
+            s.Bind(s.UpsertPlaylist,
+                ("$system", system), ("$key", playlist.PathKey), ("$size", playlist.SizeBytes),
+                ("$mtime", playlist.MtimeMs), ("$refs", refs));
+            s.UpsertPlaylist.ExecuteNonQuery();
+        }
+
+        foreach (var gone in old.Keys)
+        {
+            s.Bind(s.DeletePlaylist, ("$system", system), ("$key", gone));
+            s.DeletePlaylist.ExecuteNonQuery();
+        }
+    }
+
+    private static void BindTitle(Statements s, SqliteCommand command, TitleInfo title) =>
+        s.Bind(command, false,
+            ("$title", title.Title), ("$sort", title.SortTitle), ("$region", title.Region),
+            ("$languages", title.Languages), ("$revision", title.Revision), ("$disc", title.Disc), ("$tags", title.Tags));
+
+    private static string FileStem(string relPath)
+    {
+        var slash = relPath.LastIndexOf('/');
+        var name = slash < 0 ? relPath : relPath[(slash + 1)..];
+        var dot = name.LastIndexOf('.');
+        return dot > 0 ? name[..dot] : name;
+    }
+
+    /// <summary>Prepared statements, reused for every row of a scan.</summary>
+    private sealed class Statements : IDisposable
+    {
+        private readonly List<SqliteCommand> _all = [];
+
+        public Statements(SqliteConnection connection, SqliteTransaction transaction)
+        {
+            SqliteCommand Make(string sql)
+            {
+                var command = connection.CreateCommand();
+                command.Transaction = transaction;
+                command.CommandText = sql;
+                _all.Add(command);
+                return command;
+            }
+
+            InsertSystem = Make("INSERT INTO systems (system_id) VALUES ($system) ON CONFLICT DO NOTHING");
+            UpdateSystem = Make("""
+                UPDATE systems SET scanned_at = $now,
+                    game_count = (SELECT COUNT(*) FROM games WHERE system_id = $system)
+                WHERE system_id = $system
+                """);
+            SelectDirs = Make("SELECT dir_id, path, position FROM rom_dirs WHERE system_id = $system");
+            InsertDir = Make("INSERT INTO rom_dirs (system_id, position, path) VALUES ($system, $position, $path) RETURNING dir_id");
+            UpdateDirPosition = Make("UPDATE rom_dirs SET position = $position WHERE dir_id = $id");
+            DeleteDir = Make("DELETE FROM rom_dirs WHERE dir_id = $id");
+            SelectGames = Make("SELECT game_id, path_key, dir_id, rel_path, size_bytes, mtime_ms FROM games WHERE system_id = $system");
+            InsertGame = Make("""
+                INSERT INTO games (system_id, dir_id, rel_path, path_key, size_bytes, mtime_ms,
+                                   title, sort_title, region, languages, revision, disc, tags)
+                VALUES ($system, $dir, $rel, $key, $size, $mtime, $title, $sort, $region, $languages, $revision, $disc, $tags)
+                """);
+            // New content invalidates the hashes.
+            UpdateGame = Make("""
+                UPDATE games SET dir_id = $dir, rel_path = $rel, size_bytes = $size, mtime_ms = $mtime,
+                    crc32 = CASE WHEN $changed THEN NULL ELSE crc32 END,
+                    md5 = CASE WHEN $changed THEN NULL ELSE md5 END,
+                    sha1 = CASE WHEN $changed THEN NULL ELSE sha1 END
+                WHERE game_id = $id
+                """);
+            UpdateTitle = Make("""
+                UPDATE games SET title = $title, sort_title = $sort, region = $region, languages = $languages,
+                    revision = $revision, disc = $disc, tags = $tags
+                WHERE game_id = $id
+                """);
+            DeleteGame = Make("DELETE FROM games WHERE game_id = $id");
+            UpsertPlaylist = Make("""
+                INSERT INTO playlists (system_id, path_key, size_bytes, mtime_ms, refs) VALUES ($system, $key, $size, $mtime, $refs)
+                ON CONFLICT (system_id, path_key) DO UPDATE SET size_bytes = excluded.size_bytes,
+                    mtime_ms = excluded.mtime_ms, refs = excluded.refs
+                """);
+            DeletePlaylist = Make("DELETE FROM playlists WHERE system_id = $system AND path_key = $key");
+        }
+
+        public SqliteCommand InsertSystem { get; }
+
+        public SqliteCommand UpdateSystem { get; }
+
+        public SqliteCommand SelectDirs { get; }
+
+        public SqliteCommand InsertDir { get; }
+
+        public SqliteCommand UpdateDirPosition { get; }
+
+        public SqliteCommand DeleteDir { get; }
+
+        public SqliteCommand SelectGames { get; }
+
+        public SqliteCommand InsertGame { get; }
+
+        public SqliteCommand UpdateGame { get; }
+
+        public SqliteCommand UpdateTitle { get; }
+
+        public SqliteCommand DeleteGame { get; }
+
+        public SqliteCommand UpsertPlaylist { get; }
+
+        public SqliteCommand DeletePlaylist { get; }
+
+        /// <summary>Sets parameters by name, creating them on first use. Clears the others first unless told not to.</summary>
+        public void Bind(SqliteCommand command, params (string Name, object? Value)[] values) => Bind(command, true, values);
+
+        public void Bind(SqliteCommand command, bool clear, params (string Name, object? Value)[] values)
+        {
+            if (clear)
+            {
+                command.Parameters.Clear();
+            }
+
+            foreach (var (name, value) in values)
+            {
+                if (command.Parameters.Contains(name))
+                {
+                    command.Parameters[name].Value = value ?? DBNull.Value;
+                }
+                else
+                {
+                    command.Parameters.AddWithValue(name, value ?? DBNull.Value);
+                }
+            }
+        }
+
+        public void Dispose()
+        {
+            foreach (var command in _all)
+            {
+                command.Dispose();
+            }
+        }
+    }
+}

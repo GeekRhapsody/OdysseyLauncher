@@ -29,14 +29,14 @@ OdysseyLauncher/
 
 | Namespace | Responsibility |
 |---|---|
-| `Config` | Loads TOML (Tomlyn), layering user files over built-in defaults (embedded resources). <br>Merges recursively; scalars and arrays are replaced. <br>Validates, with file:line:column diagnostics; unknown keys get a "did you mean" warning. <br>Parsers take text plus a source name, so the app can feed `res://` files from the PCK. <br>From M7, writes go through Tomlyn's syntax tree, so comments survive. |
-| `Data` | `LibraryDb` and `UserDb`, plus a migration runner. <br>**Microsoft.Data.Sqlite's async API is synchronous**, so reads run on the thread pool with pooled connections, and writes go through one dedicated writer thread. <br>Every connection sets WAL, `foreign_keys=ON`, `synchronous=NORMAL` and `busy_timeout`. |
-| `Scanning` | Walks ROM folders per system (extensions, recursion, excludes). Hides files referenced by an `.m3u`. <br>Rescans incrementally by size and mtime. <br>Normalises paths to `path_key`. <br>Also indexes user override files (models, media), so nothing is probed per item at runtime. |
+| `Config` | `ConfigLoader` loads TOML (Tomlyn), layering user files over built-in defaults (embedded resources). <br>Maps Tomlyn's syntax tree by hand into a tree that keeps every key's position, so diagnostics still point at the right file after merging (M2). <br>Merges recursively; scalars and arrays are replaced. <br>Validates, with file:line:column:key diagnostics; unknown keys get a "did you mean" warning. <br>Parsers take text plus a source name, so the app can feed `res://` files from the PCK. <br>From M7, writes go through Tomlyn's syntax tree, so comments survive. |
+| `Data` | `LibraryDatabase` and `UserDatabase` (create, migrate, back up), `MigrationRunner`, and the connection helpers. <br>**Microsoft.Data.Sqlite's async API is synchronous**, so reads run on the thread pool, and writes go through one dedicated writer thread (`DbWriter`). <br>Readers come from our own pool (`ReaderPool`), not Microsoft.Data.Sqlite's: each has `userdata.db` ATTACHed once and is `query_only`, and the pool can be closed and held back while a rebuilt library file is swapped in. <br>Every connection sets WAL, `foreign_keys=ON`, `synchronous=NORMAL` and `busy_timeout`. |
+| `Scanning` | `RomScanner` walks a system's ROM folders by file name (extensions, recursion, excludes). Several folders per system are allowed; the first folder wins a `path_key` collision. <br>Multi-file games: files referenced by an `.m3u`, `.cue` or `.gdi` are hidden. Parsed playlists are cached in `library.db` by size and mtime, so a rescan doesn't re-read them. <br>`TitleParser` turns No-Intro and Redump names into a display title and a sort key, keeping region, languages, revision, disc and other tags as separate fields. <br>Normalises paths to `rel_path` and `path_key`. <br>Later (M4, M6): also index user override files (models, media), so nothing is probed per item at runtime. |
 | `Scraping` | `IScraper` for ScreenScraper and SteamGridDB. <br>Handles quotas and rate limits, and match resolution. <br>Saves raw responses with credentials stripped. |
 | `Media` | `MediaStore`: deterministic paths, atomic writes (temp file then rename), and image dimensions read from headers only. |
 | `Models` | `ModelInspector` validates a `.glb` against the A7 spec by reading only the GLB JSON chunk and the image headers. It has no Godot dependency. |
 | `Launching` | `LaunchPlanner` is pure: it resolves the emulator profile and expands the template into an argument list. <br>`LaunchService` runs the plan and records the play session. |
-| `Library` | The façade the app uses: systems summary (boot), games list (on entry), favourites and overrides, and rescan, scrape and rebuild jobs with progress. |
+| `Library` | `LibraryService`, the façade the app uses: systems summary (boot), games list (on entry), the Favourites and Recently played lists, favourites and overrides, and rescan and rebuild jobs with progress (scrape jobs from M4). Scans and rebuilds run one at a time; each writes in one transaction. |
 | `Platform` | The only OS-specific code. <br>Interfaces: `IPlatformPaths`, `IProcessRunner`, `IWindowFocus`. <br>Windows implementations use P/Invoke to user32 and kernel32; Linux comes later. |
 | `Diagnostics` | Debug-argument parser, `StartupTimeline`, `FrameTimeStats`, `BenchReport` (System.Text.Json source generation), and a minimal `ILog` that redacts secrets. |
 
@@ -74,18 +74,25 @@ public interface IWindowFocus {
 }
 
 // Launcher.Core.Config
-public sealed record Diagnostic(Severity Severity, string Source, int Line, int Column, string Message);
+public sealed record Diagnostic(Severity Severity, string Source, int Line, int Column, string Key, string Message);
+    // ToString(): "systems.toml:12:3: error: systems.megadrive.emulator: unknown emulator 'blastemm'"
 public sealed record ConfigLoadResult(AppConfig Config, IReadOnlyList<Diagnostic> Diagnostics);
 public interface IConfigLoader { ConfigLoadResult Load(ConfigSources sources); }   // never throws for user mistakes
 
 // Launcher.Core.Library
 public readonly record struct GameKey(string SystemId, string PathKey);   // stable across rebuilds and case-only renames
+public readonly record struct GameRow(long GameId, string Title, string? CoverPath, MediaRoot CoverRoot, bool IsFavourite);  // only what a cell draws
 public interface ILibrary {
     Task<IReadOnlyList<SystemSummary>> GetSystemsAsync(CancellationToken ct);   // boot: one small indexed query
     Task<GameList> GetGamesAsync(string systemId, CancellationToken ct);        // entry: compact, pre-sorted rows
+    Task<IReadOnlyList<VirtualGameRow>> GetFavouritesAsync(CancellationToken ct);
+    Task<IReadOnlyList<VirtualGameRow>> GetRecentlyPlayedAsync(int limit, CancellationToken ct);
+    Task<GameDetails?> GetGameAsync(long gameId, CancellationToken ct);         // the focused item and launching
     Task SetFavouriteAsync(GameKey game, bool favourite, CancellationToken ct);
-    Task<ScanSummary> RescanAsync(string? systemId, IProgress<JobProgress> progress, CancellationToken ct);
-    Task RebuildAsync(IProgress<JobProgress> progress, CancellationToken ct);   // new library.db from disk, no network, swapped in atomically
+    Task SetTitleOverrideAsync(GameKey game, string? title, CancellationToken ct);
+    Task SetHiddenAsync(GameKey game, bool hidden, CancellationToken ct);
+    Task<ScanSummary> RescanAsync(string? systemId, IProgress<JobProgress>? progress, CancellationToken ct);
+    Task<ScanSummary> RebuildAsync(IProgress<JobProgress>? progress, CancellationToken ct);   // new library.db from disk, no network, swapped in atomically
 }
 
 // Launcher.Core.Scraping
@@ -224,10 +231,10 @@ Everything else waits until after `interactive`, and nothing is scanned at boot.
 - Done: upload budget and decode worker count → 4 MB per frame (measured) and 2 workers. The cap of 8 uploads per frame is proposed but untested (M5).
 - Partly done: the 4K render scale. Measured at 2560×1440 only; 3840×2160 and FSR1 are later (M5).
 - Later (M5): ReadyToRun, and the export shader baker.
-- Later (M2): config parse. Tomlyn reflection mapping, versus hand mapping from `TomlTable`, versus a cached snapshot keyed by file mtimes.
-- Later (M2): Microsoft.Data.Sqlite loading its native library, both in an editor run and in an export.
+- Done (M2): config parse → hand mapping from Tomlyn's syntax tree, the only API that keeps key positions. A warm load of the three default files takes 2 ms; the first load in a process takes about 50 ms, nearly all JIT. No snapshot cache ([perf/m2-core.md](perf/m2-core.md)).
+- Partly done (M2): Microsoft.Data.Sqlite's native load. In a self-contained .NET 8 console, the first `LibraryService.OpenAsync` takes about 120 ms, including creating both DBs. Inside Godot (editor run and export): later (M5).
 - Later (M6): runtime `.glb` conversion on a worker thread.
-- Later (M2): a net10.0 comparison build. Adopting it needs the owner's approval.
+- Partly done (M2): a net10.0 comparison build. For Core it's no faster (full scan 304 ms against 274 ms). The Godot-side comparison is later (M5). Adopting it needs the owner's approval.
 - Later (M5): PresentMon, to explain the periodic present delay, if the owner is happy to install it.
 
 ## A4. Storage
@@ -247,42 +254,73 @@ Everything else waits until after `interactive`, and nothing is scanned at boot.
 - **ROMs:**
   - Each system's folder defaults to `{rom_root}/<system id>`, and `rom_root` defaults to `{home}/ROMs`.
   - System ids follow ES-DE and RetroBat naming (`megadrive`, `mastersystem`, `gb`, `saturn`, `dreamcast`, `psx`, `ps2`), so existing collections work without moving files.
-  - A system can list `aliases` (such as `genesis`). They're tried as default folder names, and `userdata.db` rows stored under an alias are re-keyed to the canonical id.
+  - A system can list `aliases` (such as `genesis`). With no `rom_dirs`, the first of `{rom_root}/<id>`, `{rom_root}/<alias>`... that exists is used. `userdata.db` rows stored under an alias are re-keyed to the canonical id when the library opens.
+  - `rom_dirs` replaces the default with one or more folders, scanned in order (M2).
 - **Identity:**
-  - `rel_path` is the path as on disk: relative to the ROM folder, `/`-separated, Unicode NFC.
+  - `rel_path` is the path as on disk: relative to its ROM folder, `/`-separated, Unicode NFC.
   - `path_key` is `rel_path` lower-cased (invariant) on every OS. It's the stable identity, and it keeps keys portable.
-  - On Linux, if two files collide after case-folding, the scanner keeps the first and warns.
+  - Within a system, `path_key` is unique across all its folders. If two files collide (after case-folding on Linux, or the same relative path in two folders), the scanner keeps the one in the earlier folder, or the first in ordinal order, and warns.
+  - Because the folder isn't part of the identity, moving a system's ROMs to another folder or drive keeps their user data.
 - **Why `path_key`:** keying on the full path, extension included, keeps `Game.cue` and `Game.chd` apart, and a case-only rename keeps its user data.
 - **Stored paths:** app-written files are named by `path_key`. The DB stores paths relative to their root, never absolute paths.
 - **Rebuildable:** `library.db` is a pure function of config, the ROM folders, `media/`, `scraped/`, and the user's model and media override folders.
-  - A rebuild writes a new file offline and swaps it in atomically.
-  - A golden test checks that a rebuild equals the incrementally built DB.
+  - A rebuild writes a new file offline (`library.db.rebuild`, in rollback-journal mode so it's one self-contained file), then closes every connection and swaps it in with a replacing move.
+  - A golden test checks that a rebuild equals the incrementally built DB, ids and timestamps excluded.
+- **Missing folders:** a scan of a folder that no longer exists (an unplugged drive) removes its games from `library.db`; their user data stays (see Orphans).
+- **Multi-file games:** an `.m3u` hides the discs it lists, a `.cue` its `FILE` tracks, and a `.gdi` its track files, so the playlist is the one game. References resolve against the playlist's folder, match by `path_key`, and can't point outside the ROM folder. A playlist over 256 KB isn't read. Disc systems' default extensions leave out `.bin`, so stray tracks never show.
+- **Titles:** `TitleParser` peels trailing `(...)` and `[...]` groups off the file name. The first all-region group is the region, the first language list (`En,Fr,De`) is the languages, and the first `Rev`/`v` and `Disc` tags are the revision and disc. Everything else is kept, as written, in `tags`. A trailing article moves to the front (`Legend of Zelda, The` → `The Legend of Zelda`), and a lone disc keeps " (Disc n)" in its title. The sort key is lower-case and accent-free, drops a leading The/A/An, sorts numbers naturally, and puts a game's discs right after it.
 - **Back up:** ConfigDir and `userdata.db`, plus `media/` and `scraped/` to avoid a re-scrape.
 - **Orphans:** when a file disappears, its `userdata.db` rows are kept, so moving a ROM out and back loses nothing.
 
 ### `library.db` (schema version 1, `PRAGMA user_version = 1`)
 
+The shipped file is `src/Launcher.Core/Data/Migrations/Library/0001_initial.sql`; this copy is for reading.
+
 ```sql
 CREATE TABLE systems (
   system_id   TEXT PRIMARY KEY,               -- config id, e.g. 'megadrive'
-  rom_dir     TEXT NOT NULL,                  -- resolved absolute folder at last scan
   scanned_at  INTEGER,                        -- unix ms; NULL = never scanned
   game_count  INTEGER NOT NULL DEFAULT 0      -- denormalised for the boot query
+) STRICT;
+
+CREATE TABLE rom_dirs (
+  dir_id      INTEGER PRIMARY KEY,
+  system_id   TEXT NOT NULL REFERENCES systems(system_id) ON DELETE CASCADE,
+  position    INTEGER NOT NULL,               -- order in the system's folder list; earlier folders win path_key collisions
+  path        TEXT NOT NULL,                  -- resolved absolute folder at last scan
+  UNIQUE (system_id, path)
 ) STRICT;
 
 CREATE TABLE games (
   game_id     INTEGER PRIMARY KEY,
   system_id   TEXT NOT NULL REFERENCES systems(system_id) ON DELETE CASCADE,
-  rel_path    TEXT NOT NULL,                  -- as on disk: relative, '/' separators, NFC
+  dir_id      INTEGER NOT NULL REFERENCES rom_dirs(dir_id) ON DELETE CASCADE,
+  rel_path    TEXT NOT NULL,                  -- as on disk: relative to its ROM folder, '/' separators, NFC
   path_key    TEXT NOT NULL,                  -- lower-invariant rel_path: the stable identity
   size_bytes  INTEGER NOT NULL,
   mtime_ms    INTEGER NOT NULL,
-  crc32 TEXT, md5 TEXT, sha1 TEXT,            -- NULL until hash matching lands
+  crc32 TEXT, md5 TEXT, sha1 TEXT,            -- NULL until hash matching lands; cleared when size or mtime change
   title       TEXT NOT NULL,                  -- scraped title, else cleaned file name (user overrides live in userdata)
-  sort_title  TEXT NOT NULL,
+  sort_title  TEXT NOT NULL,                  -- internal sort key (TitleParser.SortKey)
+  region      TEXT,                           -- file name tags, as written: 'USA, Europe'
+  languages   TEXT,                           -- 'En,Fr,De'
+  revision    TEXT,                           -- 'Rev 1', 'v1.1'
+  disc        INTEGER,                        -- '(Disc 2)' on a disc that no .m3u groups
+  tags        TEXT,                           -- every other tag, as written: '(Beta) [b1]'
   UNIQUE (system_id, path_key)
 ) STRICT;
-CREATE INDEX games_by_system ON games(system_id, sort_title);
+CREATE INDEX games_by_system ON games(system_id, sort_title);   -- the games grid
+CREATE INDEX games_by_dir ON games(dir_id);                      -- ON DELETE CASCADE from rom_dirs
+
+-- Parsed .m3u/.cue/.gdi files, hidden ones included, so an unchanged playlist isn't re-read.
+CREATE TABLE playlists (
+  system_id   TEXT NOT NULL REFERENCES systems(system_id) ON DELETE CASCADE,
+  path_key    TEXT NOT NULL,
+  size_bytes  INTEGER NOT NULL,
+  mtime_ms    INTEGER NOT NULL,
+  refs        TEXT NOT NULL,                  -- referenced path_keys, '\n'-separated
+  PRIMARY KEY (system_id, path_key)
+) STRICT, WITHOUT ROWID;
 
 CREATE TABLE metadata (
   game_id      INTEGER PRIMARY KEY REFERENCES games(game_id) ON DELETE CASCADE,
@@ -322,7 +360,7 @@ CREATE TABLE scrape_log (
 
 ### `userdata.db` (schema version 1)
 
-This DB can't be rebuilt. It's keyed by `(system_id, path_key)`, never by `library.db` ids.
+This DB can't be rebuilt. It's keyed by `(system_id, path_key)`, never by `library.db` ids. The shipped file is `Data/Migrations/User/0001_initial.sql`.
 
 ```sql
 CREATE TABLE favourites     (system_id TEXT NOT NULL, path_key TEXT NOT NULL, added_at INTEGER NOT NULL,
@@ -330,17 +368,27 @@ CREATE TABLE favourites     (system_id TEXT NOT NULL, path_key TEXT NOT NULL, ad
 CREATE TABLE play_stats     (system_id TEXT NOT NULL, path_key TEXT NOT NULL,
                              play_count INTEGER NOT NULL DEFAULT 0, total_seconds INTEGER NOT NULL DEFAULT 0,
                              last_played_at INTEGER, PRIMARY KEY (system_id, path_key)) STRICT, WITHOUT ROWID;
+CREATE INDEX play_stats_recent ON play_stats(last_played_at DESC) WHERE last_played_at IS NOT NULL;   -- Recently played
 CREATE TABLE play_sessions  (session_id INTEGER PRIMARY KEY, system_id TEXT NOT NULL, path_key TEXT NOT NULL,
                              emulator TEXT NOT NULL, started_at INTEGER NOT NULL,
                              ended_at INTEGER, exit_code INTEGER) STRICT;      -- ended_at NULL = launcher died; closed on next start
+CREATE INDEX play_sessions_open ON play_sessions(session_id) WHERE ended_at IS NULL;
 CREATE TABLE manual_matches (system_id TEXT NOT NULL, path_key TEXT NOT NULL, scraper TEXT NOT NULL,
                              scraper_game_id TEXT NOT NULL, matched_at INTEGER NOT NULL,
                              PRIMARY KEY (system_id, path_key, scraper)) STRICT, WITHOUT ROWID;
 CREATE TABLE game_overrides (system_id TEXT NOT NULL, path_key TEXT NOT NULL,
-                             title TEXT, emulator TEXT,                       -- NULL = use scraped title / system default
+                             title TEXT, sort_title TEXT,                     -- NULL = use the scraped or file-name title
+                             emulator TEXT,                                   -- NULL = the system default
                              hidden INTEGER NOT NULL DEFAULT 0,
                              PRIMARY KEY (system_id, path_key)) STRICT, WITHOUT ROWID;
 ```
+
+### Grid queries
+
+Each selects only what a cell draws: game id, effective title, cover path and root, and the favourite flag.
+- **A system:** `games` through `games_by_system`, LEFT JOINed on primary keys to `user.game_overrides`, `user.favourites` and `media` (kind `cover`), hidden games left out, ordered by `COALESCE(o.sort_title, g.sort_title)`. An overridden title sorts in its own place, at the cost of a temporary B-tree sort (2.4 ms for 10,000 rows).
+- **Favourites:** `user.favourites` joined to `games` through `UNIQUE (system_id, path_key)`, in title order.
+- **Recently played:** `user.play_stats` through `play_stats_recent`, newest first, with a limit.
 
 ### Migrations (versioned)
 
@@ -350,7 +398,7 @@ CREATE TABLE game_overrides (system_id TEXT NOT NULL, path_key TEXT NOT NULL,
   2. Apply every migration newer than `user_version`.
   3. `foreign_key_check`.
   4. Bump `user_version` and commit.
-- `userdata.db` is copied with `VACUUM INTO` first, and the last 3 backups are kept.
+- `userdata.db` is copied with `VACUUM INTO` first (`userdata.db.v<from>-<utc time>.bak`, next to it), and the last 3 backups are kept.
 - If a DB is newer than the app, or a migration fails:
   - `library.db` is rebuilt.
   - `userdata.db` is refused with a clear error.
@@ -367,8 +415,8 @@ format = 1
 [paths]
 rom_root = "D:/ROMs"                 # default "{home}/ROMs"
 
-[variables]                          # expanded at config load; may reference each other (cycles are errors)
-retroarch = "C:/Emulators/RetroArch"
+[variables]                          # expanded at config load; may use {home} and each other (cycles are errors)
+retroarch = "C:/Emulators/RetroArch" # built-in defaults: retroarch = "C:/RetroArch-Win64", emulators = "C:/Emulators"
 
 [display]
 theme = "memory-card"
@@ -382,7 +430,7 @@ cover_sources = ["screenscraper", "steamgriddb"]
 
 ### System definition
 
-Built-in definitions ship in `Launcher.Core/Defaults/systems.toml`. The user's `ConfigDir/systems.toml` holds only what changes.
+Built-in definitions ship in `Launcher.Core/Defaults/systems.toml`: Game Boy, Game Boy Color, Game Boy Advance, NES, SNES, N64, GameCube, Master System, Mega Drive, Saturn, Dreamcast, PlayStation, PlayStation 2 and PSP. The user's `ConfigDir/systems.toml` holds only what changes.
 
 ```toml
 # built-in
@@ -390,21 +438,26 @@ Built-in definitions ship in `Launcher.Core/Defaults/systems.toml`. The user's `
 name = "Mega Drive"
 manufacturer = "Sega"
 year = 1988
-aliases = ["genesis"]
-extensions = [".md", ".gen", ".smd", ".bin", ".zip", ".7z"]
+aliases = ["genesis", "md"]
+extensions = [".md", ".gen", ".smd", ".bin", ".zip", ".7z"]   # matched ignoring case
 emulator = "retroarch-genesis-plus-gx"
-alt_emulators = ["blastem"]
-game_model = "clamshell"             # built-in box template id
+alt_emulators = []
+game_model = "clamshell"             # built-in box template id; default "dvd_case"
 screenscraper_id = 1
 
 # user override
 [systems.megadrive]
-rom_dir = "E:/Sega/Mega Drive"       # default "{rom_root}/megadrive"
-emulator = "blastem"
+rom_dirs = ["E:/Sega/Mega Drive", "{rom_root}/genesis"]   # default: the first of {rom_root}/megadrive, /genesis, /md that exists
+recursive = true                     # default
+exclude = ["bios", "**/Unused/*"]    # globs against paths relative to a ROM folder; no '/' = any file or folder name
+emulator = "retroarch-mesen"
 
 [systems.mastersystem]
 enabled = false
 ```
+
+- `screenscraper_id` values were checked on 2026-09-28 against ScreenScraper's own system pages (`systemeinfos.php?plateforme=<id>`) and ES-DE's table. ScreenScraper's API documentation has no system table, and `systemesListe.php` needs developer credentials, so M4 re-checks them there.
+- Every config file may start with `format = 1`.
 
 ### Emulator profiles
 
@@ -454,9 +507,12 @@ Write `{{` or `}}` for a literal brace.
 
 - Tables merge recursively; scalars and arrays are replaced whole.
 - `enabled = false` switches off a built-in entry.
-- A new id must be complete, and any missing required keys are listed.
-- A TOML syntax error means the whole file is ignored, and its diagnostic is shown.
-- A semantic error disables only the offending entry.
+- A new id must be complete, and any missing required keys are listed. Required: `name`, `extensions` and `emulator` for a system; `name` and `executable` for an emulator.
+- Ids use lower-case letters, digits, `_` and `-`.
+- A TOML syntax error means the whole file is ignored, and its first diagnostic is shown.
+- A semantic error disables only the offending entry: a system or emulator is left out, with an info diagnostic saying so, and a bad setting falls back to its default. A system whose `emulator` is unknown, disabled or has errors is disabled; an unknown `alt_emulators` entry is only a warning.
+- Unknown keys are warnings, with "did you mean" for a key within two edits.
+- Every diagnostic has the file, line, column and dotted key: `user/systems.toml:3:1: error: systems.megadrive.emulator: unknown emulator 'blastemm' (did you mean 'blastem'?)`. Values from the defaults point at `built-in/<file>`.
 
 ### Secrets
 
@@ -591,3 +647,13 @@ The built-in templates are `dvd_case`, `jewel_case`, `tall_jewel_case`, `cartrid
 | 2026-09-27 | **Open risk:** the export templates have no BCn encoder (`Image.Compress` returns `Unavailable`). M4 picks an encoder: a package (needs approval), our own, or a GPU compute port. JPEG derivatives are the fallback. | Measured in the export (§2a). JPEG met every frame target at 4× the VRAM. |
 | 2026-09-27 | **Uploads:** pool textures are created at boot and only updated on the main thread (4 MB per frame). No texture is created on the main thread while browsing. 2 decode workers. | M1: a BC7 layer update takes 0.03 ms. Main-thread creation has 17–66 ms outliers. Creation on a worker doesn't stall the main thread, but blocks the worker for about 12 ms per call. 4 workers didn't help (§2d). |
 | 2026-09-27 | **Targets:** the hitch target is reworded as "no hitches caused by the launcher" (measured against a no-texture control, 0 frames over 2×, 0 hitches fullscreen). New targets: textured ≤ 100 ms, ≥ 99% textured while scrolling, working set ≤ 512 MB, pool ≤ 64 MB. Main-thread allocation ceiling: 4 KB per 60 s scroll. **These wait for the owner's sign-off.** | M1: a periodic present delay about every 5 s, outside our code, gives 0–2 hitches per 60 s run in windowed mode even with nothing streaming. The other targets were met with headroom. |
+| 2026-09-28 | Packages: Tomlyn 2.10.1 and Microsoft.Data.Sqlite 10.0.12 (with SQLitePCLRaw's bundled `e_sqlite3`), in Launcher.Core only. Both target net8.0. | Part of the decided stack; M2 adds them. Tomlyn 2.x reads TOML 1.1 only. |
+| 2026-09-28 | Config is mapped by hand from Tomlyn's syntax tree into a tree that keeps positions. No reflection mapping, no snapshot cache. | Diagnostics must name the file, line, column and key after merging, and only the syntax tree has positions. A warm load is 2 ms ([perf/m2-core.md](perf/m2-core.md)). |
+| 2026-09-28 | `Diagnostic` gains a `Key` (dotted path), and prints as `file:line:column: severity: key: message`. A syntax error reports only its first parser error. | Errors must name the key. Tomlyn's recovery reports follow-on errors that aren't real. |
+| 2026-09-28 | **Several ROM folders per system:** `rom_dirs` (an array) replaces `rom_dir`. `library.db` gets a `rom_dirs` table and `games.dir_id`. `path_key` stays unique per system across its folders; the earlier folder wins. | The owner asked for several folders per system. Keeping the folder out of the identity means moving ROMs between drives keeps their user data. |
+| 2026-09-28 | Multi-file games: `.cue` and `.gdi` hide their tracks, as `.m3u` hides its discs. Parsed playlists are cached in a `playlists` table keyed by size and mtime. Disc systems' default extensions leave out `.bin`. | The owner's grouping rules. The cache keeps an unchanged rescan from reading 1,578 playlists (65 ms with it, against 104 ms for the scanner alone without it). |
+| 2026-09-28 | File-name tags are stored in their own columns (`region`, `languages`, `revision`, `disc`, `tags`). The sort key is internal: lower-case, accent-free, leading The/A/An dropped, natural numbers, discs right after their game. `game_overrides` stores the override's sort key too. | Region and revision stay available for scraping and display. A stored key lets SQL sort the grid by plain binary comparison, with no collation or C# re-sort. |
+| 2026-09-28 | Readers come from our own pool, with `userdata.db` ATTACHed once and `PRAGMA query_only`, opened read-write rather than read-only. | Microsoft.Data.Sqlite's pool would keep ATTACHes and file handles we can't control during a rebuild swap. A read-only open of a WAL DB can fail when its `-shm` file doesn't exist yet. |
+| 2026-09-28 | Built-in emulator profiles use `{retroarch}` (default `C:/RetroArch-Win64`) and `{emulators}` (default `C:/Emulators`), defined in the default `settings.toml`. Their command lines haven't been launched yet; M3 checks them. | Every built-in system needs a valid emulator for config to validate. |
+| 2026-09-28 | A scan removes the games of a folder that's gone (an unplugged drive). User data stays. | `library.db` stays a pure function of config and disk, so a rebuild equals an incremental scan. |
+| 2026-09-28 | Scan benchmarks run in the normal `dotnet test`, in a non-parallel collection, with budgets at 2–3× the Debug measurements, capped by the M2 targets (ROADMAP.md M2 log). | They take about 12 s, mostly writing the 10,000 files, and catch regressions early. |

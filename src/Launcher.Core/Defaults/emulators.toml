@@ -1,0 +1,90 @@
+# Built-in emulator profiles. Your ConfigDir/emulators.toml layers over these; set {retroarch} and
+# {emulators} under [variables] in settings.toml to point at your installs.
+#
+# Each args entry becomes exactly one argument; there's no shell and no quoting. Launch placeholders:
+# {rom} {rom_dir} {rom_file} {rom_name} {system} {emulator_dir}. Write {{ or }} for a literal brace.
+# working_dir defaults to "{emulator_dir}". .bat and .cmd executables are rejected.
+#
+# These command lines haven't been launched yet: M3 checks each one against a real install.
+
+format = 1
+
+[emulators.retroarch-gambatte]
+name = "RetroArch: Gambatte"
+executable = "{retroarch}/retroarch.exe"
+args = ["-L", "{retroarch}/cores/gambatte_libretro.dll", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-mgba]
+name = "RetroArch: mGBA"
+executable = "{retroarch}/retroarch.exe"
+args = ["-L", "{retroarch}/cores/mgba_libretro.dll", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-mesen]
+name = "RetroArch: Mesen"
+executable = "{retroarch}/retroarch.exe"
+args = ["-L", "{retroarch}/cores/mesen_libretro.dll", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-fceumm]
+name = "RetroArch: FCEUmm"
+executable = "{retroarch}/retroarch.exe"
+args = ["-L", "{retroarch}/cores/fceumm_libretro.dll", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-snes9x]
+name = "RetroArch: Snes9x"
+executable = "{retroarch}/retroarch.exe"
+args = ["-L", "{retroarch}/cores/snes9x_libretro.dll", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-mupen64plus-next]
+name = "RetroArch: Mupen64Plus-Next"
+executable = "{retroarch}/retroarch.exe"
+args = ["-L", "{retroarch}/cores/mupen64plus_next_libretro.dll", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-dolphin]
+name = "RetroArch: Dolphin"
+executable = "{retroarch}/retroarch.exe"
+args = ["-L", "{retroarch}/cores/dolphin_libretro.dll", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-genesis-plus-gx]
+name = "RetroArch: Genesis Plus GX"
+executable = "{retroarch}/retroarch.exe"
+args = ["-L", "{retroarch}/cores/genesis_plus_gx_libretro.dll", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-beetle-saturn]
+name = "RetroArch: Beetle Saturn"
+executable = "{retroarch}/retroarch.exe"
+args = ["-L", "{retroarch}/cores/mednafen_saturn_libretro.dll", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-flycast]
+name = "RetroArch: Flycast"
+executable = "{retroarch}/retroarch.exe"
+args = ["-L", "{retroarch}/cores/flycast_libretro.dll", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-beetle-psx-hw]
+name = "RetroArch: Beetle PSX HW"
+executable = "{retroarch}/retroarch.exe"
+args = ["-L", "{retroarch}/cores/mednafen_psx_hw_libretro.dll", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-swanstation]
+name = "RetroArch: SwanStation"
+executable = "{retroarch}/retroarch.exe"
+args = ["-L", "{retroarch}/cores/swanstation_libretro.dll", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-ppsspp]
+name = "RetroArch: PPSSPP"
+executable = "{retroarch}/retroarch.exe"
+args = ["-L", "{retroarch}/cores/ppsspp_libretro.dll", "--fullscreen", "{rom}"]
+
+[emulators.dolphin]
+name = "Dolphin"
+executable = "{emulators}/Dolphin/Dolphin.exe"
+args = ["-b", "-e", "{rom}"]
+
+[emulators.pcsx2]
+name = "PCSX2"
+executable = "{emulators}/PCSX2/pcsx2-qt.exe"
+args = ["-batch", "-fullscreen", "--", "{rom}"]
+
+[emulators.ppsspp]
+name = "PPSSPP"
+executable = "{emulators}/PPSSPP/PPSSPPWindows64.exe"
+args = ["--fullscreen", "{rom}"]

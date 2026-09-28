@@ -1,0 +1,161 @@
+# Built-in systems. Your ConfigDir/systems.toml only needs what you change, for example:
+#
+#   [systems.megadrive]
+#   rom_dirs = ["E:/Sega/Mega Drive", "F:/More Mega Drive"]   # default: {rom_root}/megadrive, then each alias
+#   emulator = "blastem"
+#
+#   [systems.mastersystem]
+#   enabled = false
+#
+# Ids follow ES-DE and RetroBat folder names, so existing collections work without moving files.
+# Aliases are tried as default folder names too.
+#
+# screenscraper_id: checked on 2026-09-28 against ScreenScraper's own system pages
+# (https://www.screenscraper.fr/systemeinfos.php?plateforme=<id>, whose header names the system),
+# and cross-checked with ES-DE's ScreenScraper platform table. ScreenScraper's API documentation
+# (webapi2.php) has no system table; the full list comes from systemesListe.php, which needs developer
+# credentials, so it hasn't been read. M4 re-checks the ids against it.
+#
+# Extensions: .m3u, .cue and .gdi group multi-file games, and the files they reference are hidden.
+# Disc systems leave out .bin, so stray tracks never show as games.
+
+format = 1
+
+[systems.gb]
+name = "Game Boy"
+manufacturer = "Nintendo"
+year = 1989
+extensions = [".gb", ".sgb", ".zip", ".7z"]
+emulator = "retroarch-gambatte"
+alt_emulators = ["retroarch-mgba"]
+game_model = "cartridge_box"
+screenscraper_id = 9
+
+[systems.gbc]
+name = "Game Boy Color"
+manufacturer = "Nintendo"
+year = 1998
+extensions = [".gbc", ".cgb", ".zip", ".7z"]
+emulator = "retroarch-gambatte"
+alt_emulators = ["retroarch-mgba"]
+game_model = "cartridge_box"
+screenscraper_id = 10
+
+[systems.gba]
+name = "Game Boy Advance"
+manufacturer = "Nintendo"
+year = 2001
+extensions = [".gba", ".zip", ".7z"]
+emulator = "retroarch-mgba"
+game_model = "cartridge_box"
+screenscraper_id = 12
+
+[systems.nes]
+name = "Nintendo Entertainment System"
+manufacturer = "Nintendo"
+year = 1983
+aliases = ["famicom"]
+extensions = [".nes", ".unf", ".unif", ".zip", ".7z"]
+emulator = "retroarch-mesen"
+alt_emulators = ["retroarch-fceumm"]
+game_model = "cartridge_box"
+screenscraper_id = 3
+
+[systems.snes]
+name = "Super Nintendo Entertainment System"
+manufacturer = "Nintendo"
+year = 1990
+aliases = ["sfc", "superfamicom"]
+extensions = [".sfc", ".smc", ".swc", ".fig", ".bs", ".zip", ".7z"]
+emulator = "retroarch-snes9x"
+game_model = "cartridge_box"
+screenscraper_id = 4
+
+[systems.n64]
+name = "Nintendo 64"
+manufacturer = "Nintendo"
+year = 1996
+extensions = [".z64", ".n64", ".v64", ".zip", ".7z"]
+emulator = "retroarch-mupen64plus-next"
+game_model = "cartridge_box"
+screenscraper_id = 14
+
+[systems.gc]
+name = "GameCube"
+manufacturer = "Nintendo"
+year = 2001
+aliases = ["gamecube"]
+extensions = [".iso", ".gcm", ".gcz", ".rvz", ".ciso"]
+emulator = "dolphin"
+alt_emulators = ["retroarch-dolphin"]
+game_model = "dvd_case"
+screenscraper_id = 13
+
+[systems.mastersystem]
+name = "Master System"
+manufacturer = "Sega"
+year = 1986
+aliases = ["sms"]
+extensions = [".sms", ".zip", ".7z"]
+emulator = "retroarch-genesis-plus-gx"
+game_model = "clamshell"
+screenscraper_id = 2
+
+[systems.megadrive]
+name = "Mega Drive"
+manufacturer = "Sega"
+year = 1988
+aliases = ["genesis", "md"]
+extensions = [".md", ".gen", ".smd", ".bin", ".zip", ".7z"]
+emulator = "retroarch-genesis-plus-gx"
+game_model = "clamshell"
+screenscraper_id = 1
+
+[systems.saturn]
+name = "Saturn"
+manufacturer = "Sega"
+year = 1994
+extensions = [".cue", ".chd", ".ccd", ".m3u"]
+emulator = "retroarch-beetle-saturn"
+game_model = "tall_jewel_case"
+screenscraper_id = 22
+
+[systems.dreamcast]
+name = "Dreamcast"
+manufacturer = "Sega"
+year = 1998
+aliases = ["dc"]
+extensions = [".gdi", ".chd", ".cdi", ".cue", ".m3u"]
+emulator = "retroarch-flycast"
+game_model = "jewel_case"
+screenscraper_id = 23
+
+[systems.psx]
+name = "PlayStation"
+manufacturer = "Sony"
+year = 1994
+aliases = ["ps1"]
+extensions = [".cue", ".chd", ".pbp", ".ccd", ".m3u"]
+emulator = "retroarch-beetle-psx-hw"
+alt_emulators = ["retroarch-swanstation"]
+game_model = "jewel_case"
+screenscraper_id = 57
+
+[systems.ps2]
+name = "PlayStation 2"
+manufacturer = "Sony"
+year = 2000
+extensions = [".iso", ".chd", ".cso", ".zso", ".gz", ".cue"]
+emulator = "pcsx2"
+game_model = "dvd_case"
+screenscraper_id = 58
+
+[systems.psp]
+name = "PlayStation Portable"
+manufacturer = "Sony"
+year = 2004
+extensions = [".iso", ".cso", ".pbp", ".chd"]
+emulator = "retroarch-ppsspp"
+alt_emulators = ["ppsspp"]
+game_model = "dvd_case"
+screenscraper_id = 61

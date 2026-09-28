@@ -12,14 +12,19 @@ A fully 3D game launcher frontend (systems grid → games grid → emulator), st
 | `src/Launcher.Core/` | Plain .NET class library: config, DBs, scanning, scraping, launching, platform, diagnostics. **No Godot reference.** |
 | `tests/Launcher.Core.Tests/` | xUnit v3 tests for Core. |
 | `godot/` | The Godot project. `OdysseyLauncher.csproj` references Core. C# scripts live in `godot/src/`, in namespace `Launcher.App`. |
+| `src/Launcher.Core/Defaults/` | The built-in `settings.toml`, `systems.toml` and `emulators.toml`, embedded in Core. |
+| `src/Launcher.Core/Data/Migrations/` | Numbered SQL migrations for `library.db` and `userdata.db`, embedded in Core. |
 | `tools/verify.ps1` | Runs every non-windowed check. |
+| `tools/core-bench/` | Times Core's config, scan and query paths on self-contained .NET 8 (the export's runtime). Not in the solution. |
 
 ## Commands (PowerShell, repo root)
 
 | Command | Does |
 |---|---|
 | `dotnet build` | Builds the whole solution (`OdysseyLauncher.slnx`). |
-| `dotnet test` | Runs the tests on Microsoft.Testing.Platform (selected in `global.json`). |
+| `dotnet test` | Runs the tests on Microsoft.Testing.Platform (selected in `global.json`), including the scan benchmarks (about 12 s; they run alone, after the parallel tests). |
+| `.\tests\Launcher.Core.Tests\bin\Debug\net8.0\Launcher.Core.Tests.exe -trait "Category=Benchmark" -showLiveOutput` | Runs only the benchmarks and prints their timings. |
+| `dotnet publish tools/core-bench -c ExportRelease -o artifacts/core-bench` then `artifacts/core-bench/core-bench.exe $PWD/artifacts/core-bench-work` | Core timings on the export's runtime. **Use this for any Core number you compare with a target** (results in `docs/perf/m2-core.md`). |
 | `godot --headless --path godot --build-solutions --quit` | Godot's own C# build. Exits 1 if it fails. |
 | `godot --headless --path godot --import` | Imports assets and generates the `.uid` and `.import` files. Commit those files. |
 | `godot --headless --path godot --quit-after 10` | Smoke run. Prints the `Launcher.Core ...` line. |

@@ -1,0 +1,21 @@
+# Built-in settings. Your ConfigDir/settings.toml only needs the values you want to change.
+format = 1
+
+[paths]
+# Each system's ROMs default to {rom_root}/<system id>, e.g. {rom_root}/megadrive.
+rom_root = "{home}/ROMs"
+
+[variables]
+# Expanded when config loads. Values may use {home} and other variables.
+# The built-in emulator profiles use these; point them at your installs.
+retroarch = "C:/RetroArch-Win64"
+emulators = "C:/Emulators"
+
+[display]
+theme = "memory-card"
+fullscreen = true
+
+[scraping]
+regions = ["eu", "wor", "us", "jp"]    # first available wins
+languages = ["en"]
+cover_sources = ["screenscraper", "steamgriddb"]
