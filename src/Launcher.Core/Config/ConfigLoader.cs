@@ -25,12 +25,13 @@ public sealed class ConfigLoader : IConfigLoader
 
     public static IReadOnlyList<string> Scrapers { get; } = ["screenscraper", "steamgriddb"];
 
-    private static readonly string[] SettingsRootKeys = ["format", "paths", "variables", "display", "scraping"];
+    private static readonly string[] SettingsRootKeys = ["format", "paths", "scanning", "variables", "display", "scraping"];
     private static readonly string[] SystemsRootKeys = ["format", "systems"];
     private static readonly string[] EmulatorsRootKeys = ["format", "emulators"];
     private static readonly string[] PathsKeys = ["rom_root"];
     private static readonly string[] DisplayKeys = ["theme", "fullscreen"];
     private static readonly string[] ScrapingKeys = ["regions", "languages", "cover_sources"];
+    private static readonly string[] ScanningKeys = ["exclude"];
 
     private static readonly string[] SystemKeys =
     [
@@ -56,6 +57,7 @@ public sealed class ConfigLoader : IConfigLoader
         private readonly List<TemplatePart> _parts = [];
         private TomlTableNode? _rawVariables;
         private string _romRoot = string.Empty;
+        private List<string> _globalExcludes = [];
 
         public ConfigLoadResult Execute()
         {
@@ -183,11 +185,20 @@ public sealed class ConfigLoader : IConfigLoader
                 WarnUnknownKeys(scraping, "scraping", ScrapingKeys);
             }
 
+            var scanning = SubTable(tree, "scanning", "scanning");
+            if (scanning is not null)
+            {
+                WarnUnknownKeys(scanning, "scanning", ScanningKeys);
+            }
+
             var theme = SettingString(tree, defaults, "display", "theme")?.Value ?? "memory-card";
             var fullscreen = SettingBool(tree, defaults, "display", "fullscreen") ?? true;
             var regions = SettingStrings(tree, defaults, "scraping", "regions", null) ?? [];
             var languages = SettingStrings(tree, defaults, "scraping", "languages", null) ?? [];
-            var coverSources = SettingStrings(tree, defaults, "scraping", "cover_sources", Scrapers) ?? [];
+            var coverSources = SettingStrings(tree, defaults, "scraping", "cover_sources",
+                value => Scrapers.Contains(value) ? null : $"unknown value '{value}'{Suggest(value, Scrapers)}") ?? [];
+            _globalExcludes = SettingStrings(tree, defaults, "scanning", "exclude",
+                value => GlobPattern.Validate(value) is { } problem ? $"'{value}': {problem}" : null) ?? [];
 
             var variables = new Dictionary<string, string>(StringComparer.Ordinal);
             foreach (var (name, value) in _variables)
@@ -203,7 +214,8 @@ public sealed class ConfigLoader : IConfigLoader
                 _romRoot,
                 variables,
                 new DisplaySettings(theme, fullscreen),
-                new ScrapingSettings(regions, languages, coverSources));
+                new ScrapingSettings(regions, languages, coverSources),
+                new ScanningSettings(_globalExcludes));
         }
 
         private readonly record struct Located(string Value, TomlNode Node);
@@ -248,8 +260,9 @@ public sealed class ConfigLoader : IConfigLoader
             return null;
         }
 
+        /// <param name="check">Returns an error message for a bad item, or null. Any bad item falls back to the default list.</param>
         private List<string>? SettingStrings(
-            TomlTableNode tree, TomlTableNode defaults, string section, string key, IReadOnlyList<string>? allowed)
+            TomlTableNode tree, TomlTableNode defaults, string section, string key, Func<string, string?>? check)
         {
             foreach (var source in (ReadOnlySpan<TomlTableNode>)[tree, defaults])
             {
@@ -264,15 +277,14 @@ public sealed class ConfigLoader : IConfigLoader
                     continue;
                 }
 
-                if (allowed is not null)
+                if (check is not null)
                 {
                     var bad = false;
-                    for (var i = 0; i < values.Count; i++)
+                    foreach (var value in values)
                     {
-                        if (!allowed.Contains(values[i]))
+                        if (check(value) is { } problem)
                         {
-                            Error(node, $"{section}.{key}",
-                                $"unknown value '{values[i]}'{Suggest(values[i], allowed)}. Using the default");
+                            Error(node, $"{section}.{key}", problem + ". Using the default");
                             bad = true;
                         }
                     }
@@ -759,7 +771,8 @@ public sealed class ConfigLoader : IConfigLoader
                     }
                 }
 
-                var exclude = new List<string>();
+                // scanning.exclude from settings.toml applies to every system, before the system's own patterns.
+                var exclude = new List<string>(_globalExcludes);
                 if (entry.TryGet("exclude", out var excludeNode) && StringArray(excludeNode, prefix + ".exclude", string.Empty) is { } rawExclude)
                 {
                     foreach (var pattern in rawExclude)
@@ -768,7 +781,7 @@ public sealed class ConfigLoader : IConfigLoader
                         {
                             Error(excludeNode, prefix + ".exclude", $"'{pattern}': {globError}");
                         }
-                        else
+                        else if (!exclude.Contains(pattern, StringComparer.OrdinalIgnoreCase))
                         {
                             exclude.Add(pattern);
                         }

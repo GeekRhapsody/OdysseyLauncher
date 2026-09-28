@@ -29,7 +29,11 @@ public sealed record Settings(
     string RomRoot,
     IReadOnlyDictionary<string, string> Variables,
     DisplaySettings Display,
-    ScrapingSettings Scraping);
+    ScrapingSettings Scraping,
+    ScanningSettings Scanning);
+
+/// <param name="Exclude">Glob patterns applied to every system; already folded into each <see cref="SystemConfig.Exclude"/>.</param>
+public sealed record ScanningSettings(IReadOnlyList<string> Exclude);
 
 public sealed record DisplaySettings(string Theme, bool Fullscreen);
 
@@ -53,7 +57,10 @@ public enum RomDirSource
 /// <summary>A <c>[systems.&lt;id&gt;]</c> entry.</summary>
 /// <param name="Extensions">Lower-case, each starting with '.'.</param>
 /// <param name="RomDirs">Absolute folders; see <see cref="RomDirSource"/>.</param>
-/// <param name="Exclude">Glob patterns matched against paths relative to a ROM folder.</param>
+/// <param name="Exclude">
+/// The effective glob patterns, matched against paths relative to a ROM folder: <c>scanning.exclude</c>
+/// from settings.toml, then the system's own <c>exclude</c>.
+/// </param>
 public sealed record SystemConfig(
     string Id,
     string Name,

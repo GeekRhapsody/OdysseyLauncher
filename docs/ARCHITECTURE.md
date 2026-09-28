@@ -31,7 +31,7 @@ OdysseyLauncher/
 |---|---|
 | `Config` | `ConfigLoader` loads TOML (Tomlyn), layering user files over built-in defaults (embedded resources). <br>Maps Tomlyn's syntax tree by hand into a tree that keeps every key's position, so diagnostics still point at the right file after merging (M2). <br>Merges recursively; scalars and arrays are replaced. <br>Validates, with file:line:column:key diagnostics; unknown keys get a "did you mean" warning. <br>Parsers take text plus a source name, so the app can feed `res://` files from the PCK. <br>From M7, writes go through Tomlyn's syntax tree, so comments survive. |
 | `Data` | `LibraryDatabase` and `UserDatabase` (create, migrate, back up), `MigrationRunner`, and the connection helpers. <br>**Microsoft.Data.Sqlite's async API is synchronous**, so reads run on the thread pool, and writes go through one dedicated writer thread (`DbWriter`). <br>Readers come from our own pool (`ReaderPool`), not Microsoft.Data.Sqlite's: each has `userdata.db` ATTACHed once and is `query_only`, and the pool can be closed and held back while a rebuilt library file is swapped in. <br>Every connection sets WAL, `foreign_keys=ON`, `synchronous=NORMAL` and `busy_timeout`. |
-| `Scanning` | `RomScanner` walks a system's ROM folders by file name (extensions, recursion, excludes). Several folders per system are allowed; the first folder wins a `path_key` collision. <br>Multi-file games: files referenced by an `.m3u`, `.cue` or `.gdi` are hidden. Parsed playlists are cached in `library.db` by size and mtime, so a rescan doesn't re-read them. <br>`TitleParser` turns No-Intro and Redump names into a display title and a sort key, keeping region, languages, revision, disc and other tags as separate fields. <br>Normalises paths to `rel_path` and `path_key`. <br>Later (M4, M6): also index user override files (models, media), so nothing is probed per item at runtime. |
+| `Scanning` | `RomScanner` walks a system's ROM folders by file name (extensions, recursion, excludes). Several folders per system are allowed; the first folder wins a `path_key` collision. <br>Folders are listed with a 256 KB buffer, and `LibraryService` scans 8 systems at once on dedicated threads, because a network share costs a round trip per listing refill. Excluded folders (by default ES-DE's `images`, `manuals` and `videos`) aren't listed at all. <br>Multi-file games: files referenced by an `.m3u`, `.cue` or `.gdi` are hidden. Parsed playlists are cached in `library.db` by size and mtime, so a rescan doesn't re-read them. <br>`TitleParser` turns No-Intro and Redump names into a display title and a sort key, keeping region, languages, revision, disc and other tags as separate fields. <br>Normalises paths to `rel_path` and `path_key`. <br>Later (M4, M6): also index user override files (models, media), so nothing is probed per item at runtime. |
 | `Scraping` | `IScraper` for ScreenScraper and SteamGridDB. <br>Handles quotas and rate limits, and match resolution. <br>Saves raw responses with credentials stripped. |
 | `Media` | `MediaStore`: deterministic paths, atomic writes (temp file then rename), and image dimensions read from headers only. |
 | `Models` | `ModelInspector` validates a `.glb` against the A7 spec by reading only the GLB JSON chunk and the image headers. It has no Godot dependency. |
@@ -415,6 +415,11 @@ format = 1
 [paths]
 rom_root = "D:/ROMs"                 # default "{home}/ROMs"
 
+[scanning]
+# Applied to every system, before its own `exclude`. Default: ES-DE's media folders and gamelists.
+# Setting a list replaces the default; [] turns it off.
+exclude = ["images", "manuals", "videos", "gamelist.xml"]
+
 [variables]                          # expanded at config load; may use {home} and each other (cycles are errors)
 retroarch = "C:/Emulators/RetroArch" # built-in defaults: retroarch = "C:/RetroArch-Win64", emulators = "C:/Emulators"
 
@@ -449,7 +454,7 @@ screenscraper_id = 1
 [systems.megadrive]
 rom_dirs = ["E:/Sega/Mega Drive", "{rom_root}/genesis"]   # default: the first of {rom_root}/megadrive, /genesis, /md that exists
 recursive = true                     # default
-exclude = ["bios", "**/Unused/*"]    # globs against paths relative to a ROM folder; no '/' = any file or folder name
+exclude = ["bios", "**/Unused/*"]    # added to [scanning] exclude; globs against paths relative to a ROM folder; no '/' = any file or folder name
 emulator = "retroarch-mesen"
 
 [systems.mastersystem]
@@ -657,3 +662,5 @@ The built-in templates are `dvd_case`, `jewel_case`, `tall_jewel_case`, `cartrid
 | 2026-09-28 | Built-in emulator profiles use `{retroarch}` (default `C:/RetroArch-Win64`) and `{emulators}` (default `C:/Emulators`), defined in the default `settings.toml`. Their command lines haven't been launched yet; M3 checks them. | Every built-in system needs a valid emulator for config to validate. |
 | 2026-09-28 | A scan removes the games of a folder that's gone (an unplugged drive). User data stays. | `library.db` stays a pure function of config and disk, so a rebuild equals an incremental scan. |
 | 2026-09-28 | Scan benchmarks run in the normal `dotnet test`, in a non-parallel collection, with budgets at 2–3× the Debug measurements, capped by the M2 targets (ROADMAP.md M2 log). | They take about 12 s, mostly writing the 10,000 files, and catch regressions early. |
+| 2026-09-28 | **Network shares:** folders are listed with a 256 KB buffer (not .NET's 4 KB), and systems are scanned 8 at once on dedicated threads. | On a NAS over SMB, an unchanged rescan of 9,422 games took 13.6 s, almost all of it listing folders. The buffer halves the round trips, and parallel systems hide the latency. Locally it costs nothing ([perf/m2-core.md](perf/m2-core.md#network-share-added-2026-09-28)). Dedicated threads, because blocking a dozen thread-pool threads on I/O would stall other work while the pool grows. |
+| 2026-09-28 | **Scan exclusions are configurable:** `[scanning] exclude` in `settings.toml` applies to every system, before each system's own `exclude`. The default is `["images", "manuals", "videos", "gamelist.xml"]`. | The owner asked for a configurable list rather than hard-coded folders. ES-DE keeps media inside each system folder: on the NAS, those were 83% of the entries listed. With the three changes, an unchanged rescan there takes 1.4 s. |

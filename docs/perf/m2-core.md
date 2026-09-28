@@ -68,3 +68,52 @@ There's no gain from net10.0 for Core: this work is file-system and SQLite bound
 
 - SQLite's native load **inside Godot**, in an editor run and in an export. The self-contained console above does load `e_sqlite3.dll` from the publish folder, as an export would, but Godot's export layout isn't tested until the app uses Core (M5).
 - The M1 boot target with real config and DB loading, and the 20-system `boot` bench scenario. Both need the Godot app (M5).
+
+## Network share (added 2026-09-28)
+
+A real library on a NAS, reached as a mapped network drive over SMB. The 14 built-in systems point at its folders with `rom_dirs`. Read-only: nothing on the share was changed, so there's no "1% changed" run. The DBs were local.
+
+- **Library:** 9,422 games. The trees hold 56,185 entries in about 105 folders; 46,530 of the entries are ES-DE media files in `images`, `videos` and `manuals` folders inside each system folder.
+- **Timing:** optimised .NET 8 build. Rescans are timed after a 15 s pause, so Windows' SMB directory cache (about 10 s) has expired; pausing made no difference.
+
+### Before: the M2 scanner
+
+| Operation | Time |
+|---|---|
+| Full scan, first touch of the day (NAS cache cold) | 59.3 s |
+| Full scan, repeated | 14.0–14.5 s |
+| Rescan, nothing changed | 12.7–13.9 s |
+| Rescan, media folders excluded | 3.4–3.5 s |
+
+Nearly all of it is listing folders: a bare listing of the same trees took 12.5–13.6 s, about 0.25 ms per entry. The database work is negligible.
+
+Plain listings of the 56,185 entries showed where the time goes:
+
+| Listing | Time |
+|---|---|
+| 4 KB buffer (.NET's default), one system at a time | 12.5–13.6 s |
+| 16 KB / 64 KB / 256 KB / 1 MB buffer | 6.7–7.0 / 7.2–7.5 / 5.6–5.7 / 7.0–7.3 s |
+| 4 KB buffer, 4 / 14 systems at once | 5.0–5.1 / 5.3–5.5 s |
+| 256 KB buffer, 14 systems at once | 4.1–4.3 s |
+
+A 4 KB buffer holds about 20 entries at ROM-name lengths, and each refill is a network round trip. The floor of about 4 s looks like the NAS itself.
+
+### After: 256 KB listing buffer, parallel systems, default exclusions
+
+`RomScanner` lists with a 256 KB buffer, `LibraryService` scans 8 systems at once on dedicated threads, and `settings.toml` excludes `images`, `manuals`, `videos` and `gamelist.xml` by default (`[scanning] exclude`).
+
+| Rescan, nothing changed | 1 at once | 4 at once | 8 at once | 14 at once |
+|---|---|---|---|---|
+| Exclusions off | 8.0 s | 5.3 s | 5.2 s | 5.1 s |
+| Exclusions on (the defaults) | 2.9 s | 1.5 s | **1.4 s** | 1.4 s |
+
+| Full scan into an empty library, exclusions on | Time |
+|---|---|
+| 1 at once | 3.7–4.7 s |
+| 8 at once | **1.8–2.2 s** |
+
+Overall, an unchanged rescan dropped from 13.6 s to 1.4 s, and a full scan from 14.4 s to 1.9 s. A scan on the first touch after the NAS has been idle wasn't re-measured: its cold metadata reads are on the NAS side and will still take longer.
+
+Locally, the same changes cost nothing. On the 10,000-file tree, ExportRelease .NET 8: full scan 222–234 ms (was 275–281), rescan with nothing changed 70 ms (was 65–71), rebuild 208–212 ms (was 237–249).
+
+Excluding a folder saves its whole listing. Excluding a file by name (`gamelist.xml`) only drops it after it's listed, so it saves no network time; it's there so such files never count as games.

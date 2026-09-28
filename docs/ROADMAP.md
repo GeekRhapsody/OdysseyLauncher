@@ -272,3 +272,10 @@ Update this at the end of every milestone: the status, the date, and the evidenc
     | Config load, warm | 10 ms | 0.6–2.8 ms |
 
   - **Moved** (see M2 above): the boot target with real config and DB, SQLite's native load inside Godot, the 20-system `boot` scenario and the Godot-side net10.0 comparison to M5; override indexing to M4 (art) and M6 (models).
+- **2026-09-28: network-share scans** (after M2 closed).
+  - **Measured:** a real 9,422-game library on a NAS over SMB. The M2 scanner took 14.4 s for a full scan and 13.6 s for an unchanged rescan (59 s on the first touch of the day), almost all of it listing folders.
+  - **Changed:**
+    - `RomScanner` lists with a 256 KB buffer.
+    - `LibraryService` scans 8 systems at once.
+    - New `[scanning] exclude` setting, applied to every system; default `["images", "manuals", "videos", "gamelist.xml"]`.
+  - **Results:** on the NAS, an unchanged rescan takes 1.4 s and a full scan 1.9 s. Local scans are unchanged or slightly faster (full scan 222–234 ms). 142 tests pass. There are no network targets yet; details are in [perf/m2-core.md](perf/m2-core.md#network-share-added-2026-09-28).

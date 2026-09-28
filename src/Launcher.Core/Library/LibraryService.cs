@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime.ExceptionServices;
 using Launcher.Core.Config;
 using Launcher.Core.Data;
 using Launcher.Core.Scanning;
@@ -45,6 +46,15 @@ public sealed class LibraryService : ILibrary, IDisposable
 
     /// <summary>Why library.db was recreated, if it was.</summary>
     public string? RecreatedBecause { get; }
+
+    /// <summary>How many systems are scanned at once (each on its own thread).</summary>
+    public int ScanParallelism { get; set; } = DefaultScanParallelism;
+
+    /// <summary>
+    /// On a NAS, an unchanged rescan of 14 systems took 2.9 s one at a time, 1.5 s with 4 at once, and 1.4 s
+    /// with 8 or 14 (docs/perf/m2-core.md). Local scans neither gain nor lose.
+    /// </summary>
+    public const int DefaultScanParallelism = 8;
 
     /// <summary>Config for the next query or scan. Takes effect at once; rescan to apply new ROM folders.</summary>
     public AppConfig Config
@@ -228,20 +238,63 @@ public sealed class LibraryService : ILibrary, IDisposable
         _jobLock.Dispose();
     }
 
+    /// <summary>
+    /// Scans systems in parallel on dedicated threads. Scanning is latency-bound on network shares (every
+    /// listing refill is a round trip), and blocking that many thread-pool threads would starve the pool.
+    /// Results keep config order, so the writes and diagnostics don't depend on timing.
+    /// </summary>
     private List<SystemScan> Scan(
         IReadOnlyList<SystemConfig> systems,
         IReadOnlyList<Dictionary<string, PlaylistEntry>>? caches,
         IProgress<JobProgress>? progress,
         CancellationToken cancellationToken)
     {
-        var scans = new List<SystemScan>(systems.Count);
-        for (var i = 0; i < systems.Count; i++)
+        var count = systems.Count;
+        var results = new SystemScan[count];
+        var next = -1;
+        var done = 0;
+        Exception? failure = null;
+        progress?.Report(new JobProgress("scan", 0, count));
+
+        void Work()
         {
-            progress?.Report(new JobProgress("scan", i, systems.Count));
-            scans.Add(_scanner.Scan(systems[i], caches?[i], cancellationToken));
+            while (Volatile.Read(ref failure) is null)
+            {
+                var i = Interlocked.Increment(ref next);
+                if (i >= count)
+                {
+                    return;
+                }
+
+                try
+                {
+                    results[i] = _scanner.Scan(systems[i], caches?[i], cancellationToken);
+                    progress?.Report(new JobProgress("scan", Interlocked.Increment(ref done), count));
+                }
+                catch (Exception e)
+                {
+                    Interlocked.CompareExchange(ref failure, e, null);
+                }
+            }
         }
 
-        progress?.Report(new JobProgress("scan", systems.Count, systems.Count));
-        return scans;
+        var threads = new Thread[Math.Clamp(ScanParallelism, 1, Math.Max(count, 1))];
+        for (var t = 0; t < threads.Length; t++)
+        {
+            threads[t] = new Thread(Work) { IsBackground = true, Name = "ROM scan" };
+            threads[t].Start();
+        }
+
+        foreach (var thread in threads)
+        {
+            thread.Join();
+        }
+
+        if (failure is not null)
+        {
+            ExceptionDispatchInfo.Throw(failure);
+        }
+
+        return [.. results];
     }
 }

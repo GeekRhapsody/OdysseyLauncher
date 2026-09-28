@@ -27,11 +27,18 @@ public sealed record SystemScan(
 /// <summary>
 /// Walks a system's ROM folders by file name only: extensions, recursion and excludes from config.
 /// Multi-file games are grouped: files referenced by an <c>.m3u</c>, <c>.cue</c> or <c>.gdi</c> are hidden.
-/// Does file I/O: run it on the thread pool.
+/// Does file I/O: never call it on the main thread. It holds no state, so systems can be scanned in parallel.
 /// </summary>
 public sealed class RomScanner
 {
     private const int MaxDepth = 32;
+
+    /// <summary>
+    /// Directory-listing buffer. .NET's default (4 KB) holds about 20 entries at ROM-name lengths, and on an
+    /// SMB share every refill is a network round trip. 256 KB halved a listing of 56,000 entries on a NAS
+    /// (13.3 s to 5.5 s; docs/perf/m2-core.md) and costs nothing locally.
+    /// </summary>
+    public const int ListingBufferBytes = 256 * 1024;
 
     /// <param name="playlistCache">Playlists from the previous scan, by <c>path_key</c>. An entry is reused when size and mtime match.</param>
     public SystemScan Scan(
@@ -153,6 +160,7 @@ public sealed class RomScanner
             AttributesToSkip = FileAttributes.System,
             MaxRecursionDepth = MaxDepth,
             ReturnSpecialDirectories = false,
+            BufferSize = ListingBufferBytes,
         };
 
         var enumerable = new FileSystemEnumerable<ScannedFile>(

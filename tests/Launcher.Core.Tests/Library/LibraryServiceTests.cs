@@ -192,6 +192,64 @@ public sealed class LibraryServiceTests : IAsyncLifetime
         Assert.Equal("snes", command.ExecuteScalar());
     }
 
+    [Fact]
+    public async Task Parallel_scans_give_the_same_library_and_diagnostics_in_config_order()
+    {
+        // Every system gets games and a missing second folder, so each scan reports one warning.
+        var systems = new StringBuilder();
+        foreach (var (id, extension) in (IEnumerable<(string, string)>)
+            [("gb", ".gb"), ("nes", ".nes"), ("snes", ".sfc"), ("n64", ".z64"), ("megadrive", ".md"), ("psx", ".chd"), ("ps2", ".iso"), ("psp", ".cso")])
+        {
+            for (var i = 0; i < 20; i++)
+            {
+                _dir.File($"ROMs/{id}/Game {i} (USA){extension}");
+            }
+
+            systems.Append(CultureInfo.InvariantCulture, $"[systems.{id}]\nrom_dirs = ['{_dir.Combine("ROMs", id)}', '{_dir.Combine("missing", id)}']\n");
+        }
+
+        _library.Config = LoadConfig(systems.ToString());
+        _library.ScanParallelism = 1;
+        var sequential = await _library.RescanAsync(null, null, Ct);
+        var sequentialDump = Dump();
+
+        _library.ScanParallelism = 8;
+        var reports = new List<JobProgress>();
+        var parallel = await _library.RebuildAsync(new SynchronousProgress(reports), Ct);
+
+        Assert.Equal(sequentialDump, Dump());
+        Assert.Equal(sequential.Diagnostics.Select(d => d.Key), parallel.Diagnostics.Select(d => d.Key));
+        Assert.Equal(
+            ["systems.gb.rom_dirs", "systems.nes.rom_dirs", "systems.snes.rom_dirs", "systems.n64.rom_dirs"],
+            parallel.Diagnostics.Take(4).Select(d => d.Key));
+        Assert.Equal(160, parallel.Added);
+        // 0, then one report per finished system, each count once (all 14 built-in systems are enabled).
+        Assert.Equal(Enumerable.Range(0, 15), reports.Where(r => r.Phase == "scan").Select(r => r.Done).Order());
+    }
+
+    [Fact]
+    public async Task A_cancelled_scan_throws_and_writes_nothing()
+    {
+        Rom("snes/A.sfc");
+        using var cancel = new CancellationTokenSource();
+        await cancel.CancelAsync();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => _library.RescanAsync(null, null, cancel.Token));
+
+        Assert.Empty(await Titles("snes"));
+    }
+
+    private sealed class SynchronousProgress(List<JobProgress> reports) : IProgress<JobProgress>
+    {
+        public void Report(JobProgress value)
+        {
+            lock (reports)
+            {
+                reports.Add(value);
+            }
+        }
+    }
+
     // ---- User data in the grid queries ---------------------------------------------------------
 
     [Fact]

@@ -146,6 +146,66 @@ public class ConfigLoaderTests
     }
 
     [Fact]
+    public void Scanning_exclusions_default_to_ES_DE_media_folders_and_gamelists_for_every_system()
+    {
+        var config = Load().Config;
+
+        string[] defaults = ["images", "manuals", "videos", "gamelist.xml"];
+        Assert.Equal(defaults, config.Settings.Scanning.Exclude);
+        Assert.All(config.Systems, system => Assert.Equal(defaults, system.Exclude));
+    }
+
+    [Fact]
+    public void A_user_exclusion_list_replaces_the_default_and_a_system_adds_its_own()
+    {
+        var result = Load(
+            settings: """
+                [scanning]
+                exclude = ["media", "*.txt"]
+                """,
+            systems: """
+                [systems.psx]
+                exclude = ["bios", "MEDIA"]
+                """);
+
+        Assert.Empty(result.Diagnostics);
+        Assert.Equal(["media", "*.txt"], result.Config.Settings.Scanning.Exclude);
+        Assert.Equal(["media", "*.txt", "bios"], result.Config.FindSystem("psx")!.Exclude);
+        Assert.Equal(["media", "*.txt"], result.Config.FindSystem("snes")!.Exclude);
+    }
+
+    [Fact]
+    public void An_empty_exclusion_list_turns_the_defaults_off()
+    {
+        var config = Load(settings: "[scanning]\nexclude = []\n").Config;
+
+        Assert.Empty(config.FindSystem("gb")!.Exclude);
+    }
+
+    [Fact]
+    public void A_bad_exclusion_pattern_is_an_error_and_the_defaults_are_used()
+    {
+        var result = Load(settings: """
+            [scanning]
+            exclude = ["images", "media\\art"]
+            """);
+
+        var error = Single(result, Severity.Error);
+        Assert.Equal("scanning.exclude", error.Key);
+        Assert.Equal(2, error.Line);
+        Assert.Contains("use '/' to separate folders", error.Message, StringComparison.Ordinal);
+        Assert.Equal(["images", "manuals", "videos", "gamelist.xml"], result.Config.Settings.Scanning.Exclude);
+    }
+
+    [Fact]
+    public void An_unknown_scanning_key_is_a_warning()
+    {
+        var warning = Single(Load(settings: "[scanning]\nexclude_dirs = []\n"), Severity.Warning);
+
+        Assert.Equal("scanning.exclude_dirs", warning.Key);
+    }
+
+    [Fact]
     public void Enabled_false_switches_off_a_built_in_system()
     {
         var result = Load(systems: """

@@ -57,6 +57,26 @@ public sealed class RomScannerTests : IDisposable
     }
 
     [Fact]
+    public void The_default_exclusions_skip_media_folders_and_gamelists_at_any_depth()
+    {
+        _dir.File("psx/Game.chd");
+        _dir.File("psx/images/Game-image.chd");
+        _dir.File("psx/Videos/Game.chd");
+        _dir.File("psx/manuals/Game.xml");
+        _dir.File("psx/Multi Disc/manuals/Game.chd");
+        _dir.File("psx/Multi Disc/Game (Disc 1).chd");
+        _dir.File("psx/gamelist.xml");
+        _dir.File("psx/other.xml");
+        _dir.File("psx/images.chd");
+
+        var scan = new RomScanner().Scan(
+            System([".chd", ".xml"], exclude: ["images", "manuals", "videos", "gamelist.xml"]), null, TestContext.Current.CancellationToken);
+
+        // "images" is a folder name here; the file images.chd has a different name, so it's kept.
+        Assert.Equal(["Game.chd", "Multi Disc/Game (Disc 1).chd", "images.chd", "other.xml"], Games(scan));
+    }
+
+    [Fact]
     public void An_m3u_represents_its_discs_and_hides_them()
     {
         _dir.File("psx/Final Fantasy VII (USA).m3u", "#EXTM3U\r\n.discs/FF7 (Disc 1).chd\r\n.discs/FF7 (Disc 2).chd\n\n.discs\\FF7 (Disc 3).chd\n");

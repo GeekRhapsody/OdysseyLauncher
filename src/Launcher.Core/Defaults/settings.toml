@@ -5,6 +5,12 @@ format = 1
 # Each system's ROMs default to {rom_root}/<system id>, e.g. {rom_root}/megadrive.
 rom_root = "{home}/ROMs"
 
+[scanning]
+# Skipped in every system's ROM folders, before each system's own `exclude`. Patterns without '/' match a
+# file or folder name at any depth; an excluded folder isn't listed at all, which matters most on network
+# shares. The defaults skip ES-DE's per-system media folders and gamelist files. Set your own list to replace it.
+exclude = ["images", "manuals", "videos", "gamelist.xml"]
+
 [variables]
 # Expanded when config loads. Values may use {home} and other variables.
 # The built-in emulator profiles use these; point them at your installs.
