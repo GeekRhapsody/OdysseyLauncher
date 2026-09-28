@@ -11,10 +11,13 @@ A fully 3D game launcher frontend (systems grid → games grid → emulator), st
 |---|---|
 | `src/Launcher.Core/` | Plain .NET class library: config, DBs, scanning, scraping, launching, platform, diagnostics. **No Godot reference.** |
 | `tests/Launcher.Core.Tests/` | xUnit v3 tests for Core. |
+| `tests/FakeEmulator/` | A console app the launch tests run as a stand-in emulator. It logs its arguments, sleeps, exits with a chosen code, and can act as a stub launcher (options in its `Program.cs`). |
 | `godot/` | The Godot project. `OdysseyLauncher.csproj` references Core. C# scripts live in `godot/src/`, in namespace `Launcher.App`. |
 | `src/Launcher.Core/Defaults/` | The built-in `settings.toml`, `systems.toml` and `emulators.toml`, embedded in Core. |
 | `src/Launcher.Core/Data/Migrations/` | Numbered SQL migrations for `library.db` and `userdata.db`, embedded in Core. |
 | `tools/verify.ps1` | Runs every non-windowed check. |
+| `tools/launch-smoke.ps1` | Runs the app with `--launch` against the fake emulator, in an isolated user folder. |
+| `docs/manual-tests.md` | Checks a script can't observe (window focus with a real emulator). |
 | `tools/core-bench/` | Times Core's config, scan and query paths on self-contained .NET 8 (the export's runtime). Not in the solution. |
 
 ## Commands (PowerShell, repo root)
@@ -28,6 +31,7 @@ A fully 3D game launcher frontend (systems grid → games grid → emulator), st
 | `godot --headless --path godot --build-solutions --quit` | Godot's own C# build. Exits 1 if it fails. |
 | `godot --headless --path godot --import` | Imports assets and generates the `.uid` and `.import` files. Commit those files. |
 | `godot --headless --path godot --quit-after 10` | Smoke run. Prints the `Launcher.Core ...` line. |
+| `.\tools\launch-smoke.ps1` | Headless `--launch` of the fake emulator; checks the exit code, arguments and working folder. `-Windowed` shows the window, `-SleepMs` sets the play time, and `-Executable artifacts/export/windows/OdysseyLauncher.exe` runs the export. Needs `dotnet build` first. |
 | `.\tools\verify.ps1` | All of the above, in order. |
 | `godot --path godot` | Runs the app windowed. Use `godot --path godot -e` for the editor. |
 | `godot --headless --path godot --export-release "Windows Desktop" $PWD/artifacts/export/windows/OdysseyLauncher.exe` | Exports an ExportRelease build (the preset is in `godot/export_presets.cfg`). |
@@ -51,6 +55,11 @@ godot --path godot --resolution 1280x800 -- --bench=$PWD/artifacts/bench.json --
   - `frames`: mean, p50, p95, p99, max, `hitch_count` (over 1.5× the refresh interval) and the worst frames.
   - `render_ms`: render CPU and GPU times.
   - `gc`: GC activity, including `main_thread_allocated_bytes`.
+- **`--launch=<system>/<rel path>`** launches that game once the app is interactive, scanning the system first if the game isn't in the library. It works headless too.
+  - **`--user-dir=<folder>`** keeps config, data and cache in that folder (the portable layout), instead of AppData.
+  - **`--quit-after-launch`** quits once the game has ended: exit code 0 if it ran, 1 if the launch failed.
+  - The log lines start with `Launch`, including the exact command line, how the launcher minimised, and how it got the foreground back.
+  - **Don't run a windowed `--launch` of a real emulator yourself:** it minimises the app and takes the foreground back from the owner's desktop (possibly with a synthetic Alt key). That's the owner's manual test.
 - User arguments go after `--`. Use `++` instead if a shell swallows `--`.
 - **Paths must be absolute.** With `--path`, Godot changes the working directory into `godot/`, and a PNG saved there would be imported as an asset. `artifacts/` is gitignored.
 - Use `--fixed-fps 60` for captures, so animation is deterministic. **Never** use it with `--bench`.

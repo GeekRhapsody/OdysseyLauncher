@@ -78,15 +78,20 @@ public sealed record SystemConfig(
     IReadOnlyList<string> Exclude);
 
 /// <summary>An <c>[emulators.&lt;id&gt;]</c> entry.</summary>
-/// <param name="Executable">Expanded path, with no placeholders left.</param>
+/// <param name="Executable">Expanded absolute path, with no placeholders left.</param>
 /// <param name="Args">Templates: config variables are expanded, launch placeholders remain (A5).</param>
 /// <param name="WorkingDir">Template, like <paramref name="Args"/>.</param>
+/// <param name="Core">
+/// Expanded absolute path of a RetroArch core (or any plug-in the emulator loads), which <c>{core}</c> expands to.
+/// Null when the profile has none, and then no template uses <c>{core}</c>.
+/// </param>
 public sealed record EmulatorConfig(
     string Id,
     string Name,
     string Executable,
     IReadOnlyList<string> Args,
-    string WorkingDir);
+    string WorkingDir,
+    string? Core = null);
 
 public sealed record ConfigLoadResult(AppConfig Config, IReadOnlyList<Diagnostic> Diagnostics)
 {

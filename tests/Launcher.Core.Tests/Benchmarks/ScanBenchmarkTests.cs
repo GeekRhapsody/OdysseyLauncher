@@ -203,7 +203,11 @@ public sealed class ScanBenchmarkTests : IDisposable
             var stopwatch = Stopwatch.StartNew();
             var result = loader.Load(sources);
             times.Add(stopwatch.Elapsed.TotalMilliseconds);
-            Assert.Empty(result.Diagnostics);
+
+            // The timing includes the install check, as boot does. The default paths needn't exist on this machine.
+            Assert.All(result.Diagnostics, d => Assert.True(
+                d.Severity == Severity.Warning && (d.Key.EndsWith(".executable", StringComparison.Ordinal) || d.Key.EndsWith(".core", StringComparison.Ordinal)),
+                d.ToString()));
         }
 
         Report(string.Create(CultureInfo.InvariantCulture,

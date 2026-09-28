@@ -146,19 +146,36 @@ internal static class LibraryStore
         return rows;
     }
 
+    private const string GameDetailsSql = """
+        SELECT g.system_id, g.path_key, d.path, g.rel_path, COALESCE(o.title, g.title), g.region, g.languages,
+               g.revision, g.disc, g.tags, g.size_bytes, f.added_at IS NOT NULL, COALESCE(o.hidden, 0), o.title,
+               o.emulator, g.game_id
+        FROM games g
+        JOIN rom_dirs d ON d.dir_id = g.dir_id
+        LEFT JOIN user.game_overrides o ON o.system_id = g.system_id AND o.path_key = g.path_key
+        LEFT JOIN user.favourites f ON f.system_id = g.system_id AND f.path_key = g.path_key
+        """;
+
     public static GameDetails? GetGame(SqliteConnection connection, long gameId)
     {
         using var command = connection.CreateCommand();
-        command.CommandText = """
-            SELECT g.system_id, g.path_key, d.path, g.rel_path, COALESCE(o.title, g.title), g.region, g.languages,
-                   g.revision, g.disc, g.tags, g.size_bytes, f.added_at IS NOT NULL, COALESCE(o.hidden, 0), o.title
-            FROM games g
-            JOIN rom_dirs d ON d.dir_id = g.dir_id
-            LEFT JOIN user.game_overrides o ON o.system_id = g.system_id AND o.path_key = g.path_key
-            LEFT JOIN user.favourites f ON f.system_id = g.system_id AND f.path_key = g.path_key
-            WHERE g.game_id = $id
-            """;
+        command.CommandText = GameDetailsSql + " WHERE g.game_id = $id";
         command.Parameters.AddWithValue("$id", gameId);
+        return ReadGame(command);
+    }
+
+    /// <summary>Uses the <c>UNIQUE (system_id, path_key)</c> index.</summary>
+    public static GameDetails? GetGame(SqliteConnection connection, GameKey key)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = GameDetailsSql + " WHERE g.system_id = $system AND g.path_key = $key";
+        command.Parameters.AddWithValue("$system", key.SystemId);
+        command.Parameters.AddWithValue("$key", key.PathKey);
+        return ReadGame(command);
+    }
+
+    private static GameDetails? ReadGame(SqliteCommand command)
+    {
         using var reader = command.ExecuteReader();
         if (!reader.Read())
         {
@@ -169,7 +186,7 @@ internal static class LibraryStore
         var relPath = reader.GetString(3);
         return new GameDetails(
             new GameKey(reader.GetString(0), reader.GetString(1)),
-            gameId,
+            reader.GetInt64(15),
             romDir,
             relPath,
             Path.GetFullPath(Path.Combine(romDir, relPath.Replace('/', Path.DirectorySeparatorChar))),
@@ -182,7 +199,26 @@ internal static class LibraryStore
             reader.GetInt64(10),
             reader.GetBoolean(11),
             reader.GetInt64(12) != 0,
-            NullableString(reader, 13));
+            NullableString(reader, 13),
+            NullableString(reader, 14));
+    }
+
+    public static PlayStats? GetPlayStats(SqliteConnection connection, GameKey game)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT play_count, total_seconds, last_played_at FROM user.play_stats
+            WHERE system_id = $system AND path_key = $key
+            """;
+        command.Parameters.AddWithValue("$system", game.SystemId);
+        command.Parameters.AddWithValue("$key", game.PathKey);
+        using var reader = command.ExecuteReader();
+        return reader.Read()
+            ? new PlayStats(
+                reader.GetInt32(0),
+                TimeSpan.FromSeconds(reader.GetInt64(1)),
+                reader.IsDBNull(2) ? null : DateTimeOffset.FromUnixTimeMilliseconds(reader.GetInt64(2)))
+            : null;
     }
 
     private static string? NullableString(SqliteDataReader reader, int ordinal) =>
@@ -228,6 +264,109 @@ internal static class LibraryStore
         command.Parameters.AddWithValue("$system", game.SystemId);
         command.Parameters.AddWithValue("$key", game.PathKey);
         command.Parameters.AddWithValue("$hidden", hidden ? 1 : 0);
+        command.ExecuteNonQuery();
+    }
+
+    public static void SetEmulatorOverride(SqliteConnection connection, GameKey game, string? emulator)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            INSERT INTO user.game_overrides (system_id, path_key, emulator) VALUES ($system, $key, $emulator)
+            ON CONFLICT (system_id, path_key) DO UPDATE SET emulator = excluded.emulator
+            """;
+        command.Parameters.AddWithValue("$system", game.SystemId);
+        command.Parameters.AddWithValue("$key", game.PathKey);
+        command.Parameters.AddWithValue("$emulator", (object?)emulator ?? DBNull.Value);
+        command.ExecuteNonQuery();
+    }
+
+    // ---- Play history ----------------------------------------------------------------------------
+
+    public static long BeginSession(SqliteConnection connection, GameKey game, string emulator, long startedAtMs)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            INSERT INTO user.play_sessions (system_id, path_key, emulator, started_at) VALUES ($system, $key, $emulator, $started)
+            RETURNING session_id
+            """;
+        command.Parameters.AddWithValue("$system", game.SystemId);
+        command.Parameters.AddWithValue("$key", game.PathKey);
+        command.Parameters.AddWithValue("$emulator", emulator);
+        command.Parameters.AddWithValue("$started", startedAtMs);
+        return (long)command.ExecuteScalar()!;
+    }
+
+    public static void EndSession(SqliteConnection connection, PlaySessionEnd end)
+    {
+        var endedAt = end.StartedAt.ToUnixTimeMilliseconds() + (long)end.Duration.TotalMilliseconds;
+        using var transaction = connection.BeginTransaction();
+        using (var close = connection.CreateCommand())
+        {
+            close.Transaction = transaction;
+            close.CommandText = "UPDATE user.play_sessions SET ended_at = $ended, exit_code = $code WHERE session_id = $id";
+            close.Parameters.AddWithValue("$id", end.SessionId);
+            close.Parameters.AddWithValue("$ended", endedAt);
+            close.Parameters.AddWithValue("$code", (object?)end.ExitCode ?? DBNull.Value);
+            close.ExecuteNonQuery();
+        }
+
+        if (end.CountAsPlay)
+        {
+            AddPlay(connection, transaction, end.Game, (long)Math.Round(end.Duration.TotalSeconds, MidpointRounding.AwayFromZero), endedAt);
+        }
+
+        transaction.Commit();
+    }
+
+    /// <summary>
+    /// Sessions still open were left by a launcher that died while a game ran (A4). How long the game ran isn't
+    /// known, so each is closed at its start time: it counts as a play, with no play time.
+    /// </summary>
+    public static int CloseOrphanedSessions(SqliteConnection connection)
+    {
+        using var transaction = connection.BeginTransaction();
+        var open = new List<(long Id, GameKey Game, long StartedAt)>();
+        using (var select = connection.CreateCommand())
+        {
+            select.Transaction = transaction;
+            select.CommandText = "SELECT session_id, system_id, path_key, started_at FROM user.play_sessions WHERE ended_at IS NULL";
+            using var reader = select.ExecuteReader();
+            while (reader.Read())
+            {
+                open.Add((reader.GetInt64(0), new GameKey(reader.GetString(1), reader.GetString(2)), reader.GetInt64(3)));
+            }
+        }
+
+        foreach (var (id, game, startedAt) in open)
+        {
+            using var close = connection.CreateCommand();
+            close.Transaction = transaction;
+            close.CommandText = "UPDATE user.play_sessions SET ended_at = started_at WHERE session_id = $id";
+            close.Parameters.AddWithValue("$id", id);
+            close.ExecuteNonQuery();
+            AddPlay(connection, transaction, game, 0, startedAt);
+        }
+
+        transaction.Commit();
+        return open.Count;
+    }
+
+    private static void AddPlay(SqliteConnection connection, SqliteTransaction transaction, GameKey game, long seconds, long playedAtMs)
+    {
+        using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = """
+            INSERT INTO user.play_stats (system_id, path_key, play_count, total_seconds, last_played_at)
+            VALUES ($system, $key, 1, $seconds, $played)
+            ON CONFLICT (system_id, path_key) DO UPDATE SET
+                play_count = play_count + 1,
+                total_seconds = total_seconds + excluded.total_seconds,
+                last_played_at = MAX(COALESCE(last_played_at, 0), excluded.last_played_at)
+            """;
+        command.Parameters.AddWithValue("$system", game.SystemId);
+        command.Parameters.AddWithValue("$key", game.PathKey);
+        command.Parameters.AddWithValue("$seconds", seconds);
+        command.Parameters.AddWithValue("$played", playedAtMs);
         command.ExecuteNonQuery();
     }
 

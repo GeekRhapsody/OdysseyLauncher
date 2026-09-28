@@ -35,9 +35,9 @@ OdysseyLauncher/
 | `Scraping` | `IScraper` for ScreenScraper and SteamGridDB. <br>Handles quotas and rate limits, and match resolution. <br>Saves raw responses with credentials stripped. |
 | `Media` | `MediaStore`: deterministic paths, atomic writes (temp file then rename), and image dimensions read from headers only. |
 | `Models` | `ModelInspector` validates a `.glb` against the A7 spec by reading only the GLB JSON chunk and the image headers. It has no Godot dependency. |
-| `Launching` | `LaunchPlanner` is pure: it resolves the emulator profile and expands the template into an argument list. <br>`LaunchService` runs the plan and records the play session. |
+| `Launching` | `LaunchPlanner` is pure and static: it picks the emulator (this launch's choice, then the game's override, then the system's) and expands its templates into a final argument list (A5). A named emulator that isn't configured is an error, never a silent fallback. <br>`LaunchService` checks the ROM, executable, core and working folder exist, runs the plan through `IProcessRunner`, and records the play session through `IPlayHistory`. One game at a time. <br>Events, raised on worker threads: `Starting`, `Running` (process id), then exactly one of `Exited` (exit code, duration) or `Failed` (a reason written for the user). A non-zero exit within 5 s is `Failed`, and isn't counted as a play. Cancelling ends the game's whole process tree. (M3) |
 | `Library` | `LibraryService`, the façade the app uses: systems summary (boot), games list (on entry), the Favourites and Recently played lists, favourites and overrides, and rescan and rebuild jobs with progress (scrape jobs from M4). Scans and rebuilds run one at a time; each writes in one transaction. |
-| `Platform` | The only OS-specific code. <br>Interfaces: `IPlatformPaths`, `IProcessRunner`, `IWindowFocus`. <br>Windows implementations use P/Invoke to user32 and kernel32; Linux comes later. |
+| `Platform` | The only OS-specific code. <br>Interfaces: `IPlatformPaths`, `IProcessRunner`, `IWindowFocus`; `PlatformServices` picks the implementations. <br>**Windows** (`Platform/Windows`, `LibraryImport` to kernel32 and user32): <br>- `WindowsProcessRunner` creates the emulator inside a new job object (`PROC_THREAD_ATTRIBUTE_JOB_LIST`) with `CreateProcessW`, and the game has ended when the job has no processes, so stub launchers are followed. A dedicated thread waits on the job's completion port, and also asks the job every second, because Windows doesn't guarantee job messages. The job doesn't kill the game if the launcher dies, allows explicit breakaway, and no handles are inherited. <br>- `WindowsCommandLine` quotes each argument by the C runtime's rules, since Windows passes one UTF-16 string. <br>- `WindowsWindowFocus`: see Platform glue below. <br>**Linux stub:** `PortableProcessRunner` (`Process` with `ArgumentList`; follows the started process only) and `NullWindowFocus`. |
 | `Diagnostics` | Debug-argument parser, `StartupTimeline`, `FrameTimeStats`, `BenchReport` (System.Text.Json source generation), and a minimal `ILog` that redacts secrets. |
 
 Every `await` in Core uses `ConfigureAwait(false)`. Analyser rule CA2007 is an error in `src/`.
@@ -53,7 +53,7 @@ Every `await` in Core uses `ConfigureAwait(false)`. Analyser rule CA2007 is an e
 | `Textures` | `TextureStreamer`: prioritised, cancellable requests (one per pool cell); 2 dedicated decode workers; mandatory baked derivatives (BC7 DDS, 512² with mips); pool textures created at boot and only updated while browsing; a per-frame upload budget; an LRU memory budget; and an opaque placeholder-to-cover fade. |
 | `Theming` | Four-corner gradient on a background canvas layer (`Environment` background mode Canvas). <br>Three `DirectionalLight3D` children of the camera, plus an ambient colour. <br>Cross-fades between per-system looks. |
 | `Diagnostics` | `DebugHooks` autoload (`--capture`, `--bench`), timeline marks, and a log sink that writes to Godot's output and a file. |
-| Platform glue | A main-thread queue with a per-frame time budget. <br>Hands the native window handle to `IWindowFocus`. <br>While an emulator runs: `RenderLoopEnabled = false`, textures are evicted and input is ignored until focus returns. |
+| Platform glue | A main-thread queue with a per-frame time budget. <br>`Launching/LaunchController` (M3), built on first use, not at boot. `LaunchService` events reach it through `CallDeferred`. <br>- **Starting:** `RenderLoopEnabled = false`, low-processor mode with `Engine.MaxFps = 10`, the tree paused (no animation or processing), the master bus muted, and input swallowed. From M5, textures are evicted too. <br>- **Running:** `IWindowFocus.BeforeLaunch` lets any process take the foreground (`AllowSetForegroundWindow(ASFW_ANY)`, withdrawn by Windows at the next keyboard or mouse input), because a stub launcher's real emulator is a grandchild. A 4 Hz timer waits until another process's window is in front (or 10 s), then minimises the launcher with `SW_SHOWMINNOACTIVE`, so nothing unrelated is activated in between. <br>- **Exited or Failed:** game mode is undone, then `AfterExit` restores the window and takes the foreground: restore and `SetForegroundWindow`; then the same with the foreground window's input queue attached; then with a synthetic Alt key held (Windows lifts its lock after keyboard input); otherwise the taskbar button flashes. System settings (the foreground lock timeout) are never changed. Input stays swallowed until 500 ms after focus returns, so the button that quit the emulator doesn't act in the launcher. <br>- Input processing is on only while input is swallowed: an always-on `_Input` allocated about 1.9 KB per frame, because the Deck sends joypad motion all the time ([perf/m3-launching.md](perf/m3-launching.md)). M5's input router must also honour `IsInputBlocked`. |
 
 ## A2. Key interfaces (sketch)
 
@@ -65,12 +65,20 @@ public interface IPlatformPaths {
     string CacheDir { get; }    // regenerable without network: textures/, models/
     string HomeDir { get; }
 }
-public interface IProcessRunner {   // Windows: child created inside a job object; completes when the job has no processes left
-    Task<ProcessOutcome> RunAsync(LaunchPlan plan, CancellationToken ct);
+public interface IProcessRunner {   // Windows: child created inside a job object
+    IRunningProcess Start(LaunchPlan plan);                        // blocking; throws ProcessStartException (message for the user)
 }
-public interface IWindowFocus {
-    void BeforeLaunch(nint launcherWindow, int childProcessId);   // AllowSetForegroundWindow, minimise
-    void AfterExit(nint launcherWindow);                           // restore and take foreground back
+public interface IRunningProcess : IDisposable {
+    int ProcessId { get; }
+    Task<ProcessOutcome> Completion { get; }                       // Windows: when the job has no processes left
+    void Terminate();                                              // the whole tree
+}
+public readonly record struct ProcessOutcome(int ExitCode, TimeSpan Elapsed, bool Terminated);
+public interface IWindowFocus {                                    // on the window's thread; no I/O
+    void BeforeLaunch(nint launcherWindow, int childProcessId);   // let the emulator (and its children) take the foreground
+    bool HasLostForeground(nint launcherWindow);                   // another process's window is in front
+    void Minimise(nint launcherWindow);                            // without activating anything
+    ForegroundResult AfterExit(nint launcherWindow);               // restore and take the foreground back
 }
 
 // Launcher.Core.Config
@@ -88,11 +96,18 @@ public interface ILibrary {
     Task<IReadOnlyList<VirtualGameRow>> GetFavouritesAsync(CancellationToken ct);
     Task<IReadOnlyList<VirtualGameRow>> GetRecentlyPlayedAsync(int limit, CancellationToken ct);
     Task<GameDetails?> GetGameAsync(long gameId, CancellationToken ct);         // the focused item and launching
+    Task<GameDetails?> GetGameAsync(GameKey game, CancellationToken ct);        // --launch, virtual systems
     Task SetFavouriteAsync(GameKey game, bool favourite, CancellationToken ct);
+    Task SetEmulatorOverrideAsync(GameKey game, string? emulatorId, CancellationToken ct);   // null = the system's
     Task SetTitleOverrideAsync(GameKey game, string? title, CancellationToken ct);
     Task SetHiddenAsync(GameKey game, bool hidden, CancellationToken ct);
     Task<ScanSummary> RescanAsync(string? systemId, IProgress<JobProgress>? progress, CancellationToken ct);
     Task<ScanSummary> RebuildAsync(IProgress<JobProgress>? progress, CancellationToken ct);   // new library.db from disk, no network, swapped in atomically
+}
+public interface IPlayHistory {                                                  // LibraryService implements it
+    Task<long> BeginSessionAsync(GameKey game, string emulatorId, DateTimeOffset startedAt, CancellationToken ct);
+    Task EndSessionAsync(PlaySessionEnd end, CancellationToken ct);             // closes the session and updates play_stats, in one transaction
+    Task<PlayStats?> GetPlayStatsAsync(GameKey game, CancellationToken ct);
 }
 
 // Launcher.Core.Scraping
@@ -109,8 +124,18 @@ public interface IMediaStore {
 }
 
 // Launcher.Core.Launching
-public sealed record LaunchPlan(string Executable, IReadOnlyList<string> Arguments, string WorkingDirectory);
-public interface ILaunchPlanner { LaunchPlanResult Plan(GameKey game, string? emulatorOverride); }   // pure, unit-tested
+public sealed record LaunchPlan(string EmulatorId, string EmulatorName, string Executable,
+    IReadOnlyList<string> Arguments, string WorkingDirectory, string? Core);    // arguments final and unquoted
+public static class LaunchPlanner {                                             // pure, unit-tested
+    public static LaunchPlanResult Plan(AppConfig config, GameDetails game, string? emulatorOverride = null);
+}
+public sealed class LaunchService {                                             // one game at a time
+    event EventHandler<LaunchStartingEventArgs> Starting;                       // plan made, files exist
+    event EventHandler<LaunchRunningEventArgs> Running;                         // process id
+    event EventHandler<LaunchExitedEventArgs> Exited;                           // exit code, duration
+    event EventHandler<LaunchFailedEventArgs> Failed;                           // reason for the user
+    Task<LaunchOutcome> LaunchAsync(GameDetails game, string? emulatorOverride, CancellationToken ct);
+}
 
 // Launcher.App.Textures (Godot side)
 public interface ITextureStreamer {
@@ -232,7 +257,7 @@ Everything else waits until after `interactive`, and nothing is scanned at boot.
 - Partly done: the 4K render scale. Measured at 2560×1440 only; 3840×2160 and FSR1 are later (M5).
 - Later (M5): ReadyToRun, and the export shader baker.
 - Done (M2): config parse → hand mapping from Tomlyn's syntax tree, the only API that keeps key positions. A warm load of the three default files takes 2 ms; the first load in a process takes about 50 ms, nearly all JIT. No snapshot cache ([perf/m2-core.md](perf/m2-core.md)).
-- Partly done (M2): Microsoft.Data.Sqlite's native load. In a self-contained .NET 8 console, the first `LibraryService.OpenAsync` takes about 120 ms, including creating both DBs. Inside Godot (editor run and export): later (M5).
+- Partly done (M2): Microsoft.Data.Sqlite's native load. In a self-contained .NET 8 console, the first `LibraryService.OpenAsync` takes about 120 ms, including creating both DBs. Inside Godot, M3's `--launch` smoke test shows it loads in both the editor run and the export; timing it there is later (M5).
 - Later (M6): runtime `.glb` conversion on a worker thread.
 - Partly done (M2): a net10.0 comparison build. For Core it's no faster (full scan 304 ms against 274 ms). The Godot-side comparison is later (M5). Adopting it needs the owner's approval.
 - Later (M5): PresentMon, to explain the periodic present delay, if the owner is happy to install it.
@@ -383,6 +408,12 @@ CREATE TABLE game_overrides (system_id TEXT NOT NULL, path_key TEXT NOT NULL,
                              PRIMARY KEY (system_id, path_key)) STRICT, WITHOUT ROWID;
 ```
 
+**Play history (M3).**
+- A session row is written when the emulator has started, with `ended_at` NULL.
+- When the game ends, one transaction closes it (`ended_at` = start + the duration measured on a monotonic clock, `exit_code`) and adds to `play_stats`: `play_count` + 1, `total_seconds` + the duration rounded to the nearest second, and `last_played_at` = the session's end.
+- A failed launch (a non-zero exit within 5 s) keeps its session row with its exit code, but doesn't change `play_stats`.
+- Opening the library closes sessions a crashed launcher left open, at their start time. Each counts as a play with no play time, because how long the game ran isn't known.
+
 ### Grid queries
 
 Each selects only what a cell draws: game id, effective title, cover path and root, and the favourite flag.
@@ -472,7 +503,8 @@ Built-in profiles ship in `Defaults/emulators.toml`, using variables like `{retr
 [emulators.retroarch-genesis-plus-gx]
 name = "RetroArch: Genesis Plus GX"
 executable = "{retroarch}/retroarch.exe"
-args = ["-L", "{retroarch}/cores/genesis_plus_gx_libretro.dll", "--fullscreen", "{rom}"]
+core = "{retroarch}/cores/genesis_plus_gx_libretro.dll"   # a path, like executable; {core} expands to it
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
 
 [emulators.blastem]
 name = "BlastEm"
@@ -481,6 +513,9 @@ args = ["-f", "--rom={rom}"]         # placeholders can sit anywhere inside an e
 working_dir = "{emulator_dir}"       # default
 ```
 
+- A game launches with, in order: an emulator chosen for that launch, the game's own override (`game_overrides.emulator` in `userdata.db`), or the system's `emulator`. Any configured profile can be chosen, not only the system's `alt_emulators`. An override naming a profile that's gone is a launch error that says where it was named.
+- The built-in RetroArch core file names and `pcsx2-qt.exe` were checked against a RetroBat install (2026-09-28). The flags follow each emulator's documentation; a launch with each real emulator is still to do (M3 log).
+
 ### Launch placeholders (expanded at launch time)
 
 | Placeholder | Expands to |
@@ -488,19 +523,22 @@ working_dir = "{emulator_dir}"       # default
 | `{rom}` | Absolute ROM path, with native separators. |
 | `{rom_dir}` | The folder containing the ROM. |
 | `{rom_file}` | The ROM's file name. |
-| `{rom_name}` | The ROM's file name without its extension. |
+| `{rom_stem}` | The ROM's file name without its extension. |
 | `{system}` | The system id. |
+| `{emulator}` | The expanded `executable`. |
 | `{emulator_dir}` | The folder of the expanded `executable`. |
+| `{core}` | The profile's expanded `core`. Using it in a profile without one is a validation error. |
 | `{home}`, `{rom_root}`, `{<variable>}` | Resolved already at config load. |
 
 Write `{{` or `}}` for a literal brace.
 
 ### Expansion rules
 
-- Each `args` entry becomes exactly one argument (`ProcessStartInfo.ArgumentList`). There's no shell and no hand-quoting.
+- Each `args` entry becomes exactly one argument. There's no shell, and users never quote anything.
+- **Quoting is the runner's job.** Windows passes a process one UTF-16 command line, so `WindowsCommandLine` quotes each argument by the Microsoft C runtime's rules (the ones `CommandLineToArgvW` and emulators' `main` use): an argument with a space, tab, newline or `"`, or an empty one, is wrapped in quotes; backslashes before a `"` are doubled and the quote escaped. Spaces, `&`, `%`, `^`, braces and any non-ASCII text arrive intact, because there's no cmd.exe and the command line is UTF-16 end to end (`CreateProcessW`). The Linux stub uses `ProcessStartInfo.ArgumentList`.
 - Expansion is single-pass, so a ROM named `{x}.zip` stays literal.
-- An unknown placeholder is a validation error.
-- **`.bat` and `.cmd` executables are rejected.** cmd.exe re-parses their arguments, so a name like "Sonic & Knuckles" would break or inject commands. M3 may add an explicitly escaped mode.
+- An unknown placeholder is a validation error, and an argument with a NUL character is a launch error.
+- **`.bat` and `.cmd` executables are rejected.** cmd.exe re-parses their arguments, so a name like "Sonic & Knuckles" would break or inject commands.
 
 ### Paths in config
 
@@ -517,6 +555,8 @@ Write `{{` or `}}` for a literal brace.
 - A TOML syntax error means the whole file is ignored, and its first diagnostic is shown.
 - A semantic error disables only the offending entry: a system or emulator is left out, with an info diagnostic saying so, and a bad setting falls back to its default. A system whose `emulator` is unknown, disabled or has errors is disabled; an unknown `alt_emulators` entry is only a warning.
 - Unknown keys are warnings, with "did you mean" for a key within two edits.
+- **Installs are checked at load (M3).** For every emulator an enabled system uses (as its `emulator` or in `alt_emulators`), a missing `executable`, or else a missing `core`, is a **warning** that names the systems affected: `emulators.retroarch-genesis-plus-gx.executable: the executable 'C:\RetroArch-Win64\retroarch.exe' doesn't exist, so Master System (mastersystem) and Mega Drive (megadrive) can't launch games (it's their emulator)...`. The systems stay enabled, so an unplugged drive doesn't empty the library, and launching reports the same problem. Emulators no system uses aren't checked, and each path is checked once. `ConfigSources.FileExists = null` turns the check off.
+- A `core` that no `args` entry uses as `{core}` is a warning.
 - Every diagnostic has the file, line, column and dotted key: `user/systems.toml:3:1: error: systems.megadrive.emulator: unknown emulator 'blastemm' (did you mean 'blastem'?)`. Values from the defaults point at `built-in/<file>`.
 
 ### Secrets
@@ -664,3 +704,12 @@ The built-in templates are `dvd_case`, `jewel_case`, `tall_jewel_case`, `cartrid
 | 2026-09-28 | Scan benchmarks run in the normal `dotnet test`, in a non-parallel collection, with budgets at 2–3× the Debug measurements, capped by the M2 targets (ROADMAP.md M2 log). | They take about 12 s, mostly writing the 10,000 files, and catch regressions early. |
 | 2026-09-28 | **Network shares:** folders are listed with a 256 KB buffer (not .NET's 4 KB), and systems are scanned 8 at once on dedicated threads. | On a NAS over SMB, an unchanged rescan of 9,422 games took 13.6 s, almost all of it listing folders. The buffer halves the round trips, and parallel systems hide the latency. Locally it costs nothing ([perf/m2-core.md](perf/m2-core.md#network-share-added-2026-09-28)). Dedicated threads, because blocking a dozen thread-pool threads on I/O would stall other work while the pool grows. |
 | 2026-09-28 | **Scan exclusions are configurable:** `[scanning] exclude` in `settings.toml` applies to every system, before each system's own `exclude`. The default is `["images", "manuals", "videos", "gamelist.xml"]`. | The owner asked for a configurable list rather than hard-coded folders. ES-DE keeps media inside each system folder: on the NAS, those were 83% of the entries listed. With the three changes, an unchanged rescan there takes 1.4 s. |
+| 2026-09-28 | **Launch placeholders (M3):** `{rom_name}` is renamed `{rom_stem}`, and `{emulator}` and `{core}` are added. A profile's RetroArch core is its own `core` key (a path, expanded like `executable`), and the built-in RetroArch profiles pass it as `-L {core}`. | The owner's placeholder set. A `core` key lets config load check that the core exists, and keeps the args readable. Nothing had shipped, so the rename needs no alias. |
+| 2026-09-28 | **Missing installs are warnings, checked at config load**, naming the affected systems, for emulators that enabled systems use. The executable is checked, and the core only if the executable exists. | The owner asked for load-time validation that reports affected systems. Disabling the systems instead would drop their games from `library.db` on the next full rescan whenever an emulator drive is unplugged. Launching reports the same problem. |
+| 2026-09-28 | **Windows launching:** the emulator starts inside a job object via `PROC_THREAD_ATTRIBUTE_JOB_LIST` and our own `CreateProcessW` call, and the game has ended when the job is empty. The job doesn't kill on close, allows explicit breakaway, and inherits no handles. The wait also polls the job every second. `Process.Start` isn't used on Windows. | `Process.Start` can't put a child in a job from its first instruction, and assigning it afterwards races with stub launchers. The launcher dying mustn't end a game. Job messages aren't guaranteed. Building the command line ourselves means quoting it ourselves, by the C runtime's rules (A5), which the tests check against `CommandLineToArgvW` and a real child process. |
+| 2026-09-28 | **Launch outcomes:** one game at a time; events `Starting`, `Running`, then `Exited` or `Failed`, on worker threads. A non-zero exit within 5 s is `Failed` and isn't counted as a play. An unknown per-game or per-launch emulator is an error, never a fallback. `LaunchPlanner` is a static class rather than the `ILaunchPlanner` interface sketched earlier. | "An immediate non-zero exit" must give a clear message (M3 acceptance). Some emulators return non-zero after a normal session, so the window is short. Falling back could run a game in an emulator it doesn't work with. A pure static planner needs no injection to test. |
+| 2026-09-28 | **Play history:** `last_played_at` is the session's end; play time is measured on a monotonic clock and rounded to whole seconds. Sessions left open by a crash are closed at the next open at their start time, as a play with no time. No schema change. | Recently played should reflect the latest activity. A wall-clock change mid-game mustn't corrupt play time. The crash case can't know the duration. |
+| 2026-09-28 | **Handing over focus:** `AllowSetForegroundWindow(ASFW_ANY)` at launch; minimise with `SW_SHOWMINNOACTIVE` only once another process's window is in front (or after 10 s); on exit, restore and escalate: plain `SetForegroundWindow`, then with the foreground window's input attached, then with a synthetic Alt key held, then flash. Never change the foreground lock timeout. | Windows' foreground rules make one `SetForegroundWindow` after a game unreliable (input went to the emulator). Minimising straight away would activate an unrelated window and could leave the emulator behind it. A stub launcher's real emulator is a grandchild whose id isn't known when the grant is made. Changing system settings isn't acceptable. |
+| 2026-09-28 | **Game mode in the app:** render loop off, low-processor mode at 10 iterations a second, tree paused, master bus muted, input swallowed until 500 ms after focus returns. The launch controller is built on first use, and processes input only while swallowing it. | "Rendering near zero" while a game runs. The grace period stops the button that quit the emulator from acting in the launcher. Building it at boot cost 10–24 ms of our start-up, and an always-on `_Input` allocated about 1.9 KB per frame on the Deck ([perf/m3-launching.md](perf/m3-launching.md)). |
+| 2026-09-28 | Launcher.Core sets `AllowUnsafeBlocks` for `LibraryImport` and the Win32 structs, and the tests project for `CommandLineToArgvW`. `tests/FakeEmulator` is a console app the tests run as a process; it isn't referenced as an assembly. | Source-generated interop needs it. No new packages. |
+| 2026-09-28 | **Debug arguments** `--launch=<system>/<rel path>`, `--user-dir=<folder>` (portable-mode layout in that folder) and `--quit-after-launch` (exit code 0 if the game ran, 1 if the launch failed). `tools/launch-smoke.ps1` uses them, headless, from `verify.ps1`. | The roadmap's `--launch`. The other two make the launch path testable end to end without touching the user's AppData. |

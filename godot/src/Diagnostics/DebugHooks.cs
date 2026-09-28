@@ -45,6 +45,9 @@ public partial class DebugHooks : Node
     /// <summary>Startup marks in milliseconds since the OS created the process.</summary>
     public static StartupTimeline Timeline { get; } = StartupTimeline.ForCurrentProcess();
 
+    /// <summary>The parsed user arguments, for the facilities other nodes run (<c>--launch</c>). Set in <c>_EnterTree</c>.</summary>
+    public static DebugOptions Options { get; private set; } = DebugOptions.None;
+
     public override void _EnterTree()
     {
         // Godot's tick clock starts when the engine initialises, so it dates the engine start.
@@ -71,6 +74,7 @@ public partial class DebugHooks : Node
         }
 
         _options = parsed.Options;
+        Options = _options;
         if (_options.IsActive && DisplayServer.GetName() == "headless")
         {
             GD.PrintErr("--capture and --bench need a windowed run; headless mode doesn't render.");

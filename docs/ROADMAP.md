@@ -106,6 +106,11 @@ The hitch target was met by the chosen configuration, but it's reworded (see abo
 - The play session is recorded with the correct duration. Sessions left open by a crash are closed on the next start.
 - A missing executable, a missing ROM, or an immediate non-zero exit each produces a clear message.
 
+**Closed on 2026-09-28.** Every criterion a script can check is met (see the [log](#log)). The one that needs a person at the machine, a real game launching from the app directly and through a stub launcher, with rendering stopped while it runs and the foreground back on exit, is the owner's manual test: [manual-tests.md](manual-tests.md#m3-launching-a-real-emulator-and-focus). The same code path passes headless against the fake emulator, in the editor run and in the export. These items moved or were dropped:
+- to M5: evicting textures while a game runs (the texture streamer arrives in M5); making the navigation input router honour `LaunchController.IsInputBlocked`; building the controller in the post-`interactive` warm-up instead of on first use
+- still to do, whenever each emulator is installed: a launch with each built-in profile. The RetroArch core file names and `pcsx2-qt.exe` were checked against a RetroBat install.
+- dropped: an escaped mode for `.bat` and `.cmd` targets. Stub launchers are handled by the job object, and cmd.exe's re-parsing can't be made safe for every file name.
+
 ## M4: Scraping and media pipeline
 
 **Scope**
@@ -147,9 +152,13 @@ The hitch target was met by the chosen configuration, but it's reworded (see abo
   - identify the periodic ~5 s present delay, with PresentMon if the owner approves installing it
 - Carried over from M2:
   - the M1 boot target holds with real config and DB loading, in an export
-  - measure SQLite's native load in an editor run and in an export
+  - measure SQLite's native load in an editor run and in an export (M3 showed it loads in both)
   - add the 20-system synthetic library and a `boot` bench scenario
   - the Godot side of the net10.0 comparison (Core alone gained nothing: [perf/m2-core.md](perf/m2-core.md))
+- Carried over from M3:
+  - evict textures while a game runs, and restore them after
+  - the input router drops input while `LaunchController.IsInputBlocked`
+  - build the launch controller during the post-`interactive` warm-up (building it at boot cost 10–24 ms: [perf/m3-launching.md](perf/m3-launching.md))
 
 ## M6: Theming and custom models
 
@@ -188,7 +197,7 @@ Update this at the end of every milestone: the status, the date, and the evidenc
 | Scaffold | Done | 2026-09-27 | Initial commit; `tools/verify.ps1` green; capture corners exact; bench baseline below |
 | M1 Performance spike | Done (reduced scope; the revised targets need the owner's sign-off) | 2026-09-27 | [SPIKE_RESULTS.md](SPIKE_RESULTS.md); per-configuration JSON in [perf/m1/](perf/m1/); spike code on branch `spike/grid-perf` (`e165f58`, `7fe35ea`); scaffold matrix in [perf/m1-spike.md](perf/m1-spike.md) |
 | M2 Core data layer | Done (reduced scope: Core only; app-side items moved to M4–M6) | 2026-09-28 | [perf/m2-core.md](perf/m2-core.md); 134 tests, including the scan benchmarks; see the log below |
-| M3 Launching | Not started | | |
+| M3 Launching | Done (a real emulator and focus are the owner's manual test: [manual-tests.md](manual-tests.md#m3-launching-a-real-emulator-and-focus)) | 2026-09-28 | [perf/m3-launching.md](perf/m3-launching.md), bench JSON in [perf/m3/](perf/m3/); 217 tests; `verify.ps1` now ends with a headless `--launch` through the fake emulator; see the log below |
 | M4 Scraping and media pipeline | Not started | | |
 | M5 3D navigation | Not started | | |
 | M6 Theming and custom models | Not started | | |
@@ -279,3 +288,20 @@ Update this at the end of every milestone: the status, the date, and the evidenc
     - `LibraryService` scans 8 systems at once.
     - New `[scanning] exclude` setting, applied to every system; default `["images", "manuals", "videos", "gamelist.xml"]`.
   - **Results:** on the NAS, an unchanged rescan takes 1.4 s and a full scan 1.9 s. Local scans are unchanged or slightly faster (full scan 222–234 ms). 142 tests pass. There are no network targets yet; details are in [perf/m2-core.md](perf/m2-core.md#network-share-added-2026-09-28).
+- **2026-09-28: M3 launching, closed.** The real-emulator and focus check is the owner's manual test ([manual-tests.md](manual-tests.md#m3-launching-a-real-emulator-and-focus)).
+  - **What was added:**
+    - `Config`: placeholders `{emulator}`, `{rom_stem}` (was `{rom_name}`) and `{core}`; a `core` key on emulator profiles, used by the 13 built-in RetroArch profiles; a load-time check that each used emulator's executable and core exist, as warnings naming the affected systems.
+    - `Launching`: `LaunchPlanner` (the emulator from this launch's choice, the game's override or the system; single-pass expansion) and `LaunchService` (file checks, the process, events `Starting`/`Running`/`Exited`/`Failed`, quick-exit detection, one game at a time, cancellation ends the game).
+    - `Platform`: `IProcessRunner` and `IWindowFocus`, with Windows implementations (a job object from the first instruction via `PROC_THREAD_ATTRIBUTE_JOB_LIST`; `WindowsCommandLine` quoting by the C runtime's rules; foreground hand-over and an escalating reclaim) and a Linux stub (`PortableProcessRunner`, `NullWindowFocus`).
+    - `Library`: per-game emulator overrides, lookup by `GameKey`, and `IPlayHistory` (sessions, play count, play time, last played; sessions a crash left open are closed on open).
+    - App: `LaunchController` (render loop off, low-processor mode at 10 Hz, tree paused, audio muted, input swallowed; minimise once the emulator has the foreground; restore and reclaim focus on exit), and the debug arguments `--launch`, `--user-dir` and `--quit-after-launch`.
+    - `tests/FakeEmulator` (logs its arguments, working folder and command line; sleeps; exits with a chosen code; starts a copy of itself or another program and exits, as a stub launcher does) and `tools/launch-smoke.ps1`, which `verify.ps1` now runs.
+  - **Verification:**
+    - `dotnet build`: 0 warnings. 217 tests pass; the launch tests passed on three consecutive runs.
+    - The launch tests run the fake emulator through the real runner, installed under `Emulators ü 日本\Fake Emu\Fake Emu ü.exe`, with a ROM named `Sonic & Knuckles {x} (100%) ü 日本 😀.md` in `Sub Folder é`. They check every placeholder, the empty argument, embedded quotes, trailing backslashes, tabs, `{{`/`}}`, `& ^ | < > ! % $`, and the working folder, through both runners. Quoting is also checked against `CommandLineToArgvW`.
+    - They also cover the lifecycle events, exit codes and durations; quick non-zero exits; missing executable, ROM and core; a file that isn't a program; stub launchers (a job still running after the stub exits); per-game and per-launch emulator choice; an unknown override; cancellation; play count, time and last played over two sessions; and crash-orphaned sessions.
+    - `tools/launch-smoke.ps1` passes headless in the editor run (.NET 10.0.12) and in the export (.NET 8.0.31). So Microsoft.Data.Sqlite's native library loads in both; M2 had left that for M5.
+  - **Performance** ([perf/m3-launching.md](perf/m3-launching.md)): the committed build's start-up is 135.5 ms against 129.1 ms for M2 in the same session (overlapping ranges), with the same frames and 216 B of main-thread allocation. Two problems were found and fixed on the way:
+    - building the controller at boot cost 10–24 ms, so it's built on first use
+    - an always-on `_Input` allocated about 1.9 KB per frame from the Deck's joypad events, so input processing is on only while input is being swallowed
+  - **Moved to M5:** evicting textures during a game, the input router honouring `IsInputBlocked`, and building the controller in the warm-up.

@@ -1,0 +1,96 @@
+{
+  "format": 1,
+  "created_utc": "2026-09-28T11:42:16.2418871+00:00",
+  "app_version": "0.1.0\u002B0e28505756498f408e496524fd39a1fb80b46d28",
+  "godot_version": "4.7.2-stable (official)",
+  "dotnet_version": ".NET 8.0.31",
+  "machine": {
+    "os": "Windows 10.0.26200",
+    "cpu": "AMD Custom APU 0405",
+    "gpu": "AMD Custom GPU 0405",
+    "rendering_method": "forward_plus",
+    "rendering_driver": "d3d12"
+  },
+  "display": {
+    "refresh_hz": 59.940059661865234,
+    "refresh_assumed": false,
+    "window_width": 1280,
+    "window_height": 800,
+    "vsync": "Enabled",
+    "headless": false
+  },
+  "app_startup_ms": 251.17450000000008,
+  "startup_ms": {
+    "engine_start": 32.14339999999993,
+    "autoload_enter_tree": 1069.0223999999998,
+    "main_ready": 1163.522,
+    "first_frame_drawn": 1319.7073,
+    "interactive": 1320.1969
+  },
+  "frames": {
+    "count": 300,
+    "mean_ms": 16.635000000000012,
+    "min_ms": 1.974,
+    "max_ms": 27.645,
+    "p50_ms": 17.642,
+    "p95_ms": 19.408,
+    "p99_ms": 20.719,
+    "std_dev_ms": 2.7187697156373267,
+    "hitch_threshold_ms": 25.025000116146405,
+    "hitch_count": 1,
+    "worst": [
+      {
+        "frame": 2,
+        "ms": 27.645
+      },
+      {
+        "frame": 223,
+        "ms": 22.574
+      },
+      {
+        "frame": 122,
+        "ms": 20.854
+      },
+      {
+        "frame": 155,
+        "ms": 20.719
+      },
+      {
+        "frame": 240,
+        "ms": 20.663
+      },
+      {
+        "frame": 39,
+        "ms": 20.657
+      },
+      {
+        "frame": 65,
+        "ms": 20.365
+      },
+      {
+        "frame": 56,
+        "ms": 20.305
+      },
+      {
+        "frame": 260,
+        "ms": 20.045
+      },
+      {
+        "frame": 33,
+        "ms": 19.95
+      }
+    ]
+  },
+  "render_ms": {
+    "cpu_mean_ms": 0.4296166694164276,
+    "gpu_mean_ms": 0.9856333311398824
+  },
+  "gc": {
+    "gen0": 0,
+    "gen1": 0,
+    "gen2": 0,
+    "pause_ms": 0,
+    "allocated_bytes": 216,
+    "main_thread_allocated_bytes": 216
+  }
+}

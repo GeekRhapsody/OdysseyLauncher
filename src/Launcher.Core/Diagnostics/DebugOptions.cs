@@ -12,12 +12,18 @@ public sealed record DebugOptions
     public const string CaptureFrameArg = "--capture-frame";
     public const string BenchArg = "--bench";
     public const string BenchFramesArg = "--bench-frames";
+    public const string LaunchArg = "--launch";
+    public const string UserDirArg = "--user-dir";
+    public const string QuitAfterLaunchArg = "--quit-after-launch";
 
     public const int DefaultCaptureFrame = 60;
     public const int DefaultBenchFrames = 600;
     public const int MaxFrames = 1_000_000;
 
-    private static readonly string[] KnownArgs = [CaptureArg, CaptureFrameArg, BenchArg, BenchFramesArg];
+    private static readonly string[] KnownArgs = [CaptureArg, CaptureFrameArg, BenchArg, BenchFramesArg, LaunchArg, UserDirArg, QuitAfterLaunchArg];
+
+    /// <summary>Arguments that are switches, with no value.</summary>
+    private static readonly string[] FlagArgs = [QuitAfterLaunchArg];
 
     public static DebugOptions None { get; } = new();
 
@@ -33,10 +39,28 @@ public sealed record DebugOptions
     /// <summary>Number of frame intervals to sample after the first drawn frame.</summary>
     public int BenchFrames { get; init; } = DefaultBenchFrames;
 
+    /// <summary>The system id of the game <c>--launch</c> names, or null.</summary>
+    public string? LaunchSystem { get; init; }
+
+    /// <summary>The game's path relative to its ROM folder, '/'-separated (<c>rel_path</c>), or null.</summary>
+    public string? LaunchRelPath { get; init; }
+
+    /// <summary>
+    /// <c>--user-dir</c>: keep config, data and cache in this absolute folder, as portable mode does, instead of the
+    /// user's AppData. Null for the normal locations.
+    /// </summary>
+    public string? UserDir { get; init; }
+
+    /// <summary>Quit once the <c>--launch</c> game has ended: exit code 0 if it ran, 1 if the launch failed.</summary>
+    public bool QuitAfterLaunch { get; init; }
+
     public bool CaptureRequested => CapturePath is not null;
 
     public bool BenchRequested => BenchPath is not null;
 
+    public bool LaunchRequested => LaunchSystem is not null;
+
+    /// <summary>Capture or bench: the facilities that need a windowed run and a watchdog.</summary>
     public bool IsActive => CaptureRequested || BenchRequested;
 
     /// <summary>
@@ -53,6 +77,9 @@ public sealed record DebugOptions
         string? benchPath = null;
         int? captureFrame = null;
         int? benchFrames = null;
+        string? launchSystem = null;
+        string? launchRelPath = null;
+        string? userDir = null;
 
         foreach (var arg in args)
         {
@@ -63,9 +90,10 @@ public sealed record DebugOptions
                 continue;
             }
 
-            if (separator < 0)
+            var isFlag = Array.IndexOf(FlagArgs, name) >= 0;
+            if (isFlag != (separator < 0))
             {
-                errors.Add($"{name} needs a value, e.g. {Example(name)}.");
+                errors.Add(isFlag ? $"{name} doesn't take a value." : $"{name} needs a value, e.g. {Example(name)}.");
                 continue;
             }
 
@@ -75,7 +103,7 @@ public sealed record DebugOptions
                 continue;
             }
 
-            var value = arg[(separator + 1)..];
+            var value = isFlag ? string.Empty : arg[(separator + 1)..];
             switch (name)
             {
                 case CaptureArg:
@@ -90,7 +118,18 @@ public sealed record DebugOptions
                 case BenchFramesArg:
                     benchFrames = ParseFrames(name, value, errors);
                     break;
+                case LaunchArg:
+                    (launchSystem, launchRelPath) = ParseLaunch(value, errors);
+                    break;
+                case UserDirArg:
+                    userDir = ParsePath(name, value, null, errors);
+                    break;
             }
+        }
+
+        if (seen.Contains(QuitAfterLaunchArg) && !seen.Contains(LaunchArg))
+        {
+            errors.Add($"{QuitAfterLaunchArg} needs {LaunchArg}=<system>/<path>.");
         }
 
         if (seen.Contains(CaptureFrameArg) && !seen.Contains(CaptureArg))
@@ -114,11 +153,30 @@ public sealed record DebugOptions
             CaptureFrame = captureFrame ?? DefaultCaptureFrame,
             BenchPath = benchPath,
             BenchFrames = benchFrames ?? DefaultBenchFrames,
+            LaunchSystem = launchSystem,
+            LaunchRelPath = launchRelPath,
+            UserDir = userDir,
+            QuitAfterLaunch = seen.Contains(QuitAfterLaunchArg),
         };
         return new DebugOptionsParseResult(options, errors);
     }
 
-    private static string? ParsePath(string name, string value, string extension, List<string> errors)
+    /// <summary><c>&lt;system&gt;/&lt;path relative to its ROM folder&gt;</c>; either slash separates.</summary>
+    private static (string? System, string? RelPath) ParseLaunch(string value, List<string> errors)
+    {
+        var path = value.Replace('\\', '/');
+        var slash = path.IndexOf('/', StringComparison.Ordinal);
+        if (slash <= 0 || slash == path.Length - 1 || path.StartsWith("//", StringComparison.Ordinal))
+        {
+            errors.Add($"{LaunchArg} needs a system and a ROM path, e.g. {Example(LaunchArg)}; got '{value}'.");
+            return (null, null);
+        }
+
+        return (path[..slash], path[(slash + 1)..]);
+    }
+
+    /// <param name="extension">The file extension the path must have, or null for a folder.</param>
+    private static string? ParsePath(string name, string value, string? extension, List<string> errors)
     {
         if (value.Length == 0)
         {
@@ -132,7 +190,7 @@ public sealed record DebugOptions
             return null;
         }
 
-        if (!string.Equals(Path.GetExtension(value), extension, StringComparison.OrdinalIgnoreCase))
+        if (extension is not null && !string.Equals(Path.GetExtension(value), extension, StringComparison.OrdinalIgnoreCase))
         {
             errors.Add($"{name} must name a {extension} file; got '{value}'.");
             return null;
@@ -158,6 +216,8 @@ public sealed record DebugOptions
         CaptureArg => $"{CaptureArg}=C:/captures/shot.png",
         CaptureFrameArg => $"{CaptureFrameArg}={DefaultCaptureFrame}",
         BenchArg => $"{BenchArg}=C:/bench/run.json",
+        LaunchArg => $"{LaunchArg}=megadrive/Sonic the Hedgehog (USA, Europe).md",
+        UserDirArg => $"{UserDirArg}=C:/OdysseyTest",
         _ => $"{BenchFramesArg}={DefaultBenchFrames}",
     };
 }

@@ -40,7 +40,7 @@ public sealed class ConfigLoader : IConfigLoader
     ];
 
     private static readonly string[] SystemRequiredKeys = ["name", "extensions", "emulator"];
-    private static readonly string[] EmulatorKeys = ["enabled", "name", "executable", "args", "working_dir"];
+    private static readonly string[] EmulatorKeys = ["enabled", "name", "executable", "core", "args", "working_dir"];
     private static readonly string[] EmulatorRequiredKeys = ["name", "executable"];
 
     public ConfigLoadResult Load(ConfigSources sources)
@@ -74,6 +74,10 @@ public sealed class ConfigLoader : IConfigLoader
             var rawEmulators = SubTable(emulatorsTree, "emulators", "emulators");
             var emulators = ReadEmulators(rawEmulators, builtInEmulators);
             var systems = ReadSystems(SubTable(systemsTree, "systems", "systems"), builtInSystems, rawEmulators, emulators);
+            if (sources.FileExists is { } fileExists)
+            {
+                CheckInstalls(emulators, systems, rawEmulators, fileExists);
+            }
 
             return new ConfigLoadResult(new AppConfig(settings, systems, emulators), _diagnostics);
         }
@@ -586,7 +590,14 @@ public sealed class ConfigLoader : IConfigLoader
                     }
                 }
 
+                string? core = null;
+                if (entry.TryGet("core", out var coreNode) && String(entry, prefix, "core") is { } rawCore)
+                {
+                    core = ExpandPath(rawCore, coreNode, prefix + ".core", allowRomRoot: true);
+                }
+
                 var args = new List<string>();
+                var usesCore = false;
                 if (entry.TryGet("args", out var argsNode) && StringArray(argsNode, prefix + ".args", string.Empty) is { } rawArgs)
                 {
                     foreach (var rawArg in rawArgs)
@@ -594,6 +605,7 @@ public sealed class ConfigLoader : IConfigLoader
                         if (Expand(rawArg, argsNode, prefix + ".args", keepLaunchPlaceholders: true, allowRomRoot: true) is { } arg)
                         {
                             args.Add(arg);
+                            usesCore |= UsesPlaceholder(arg, "core");
                         }
                     }
                 }
@@ -603,6 +615,17 @@ public sealed class ConfigLoader : IConfigLoader
                 {
                     workingDir = Expand(rawWd, wdNode, prefix + ".working_dir", keepLaunchPlaceholders: true, allowRomRoot: true)
                         ?? workingDir;
+                    usesCore |= UsesPlaceholder(workingDir, "core");
+                }
+
+                if (usesCore && core is null && !entry.Contains("core"))
+                {
+                    Error(argsNode ?? entry, prefix + ".args",
+                        "{core} is used, but this profile has no core. Add core = \"{retroarch}/cores/<name>_libretro.dll\"");
+                }
+                else if (!usesCore && core is not null)
+                {
+                    Warning(coreNode, prefix + ".core", "no args entry uses {core}, so the core is never passed to the emulator");
                 }
 
                 if (ErrorCount > errorsBefore || executable is null)
@@ -611,11 +634,99 @@ public sealed class ConfigLoader : IConfigLoader
                     continue;
                 }
 
-                result[id] = new EmulatorConfig(id, name, executable, args, workingDir);
+                result[id] = new EmulatorConfig(id, name, executable, args, workingDir, core);
             }
 
             return result;
         }
+
+        private bool UsesPlaceholder(string template, string name)
+        {
+            Template.TryParse(template, _parts);
+            foreach (var part in _parts)
+            {
+                if (part.IsPlaceholder && part.Text == name)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Warns about each emulator that an enabled system uses whose executable or core doesn't exist, naming
+        /// those systems. It's only a warning: the systems stay browsable (an unplugged drive shouldn't empty the
+        /// library), and launching reports the same problem. Emulators no system uses aren't checked, so the
+        /// built-in profiles for emulators you don't have stay quiet.
+        /// </summary>
+        private void CheckInstalls(
+            Dictionary<string, EmulatorConfig> emulators,
+            List<SystemConfig> systems,
+            TomlTableNode? raw,
+            Func<string, bool> fileExists)
+        {
+            if (raw is null)
+            {
+                return;
+            }
+
+            // Most built-in profiles share retroarch.exe, so each path is checked once.
+            var exists = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+            bool Exists(string path)
+            {
+                if (!exists.TryGetValue(path, out var found))
+                {
+                    found = fileExists(path);
+                    exists[path] = found;
+                }
+
+                return found;
+            }
+
+            foreach (var (id, emulator) in emulators)
+            {
+                var byDefault = systems.Where(s => s.Emulator == id).Select(s => $"{s.Name} ({s.Id})").ToList();
+                var asAlternative = systems.Where(s => s.AltEmulators.Contains(id)).Select(s => $"{s.Name} ({s.Id})").ToList();
+                if (byDefault.Count == 0 && asAlternative.Count == 0)
+                {
+                    continue;
+                }
+
+                raw.TryGet(id, out var entryNode);
+                var entry = (TomlTableNode)entryNode;
+                foreach (var (key, path, what) in (ReadOnlySpan<(string, string?, string)>)
+                    [("executable", emulator.Executable, "executable"), ("core", emulator.Core, "core")])
+                {
+                    if (path is null || Exists(path))
+                    {
+                        continue;
+                    }
+
+                    // A missing install is one problem: its core is missing too, so it isn't reported again.
+
+                    var affected = new List<string>(2);
+                    if (byDefault.Count > 0)
+                    {
+                        affected.Add($"{JoinNames(byDefault)} can't launch games (it's their emulator)");
+                    }
+
+                    if (asAlternative.Count > 0)
+                    {
+                        affected.Add($"{JoinNames(asAlternative)} can't use it as an alternative");
+                    }
+
+                    TomlNode at = entry.TryGet(key, out var node) ? node : entry;
+                    Warning(at, $"emulators.{id}.{key}",
+                        $"the {what} '{path}' doesn't exist, so {string.Join("; and ", affected)}. " +
+                        "Install it there, or fix the path here or in the [variables] it uses in settings.toml");
+                    break;
+                }
+            }
+        }
+
+        private static string JoinNames(List<string> names) =>
+            names.Count == 1 ? names[0] : string.Join(", ", names.Take(names.Count - 1)) + " and " + names[^1];
 
         // ---- systems.toml ------------------------------------------------------------------------
 

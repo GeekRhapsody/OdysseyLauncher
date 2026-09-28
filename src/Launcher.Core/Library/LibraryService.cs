@@ -12,7 +12,7 @@ namespace Launcher.Core.Library;
 /// Reads use pooled connections on the thread pool; writes run on one dedicated writer thread; scans and
 /// rebuilds run one at a time.
 /// </summary>
-public sealed class LibraryService : ILibrary, IDisposable
+public sealed class LibraryService : ILibrary, IPlayHistory, IDisposable
 {
     public const string LibraryFileName = "library.db";
     public const string UserDataFileName = "userdata.db";
@@ -46,6 +46,9 @@ public sealed class LibraryService : ILibrary, IDisposable
 
     /// <summary>Why library.db was recreated, if it was.</summary>
     public string? RecreatedBecause { get; }
+
+    /// <summary>Play sessions a crashed launcher left open, which opening the library closed.</summary>
+    public int ClosedOrphanSessions { get; private set; }
 
     /// <summary>How many systems are scanned at once (each on its own thread).</summary>
     public int ScanParallelism { get; set; } = DefaultScanParallelism;
@@ -85,10 +88,10 @@ public sealed class LibraryService : ILibrary, IDisposable
         var service = new LibraryService(config, dataDir, time, outcome, reason);
         try
         {
-            await service._writer.RunAsync(connection =>
+            service.ClosedOrphanSessions = await service._writer.RunAsync(connection =>
             {
                 LibraryStore.RekeyAliases(connection, config);
-                return true;
+                return LibraryStore.CloseOrphanedSessions(connection);
             }, cancellationToken).ConfigureAwait(false);
         }
         catch
@@ -127,6 +130,39 @@ public sealed class LibraryService : ILibrary, IDisposable
 
     public Task<GameDetails?> GetGameAsync(long gameId, CancellationToken cancellationToken) =>
         _readers.RunAsync(c => LibraryStore.GetGame(c, gameId), cancellationToken);
+
+    public Task<GameDetails?> GetGameAsync(GameKey game, CancellationToken cancellationToken) =>
+        _readers.RunAsync(c => LibraryStore.GetGame(c, game), cancellationToken);
+
+    public Task SetEmulatorOverrideAsync(GameKey game, string? emulatorId, CancellationToken cancellationToken)
+    {
+        var id = string.IsNullOrWhiteSpace(emulatorId) ? null : emulatorId.Trim();
+        return _writer.RunAsync(c =>
+        {
+            LibraryStore.SetEmulatorOverride(c, game, id);
+            return true;
+        }, cancellationToken);
+    }
+
+    public Task<long> BeginSessionAsync(GameKey game, string emulatorId, DateTimeOffset startedAt, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(emulatorId);
+        var started = startedAt.ToUnixTimeMilliseconds();
+        return _writer.RunAsync(c => LibraryStore.BeginSession(c, game, emulatorId, started), cancellationToken);
+    }
+
+    public Task EndSessionAsync(PlaySessionEnd end, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(end);
+        return _writer.RunAsync(c =>
+        {
+            LibraryStore.EndSession(c, end);
+            return true;
+        }, cancellationToken);
+    }
+
+    public Task<PlayStats?> GetPlayStatsAsync(GameKey game, CancellationToken cancellationToken) =>
+        _readers.RunAsync(c => LibraryStore.GetPlayStats(c, game), cancellationToken);
 
     public Task SetFavouriteAsync(GameKey game, bool favourite, CancellationToken cancellationToken)
     {

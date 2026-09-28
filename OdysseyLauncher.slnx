@@ -12,6 +12,7 @@
     <Project Path="src/Launcher.Core/Launcher.Core.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/FakeEmulator/FakeEmulator.csproj" />
     <Project Path="tests/Launcher.Core.Tests/Launcher.Core.Tests.csproj" />
   </Folder>
 </Solution>

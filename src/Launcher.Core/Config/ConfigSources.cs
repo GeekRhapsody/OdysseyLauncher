@@ -33,6 +33,13 @@ public sealed record ConfigSources
 
     public ConfigFile? Emulators { get; init; }
 
+    /// <summary>
+    /// Checks that each emulator's executable and core exist, so a missing install is reported at load with the
+    /// systems it affects. Null skips the check (tests, and callers that check later). Does file I/O: the loader
+    /// must never run on the main thread.
+    /// </summary>
+    public Func<string, bool>? FileExists { get; init; } = File.Exists;
+
     /// <summary>Reads the user's files from <paramref name="configDir"/>. Does file I/O: never call it on the main thread.</summary>
     public static ConfigSources FromDirectory(string configDir, string homeDir)
     {

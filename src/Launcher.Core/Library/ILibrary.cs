@@ -49,7 +49,33 @@ public sealed record GameDetails(
     long SizeBytes,
     bool IsFavourite,
     bool IsHidden,
-    string? TitleOverride);
+    string? TitleOverride,
+    string? EmulatorOverride = null);
+
+/// <summary>A game's play statistics from userdata.db.</summary>
+public sealed record PlayStats(int PlayCount, TimeSpan TotalPlayTime, DateTimeOffset? LastPlayedAt);
+
+/// <summary>How a play session ended.</summary>
+/// <param name="Duration">Measured on a monotonic clock; the session's <c>ended_at</c> is its start plus this.</param>
+/// <param name="ExitCode">Null when the launcher didn't see the end (it crashed, or stopped watching).</param>
+/// <param name="CountAsPlay">
+/// False for a launch that failed straight away: the session is kept, with its exit code, but play count, play
+/// time and last played don't change.
+/// </param>
+public sealed record PlaySessionEnd(long SessionId, GameKey Game, DateTimeOffset StartedAt, TimeSpan Duration, int? ExitCode, bool CountAsPlay);
+
+/// <summary>Play sessions and statistics in userdata.db (ARCHITECTURE.md A4). Writes go through the writer thread.</summary>
+public interface IPlayHistory
+{
+    /// <summary>Records a session as started (<c>ended_at</c> NULL until it ends). Returns its id.</summary>
+    Task<long> BeginSessionAsync(GameKey game, string emulatorId, DateTimeOffset startedAt, CancellationToken cancellationToken);
+
+    /// <summary>Closes the session and, unless it's a failed launch, adds it to the game's statistics, in one transaction.</summary>
+    Task EndSessionAsync(PlaySessionEnd end, CancellationToken cancellationToken);
+
+    /// <summary>Null if the game has never been played.</summary>
+    Task<PlayStats?> GetPlayStatsAsync(GameKey game, CancellationToken cancellationToken);
+}
 
 public sealed record JobProgress(string Phase, int Done, int Total);
 
@@ -95,7 +121,13 @@ public interface ILibrary
 
     Task<GameDetails?> GetGameAsync(long gameId, CancellationToken cancellationToken);
 
+    /// <summary>By identity, for <c>--launch</c> and the virtual systems. Null if it isn't in the library.</summary>
+    Task<GameDetails?> GetGameAsync(GameKey game, CancellationToken cancellationToken);
+
     Task SetFavouriteAsync(GameKey game, bool favourite, CancellationToken cancellationToken);
+
+    /// <summary>The emulator profile this game launches with. Null goes back to the system's emulator.</summary>
+    Task SetEmulatorOverrideAsync(GameKey game, string? emulatorId, CancellationToken cancellationToken);
 
     /// <summary>Null restores the scraped or file-name title.</summary>
     Task SetTitleOverrideAsync(GameKey game, string? title, CancellationToken cancellationToken);

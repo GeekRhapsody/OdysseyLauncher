@@ -52,7 +52,7 @@ public class DebugOptionsTests
     [Fact]
     public void Unknown_arguments_are_ignored()
     {
-        var result = DebugOptions.Parse(["--launch=megadrive/Sonic.md", "verbose", $"--bench={BenchPath}"]);
+        var result = DebugOptions.Parse(["--scan=megadrive", "verbose", $"--bench={BenchPath}"]);
 
         Assert.True(result.IsValid);
         Assert.True(result.Options.BenchRequested);
@@ -107,5 +107,50 @@ public class DebugOptionsTests
         var result = DebugOptions.Parse([$"--capture={CapturePath}", $"--capture={CapturePath}"]);
 
         Assert.Contains("more than once", Assert.Single(result.Errors), StringComparison.Ordinal);
+    }
+
+    // ---- --launch, --user-dir, --quit-after-launch -------------------------------------------------
+
+    [Fact]
+    public void Launch_names_a_system_and_a_rom_path_that_can_have_spaces_and_further_folders()
+    {
+        var userDir = Path.Combine(Path.GetTempPath(), "odyssey user");
+
+        var result = DebugOptions.Parse(["--launch=megadrive\\Hacks/Sonic & Knuckles (USA).md", $"--user-dir={userDir}", "--quit-after-launch"]);
+
+        Assert.True(result.IsValid, string.Join("; ", result.Errors));
+        Assert.True(result.Options.LaunchRequested);
+        Assert.Equal("megadrive", result.Options.LaunchSystem);
+        Assert.Equal("Hacks/Sonic & Knuckles (USA).md", result.Options.LaunchRelPath);
+        Assert.Equal(userDir, result.Options.UserDir);
+        Assert.True(result.Options.QuitAfterLaunch);
+        Assert.False(result.Options.IsActive);
+    }
+
+    [Theory]
+    [InlineData("--launch=megadrive")]
+    [InlineData("--launch=megadrive/")]
+    [InlineData("--launch=/Sonic.md")]
+    [InlineData("--launch=")]
+    public void Launch_needs_both_parts(string arg)
+    {
+        var result = DebugOptions.Parse([arg]);
+
+        Assert.Contains("needs a system and a ROM path", Assert.Single(result.Errors), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Quit_after_launch_is_a_switch_that_needs_launch()
+    {
+        Assert.Contains("needs --launch", Assert.Single(DebugOptions.Parse(["--quit-after-launch"]).Errors), StringComparison.Ordinal);
+        Assert.Contains("doesn't take a value", Assert.Single(DebugOptions.Parse(["--launch=a/b", "--quit-after-launch=1"]).Errors), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void The_user_dir_must_be_absolute()
+    {
+        var result = DebugOptions.Parse(["--user-dir=relative/folder"]);
+
+        Assert.Contains("absolute path", Assert.Single(result.Errors), StringComparison.Ordinal);
     }
 }

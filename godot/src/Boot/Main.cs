@@ -1,6 +1,7 @@
 using System.Runtime.InteropServices;
 using Godot;
 using Launcher.App.Diagnostics;
+using Launcher.App.Launching;
 using Launcher.Core;
 using Launcher.Core.Diagnostics;
 
@@ -34,6 +35,7 @@ public partial class Main : Node3D
     private static readonly Vector3 CaseSize = new(0.711f, 1.0f, 0.074f);
 
     private Node3D _casePivot = null!;
+    private LaunchController? _launch;
     private bool _waitingForFirstFrame;
 
     public override void _Ready()
@@ -51,7 +53,30 @@ public partial class Main : Node3D
             $"Launcher.Core {CoreInfo.Version} | Godot {Engine.GetVersionInfo()["string"].AsString()} | " +
             $"{RuntimeInformation.FrameworkDescription} | " +
             $"{RenderingServer.GetCurrentRenderingMethod()}/{RenderingServer.GetCurrentRenderingDriverName()}");
+
+        // Headless runs never draw a frame, so --launch starts here; windowed runs start it once interactive.
+        if (DebugHooks.Options.LaunchRequested && DisplayServer.GetName() == "headless")
+        {
+            StartDebugLaunch();
+        }
     }
+
+    /// <summary>
+    /// The launch controller is built on first use, not at boot: building it (and JIT-compiling it and the platform
+    /// code) added 24 ms to our start-up in an ExportRelease bench (docs/perf/m3-launching.md).
+    /// </summary>
+    private LaunchController Launch()
+    {
+        if (_launch is null)
+        {
+            _launch = new LaunchController { Name = "Launch" };
+            AddChild(_launch);
+        }
+
+        return _launch;
+    }
+
+    private void StartDebugLaunch() => Launch().StartDebugLaunch(DebugHooks.Options);
 
     public override void _ExitTree()
     {
@@ -68,6 +93,11 @@ public partial class Main : Node3D
         // The scaffold is interactive as soon as its first frame is drawn.
         DebugHooks.Timeline.Mark(StartupMarks.Interactive);
         StopWaitingForFirstFrame();
+        if (DebugHooks.Options.LaunchRequested)
+        {
+            // Deferred, so it doesn't run inside the frame_post_draw signal.
+            CallDeferred(MethodName.StartDebugLaunch);
+        }
     }
 
     private void StopWaitingForFirstFrame()

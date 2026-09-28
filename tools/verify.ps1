@@ -1,7 +1,8 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-    Full local check: build, unit tests, Godot's headless C# build and import, and a headless smoke run.
+    Full local check: build, unit tests, Godot's headless C# build and import, a headless smoke run, and a
+    headless --launch of the fake emulator (tools/launch-smoke.ps1).
 .DESCRIPTION
     Run from anywhere:  .\tools\verify.ps1
     Needs `godot` (the Godot 4.7.2 .NET console build) on PATH.
@@ -39,6 +40,7 @@ try {
     Invoke-Step 'Godot C# build (headless)' { godot --headless --path godot --build-solutions --quit }
     Invoke-Step 'Godot import (headless)' { godot --headless --path godot --import }
     Invoke-Step 'Godot smoke run (headless)' { godot --headless --path godot --quit-after 10 } -MustContain 'Launcher.Core'
+    Invoke-Step 'Godot launch smoke run (headless)' { powershell -NoProfile -ExecutionPolicy Bypass -File tools\launch-smoke.ps1 } -MustContain 'Launch smoke passed'
 
     Write-Host 'All checks passed.' -ForegroundColor Green
 }

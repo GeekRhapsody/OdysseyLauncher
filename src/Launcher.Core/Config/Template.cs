@@ -12,9 +12,14 @@ internal readonly record struct TemplatePart(bool IsPlaceholder, string Text);
 /// </summary>
 public static class Template
 {
-    /// <summary>Placeholders that are only known at launch time.</summary>
-    public static IReadOnlySet<string> LaunchPlaceholders { get; } =
-        new HashSet<string>(StringComparer.Ordinal) { "rom", "rom_dir", "rom_file", "rom_name", "system", "emulator_dir" };
+    /// <summary>
+    /// Placeholders expanded at launch time (A5). <c>{emulator}</c>, <c>{emulator_dir}</c> and <c>{core}</c> come
+    /// from the emulator profile chosen for the game; the rest come from the ROM.
+    /// </summary>
+    public static IReadOnlySet<string> LaunchPlaceholders { get; } = new HashSet<string>(StringComparer.Ordinal)
+    {
+        "rom", "rom_dir", "rom_file", "rom_stem", "system", "emulator", "emulator_dir", "core",
+    };
 
     /// <summary>Placeholders the loader provides itself, which variables can't shadow.</summary>
     public static IReadOnlySet<string> BuiltInVariables { get; } =

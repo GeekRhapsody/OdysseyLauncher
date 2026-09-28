@@ -7,7 +7,9 @@ public class ConfigLoaderTests
     private static readonly string Home = Path.Combine(Path.GetTempPath(), "odyssey-home");
     private static readonly string ConfigDir = Path.Combine(Home, "config");
 
-    private static ConfigLoadResult Load(string? settings = null, string? systems = null, string? emulators = null) =>
+    /// <param name="fileExists">The install check's view of the disk. By default every file exists.</param>
+    private static ConfigLoadResult Load(
+        string? settings = null, string? systems = null, string? emulators = null, Func<string, bool>? fileExists = null) =>
         new ConfigLoader().Load(new ConfigSources
         {
             HomeDir = Home,
@@ -15,6 +17,7 @@ public class ConfigLoaderTests
             Settings = settings is null ? null : new ConfigFile("user/settings.toml", settings),
             Systems = systems is null ? null : new ConfigFile("user/systems.toml", systems),
             Emulators = emulators is null ? null : new ConfigFile("user/emulators.toml", emulators),
+            FileExists = fileExists ?? (_ => true),
         });
 
     private static Diagnostic Single(ConfigLoadResult result, Severity severity) =>
@@ -82,7 +85,8 @@ public class ConfigLoaderTests
         var emulator = Load().Config.Emulators["retroarch-genesis-plus-gx"];
 
         Assert.Equal(Path.GetFullPath("C:/RetroArch-Win64/retroarch.exe"), emulator.Executable);
-        Assert.Equal(["-L", "C:/RetroArch-Win64/cores/genesis_plus_gx_libretro.dll", "--fullscreen", "{rom}"], emulator.Args);
+        Assert.Equal(["-L", "{core}", "--fullscreen", "{rom}"], emulator.Args);
+        Assert.Equal(Path.GetFullPath("C:/RetroArch-Win64/cores/genesis_plus_gx_libretro.dll"), emulator.Core);
         Assert.Equal("{emulator_dir}", emulator.WorkingDir);
     }
 
@@ -433,6 +437,133 @@ public class ConfigLoaderTests
         Assert.Equal(Severity.Error, error.Severity);
         Assert.Contains("cmd.exe re-parses", error.Message, StringComparison.Ordinal);
         Assert.False(result.Config.Emulators.ContainsKey("pcsx2"));
+    }
+
+    // ---- Cores and install checks ---------------------------------------------------------------
+
+    [Fact]
+    public void A_core_is_expanded_like_a_path_and_the_built_in_RetroArch_profiles_pass_it_with_L()
+    {
+        var emulator = Load().Config.Emulators["retroarch-snes9x"];
+
+        Assert.Equal(Path.GetFullPath("C:/RetroArch-Win64/cores/snes9x_libretro.dll"), emulator.Core);
+        Assert.Equal(["-L", "{core}", "--fullscreen", "{rom}"], emulator.Args);
+        Assert.Null(Load().Config.Emulators["pcsx2"].Core);
+    }
+
+    [Fact]
+    public void Using_core_in_a_profile_without_one_is_an_error_that_disables_it()
+    {
+        var result = Load(emulators: """
+            [emulators.blastem]
+            name = "BlastEm"
+            executable = "C:/Emulators/BlastEm/blastem.exe"
+            args = ["-L", "{core}", "{rom}"]
+            """);
+
+        var error = Assert.Single(result.Diagnostics, d => d.Key == "emulators.blastem.args");
+        Assert.Equal(Severity.Error, error.Severity);
+        Assert.Contains("{core} is used, but this profile has no core", error.Message, StringComparison.Ordinal);
+        Assert.False(result.Config.Emulators.ContainsKey("blastem"));
+    }
+
+    [Fact]
+    public void A_core_that_no_argument_uses_is_a_warning()
+    {
+        var result = Load(emulators: """
+            [emulators.retroarch-snes9x]
+            args = ["{rom}"]
+            """);
+
+        var warning = Single(result, Severity.Warning);
+        Assert.Equal("emulators.retroarch-snes9x.core", warning.Key);
+        Assert.Contains("never passed to the emulator", warning.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Launch_placeholders_can_be_used_in_args_and_rom_name_is_now_rom_stem()
+    {
+        var result = Load(emulators: """
+            [emulators.pcsx2]
+            args = ["{rom_stem}", "{emulator}", "{rom_file}", "{system}"]
+            """);
+        var renamed = Load(emulators: """
+            [emulators.pcsx2]
+            args = ["{rom_name}"]
+            """);
+
+        Assert.Empty(result.Diagnostics);
+        var error = Assert.Single(renamed.Diagnostics, d => d.Key == "emulators.pcsx2.args");
+        Assert.Contains("unknown placeholder {rom_name}", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_missing_executable_is_a_warning_naming_every_system_it_affects_and_the_systems_stay_enabled()
+    {
+        var retroarch = Path.GetFullPath("C:/RetroArch-Win64/retroarch.exe");
+
+        var result = Load(fileExists: path => path != retroarch);
+
+        var gpgx = Assert.Single(result.Diagnostics, d => d.Key == "emulators.retroarch-genesis-plus-gx.executable");
+        Assert.Equal(Severity.Warning, gpgx.Severity);
+        Assert.Equal("built-in/emulators.toml", gpgx.Source);
+        Assert.True(gpgx.Line > 0);
+        Assert.Equal(
+            $"the executable '{retroarch}' doesn't exist, so Master System (mastersystem) and Mega Drive (megadrive) can't " +
+            "launch games (it's their emulator). Install it there, or fix the path here or in the [variables] it uses in settings.toml",
+            gpgx.Message);
+
+        // gb and gbc use gambatte and list mgba as an alternative; gba uses mgba.
+        var mgba = Assert.Single(result.Diagnostics, d => d.Key == "emulators.retroarch-mgba.executable");
+        Assert.Contains("Game Boy Advance (gba) can't launch games (it's their emulator); and Game Boy (gb) and Game Boy Color (gbc) can't use it as an alternative", mgba.Message, StringComparison.Ordinal);
+
+        // Every system that uses RetroArch is still there, and nothing else is reported.
+        Assert.Equal(14, result.Config.Systems.Count);
+        Assert.Equal(13, result.Diagnostics.Count);
+        Assert.All(result.Diagnostics, d => Assert.Equal(Severity.Warning, d.Severity));
+
+        // With nothing installed, each profile reports its executable only, not its core as well.
+        var nothing = Load(fileExists: _ => false);
+        Assert.Equal(16, nothing.Diagnostics.Count);
+        Assert.All(nothing.Diagnostics, d => Assert.EndsWith(".executable", d.Key, StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void A_missing_core_is_reported_on_its_own_key()
+    {
+        var core = Path.GetFullPath("C:/RetroArch-Win64/cores/snes9x_libretro.dll");
+
+        var result = Load(fileExists: path => path != core);
+
+        var warning = Single(result, Severity.Warning);
+        Assert.Equal("emulators.retroarch-snes9x.core", warning.Key);
+        Assert.StartsWith($"the core '{core}' doesn't exist, so Super Nintendo Entertainment System (snes) can't launch games", warning.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Emulators_that_no_system_uses_are_not_checked_and_the_check_can_be_turned_off()
+    {
+        var checkedPaths = new List<string>();
+        var result = Load(
+            emulators: """
+                [emulators.blastem]
+                name = "BlastEm"
+                executable = "C:/Emulators/BlastEm/blastem.exe"
+                """,
+            fileExists: path =>
+            {
+                checkedPaths.Add(path);
+                return false;
+            });
+
+        Assert.DoesNotContain(result.Diagnostics, d => d.Key.StartsWith("emulators.blastem", StringComparison.Ordinal));
+        Assert.DoesNotContain(Path.GetFullPath("C:/Emulators/BlastEm/blastem.exe"), checkedPaths);
+
+        // Each path is checked once, although 13 profiles share retroarch.exe.
+        Assert.Single(checkedPaths, p => p.EndsWith("retroarch.exe", StringComparison.Ordinal));
+
+        var unchecked_ = new ConfigLoader().Load(new ConfigSources { HomeDir = Home, ConfigDir = ConfigDir, FileExists = null });
+        Assert.Empty(unchecked_.Diagnostics);
     }
 
     [Fact]

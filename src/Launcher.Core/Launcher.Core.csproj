@@ -6,6 +6,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <Configurations>Debug;ExportDebug;ExportRelease</Configurations>
+    <!-- LibraryImport's generated marshalling, and the pointer-based Win32 structs in Platform/Windows. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <ItemGroup>

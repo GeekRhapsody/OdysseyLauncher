@@ -32,12 +32,19 @@ public sealed record PlatformPaths(string ConfigDir, string DataDir, string Cach
         var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
         if (File.Exists(Path.Combine(executableDir, PortableMarker)))
         {
-            var root = Path.Combine(executableDir, "userdata");
-            return new PlatformPaths(root, root, Path.Combine(root, "cache"), home);
+            return InOneFolder(Path.Combine(executableDir, "userdata"), home);
         }
 
         var config = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), AppFolder);
         var data = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), AppFolder);
         return new PlatformPaths(config, data, Path.Combine(data, "cache"), home);
+    }
+
+    /// <summary>The portable layout: config and data in <paramref name="root"/>, the cache in its <c>cache</c> folder.</summary>
+    public static PlatformPaths InOneFolder(string root, string homeDir)
+    {
+        ArgumentNullException.ThrowIfNull(root);
+        ArgumentNullException.ThrowIfNull(homeDir);
+        return new PlatformPaths(root, root, Path.Combine(root, "cache"), homeDir);
     }
 }
