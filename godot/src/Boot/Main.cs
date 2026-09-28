@@ -416,9 +416,16 @@ public partial class Main : Node3D
                 }
             }
 
+            // Covers with no derivative (the user's own art, or art from an earlier version) are baked after the
+            // scans, or now if there are none (M4).
+            _navigator!.BakeAfterScans = true;
             if (unscanned.Count > 0)
             {
-                _navigator!.Rescan(unscanned.Count == services.Systems.Count ? null : unscanned);
+                _navigator.Rescan(unscanned.Count == services.Systems.Count ? null : unscanned);
+            }
+            else
+            {
+                _navigator.BakeDerivatives();
             }
         }
     }

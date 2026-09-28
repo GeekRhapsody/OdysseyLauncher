@@ -7,6 +7,69 @@ namespace Launcher.Core.Tests.TestSupport;
 /// </summary>
 public static class TestImages
 {
+    /// <summary>A real, decodable RGBA PNG whose pixels come from <paramref name="colour"/>(x, y).</summary>
+    public static byte[] RealPng(int width, int height, Func<int, int, (byte R, byte G, byte B, byte A)> colour)
+    {
+        using var raw = new MemoryStream();
+        for (var y = 0; y < height; y++)
+        {
+            raw.WriteByte(0); // filter: none
+            for (var x = 0; x < width; x++)
+            {
+                var (r, g, b, a) = colour(x, y);
+                raw.Write([r, g, b, a]);
+            }
+        }
+
+        using var compressed = new MemoryStream();
+        using (var zlib = new System.IO.Compression.ZLibStream(compressed, System.IO.Compression.CompressionLevel.Fastest, leaveOpen: true))
+        {
+            raw.Position = 0;
+            raw.CopyTo(zlib);
+        }
+
+        using var png = new MemoryStream();
+        png.Write([0x89, (byte)'P', (byte)'N', (byte)'G', 0x0D, 0x0A, 0x1A, 0x0A]);
+        var header = new byte[13];
+        BinaryPrimitives.WriteInt32BigEndian(header, width);
+        BinaryPrimitives.WriteInt32BigEndian(header.AsSpan(4), height);
+        header[8] = 8; // bit depth
+        header[9] = 6; // RGBA
+        Chunk(png, "IHDR", header);
+        Chunk(png, "IDAT", compressed.ToArray());
+        Chunk(png, "IEND", []);
+        return png.ToArray();
+    }
+
+    private static void Chunk(Stream stream, string type, byte[] data)
+    {
+        var length = new byte[4];
+        BinaryPrimitives.WriteInt32BigEndian(length, data.Length);
+        stream.Write(length);
+        var typeBytes = System.Text.Encoding.ASCII.GetBytes(type);
+        stream.Write(typeBytes);
+        stream.Write(data);
+        var crc = Crc32([.. typeBytes, .. data]);
+        var crcBytes = new byte[4];
+        BinaryPrimitives.WriteUInt32BigEndian(crcBytes, crc);
+        stream.Write(crcBytes);
+    }
+
+    private static uint Crc32(byte[] data)
+    {
+        var crc = 0xFFFFFFFFu;
+        foreach (var b in data)
+        {
+            crc ^= b;
+            for (var k = 0; k < 8; k++)
+            {
+                crc = (crc & 1) != 0 ? (crc >> 1) ^ 0xEDB88320u : crc >> 1;
+            }
+        }
+
+        return ~crc;
+    }
+
     public static byte[] Png(int width, int height)
     {
         var bytes = new byte[33];

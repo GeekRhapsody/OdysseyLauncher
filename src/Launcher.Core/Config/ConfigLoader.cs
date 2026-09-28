@@ -1,4 +1,5 @@
 using System.Text;
+using Launcher.Core.Media;
 using Launcher.Core.Scanning;
 
 namespace Launcher.Core.Config;
@@ -26,20 +27,24 @@ public sealed class ConfigLoader : IConfigLoader
     public static IReadOnlyList<string> GameModels { get; } =
         ["dvd_case", "jewel_case", "cartridge_box", "clamshell", "umd_case"];
 
-    public static IReadOnlyList<string> Scrapers { get; } = ["screenscraper", "steamgriddb"];
+    /// <summary>The scraping providers <c>[scraping] provider</c> and <c>fallback</c> can name.</summary>
+    public static IReadOnlyList<string> Scrapers { get; } = ["screenscraper", "igdb", "steamgriddb"];
+
+    /// <summary>Used when <c>scraping.hash_limit_mb</c> is missing or invalid.</summary>
+    public const long DefaultHashLimitMb = 64;
 
     private static readonly string[] SettingsRootKeys = ["format", "paths", "scanning", "variables", "display", "scraping"];
     private static readonly string[] SystemsRootKeys = ["format", "systems"];
     private static readonly string[] EmulatorsRootKeys = ["format", "emulators"];
     private static readonly string[] PathsKeys = ["rom_root"];
     private static readonly string[] DisplayKeys = ["theme", "fullscreen"];
-    private static readonly string[] ScrapingKeys = ["regions", "languages", "cover_sources"];
+    private static readonly string[] ScrapingKeys = ["provider", "fallback", "regions", "languages", "media", "hash_limit_mb"];
     private static readonly string[] ScanningKeys = ["exclude"];
 
     private static readonly string[] SystemKeys =
     [
         "enabled", "name", "manufacturer", "year", "aliases", "extensions", "emulator", "alt_emulators",
-        "game_model", "screenscraper_id", "rom_dirs", "recursive", "exclude",
+        "game_model", "screenscraper_id", "igdb_platforms", "rom_dirs", "recursive", "exclude",
     ];
 
     private static readonly string[] SystemRequiredKeys = ["name", "extensions", "emulator"];
@@ -202,8 +207,35 @@ public sealed class ConfigLoader : IConfigLoader
             var fullscreen = SettingBool(tree, defaults, "display", "fullscreen") ?? true;
             var regions = SettingStrings(tree, defaults, "scraping", "regions", null) ?? [];
             var languages = SettingStrings(tree, defaults, "scraping", "languages", null) ?? [];
-            var coverSources = SettingStrings(tree, defaults, "scraping", "cover_sources",
-                value => Scrapers.Contains(value) ? null : $"unknown value '{value}'{Suggest(value, Scrapers)}") ?? [];
+            string? CheckScraper(string value) => Scrapers.Contains(value) ? null : $"unknown provider '{value}'{Suggest(value, Scrapers)}";
+            var providerSetting = SettingString(tree, defaults, "scraping", "provider");
+            var provider = "screenscraper";
+            if (providerSetting is { } p)
+            {
+                if (CheckScraper(p.Value) is { } problem)
+                {
+                    Error(p.Node, "scraping.provider", problem + ". Using screenscraper");
+                }
+                else
+                {
+                    provider = p.Value;
+                }
+            }
+
+            var fallback = new List<string>();
+            foreach (var id in SettingStrings(tree, defaults, "scraping", "fallback", CheckScraper) ?? [])
+            {
+                if (id != provider && !fallback.Contains(id))
+                {
+                    fallback.Add(id);
+                }
+            }
+
+            var media = SettingStrings(tree, defaults, "scraping", "media",
+                value => MediaKinds.Scrapable.Contains(value)
+                    ? null
+                    : $"unknown media kind '{value}'{Suggest(value, MediaKinds.Scrapable)}. The kinds are {string.Join(", ", MediaKinds.Scrapable)}") ?? [MediaKinds.Cover];
+            var hashLimitMb = SettingInteger(tree, defaults, "scraping", "hash_limit_mb", 0, 65536) ?? DefaultHashLimitMb;
             _globalExcludes = SettingStrings(tree, defaults, "scanning", "exclude",
                 value => GlobPattern.Validate(value) is { } problem ? $"'{value}': {problem}" : null) ?? [];
 
@@ -221,7 +253,7 @@ public sealed class ConfigLoader : IConfigLoader
                 _romRoot,
                 variables,
                 new DisplaySettings(theme, fullscreen),
-                new ScrapingSettings(regions, languages, coverSources),
+                new ScrapingSettings(provider, fallback, regions, languages, media, hashLimitMb * 1024 * 1024),
                 new ScanningSettings(_globalExcludes));
         }
 
@@ -262,6 +294,32 @@ public sealed class ConfigLoader : IConfigLoader
                 }
 
                 Error(node, $"{section}.{key}", $"expected a boolean, found {TomlNode.KindName(node.Kind)}. Using the default");
+            }
+
+            return null;
+        }
+
+        private long? SettingInteger(TomlTableNode tree, TomlTableNode defaults, string section, string key, long min, long max)
+        {
+            foreach (var source in (ReadOnlySpan<TomlTableNode>)[tree, defaults])
+            {
+                if (!TryGetSetting(source, section, key, out var node))
+                {
+                    continue;
+                }
+
+                if (node is not TomlScalar { Kind: TomlKind.Integer, Value: long value })
+                {
+                    Error(node, $"{section}.{key}", $"expected an integer, found {TomlNode.KindName(node.Kind)}. Using the default");
+                }
+                else if (value < min || value > max)
+                {
+                    Error(node, $"{section}.{key}", $"{value} is out of range ({min} to {max}). Using the default");
+                }
+                else
+                {
+                    return value;
+                }
             }
 
             return null;
@@ -782,6 +840,31 @@ public sealed class ConfigLoader : IConfigLoader
                 var manufacturer = String(entry, prefix, "manufacturer");
                 var year = Integer(entry, prefix, "year", 1950, 2100);
                 var screenScraperId = Integer(entry, prefix, "screenscraper_id", 1, int.MaxValue);
+                var igdbPlatforms = new List<int>();
+                if (entry.TryGet("igdb_platforms", out var igdbNode))
+                {
+                    if (igdbNode is TomlArrayNode igdbArray)
+                    {
+                        foreach (var item in igdbArray.Items)
+                        {
+                            if (item is TomlScalar { Kind: TomlKind.Integer, Value: long platform } && platform is > 0 and <= int.MaxValue)
+                            {
+                                if (!igdbPlatforms.Contains((int)platform))
+                                {
+                                    igdbPlatforms.Add((int)platform);
+                                }
+                            }
+                            else
+                            {
+                                Error(item, prefix + ".igdb_platforms", "expected positive integer IGDB platform ids");
+                            }
+                        }
+                    }
+                    else
+                    {
+                        Error(igdbNode, prefix + ".igdb_platforms", $"expected an array of integers, found {TomlNode.KindName(igdbNode.Kind)}");
+                    }
+                }
                 var recursive = Bool(entry, prefix, "recursive") ?? true;
 
                 var aliases = new List<string>();
@@ -910,7 +993,7 @@ public sealed class ConfigLoader : IConfigLoader
 
                 result.Add(new SystemConfig(
                     id, name, manufacturer, (int?)year, aliases, extensions, emulator, altEmulators, gameModel,
-                    (int?)screenScraperId, romDirs, romDirSource, recursive, exclude));
+                    (int?)screenScraperId, romDirs, romDirSource, recursive, exclude, igdbPlatforms));
             }
 
             return result;

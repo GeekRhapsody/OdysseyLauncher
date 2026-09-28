@@ -22,6 +22,16 @@ theme = "memory-card"
 fullscreen = true
 
 [scraping]
-regions = ["eu", "wor", "us", "jp"]    # first available wins
+# Every game is looked up with `provider` first; each `fallback` provider, in order, then fills in the fields
+# and media still missing. Providers are "screenscraper", "igdb" and "steamgriddb". A provider with no
+# credentials in secrets.toml (or ODYSSEY_* environment variables) is skipped, and scraping says so.
+provider = "screenscraper"
+fallback = ["igdb", "steamgriddb"]
+regions = ["eu", "wor", "us", "jp"]    # ScreenScraper region codes; first available wins
 languages = ["en"]
-cover_sources = ["screenscraper", "steamgriddb"]
+# Media kinds to download: cover, back, spine, box_texture (front, spine and back in one image),
+# screenshot, logo, hero. Only ScreenScraper has back, spine and box_texture.
+media = ["cover", "box_texture"]
+# ROMs up to this size are hashed (CRC32, MD5, SHA-1) once, for ScreenScraper lookups, which ask for a hash.
+# Bigger files (disc images) are looked up by name and size only. 0 hashes nothing.
+hash_limit_mb = 64

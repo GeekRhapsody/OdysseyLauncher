@@ -63,12 +63,28 @@ public sealed record GameDetails(
     bool IsHidden,
     string? TitleOverride,
     string? EmulatorOverride = null,
-    GameMetadata? Metadata = null);
+    GameMetadata? Metadata = null,
+    ScrapeInfo? Scrape = null);
 
-/// <summary>A game's scraped <c>metadata</c> row (A4). Every field can be missing.</summary>
+/// <summary>A game's last scrape (<c>scrape_state</c>, M4). Null on <see cref="GameDetails"/> means never scraped.</summary>
+/// <param name="Status">'ok', 'partial' (a provider failed), 'not_found' or 'error'.</param>
+/// <param name="Providers">The providers that supplied data, in the order used.</param>
+public sealed record ScrapeInfo(string Status, IReadOnlyList<string> Providers, DateTimeOffset ScrapedAt);
+
+/// <summary>Metadata the user typed for one game (userdata.db). Null fields fall back to the scraped value; scraping never writes these.</summary>
+public sealed record MetadataOverride(
+    string? Description = null,
+    string? ReleaseDate = null,
+    string? Developer = null,
+    string? Publisher = null,
+    string? Genre = null,
+    string? Players = null,
+    double? Rating = null);
+
+/// <summary>A game's metadata (A4): the scraped <c>metadata</c> row, with the user's overrides on top. Every field can be missing.</summary>
 /// <param name="ReleaseDate">ISO 8601, possibly partial: '1991', '1991-06' or '1991-06-23'.</param>
 /// <param name="Rating">0 to 1.</param>
-/// <param name="Source">The scraper it came from.</param>
+/// <param name="Source">The providers it came from ('screenscraper,igdb'), or 'user' when only overrides are set.</param>
 public sealed record GameMetadata(
     string? Description,
     string? ReleaseDate,
@@ -160,6 +176,9 @@ public interface ILibrary
     Task SetTitleOverrideAsync(GameKey game, string? title, CancellationToken cancellationToken);
 
     Task SetHiddenAsync(GameKey game, bool hidden, CancellationToken cancellationToken);
+
+    /// <summary>Replaces the game's metadata overrides; <c>new MetadataOverride()</c> clears them.</summary>
+    Task SetMetadataOverrideAsync(GameKey game, MetadataOverride values, CancellationToken cancellationToken);
 
     /// <summary>Rescans one system, or every enabled one when <paramref name="systemId"/> is null (which also drops disabled systems).</summary>
     Task<ScanSummary> RescanAsync(string? systemId, IProgress<JobProgress>? progress, CancellationToken cancellationToken);

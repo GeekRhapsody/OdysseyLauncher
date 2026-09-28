@@ -28,10 +28,16 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Recorded provider responses for the scraping tests (no test touches the network). -->
+    <None Include="Scraping\Fixtures\*.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <AssemblyMetadata Include="FakeEmulatorDir" Value="$(MSBuildThisFileDirectory)..\FakeEmulator\bin\$(Configuration)\net8.0" />
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="BCnEncoder.Net" Version="2.3.0" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.10.1" />
     <PackageReference Include="xunit.runner.visualstudio" Version="4.0.0">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>

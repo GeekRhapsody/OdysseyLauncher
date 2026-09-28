@@ -15,6 +15,9 @@ public static class MediaKinds
     /// <summary>The kinds that are images, and so can be the user's own art in <c>ConfigDir/media/&lt;system&gt;/&lt;kind&gt;/</c>.</summary>
     public static IReadOnlyList<string> Images { get; } = [Cover, Back, Spine, BoxTexture, Label, Screenshot, Logo, Hero];
 
+    /// <summary>The kinds scraping can download (<c>[scraping] media</c>). No provider has labels.</summary>
+    public static IReadOnlyList<string> Scrapable { get; } = [Cover, Back, Spine, BoxTexture, Screenshot, Logo, Hero];
+
     /// <summary>The image formats the app decodes, matched ignoring case.</summary>
     public static IReadOnlyList<string> ImageExtensions { get; } = [".png", ".jpg", ".jpeg", ".webp"];
 }

@@ -655,12 +655,12 @@ public class ConfigLoaderTests
             fullscreen = "yes"
 
             [scraping]
-            cover_sources = ["screenscraper", "steamgrid"]
+            fallback = ["igdb", "steamgrid"]
             """);
 
         Assert.Equal(2, result.Diagnostics.Count(d => d.IsError));
         Assert.True(result.Config.Settings.Display.Fullscreen);
-        Assert.Equal(["screenscraper", "steamgriddb"], result.Config.Settings.Scraping.CoverSources);
+        Assert.Equal(["igdb", "steamgriddb"], result.Config.Settings.Scraping.Fallback);
         Assert.Contains(result.Diagnostics, d => d.Message.Contains("did you mean 'steamgriddb'?", StringComparison.Ordinal));
     }
 

@@ -10,6 +10,7 @@ using Launcher.App.Diagnostics;
 using Launcher.Core.Config;
 using Launcher.Core.Diagnostics;
 using Launcher.Core.Library;
+using Launcher.Core.Media;
 using Launcher.Core.Platform;
 
 namespace Launcher.App.Boot;
@@ -51,6 +52,14 @@ public sealed class AppServices : IDisposable
 
     /// <summary>The boot query's result: enabled systems in config order, with their game counts.</summary>
     public IReadOnlyList<SystemSummary> Systems { get; set; }
+
+    /// <summary>
+    /// Bakes cover derivatives on its own below-normal thread (M4). Built on first use, after <c>interactive</c>, so
+    /// its thread costs nothing at boot. Null decoder on platforms without one: nothing is baked there.
+    /// </summary>
+    public DerivativeService Derivatives => _derivatives ??= new DerivativeService(Library, Paths, PlatformServices.CreateImageDecoder());
+
+    private DerivativeService? _derivatives;
 
     /// <summary>The root folder a media path is relative to.</summary>
     public string RootOf(MediaRoot root) => root == MediaRoot.Config ? Paths.ConfigDir : Paths.DataDir;
@@ -94,5 +103,9 @@ public sealed class AppServices : IDisposable
         }
     }
 
-    public void Dispose() => Library.Dispose();
+    public void Dispose()
+    {
+        _derivatives?.Dispose();
+        Library.Dispose();
+    }
 }

@@ -37,10 +37,24 @@ public sealed record ScanningSettings(IReadOnlyList<string> Exclude);
 
 public sealed record DisplaySettings(string Theme, bool Fullscreen);
 
+/// <summary><c>[scraping]</c>.</summary>
+/// <param name="Provider">The provider asked first for every game.</param>
+/// <param name="Fallback">Asked in order for what the provider before them left missing. Never contains <paramref name="Provider"/>.</param>
+/// <param name="Regions">ScreenScraper region codes, most wanted first.</param>
+/// <param name="Languages">Language codes, most wanted first.</param>
+/// <param name="Media">The media kinds to download, as <c>media.kind</c> values.</param>
+/// <param name="HashLimitBytes">ROMs up to this size are hashed (CRC32, MD5, SHA-1) for ScreenScraper lookups; 0 hashes none.</param>
 public sealed record ScrapingSettings(
+    string Provider,
+    IReadOnlyList<string> Fallback,
     IReadOnlyList<string> Regions,
     IReadOnlyList<string> Languages,
-    IReadOnlyList<string> CoverSources);
+    IReadOnlyList<string> Media,
+    long HashLimitBytes)
+{
+    /// <summary>The provider, then each fallback.</summary>
+    public IReadOnlyList<string> ProviderOrder => [Provider, .. Fallback];
+}
 
 public enum RomDirSource
 {
@@ -61,6 +75,7 @@ public enum RomDirSource
 /// The effective glob patterns, matched against paths relative to a ROM folder: <c>scanning.exclude</c>
 /// from settings.toml, then the system's own <c>exclude</c>.
 /// </param>
+/// <param name="IgdbPlatforms">IGDB platform ids searched for this system's games (a regional twin too, such as Famicom); null or empty skips IGDB.</param>
 public sealed record SystemConfig(
     string Id,
     string Name,
@@ -75,7 +90,8 @@ public sealed record SystemConfig(
     IReadOnlyList<string> RomDirs,
     RomDirSource RomDirSource,
     bool Recursive,
-    IReadOnlyList<string> Exclude);
+    IReadOnlyList<string> Exclude,
+    IReadOnlyList<int>? IgdbPlatforms = null);
 
 /// <summary>An <c>[emulators.&lt;id&gt;]</c> entry.</summary>
 /// <param name="Executable">Expanded absolute path, with no placeholders left.</param>

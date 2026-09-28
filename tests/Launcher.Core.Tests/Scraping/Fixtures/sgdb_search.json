@@ -1,0 +1,4 @@
+{ "success": true, "data": [
+  { "id": 1, "name": "Sonic 3 & Knuckles", "release_date": 783820800, "types": [ "steam" ], "verified": true },
+  { "id": 5170, "name": "Sonic the Hedgehog 3", "release_date": 760060800, "types": [ "steam" ], "verified": true }
+] }

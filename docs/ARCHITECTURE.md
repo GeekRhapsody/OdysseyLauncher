@@ -32,13 +32,13 @@ OdysseyLauncher/
 | `Config` | `ConfigLoader` loads TOML (Tomlyn), layering user files over built-in defaults (embedded resources). <br>Maps Tomlyn's syntax tree by hand into a tree that keeps every key's position, so diagnostics still point at the right file after merging (M2). <br>Merges recursively; scalars and arrays are replaced. <br>Validates, with file:line:column:key diagnostics; unknown keys get a "did you mean" warning. <br>Parsers take text plus a source name, so the app can feed `res://` files from the PCK. <br>From M7, writes go through Tomlyn's syntax tree, so comments survive. |
 | `Data` | `LibraryDatabase` and `UserDatabase` (create, migrate, back up), `MigrationRunner`, and the connection helpers. <br>**Microsoft.Data.Sqlite's async API is synchronous**, so reads run on the thread pool, and writes go through one dedicated writer thread (`DbWriter`). <br>Readers come from our own pool (`ReaderPool`), not Microsoft.Data.Sqlite's: each has `userdata.db` ATTACHed once and is `query_only`, and the pool can be closed and held back while a rebuilt library file is swapped in. <br>Every connection sets WAL, `foreign_keys=ON`, `synchronous=NORMAL` and `busy_timeout`. |
 | `Scanning` | `RomScanner` walks a system's ROM folders by file name (extensions, recursion, excludes). Several folders per system are allowed; the first folder wins a `path_key` collision. <br>Folders are listed with a 256 KB buffer, and `LibraryService` scans 8 systems at once on dedicated threads, because a network share costs a round trip per listing refill. Excluded folders (by default ES-DE's `images`, `manuals` and `videos`) aren't listed at all. <br>Multi-file games: files referenced by an `.m3u`, `.cue` or `.gdi` are hidden. Parsed playlists are cached in `library.db` by size and mtime, so a rescan doesn't re-read them. <br>`TitleParser` turns No-Intro and Redump names into a display title and a sort key, keeping region, languages, revision, disc and other tags as separate fields. <br>Normalises paths to `rel_path` and `path_key`. <br>From M5, `UserMedia` also indexes the user's own art, `ConfigDir/media/<system>/<kind>/<rel path>.<ext>` (PNG, JPEG or WebP), into `media` with source `user`: a file matches the game with the same `path_key`, or every game whose `path_key` is its name plus an extension. Each file's size and time are stored (migration 0002), so a rescan reads only new or changed headers. Model overrides are M6's. |
-| `Scraping` | `IScraper` for ScreenScraper and SteamGridDB. <br>Handles quotas and rate limits, and match resolution. <br>Saves raw responses with credentials stripped. |
-| `Media` | `MediaStore` (M4): deterministic paths and atomic writes (temp file then rename). <br>From M5: `ImageHeaders` reads a PNG, JPEG or WebP's size from its header only; `TextureDerivatives` names each baked derivative (`CacheDir/textures/<key>.dds`, the key a SHA-256 of the source's root, path, size and time), allocation-light so texture workers can call it per cover; `MediaKinds` lists the kinds. |
+| `Scraping` | (M4) `IScraper` for ScreenScraper, IGDB and SteamGridDB, each with a capability map (the fields and media kinds it can supply). <br>`ScrapeService`: scrape a game, a system, or everything missing, and clear a game, as operations with progress events (raised on worker threads). They go through a persistent queue in `userdata.db` (resumed after the app closes; single games jump ahead; cancellable), and games run concurrently within each provider's limits. <br>`ProviderGate` bounds each provider's requests in flight, per second and per minute, and holds them during a rate-limit pause or after a used-up quota; `ScraperHttp` retries rate limits and transient failures with exponential backoff, honouring Retry-After. <br>Provider selection: `[scraping] provider` first, then each `fallback` in order, asked only for what's still missing and what its capability map has; a provider with no credentials is skipped and reported. <br>`ProviderAccounts` reads credentials from `secrets.toml` and `ODYSSEY_*` variables. <br>Match resolution (A2), and the saved responses in `scraped/responses/` (credentials redacted), from which `ScrapedRestore` rebuilds a game's scraped data offline when a scan adds it. |
+| `Media` | (M4) `MediaStore`: scraped media at deterministic paths (`scraped/media/...`), written atomically (a temporary file, then a replacing move), with the image checked by its first bytes. <br>`Bc7Encoder` (modes 6 and 1) and `Bc7DdsWriter` make the derivative; `DerivativeBaker` decodes (`IImageDecoder`), squeezes to 512² and encodes; `DerivativeService` bakes on its own below-normal thread, and `BakeMissingAsync` bakes every cover without a derivative and deletes stale ones. <br>From M5: `ImageHeaders` reads a PNG, JPEG or WebP's size from its header only; `TextureDerivatives` names each baked derivative (`CacheDir/textures/<key>.dds`, the key a SHA-256 of the source's root, path, size and time), allocation-light so texture workers can call it per cover; `MediaKinds` lists the kinds. |
 | `Models` | `ModelInspector` validates a `.glb` against the A7 spec by reading only the GLB JSON chunk and the image headers. It has no Godot dependency. |
 | `Launching` | `LaunchPlanner` is pure and static: it picks the emulator (this launch's choice, then the game's override, then the system's) and expands its templates into a final argument list (A5). A named emulator that isn't configured is an error, never a silent fallback. <br>`LaunchService` checks the ROM, executable, core and working folder exist, runs the plan through `IProcessRunner`, and records the play session through `IPlayHistory`. One game at a time. <br>Events, raised on worker threads: `Starting`, `Running` (process id), then exactly one of `Exited` (exit code, duration) or `Failed` (a reason written for the user). A non-zero exit within 5 s is `Failed`, and isn't counted as a play. Cancelling ends the game's whole process tree. (M3) |
-| `Library` | `LibraryService`, the façade the app uses: systems summary (boot), games list (on entry), the Favourites and Recently played lists, favourites and overrides, and rescan and rebuild jobs with progress (scrape jobs from M4). Scans and rebuilds run one at a time; each writes in one transaction. |
-| `Platform` | The only OS-specific code. <br>Interfaces: `IPlatformPaths`, `IProcessRunner`, `IWindowFocus`; `PlatformServices` picks the implementations. <br>**Windows** (`Platform/Windows`, `LibraryImport` to kernel32 and user32): <br>- `WindowsProcessRunner` creates the emulator inside a new job object (`PROC_THREAD_ATTRIBUTE_JOB_LIST`) with `CreateProcessW`, and the game has ended when the job has no processes, so stub launchers are followed. A dedicated thread waits on the job's completion port, and also asks the job every second, because Windows doesn't guarantee job messages. The job doesn't kill the game if the launcher dies, allows explicit breakaway, and no handles are inherited. <br>- `WindowsCommandLine` quotes each argument by the C runtime's rules, since Windows passes one UTF-16 string. <br>- `WindowsWindowFocus`: see Platform glue below. <br>**Linux stub:** `PortableProcessRunner` (`Process` with `ArgumentList`; follows the started process only) and `NullWindowFocus`. |
-| `Diagnostics` | Debug-argument parser, `StartupTimeline`, `FrameTimeStats`, `BenchReport` (System.Text.Json source generation), and a minimal `ILog` that redacts secrets. |
+| `Library` | `LibraryService`, the façade the app uses: systems summary (boot), games list (on entry), the Favourites and Recently played lists, favourites and overrides, and rescan and rebuild jobs with progress, and metadata overrides (M4; scrape jobs are `ScrapeService`'s). Scans and rebuilds run one at a time; each writes in one transaction. |
+| `Platform` | The only OS-specific code. <br>Interfaces: `IPlatformPaths`, `IProcessRunner`, `IWindowFocus`; `PlatformServices` picks the implementations. <br>**Windows** (`Platform/Windows`, `LibraryImport` to kernel32 and user32): <br>- `WindowsProcessRunner` creates the emulator inside a new job object (`PROC_THREAD_ATTRIBUTE_JOB_LIST`) with `CreateProcessW`, and the game has ended when the job has no processes, so stub launchers are followed. A dedicated thread waits on the job's completion port, and also asks the job every second, because Windows doesn't guarantee job messages. The job doesn't kill the game if the launcher dies, allows explicit breakaway, and no handles are inherited. <br>- `WindowsCommandLine` quotes each argument by the C runtime's rules, since Windows passes one UTF-16 string. <br>- `WindowsWindowFocus`: see Platform glue below. <br>- `WicImageDecoder` (M4) decodes PNG, JPEG and WebP and scales them with the Windows Imaging Component, through raw COM vtable calls (no interop package). <br>**Linux stub:** `PortableProcessRunner` (`Process` with `ArgumentList`; follows the started process only) and `NullWindowFocus`; no image decoder yet, so no derivatives. |
+| `Diagnostics` | Debug-argument parser, `StartupTimeline`, `FrameTimeStats`, `BenchReport` (System.Text.Json source generation), a minimal `ILog`, and `Redactor` (M4), which masks every known credential (as written, URL-encoded and JSON-escaped) and the value of any credential-bearing URL parameter or bearer header. |
 
 Every `await` in Core uses `ConfigureAwait(false)`. Analyser rule CA2007 is an error in `src/`.
 
@@ -46,7 +46,7 @@ Every `await` in Core uses `ConfigureAwait(false)`. Analyser rule CA2007 is an e
 
 | Area | Responsibility |
 |---|---|
-| `Boot` | Main scene (M5). `AppServices` loads config and opens the library on the thread pool, while the main thread builds the look, the cover array and the grids, and Godot's loader threads load the built-in models. When both are done the systems grid is bound; its first drawn frame is `interactive`. A warm-up follows, one step a frame: the launch controller, then glyphs. Systems never scanned are scanned in the background after it. `MainThreadQueue` carries every background result to the main thread within 3 ms a frame. |
+| `Boot` | Main scene (M5). `AppServices` loads config and opens the library on the thread pool, while the main thread builds the look, the cover array and the grids, and Godot's loader threads load the built-in models. When both are done the systems grid is bound; its first drawn frame is `interactive`. A warm-up follows, one step a frame: the launch controller, then glyphs. Systems never scanned are scanned in the background after it, and then covers without a derivative are baked (M4; also after F5). `MainThreadQueue` carries every background result to the main thread within 3 ms a frame. |
 | `Screens` | `Navigator` (M5): Systems → Games → Launching → back. Transitions move the two grids in depth, scale them and fade them into the background, staggered so the opaque grids barely overlap. The last focused game is remembered per system, and the last 3 game lists are cached. Favourites and Recently played are cards in the systems grid, mixing templates. Details (the `metadata` fields, file-name tags and play history) are queried and formatted on the thread pool 0.12 s after the focus rests, so held moves don't query. `InfoOverlay` is the PS2-style text: the title with a soft glow top left, what it belongs to under it, details bottom left and controls bottom right. |
 | `Navigation` | `NavInput` (M5) polls `nav_*` actions each frame rather than using `_Input`, which allocates per event: arrows, Enter/Space, Escape/Backspace, Page Up/Down, Home/End, `[` `]`, F and F5; the D-pad, left stick, A/B/Y, shoulders (page), triggers (letter) and View (rescan). A held move repeats after 0.32 s, then speeds up from every 120 ms to every 35 ms over 1.4 s. Input is dropped while `LaunchController.IsInputBlocked`, and a button still held when that ends doesn't count. |
 | `Grid` | `ItemGrid` (M5), a virtualised 3D grid. <br>A cell pool (at most 64 for games) covers the visible rows plus spare rows, most of them ahead of the scroll, and cells are re-bound rather than recreated. <br>Template items are drawn as **one `MultiMesh` per template**, all with one material. Each pool cell has a fixed instance in every template's MultiMesh (hidden where unused), a fixed `Texture2DArray` layer and a fixed place in the title atlas. `INSTANCE_CUSTOM` = (layer + fade × 0.999, the plain colour packed as a 24-bit integer, idle phase or −1 when focused, the art's aspect or 0): Godot 4 multiplies a MultiMesh's instance colour into `COLOR`, which carries material data here. <br>Per-game custom `.glb` models (M6) use per-node instances bound to the same cells. <br>**The items never move to scroll: the grid's root does** (one transform), as the camera would, so a frame only touches newly bound rows, the focused items and fading covers. Two grids (systems and games) each have their own root. <br>Items are sized so 3.2 rows of games fit (2.7 of systems), unless that leaves fewer than 5 columns. A single part-filled row is centred. <br>`TitleAtlas`, a SubViewport of labels, draws each cell's title as a square block and a spine strip; it redraws only in a frame where a title changed. <br>**One update drives every item**, called by the main scene each frame. <br>A cell's texture request is superseded when it's re-bound, so late results are dropped. <br>Critically damped scrolling, the focused row always on the focus line, a little above the middle. |
@@ -112,17 +112,41 @@ public interface IPlayHistory {                                                 
     Task<PlayStats?> GetPlayStatsAsync(GameKey game, CancellationToken ct);
 }
 
-// Launcher.Core.Scraping
-public interface IScraper {
-    string Id { get; }                                                          // "screenscraper" | "steamgriddb"
-    Task<IReadOnlyList<ScrapeCandidate>> SearchAsync(ScrapeQuery query, CancellationToken ct);  // filename now, hashes later
-    Task<ScrapedGame> FetchAsync(string scraperGameId, ScrapeContext context, CancellationToken ct);
+// Launcher.Core.Scraping (M4)
+public interface IScraper {                                                     // thread-safe; bounds its own requests
+    string Id { get; }                                                          // "screenscraper" | "igdb" | "steamgriddb"
+    ScraperCapabilities Capabilities { get; }                                   // the fields and media kinds it can supply
+    string? Unavailable { get; }                                                // null, or why not (missing credentials, and where to put them)
+    string? Unsupported(SystemConfig system);                                   // e.g. no screenscraper_id / igdb_platforms
+    int MaxConcurrency { get; }
+    Task PrepareAsync(CancellationToken ct);                                    // once per run: account limits (ScreenScraper)
+    Task<ProviderResult> LookupAsync(ScrapeQuery query, CancellationToken ct);  // by file (name, size, hashes) or a title search
+    Task<ProviderResult> FetchAsync(string providerGameId, ScrapeQuery query, CancellationToken ct);  // a stored or manual match
+    Task<IReadOnlyList<ScrapeCandidate>> SearchAsync(string title, SystemConfig system, CancellationToken ct);  // for manual matching (M7)
+    Task<byte[]> DownloadAsync(ScrapedMedia media, CancellationToken ct);
+}
+public sealed class ScrapeService : IDisposable {                               // events on worker threads
+    event EventHandler<ScrapeBatchEventArgs> BatchStarted, BatchFinished;
+    event EventHandler<ScrapeProgressEventArgs> Progress;                       // batch, total, done, failed, current game
+    event EventHandler<ScrapeGameEventArgs> GameScraped;                        // status, providers, media, per-provider log
+    event EventHandler<ProviderNoticeEventArgs> ProviderNotice;                 // skipped (no credentials) or resting (quota)
+    IReadOnlyList<ProviderStatus> GetProviders();
+    Task<ScrapeBatchResult> ScrapeGameAsync(GameKey game, CancellationToken ct);
+    Task<ScrapeBatchResult> ScrapeSystemAsync(string systemId, CancellationToken ct);
+    Task<ScrapeBatchResult> ScrapeAllMissingAsync(CancellationToken ct);        // never successfully scraped, plus no front cover
+    Task<IReadOnlyList<ScrapeBatchResult>> ResumeAsync(CancellationToken ct);   // batches a stopped run left unfinished
+    Task CancelBatchAsync(long batchId);                                        // cancelling a call's token does this too
+    Task<ClearResult> ClearGameAsync(GameKey game, CancellationToken ct);
+    DerivativeService Derivatives { get; }
 }
 
-// Launcher.Core.Media
-public interface IMediaStore {
-    string RelativePathFor(GameKey game, MediaKind kind, string extension);    // deterministic
-    Task<StoredMedia> SaveAsync(GameKey game, MediaKind kind, Stream content, string extension, CancellationToken ct);
+// Launcher.Core.Media (M4)
+public sealed class MediaStore {
+    static string RelativePathFor(GameKey game, string kind, string extension); // scraped/media/<system>/<kind>/<path_key><ext>
+    Task<StoredMedia> SaveAsync(GameKey game, string kind, ReadOnlyMemory<byte> content, CancellationToken ct);  // atomic; sniffs the format
+}
+public interface IImageDecoder {                                                // the OS's codecs; Windows: WIC
+    bool TryDecodeScaled(string path, int width, int height, Span<byte> rgba, out string? error);
 }
 
 // Launcher.Core.Launching
@@ -153,10 +177,16 @@ public interface ITextureSink { void OnLayerReady(int slot); void OnLayerMissing
 
 **Match resolution for scraping (per game, per scraper):**
 1. A manual match in `userdata.db`.
-2. Otherwise, the match stored in `library.db`.
-3. Otherwise, a filename search, and later a hash search.
+2. Otherwise, the match stored in `library.db` (if the provider no longer has that game, it's looked up again).
+3. Otherwise, a lookup: ScreenScraper by file name, size and system id, plus CRC32, MD5 and SHA-1 for files up to `hash_limit_mb` (ScreenScraper asks for a hash); if that finds nothing, a title search. IGDB and SteamGridDB can only search by title. A search hit counts only if its name matches the ROM's cleaned title (`TitleMatcher`, similarity ≥ 0.85, case-, accent-, punctuation- and article-blind).
 
-Once matched, re-scrapes use `FetchAsync(id)` and never search again. Saved responses carry the matched id, so a rebuild recovers automatic matches offline, and manual corrections always win.
+Once matched, re-scrapes use `FetchAsync(id)` and never search again; the stored method (`filename`, `hash`, `search`, `manual`) is kept. Saved responses carry the matched id and method, so a rebuild recovers automatic matches offline, and manual corrections always win.
+
+**Provider selection (M4).** Each game is scraped by `[scraping] provider` first. Each `fallback` provider, in order, is then asked only if its capability map has a field or media kind still missing, and it fills only those: every field comes from the first provider that has it. Media: each wanted kind (less the kinds the user has their own art for) is downloaded from the first provider that offers it, falling through to the next if a download fails. Capabilities: ScreenScraper has every field and every kind; IGDB every field, the cover, a screenshot and artwork (as the hero); SteamGridDB the cover (community capsule art), hero and logo, and no metadata. Only ScreenScraper has back, spine and box texture.
+
+**Scrape status.** A game is `ok` (found, nothing failed), `partial` (found, but a provider failed or was resting), `not_found` or `error` (nothing found; something failed); no `scrape_state` row means never scraped. "Scrape all missing" takes games never scraped, `not_found` or `error`, plus every game without a cover row.
+
+**Limits and failures.** Each provider's `ProviderGate` holds its requests in flight (ScreenScraper: the account's `maxthreads`; IGDB 4 of its 8; SteamGridDB 2), its rate (IGDB 4 a second; SteamGridDB 4 a second; ScreenScraper the account's `maxrequestspermin`) and pauses. A 429 or 5xx is retried up to 5 times with exponential backoff (2 s doubling, jitter, capped at 2 minutes; Retry-After honoured), pausing the whole gate on a 429. A used-up quota (ScreenScraper 430, 431, or its reported counters) rests the provider until ScreenScraper's midnight (French time), and refused credentials until the app restarts; the gate refuses queued requests at once, games carry on with the other providers and are marked `partial`, and a `ProviderNotice` says why.
 
 ## A3. Performance design
 
@@ -216,11 +246,8 @@ Everything else waits until after `interactive`, and nothing is scanned at boot.
     - The visible grid is textured 10 ms after the first frame, against about 100 ms.
     - BC1 (171 KB) is an option for a low-memory setting. KTX, Godot `.res` and raw blobs were measured and rejected.
     - Real art is centre-cropped to the face in the shader (above).
-  - **Open (M4): the encoder.** `Image.Compress` returns `Unavailable` in export templates (measured), so the shipped app can't bake BCn itself. The options:
-    - a managed BCn encoder package (ask the owner first)
-    - our own encoder
-    - a `RenderingDevice` compute port of Godot's Betsy encoder
-    - JPEG derivatives, which met every frame target in M1 at 4× the VRAM and 5× less disk
+  - **The encoder (M4): our own, in Core (`Bc7Encoder`).** BC7 mode 6 for every block, and mode 1 (two subsets from 64 partitions) for opaque blocks where mode 6 fits badly, which are the edges: text, outlines, logos. About 0.44 s a real cover with mips on the Deck, and 40 dB PSNR on real Mega Drive box art, slightly better than BCnEncoder.Net, which took about 10 s a cover ([perf/m4-scraping.md](perf/m4-scraping.md)). Images are decoded and scaled by the OS (`IImageDecoder`: WIC on Windows). `Image.Compress` returns `Unavailable` in export templates, so the app couldn't use Godot's.
+  - **Baking:** a scraped cover is baked as it's saved; `DerivativeService.BakeMissingAsync` bakes every cover without one (the user's art too), after the app's background scans and by `odyssey-scrape bake`, and deletes derivatives no cover names. Both on one below-normal thread.
 - **Loading:**
   - Workers read each file into a **per-worker pooled buffer** (`File.OpenHandle` plus `RandomAccess.Read`) and decode it with `Image.LoadDdsFromBuffer(ReadOnlySpan<byte>)`.
   - `Image.LoadFromFile` can't read DDS or KTX in 4.7.
@@ -262,7 +289,7 @@ Everything else waits until after `interactive`, and nothing is scanned at boot.
 **M1 experiments.** Results are in [SPIKE_RESULTS.md](SPIKE_RESULTS.md). Items marked "later" moved to the milestone named when M1 closed.
 - Done: renderer (Forward+ against Mobile, on the grid) → Mobile/D3D12. The driver matrix was run on the scaffold only; Compatibility wasn't benched on the grid.
 - Done: per-node materials against a `Texture2DArray` indexed per instance, and MultiMesh against nodes → MultiMesh plus `Texture2DArray` for templates.
-- Done: derivative format and upload path → BC7 DDS; update pre-created textures on the main thread. The encoder is open (M4).
+- Done: derivative format and upload path → BC7 DDS; update pre-created textures on the main thread. The encoder: our own, in Core (M4).
 - Done: upload budget and decode worker count → 4 MB per frame (measured) and 2 workers. The cap of 8 uploads per frame: no measurable difference at the M1 scroll rate (M5), kept.
 - Partly done: the 4K render scale. Measured at 2560×1440 only (M1, M5); FSR1 needs Forward+ (M5). 3840×2160 needs the desktop at 4K.
 - Done (M5): the export shader baker, now on (halves a cold start). ReadyToRun needs the crossgen2 runtime pack from NuGet, so it waits for the owner's approval.
@@ -277,7 +304,7 @@ Everything else waits until after `interactive`, and nothing is scanned at boot.
 | Location | Windows default | Contents |
 |---|---|---|
 | ConfigDir | `%APPDATA%\OdysseyLauncher` | `settings.toml`, `systems.toml`, `emulators.toml`, `secrets.toml`, `themes/<id>/`, `models/{systems,templates,games}/`, `media/<system>/<kind>/<rel path>.<ext>` (user art, indexed from M5) |
-| DataDir | `%LOCALAPPDATA%\OdysseyLauncher` | `library.db`, `userdata.db` (plus the last 3 backups), `media/<system>/<kind>/<path_key>.<ext>`, `scraped/<scraper>/<system>/<path_key>.json`, `logs/` |
+| DataDir | `%LOCALAPPDATA%\OdysseyLauncher` | `library.db`, `userdata.db` (plus the last 3 backups), `scraped/media/<system>/<kind>/<path_key>.<ext>` (full size, as downloaded), `scraped/responses/<provider>/<system>/<path_key>.json`, `tokens/igdb.json` (IGDB's cached access token), `logs/` |
 | CacheDir | `%LOCALAPPDATA%\OdysseyLauncher\cache` | `textures/` (derivatives), `models/` (converted `.glb`) |
 
 - **Where things go:**
@@ -304,12 +331,28 @@ Everything else waits until after `interactive`, and nothing is scanned at boot.
 - **Missing folders:** a scan of a folder that no longer exists (an unplugged drive) removes its games from `library.db`; their user data stays (see Orphans).
 - **Multi-file games:** an `.m3u` hides the discs it lists, a `.cue` its `FILE` tracks, and a `.gdi` its track files, so the playlist is the one game. References resolve against the playlist's folder, match by `path_key`, and can't point outside the ROM folder. A playlist over 256 KB isn't read. Disc systems' default extensions leave out `.bin`, so stray tracks never show.
 - **Titles:** `TitleParser` peels trailing `(...)` and `[...]` groups off the file name. The first all-region group is the region, the first language list (`En,Fr,De`) is the languages, and the first `Rev`/`v` and `Disc` tags are the revision and disc. Everything else is kept, as written, in `tags`. A trailing article moves to the front (`Legend of Zelda, The` → `The Legend of Zelda`), and a lone disc keeps " (Disc n)" in its title. The sort key is lower-case and accent-free, drops a leading The/A/An, sorts numbers naturally, and puts a game's discs right after it.
-- **Back up:** ConfigDir and `userdata.db`, plus `media/` and `scraped/` to avoid a re-scrape.
+- **Back up:** ConfigDir and `userdata.db`, plus `scraped/` to avoid a re-scrape.
+- **Scraped files (M4)** live under `scraped/`, not DataDir's own `media/`: in the portable layout ConfigDir and DataDir are one folder, and `media/` there is the user's own art.
 - **Orphans:** when a file disappears, its `userdata.db` rows are kept, so moving a ROM out and back loses nothing.
 
-### `library.db` (schema version 1, `PRAGMA user_version = 1`)
+### `library.db` (schema version 3, `PRAGMA user_version = 3`)
 
-The shipped files are `src/Launcher.Core/Data/Migrations/Library/0001_initial.sql` and `0002_media_file_stamps.sql` (M5: `media.size_bytes` and `mtime_ms`, the indexed file's size and time, so an unchanged file's header isn't read again, and so the grid can name its derivative without touching it). This copy is version 1, for reading.
+The shipped files are `src/Launcher.Core/Data/Migrations/Library/0001_initial.sql`, `0002_media_file_stamps.sql` (M5: `media.size_bytes` and `mtime_ms`, the indexed file's size and time, so an unchanged file's header isn't read again, and so the grid can name its derivative without touching it; scraped media rows have them too), and `0003_scraping.sql` (M4: `metadata.title`, the scraped title, and `scrape_state`, below). This copy is version 1, for reading.
+
+```sql
+-- 0003 (M4)
+ALTER TABLE metadata ADD COLUMN title TEXT;   -- games.title also holds it, for the grid query; a lone disc keeps " (Disc n)"
+CREATE TABLE scrape_state (                   -- no row = never scraped
+  game_id     INTEGER PRIMARY KEY REFERENCES games(game_id) ON DELETE CASCADE,
+  status      TEXT NOT NULL,                  -- 'ok' | 'partial' | 'not_found' | 'error'
+  providers   TEXT,                           -- the providers that found it, in order: 'screenscraper,igdb'
+  scraped_at  INTEGER NOT NULL
+) STRICT;
+```
+
+`metadata.source` holds the providers that supplied fields (`'screenscraper,igdb'`), and `scraper_matches` and `scrape_log` take `igdb` too.
+
+**Restoring scraped data (M4).** When a scan adds a game (after a rebuild, a recreated library, or a ROM moved back), its saved responses are read back offline: each provider's parser turns its response into a game, the results merge in config order as a live scrape does, matches return with their method, and media rows point at the files in `scraped/media/` that still exist (the user's own art keeps its rows).
 
 ```sql
 CREATE TABLE systems (
@@ -393,9 +436,25 @@ CREATE TABLE scrape_log (
 ) STRICT;
 ```
 
-### `userdata.db` (schema version 1)
+### `userdata.db` (schema version 2)
 
-This DB can't be rebuilt. It's keyed by `(system_id, path_key)`, never by `library.db` ids. The shipped file is `Data/Migrations/User/0001_initial.sql`.
+This DB can't be rebuilt. It's keyed by `(system_id, path_key)`, never by `library.db` ids. The shipped files are `Data/Migrations/User/0001_initial.sql` and `0002_scraping.sql` (M4):
+
+```sql
+-- 0002 (M4): the user's metadata overrides, which scraping never writes (NULL = the scraped value)
+ALTER TABLE game_overrides ADD COLUMN description TEXT;  -- and release_date, developer, publisher, genre, players (TEXT), rating (REAL)
+-- The scrape queue: a batch survives the app closing. Jobs are deleted as they finish; a batch keeps its counts.
+CREATE TABLE scrape_batches (batch_id INTEGER PRIMARY KEY, kind TEXT NOT NULL,   -- 'game' | 'system' | 'missing'
+                             target TEXT, priority INTEGER NOT NULL,             -- single games (0) before batches (1)
+                             total INTEGER NOT NULL, done INTEGER NOT NULL DEFAULT 0, failed INTEGER NOT NULL DEFAULT 0,
+                             created_at INTEGER NOT NULL, finished_at INTEGER,   -- NULL = resume it
+                             cancelled INTEGER NOT NULL DEFAULT 0) STRICT;
+CREATE TABLE scrape_jobs    (batch_id INTEGER NOT NULL REFERENCES scrape_batches(batch_id) ON DELETE CASCADE,
+                             seq INTEGER NOT NULL, system_id TEXT NOT NULL, path_key TEXT NOT NULL,
+                             PRIMARY KEY (batch_id, seq)) STRICT, WITHOUT ROWID;
+```
+
+**Clearing a game (M4)** deletes its scraped metadata, scrape state and log, every match (manual ones too), every media row, the title and metadata overrides, the scraped files and their derivatives, its saved responses, and the user's own art files for it, except a file another game also uses (matched by stem). The title goes back to the file name. Favourite, play history, emulator override and hidden stay.
 
 ```sql
 CREATE TABLE favourites     (system_id TEXT NOT NULL, path_key TEXT NOT NULL, added_at INTEGER NOT NULL,
@@ -469,9 +528,12 @@ theme = "memory-card"
 fullscreen = true
 
 [scraping]
-regions = ["eu", "wor", "us", "jp"]  # first available wins
+provider = "screenscraper"           # asked first for every game
+fallback = ["igdb", "steamgriddb"]   # then these, in order, for what's still missing
+regions = ["eu", "wor", "us", "jp"]  # ScreenScraper region codes; first available wins (IGDB's release regions map from them)
 languages = ["en"]
-cover_sources = ["screenscraper", "steamgriddb"]
+media = ["cover", "box_texture"]     # also: back, spine, screenshot, logo, hero
+hash_limit_mb = 64                   # ROMs up to this size are hashed for ScreenScraper; 0 = none
 ```
 
 ### System definition
@@ -490,6 +552,7 @@ emulator = "retroarch-genesis-plus-gx"
 alt_emulators = []
 game_model = "clamshell"             # built-in box template id; default "dvd_case"
 screenscraper_id = 1
+igdb_platforms = [29]                # IGDB platform ids; NES and SNES add their Japanese twins (99, 58)
 
 # user override
 [systems.megadrive]
@@ -502,7 +565,8 @@ emulator = "retroarch-mesen"
 enabled = false
 ```
 
-- `screenscraper_id` values were checked on 2026-09-28 against ScreenScraper's own system pages (`systemeinfos.php?plateforme=<id>`) and ES-DE's table. ScreenScraper's API documentation has no system table, and `systemesListe.php` needs developer credentials, so M4 re-checks them there.
+- `screenscraper_id` values were checked on 2026-09-28 against ScreenScraper's own system pages (`systemeinfos.php?plateforme=<id>`) and ES-DE's table. ScreenScraper's API documentation has no system table, and `systemesListe.php` needs developer credentials, which the repo doesn't have: `odyssey-scrape ss-systems` (M4) lists it against each system's id, for the owner to run.
+- `igdb_platforms` (M4) were cross-checked between RomM's IGDB platform table and an IGDB platform list. A system without them isn't looked up on IGDB.
 - Every config file may start with `format = 1`.
 
 ### Emulator profiles
@@ -571,7 +635,26 @@ Write `{{` or `}}` for a literal brace.
 
 ### Secrets
 
-ScreenScraper account and developer credentials, and the SteamGridDB API key, live only in `ConfigDir/secrets.toml` or in `ODYSSEY_*` environment variables. ScreenScraper embeds credentials in its URLs, media URLs included, so they're stripped from saved responses, logs and bench output.
+ScreenScraper account and developer credentials, the SteamGridDB API key and the IGDB (Twitch application) client id and secret live only in `ConfigDir/secrets.toml` or in `ODYSSEY_*` environment variables, which override the file value by value (M4, `ProviderAccounts`):
+
+```toml
+[screenscraper]      # ODYSSEY_SCREENSCRAPER_DEV_ID, _DEV_PASSWORD, _USERNAME, _PASSWORD
+dev_id = "..."       # developer credentials, issued by ScreenScraper (on its forum) for this software
+dev_password = "..."
+username = "..."     # the user's account; optional (anonymous limits otherwise)
+password = "..."
+
+[steamgriddb]        # ODYSSEY_STEAMGRIDDB_API_KEY
+api_key = "..."
+
+[igdb]               # ODYSSEY_IGDB_CLIENT_ID, ODYSSEY_IGDB_CLIENT_SECRET
+client_id = "..."
+client_secret = "..."
+```
+
+- A provider without its credentials is skipped, and the message says which keys or variables to set and where. Diagnostics about the file never quote a value, and a syntax error shows only its position.
+- ScreenScraper embeds the credentials in every URL, and echoes them back in each response (`header.commandRequested`, every media URL). `Redactor` masks them in saved responses and logs; a test scans every file the scrape writes, and the log, for every credential.
+- IGDB's app access token (about 60 days, and a Twitch application may only have 25) is cached in `DataDir/tokens/igdb.json`, keyed by a hash of the client id, and replaced a day before expiry or when IGDB refuses it. The client secret travels in a form body, never a URL.
 
 ## A6. Theme manifest (`themes/<id>/theme.toml`)
 
@@ -701,7 +784,7 @@ The built-in templates (M5) are `dvd_case` (PlayStation 2, GameCube), `jewel_cas
 | 2026-09-27 | **Renderer: Mobile on D3D12**, replacing Forward+. `project.godot` switches when the real grid lands (M5). | M1: the same frame pacing, 36–42% less GPU time at 1280×800, the same or faster start-up, and output within 4/255. The design uses no Forward+-only feature. ([SPIKE_RESULTS.md](SPIKE_RESULTS.md) §3) |
 | 2026-09-27 | **Item rendering:** one `MultiMesh` per template plus a `Texture2DArray` with a layer per pool cell, indexed through `INSTANCE_CUSTOM`. Per-node instances only for per-game custom models. The camera scrolls and the grid stays still. | M1: both approaches hold vsync with 64 cells. MultiMesh uses 3 draw calls against 42 and about 20% less render CPU, and its pool memory is fixed (§1). Nodes-only is the fallback. |
 | 2026-09-27 | **Cover derivative: BC7 DDS, 512², full mips**, loaded with `Image.LoadDdsFromBuffer(span)` from a pooled buffer. BC1 is optional for low memory. | M1: 0.26 ms to decode against 4–5.4 ms for JPEG and PNG, 4× less VRAM, and the grid textured in 10 ms against about 100 ms. KTX, `.res` and raw were measured and rejected (§2). |
-| 2026-09-27 | **Open risk:** the export templates have no BCn encoder (`Image.Compress` returns `Unavailable`). M4 picks an encoder: a package (needs approval), our own, or a GPU compute port. JPEG derivatives are the fallback. | Measured in the export (§2a). JPEG met every frame target at 4× the VRAM. |
+| 2026-09-27 | **Open risk (closed by M4: our own encoder, below):** the export templates have no BCn encoder (`Image.Compress` returns `Unavailable`). M4 picks an encoder: a package (needs approval), our own, or a GPU compute port. JPEG derivatives are the fallback. | Measured in the export (§2a). JPEG met every frame target at 4× the VRAM. |
 | 2026-09-27 | **Uploads:** pool textures are created at boot and only updated on the main thread (4 MB per frame). No texture is created on the main thread while browsing. 2 decode workers. | M1: a BC7 layer update takes 0.03 ms. Main-thread creation has 17–66 ms outliers. Creation on a worker doesn't stall the main thread, but blocks the worker for about 12 ms per call. 4 workers didn't help (§2d). |
 | 2026-09-27 | **Targets:** the hitch target is reworded as "no hitches caused by the launcher" (measured against a no-texture control, 0 frames over 2×, 0 hitches fullscreen). New targets: textured ≤ 100 ms, ≥ 99% textured while scrolling, working set ≤ 512 MB, pool ≤ 64 MB. Main-thread allocation ceiling: 4 KB per 60 s scroll. **These wait for the owner's sign-off.** | M1: a periodic present delay about every 5 s, outside our code, gives 0–2 hitches per 60 s run in windowed mode even with nothing streaming. The other targets were met with headroom. |
 | 2026-09-28 | Packages: Tomlyn 2.10.1 and Microsoft.Data.Sqlite 10.0.12 (with SQLitePCLRaw's bundled `e_sqlite3`), in Launcher.Core only. Both target net8.0. | Part of the decided stack; M2 adds them. Tomlyn 2.x reads TOML 1.1 only. |
@@ -739,3 +822,15 @@ The built-in templates (M5) are `dvd_case` (PlayStation 2, GameCube), `jewel_cas
 | 2026-09-28 | **The bench window starts at `interactive`**, and `--bench-scenario=scroll`, `--no-textures`, `--render-scale`, `--upscaler`, `--upload-cap`, `--start-system`, `--start-index` and `--nav-script` are added. The report is format 2. | Frames before `interactive` are start-up. The scroll scenario and the control are what the M1 targets are measured with; the rest make captures and experiments reproducible. |
 | 2026-09-28 | **The M1 p99 target isn't met in this session, and the cause is presentation:** p99 is about 21 ms windowed and 22 ms fullscreen with covers, without them, and with both grids hidden. | Recorded rather than papered over; PresentMon (needs approval) is the next step. |
 | 2026-09-28 | `project.godot` now uses the **Mobile renderer** (M1's decision, applied when the real grid landed), and the font LCD subpixel layout is off. | M1 chose Mobile. The title atlas is drawn on a transparent viewport, where subpixel antialiasing would put coloured fringes in its alpha. |
+| 2026-09-28 | **Scraping has three providers (M4): ScreenScraper, IGDB and SteamGridDB**, each with a capability map. `[scraping] provider` is asked first and `fallback` (in order) fills only what's missing; `cover_sources` is gone (nothing had shipped). Systems gain `igdb_platforms`. | The owner's brief. Only ScreenScraper has back, spine and box texture; IGDB has metadata and front covers; SteamGridDB has community art and no metadata (the research is summarised in [perf/m4-scraping.md](perf/m4-scraping.md) and the M4 log). |
+| 2026-09-28 | **ScreenScraper lookups send the file name, size and `romtype`, plus CRC32, MD5 and SHA-1 for files up to `hash_limit_mb` (64)**, hashed once and kept in `games`. Bigger files (disc images) go by name and size. If that finds nothing, a title search, accepting only a hit whose name matches. | ScreenScraper's rules ask for a hash with every lookup. The owner chose this middle way: hashing every PS2 image over the NAS would read terabytes. Misses count against a smaller daily quota, so a name-matched search is the fallback, never a guess. |
+| 2026-09-28 | **The BC7 encoder is our own (`Bc7Encoder`: mode 6, plus mode 1 for opaque blocks with edges); images are decoded by the OS (WIC).** BCnEncoder.Net stays in the tests only, as the decoder that checks our blocks bit for bit. | The owner approved BCnEncoder.Net, but it took about 10 s a cover (39 hours for the synthetic library). Ours takes about 0.44 s and scores 40 dB on real box art, slightly above BCnEncoder.Net ([perf/m4-scraping.md](perf/m4-scraping.md)). No image-decoding package is needed. |
+| 2026-09-28 | **Scraped files live under `DataDir/scraped/`:** `media/<system>/<kind>/<path_key>.<ext>` (full size) and `responses/<provider>/<system>/<path_key>.json`, not DataDir's `media/`. | In the portable layout ConfigDir and DataDir are one folder, where `media/` is the user's own art: scraped files would have been indexed as the user's. |
+| 2026-09-28 | **The saved responses are what rebuilds scraped data:** each carries the matched id and method, the media it supplied, and the raw response (redacted), which the provider's own parser reads back offline. A scan restores them for every game it adds, so a rebuild or a recreated `library.db` gets metadata, matches and media links back with no network. | `library.db` stays a pure function of config, disk and `scraped/` (A4). Re-parsing keeps one code path for live and offline, rather than a second normalised copy. |
+| 2026-09-28 | **The scrape queue lives in `userdata.db`** (`scrape_batches`, `scrape_jobs`, keyed by identity). Single games run ahead of batches. Stopping the service pauses (jobs stay queued; `ResumeAsync` carries on); `CancelBatchAsync`, or cancelling an operation's token, abandons a batch. | Resumable after the app closes, and a library rebuild can't lose it. A pause and a cancel are different intents. |
+| 2026-09-28 | **A used-up quota, a closure or refused credentials rest the provider** (quota: until ScreenScraper's midnight, French time; credentials: until restart) and shut its gate, so queued requests fail without going out. Games carry on with the other providers and are marked `partial`. "Scrape all missing" is never scraped, `not_found` or `error`, plus no cover: `partial` isn't retried by it. | A batch shouldn't stall for a day, and mustn't keep hitting a closed API. The owner's definition of missing (never successfully scraped, plus no front cover). |
+| 2026-09-28 | **The scraped title** is kept in `metadata.title` and written to `games.title` (with " (Disc n)" for a lone disc) for the grid; a case-only rename keeps it. The user's metadata overrides are new `game_overrides` columns, which scraping never writes; details show them over the scraped values. | A4 already said `games.title` holds the scraped title. Keeping overrides in userdata.db means a re-scrape can't touch them. |
+| 2026-09-28 | **Clearing a game removes everything scraped and every override of its metadata, including its manual matches and the user's own art files for it** (not a file another game also uses). Favourite, play history, emulator and hidden stay. | The owner's choice of scope (the fullest of the options offered). |
+| 2026-09-28 | **IGDB conventions:** rating from `total_rating`, else `aggregated_rating`, else `rating`, over 100; release date from the system's `release_dates` in the most wanted region, as precise as its `date_format` (else `first_release_date`); players from the system's multiplayer modes ("1" for a game whose only mode is single player); companies and genres joined with commas; images at `t_1080p`. The token is cached on disk and requested again a day before expiry or when refused. | IGDB has three ratings, no player-count field, and tokens that can't be refreshed, with a limit of 25 per application. |
+| 2026-09-28 | **The app bakes missing derivatives after its background scans** (and after F5), on `DerivativeService`'s below-normal thread; not in benches. Covers baked then show the next time their system is entered. | The M5 carry-over: the user's own art had no derivatives. An A/B against M5 in one session shows no change in scroll or start-up ([perf/m4-scraping.md](perf/m4-scraping.md)). |
+| 2026-09-28 | **`odyssey-scrape` (`tools/scrape-cli`) exposes every operation** for live testing with the owner's credentials, on the app's own folders or a `--user-dir`. It's in the solution. | The owner asked for it. In the solution so it always builds with Core. |

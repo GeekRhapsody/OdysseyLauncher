@@ -1,0 +1,14 @@
+[
+  {
+    "id": 777,
+    "name": "Ecco the Dolphin",
+    "summary": "A dolphin searches for his pod.",
+    "release_dates": [ { "id": 1, "date_format": 2, "platform": 29, "release_region": 8, "y": 1992 } ],
+    "involved_companies": [ { "id": 1, "company": { "id": 9, "name": "Novotrade" }, "developer": true, "publisher": false } ],
+    "genres": [ { "id": 31, "name": "Adventure" } ],
+    "game_modes": [ { "id": 1, "name": "Single player" } ],
+    "aggregated_rating": 70,
+    "cover": { "id": 8, "image_id": "coecco" },
+    "platforms": [ 29 ]
+  }
+]

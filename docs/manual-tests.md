@@ -164,3 +164,65 @@ Use only the gamepad from here on.
 
 - Anything that differed, especially: the stick not moving the focus, a held move that doesn't speed up or overshoots, a button that acts twice, the wrong game focused when you come back, or input reaching the launcher while RetroArch is in front.
 - The log lines from the launch: `Select-String -Path "$env:APPDATA\Godot\app_userdata\Odyssey Launcher\logs\godot.log" -Pattern '^Launch|^Boot|error'`.
+
+## M4: a live scrape
+
+This is the M4 acceptance's live scrape of a 50-game set, and the check of the built-in `screenscraper_id` values against ScreenScraper's system list. Both need your own credentials, which the repo never has. It uses the M3 set-up (`C:\OdysseyTest`), so your AppData isn't touched.
+
+1. Put 50 Mega Drive ROMs of your own in `C:\OdysseyTest\ROMs\megadrive` (a mix: well-known games, a few obscure ones, one renamed oddly).
+2. Create `C:\OdysseyTest\secrets.toml` with whichever providers you have (leave a section out to see it skipped):
+
+   ```toml
+   [screenscraper]
+   dev_id = "..."
+   dev_password = "..."
+   username = "..."
+   password = "..."
+
+   [steamgriddb]
+   api_key = "..."
+
+   [igdb]
+   client_id = "..."
+   client_secret = "..."
+   ```
+
+   Keep this file out of the repo. `ODYSSEY_*` environment variables work too (`ODYSSEY_IGDB_CLIENT_SECRET` and so on).
+3. Build, then check the providers. Each should say `Ready`, and ScreenScraper should print your account's threads and quota:
+
+   ```powershell
+   dotnet build
+   $cli = ".\tools\scrape-cli\bin\Debug\net8.0\odyssey-scrape.exe"
+   & $cli --user-dir=C:\OdysseyTest providers
+   & $cli --user-dir=C:\OdysseyTest ss-systems
+   ```
+
+   `ss-systems` lists each built-in system's `screenscraper_id` beside ScreenScraper's names for it. Every row should name the right console.
+4. Scrape one game and look at it:
+
+   ```powershell
+   & $cli --user-dir=C:\OdysseyTest game "megadrive/<a ROM's file name>"
+   & $cli --user-dir=C:\OdysseyTest show "megadrive/<the same>"
+   ```
+
+5. Scrape the whole set, timed, keeping the output:
+
+   ```powershell
+   Measure-Command { & $cli --user-dir=C:\OdysseyTest system megadrive | Tee-Object C:\OdysseyTest\scrape-log.txt } | Select-Object TotalSeconds
+   ```
+
+6. Resume: run `& $cli --user-dir=C:\OdysseyTest missing`, press Ctrl+C after a few games, then run `& $cli --user-dir=C:\OdysseyTest resume`. It should carry on with the games left, not start again. (With every game already found, `missing` picks only games without a cover.)
+7. Clear one game: `& $cli --user-dir=C:\OdysseyTest clear "megadrive/<a ROM>"`, then `show` it: "Never scraped", no cover.
+8. Look at the result in the launcher: `& .\artifacts\export\windows\OdysseyLauncher.exe ++ --user-dir=C:\OdysseyTest` (export first, as in M3). Covers show on the boxes; the details show the scraped metadata.
+9. Check that no credential was written anywhere. For each of your values, this finds nothing (`tokens\igdb.json` holds IGDB's access token by design, not your secret):
+
+   ```powershell
+   Get-ChildItem C:\OdysseyTest\scraped, C:\OdysseyTest\*.db -Recurse -File | Select-String -Pattern '<value>' -SimpleMatch
+   ```
+
+### Send back
+
+- The timing, and the summary lines of `scrape-log.txt` (the `[n/50]` lines and the batch line). They contain no credentials.
+- Which games were wrong: not found, matched to the wrong game, or with the wrong cover.
+- Any `ss-systems` row that names the wrong console.
+- Whether resume carried on, and anything in the output that looked like a credential.

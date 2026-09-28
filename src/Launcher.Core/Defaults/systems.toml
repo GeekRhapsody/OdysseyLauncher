@@ -16,6 +16,10 @@
 # (webapi2.php) has no system table; the full list comes from systemesListe.php, which needs developer
 # credentials, so it hasn't been read. M4 re-checks the ids against it.
 #
+# igdb_platforms: IGDB platform ids, cross-checked on 2026-09-28 between RomM's IGDB platform table and an
+# IGDB platform list. NES and SNES add their Japanese twins (Family Computer 99, Super Famicom 58), where
+# Japan-only releases are filed.
+#
 # Extensions: .m3u, .cue and .gdi group multi-file games, and the files they reference are hidden.
 # Disc systems leave out .bin, so stray tracks never show as games.
 
@@ -30,6 +34,7 @@ emulator = "retroarch-gambatte"
 alt_emulators = ["retroarch-mgba"]
 game_model = "cartridge_box"
 screenscraper_id = 9
+igdb_platforms = [33]
 
 [systems.gbc]
 name = "Game Boy Color"
@@ -40,6 +45,7 @@ emulator = "retroarch-gambatte"
 alt_emulators = ["retroarch-mgba"]
 game_model = "cartridge_box"
 screenscraper_id = 10
+igdb_platforms = [22]
 
 [systems.gba]
 name = "Game Boy Advance"
@@ -49,6 +55,7 @@ extensions = [".gba", ".zip", ".7z"]
 emulator = "retroarch-mgba"
 game_model = "cartridge_box"
 screenscraper_id = 12
+igdb_platforms = [24]
 
 [systems.nes]
 name = "Nintendo Entertainment System"
@@ -60,6 +67,7 @@ emulator = "retroarch-mesen"
 alt_emulators = ["retroarch-fceumm"]
 game_model = "cartridge_box"
 screenscraper_id = 3
+igdb_platforms = [18, 99]
 
 [systems.snes]
 name = "Super Nintendo Entertainment System"
@@ -70,6 +78,7 @@ extensions = [".sfc", ".smc", ".swc", ".fig", ".bs", ".zip", ".7z"]
 emulator = "retroarch-snes9x"
 game_model = "cartridge_box"
 screenscraper_id = 4
+igdb_platforms = [19, 58]
 
 [systems.n64]
 name = "Nintendo 64"
@@ -79,6 +88,7 @@ extensions = [".z64", ".n64", ".v64", ".zip", ".7z"]
 emulator = "retroarch-mupen64plus-next"
 game_model = "cartridge_box"
 screenscraper_id = 14
+igdb_platforms = [4]
 
 [systems.gc]
 name = "GameCube"
@@ -90,6 +100,7 @@ emulator = "dolphin"
 alt_emulators = ["retroarch-dolphin"]
 game_model = "dvd_case"
 screenscraper_id = 13
+igdb_platforms = [21]
 
 [systems.mastersystem]
 name = "Master System"
@@ -100,6 +111,7 @@ extensions = [".sms", ".zip", ".7z"]
 emulator = "retroarch-genesis-plus-gx"
 game_model = "clamshell"
 screenscraper_id = 2
+igdb_platforms = [64]
 
 [systems.megadrive]
 name = "Mega Drive"
@@ -110,6 +122,7 @@ extensions = [".md", ".gen", ".smd", ".bin", ".zip", ".7z"]
 emulator = "retroarch-genesis-plus-gx"
 game_model = "clamshell"
 screenscraper_id = 1
+igdb_platforms = [29]
 
 [systems.saturn]
 name = "Saturn"
@@ -119,6 +132,7 @@ extensions = [".cue", ".chd", ".ccd", ".m3u"]
 emulator = "retroarch-beetle-saturn"
 game_model = "jewel_case"
 screenscraper_id = 22
+igdb_platforms = [32]
 
 [systems.dreamcast]
 name = "Dreamcast"
@@ -129,6 +143,7 @@ extensions = [".gdi", ".chd", ".cdi", ".cue", ".m3u"]
 emulator = "retroarch-flycast"
 game_model = "jewel_case"
 screenscraper_id = 23
+igdb_platforms = [23]
 
 [systems.psx]
 name = "PlayStation"
@@ -140,6 +155,7 @@ emulator = "retroarch-beetle-psx-hw"
 alt_emulators = ["retroarch-swanstation"]
 game_model = "jewel_case"
 screenscraper_id = 57
+igdb_platforms = [7]
 
 [systems.ps2]
 name = "PlayStation 2"
@@ -149,6 +165,7 @@ extensions = [".iso", ".chd", ".cso", ".zso", ".gz", ".cue"]
 emulator = "pcsx2"
 game_model = "dvd_case"
 screenscraper_id = 58
+igdb_platforms = [8]
 
 [systems.psp]
 name = "PlayStation Portable"
@@ -159,3 +176,4 @@ emulator = "retroarch-ppsspp"
 alt_emulators = ["ppsspp"]
 game_model = "umd_case"
 screenscraper_id = 61
+igdb_platforms = [38]

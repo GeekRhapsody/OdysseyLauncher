@@ -1,0 +1,16 @@
+{
+  "header": { "APIversion": "2.0", "commandRequested": "https://api.screenscraper.fr/api2/jeuInfos.php?devid={{DEVID}}&devpassword={{DEVPASSWORD}}&ssid={{SSID}}&sspassword={{SSPASSWORD}}", "success": "true", "error": "" },
+  "response": {
+    "ssuser": { "id": "{{SSID}}", "maxthreads": "{{MAXTHREADS}}", "requeststoday": "{{TODAY}}", "requestskotoday": "0", "maxrequestspermin": "1024", "maxrequestsperday": "20000", "maxrequestskoperday": "2000" },
+    "jeu": {
+      "id": "5001",
+      "notgame": "false",
+      "noms": [ { "region": "wor", "text": "Ecco the Dolphin" } ],
+      "editeur": { "id": "3", "text": "Sega" },
+      "dates": [ { "region": "wor", "text": "1992" } ],
+      "medias": [
+        { "type": "ss", "parent": "jeu", "url": "https://neoclone.screenscraper.fr/api2/mediaJeu.php?devid={{DEVID}}&devpassword={{DEVPASSWORD}}&jeuid=5001&media=ss(wor)", "region": "wor", "format": "png" }
+      ]
+    }
+  }
+}

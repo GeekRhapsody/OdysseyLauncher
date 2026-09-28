@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
 using Godot;
@@ -559,6 +560,10 @@ public sealed partial class Navigator : Node
                 var systems = await library.GetSystemsAsync(token).ConfigureAwait(false);
                 GD.Print($"Scan: {added} game(s) added.");
                 _queue.Post(() => OnRescanned(systems, null));
+                if (BakeAfterScans)
+                {
+                    await BakeAsync(token).ConfigureAwait(false);
+                }
             }
             catch (OperationCanceledException)
             {
@@ -569,6 +574,55 @@ public sealed partial class Navigator : Node
                 _queue.Post(() => OnRescanned(null, status));
             }
         }, token);
+    }
+
+    /// <summary>Bake missing cover derivatives after each scan (off in benches, which measure a library as it is).</summary>
+    public bool BakeAfterScans { get; set; }
+
+    private int _baking;
+
+    /// <summary>
+    /// Bakes every cover that has no derivative yet, the user's own art included (M4), on the derivative service's
+    /// below-normal thread. Covers baked now show the next time their system is entered.
+    /// </summary>
+    public void BakeDerivatives()
+    {
+        var token = _shutdown.Token;
+        _ = Task.Run(() => BakeAsync(token), token);
+    }
+
+    private async Task BakeAsync(CancellationToken token)
+    {
+        if (Interlocked.Exchange(ref _baking, 1) == 1)
+        {
+            return;
+        }
+
+        try
+        {
+            var summary = await _services.Derivatives.BakeMissingAsync(null, token).ConfigureAwait(false);
+            if (summary.Baked + summary.Failed + summary.Pruned > 0)
+            {
+                GD.Print(string.Create(CultureInfo.InvariantCulture,
+                    $"Derivatives: {summary.Baked} baked, {summary.Failed} failed, {summary.Pruned} stale removed, of {summary.Covers} covers ({summary.Elapsed.TotalSeconds:0.0} s)"));
+            }
+
+            if (summary.Baked > 0)
+            {
+                _queue.Post(() => _cache.Clear());
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception e)
+        {
+            GD.PushWarning($"Derivatives: baking failed: {e.Message}");
+        }
+        finally
+        {
+            Volatile.Write(ref _baking, 0);
+        }
     }
 
     private void OnRescanned(IReadOnlyList<SystemSummary>? systems, string? error)

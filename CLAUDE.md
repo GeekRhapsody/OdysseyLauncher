@@ -21,6 +21,8 @@ A fully 3D game launcher frontend (systems grid → games grid → emulator), st
 | `tools/core-bench/` | Times Core's config, scan and query paths on self-contained .NET 8 (the export's runtime). Not in the solution. |
 | `tools/synthetic-library/` | Writes a portable user folder with 20 systems and 14,215 games (10,000 on PS2), with covers and BC7 derivatives hardlinked from the M1 spike library (`artifacts/spike-library`). Not in the solution. |
 | `tools/bench-summary.py` | One line per bench run (scroll, textures, memory) from `artifacts/bench/<folder>`. |
+| `tools/scrape-cli/` | `odyssey-scrape`: every scraping operation from the command line (`providers`, `game`, `system`, `missing`, `clear`, `show`, `resume`, `bake`, `scan`, `ss-systems`), for live tests with the owner's credentials. In the solution. |
+| `tests/Launcher.Core.Tests/Scraping/Fixtures/` | Recorded provider responses. Credentials appear as `{{DEVPASSWORD}}`-style placeholders, which the tests' fake HTTP handler fills with fake values. |
 | `godot/src/Tools/`, `godot/scenes/tools/` | The `[Tool]` generator for the built-in models; its output is `godot/assets/models/{templates,systems}/*.glb`. Excluded from exports. |
 
 ## Commands (PowerShell, repo root)
@@ -41,6 +43,7 @@ A fully 3D game launcher frontend (systems grid → games grid → emulator), st
 | `.\tools\bench-export.ps1` | Exports, then runs one warm-up plus 5 benched runs of the export and prints the medians. Options: `-SkipExport`, `-Runs`, `-Frames`, `-Resolution`, `-Fullscreen`, `-EngineArgs '--rendering-driver', 'vulkan'`, `-Label`, `-AppArgs "--user-dir=$PWD\artifacts\synthetic", '--bench-scenario=scroll'`, `-TimeoutSeconds`. **Use this for any number you compare with a target**, with nothing else running on the machine. |
 | `godot --headless --path godot res://scenes/tools/generate_box_templates.tscn` | Regenerates the built-in models (deterministic), then `--import`. Commit the `.glb` and `.import` files. `BuiltInModelTests` checks them against the model spec. |
 | `dotnet run --project tools/synthetic-library -c ExportRelease -- "--out=$PWD\artifacts\synthetic" "--covers=$PWD\artifacts\spike-library"` | The synthetic library, for `--user-dir`. About 50 s. |
+| `.\tools\scrape-cli\bin\Debug\net8.0\odyssey-scrape.exe [--user-dir=<folder>] <command>` | Scraping by hand (`help` lists the commands). Without `--user-dir` it uses the app's AppData folders. **Don't run a live scrape yourself:** it needs the owner's credentials, and it's the owner's manual test (`docs/manual-tests.md`). `providers`, `scan`, `show` and `bake` make no network calls. |
 | `python tools/bench-summary.py "artifacts/bench/*-<label>"` | Per-run summary of bench folders. |
 
 `godot` is `C:\Users\claudio\Coding\Godot\godot.cmd`. It forwards to the 4.7.2 .NET console build, which waits for exit and passes the exit code through.
@@ -107,6 +110,7 @@ godot --path godot --resolution 1280x800 -- --bench=$PWD/artifacts/bench.json --
 - Warnings are errors in Core and in the tests.
 - File-scoped namespaces. Core namespaces mirror its folders (`Launcher.Core.Diagnostics`, ...).
 - A schema change means a new numbered migration file. Never edit a shipped migration.
-- Tests never touch the network. Scraper tests use recorded fixtures.
+- Tests never touch the network. Scraper tests use recorded fixtures through `FakeHttpHandler`, which fails a test on any request it has no route for. Waits go through the injected `Delay`, which advances a test clock instead of sleeping.
+- `Redactor` masks credentials before anything is logged or saved. Provider code must never put a URL or header into a message unredacted.
 - Use UK English in docs, comments, UI text, our own identifiers and our config keys (`favourite`, `colour`). External names keep their own spelling (Godot `Color`, glTF `baseColorTexture`).
 - Don't rewrite source files with Windows PowerShell's `Get-Content`/`Set-Content`: it reads UTF-8 without a BOM as ANSI and mangles non-ASCII characters. Use the editor tools, or Python with `encoding='utf-8'` and LF line endings.

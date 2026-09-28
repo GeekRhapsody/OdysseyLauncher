@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    odyssey-scrape: each scraping operation from the command line, for testing live with your own credentials
+    (ConfigDir/secrets.toml or ODYSSEY_* variables). Uses the same config, library and queue as the app.
+    Build with `dotnet build`, then run tools/scrape-cli/bin/Debug/net8.0/odyssey-scrape.exe help for the commands.
+    In the solution, so it always builds with Core.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <AssemblyName>odyssey-scrape</AssemblyName>
+    <RootNamespace>Launcher.ScrapeCli</RootNamespace>
+    <!-- Run on the newest runtime installed when .NET 8 isn't (as the tests do). -->
+    <RollForward>Major</RollForward>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <Configurations>Debug;ExportDebug;ExportRelease</Configurations>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Launcher.Core\Launcher.Core.csproj" />
+  </ItemGroup>
+
+</Project>

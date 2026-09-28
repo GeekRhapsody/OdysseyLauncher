@@ -1,0 +1,27 @@
+[
+  {
+    "id": 1234,
+    "name": "Sonic the Hedgehog 3",
+    "alternative_names": [ { "id": 1, "name": "Sonic 3" } ],
+    "summary": "IGDB summary of Sonic the Hedgehog 3.",
+    "first_release_date": 760060800,
+    "release_dates": [
+      { "id": 1, "date": 760060800, "date_format": 0, "platform": 29, "release_region": 2, "y": 1994, "m": 2, "d": 2 },
+      { "id": 2, "date": 762048000, "date_format": 1, "platform": 29, "release_region": 1, "y": 1994, "m": 2 },
+      { "id": 3, "date": 700000000, "date_format": 0, "platform": 6, "release_region": 1, "y": 1992, "m": 3, "d": 8 }
+    ],
+    "involved_companies": [
+      { "id": 1, "company": { "id": 1, "name": "Sonic Team" }, "developer": true, "publisher": false },
+      { "id": 2, "company": { "id": 2, "name": "Sega" }, "developer": false, "publisher": true }
+    ],
+    "genres": [ { "id": 8, "name": "Platform" } ],
+    "game_modes": [ { "id": 1, "name": "Single player" }, { "id": 2, "name": "Multiplayer" } ],
+    "multiplayer_modes": [ { "id": 1, "offlinemax": 2, "offlinecoopmax": 2, "platform": 29 }, { "id": 2, "offlinemax": 4, "platform": 6 } ],
+    "total_rating": 84.5,
+    "cover": { "id": 5, "image_id": "co1abc" },
+    "screenshots": [ { "id": 6, "image_id": "sc1abc" } ],
+    "artworks": [ { "id": 7, "image_id": "ar1abc" } ],
+    "platforms": [ 29, 6 ]
+  },
+  { "id": 99, "name": "Sonic Mania", "platforms": [ 29 ] }
+]

@@ -4,6 +4,7 @@ using Launcher.Core.Config;
 using Launcher.Core.Data;
 using Launcher.Core.Media;
 using Launcher.Core.Scanning;
+using Launcher.Core.Scraping;
 using Microsoft.Data.Sqlite;
 
 namespace Launcher.Core.Library;
@@ -31,6 +32,7 @@ public sealed class LibraryService : ILibrary, IPlayHistory, IDisposable
     {
         _config = config;
         _clock = clock;
+        DataDir = dataDir;
         _libraryPath = Path.Combine(dataDir, LibraryFileName);
         _userPath = Path.Combine(dataDir, UserDataFileName);
         OpenOutcome = outcome;
@@ -44,6 +46,9 @@ public sealed class LibraryService : ILibrary, IPlayHistory, IDisposable
     /// empty: run <see cref="RescanAsync"/> for every system.
     /// </summary>
     public LibraryOpenOutcome OpenOutcome { get; }
+
+    /// <summary>library.db, userdata.db and scraped/ live here.</summary>
+    public string DataDir { get; }
 
     /// <summary>Why library.db was recreated, if it was.</summary>
     public string? RecreatedBecause { get; }
@@ -191,6 +196,28 @@ public sealed class LibraryService : ILibrary, IPlayHistory, IDisposable
         }, cancellationToken);
     }
 
+    public Task SetMetadataOverrideAsync(GameKey game, MetadataOverride values, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(values);
+        static string? Clean(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+        var cleaned = new MetadataOverride(
+            Clean(values.Description), Clean(values.ReleaseDate), Clean(values.Developer), Clean(values.Publisher),
+            Clean(values.Genre), Clean(values.Players), values.Rating is { } r ? Math.Clamp(r, 0, 1) : null);
+        return _writer.RunAsync(c =>
+        {
+            LibraryStore.SetMetadataOverride(c, game, cleaned);
+            return true;
+        }, cancellationToken);
+    }
+
+    /// <summary>A read on a pooled connection on the thread pool (the scraping services' queries).</summary>
+    internal Task<T> ReadAsync<T>(Func<SqliteConnection, T> work, CancellationToken cancellationToken) =>
+        _readers.RunAsync(work, cancellationToken);
+
+    /// <summary>A job on the writer thread (the scraping services' writes).</summary>
+    internal Task<T> WriteAsync<T>(Func<SqliteConnection, T> work, CancellationToken cancellationToken) =>
+        _writer.RunAsync(work, cancellationToken);
+
     public Task SetHiddenAsync(GameKey game, bool hidden, CancellationToken cancellationToken) =>
         _writer.RunAsync(c =>
         {
@@ -227,7 +254,15 @@ public sealed class LibraryService : ILibrary, IPlayHistory, IDisposable
             var keepOnly = systemId is null ? config.Systems.Select(s => s.Id).ToHashSet(StringComparer.Ordinal) : null;
             var now = _clock.GetUtcNow().ToUnixTimeMilliseconds();
             var summaries = await _writer.RunAsync(
-                c => LibraryStore.Apply(c, scans.Roms, scans.Media, keepOnly, now), cancellationToken).ConfigureAwait(false);
+                c =>
+                {
+                    var added = new List<GameKey>();
+                    var written = LibraryStore.Apply(c, scans.Roms, scans.Media, keepOnly, now, added);
+
+                    // Games that are new to the library get their scraped data back from scraped/responses/ (M4).
+                    ScrapedRestore.Apply(c, DataDir, config, added);
+                    return written;
+                }, cancellationToken).ConfigureAwait(false);
             return new ScanSummary(summaries, scans.Diagnostics(), stopwatch.Elapsed);
         }
         finally
@@ -252,8 +287,12 @@ public sealed class LibraryService : ILibrary, IPlayHistory, IDisposable
                 LibraryDatabase.Prepare(rebuildPath, out _);
                 var scanned = Scan(config.Systems, null, configDir, progress, cancellationToken);
                 using var connection = Sqlite.Open(rebuildPath);
+                var added = new List<GameKey>();
                 var written = LibraryStore.Apply(
-                    connection, scanned.Roms, scanned.Media, null, _clock.GetUtcNow().ToUnixTimeMilliseconds());
+                    connection, scanned.Roms, scanned.Media, null, _clock.GetUtcNow().ToUnixTimeMilliseconds(), added);
+
+                // Scraped metadata, matches and media links come back from scraped/responses/, offline (M4).
+                ScrapedRestore.Apply(connection, DataDir, config, added);
 
                 // Leave a single self-contained file behind, with no -wal to carry over.
                 MigrationRunner.Execute(connection, "PRAGMA journal_mode = DELETE");

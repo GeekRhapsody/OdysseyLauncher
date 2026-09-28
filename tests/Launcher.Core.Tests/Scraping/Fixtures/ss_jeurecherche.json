@@ -1,0 +1,10 @@
+{
+  "header": { "APIversion": "2.0", "commandRequested": "https://api.screenscraper.fr/api2/jeuRecherche.php?devid={{DEVID}}&devpassword={{DEVPASSWORD}}", "success": "true", "error": "" },
+  "response": {
+    "ssuser": { "id": "{{SSID}}", "maxthreads": "{{MAXTHREADS}}", "requeststoday": "{{TODAY}}", "maxrequestspermin": "1024", "maxrequestsperday": "20000", "maxrequestskoperday": "2000", "requestskotoday": "1" },
+    "jeux": [
+      { "id": "1190", "noms": [ { "region": "wor", "text": "Sonic &amp; Knuckles" } ], "dates": [ { "region": "wor", "text": "1994" } ] },
+      { "id": "1187", "noms": [ { "region": "eu", "text": "Sonic the Hedgehog 3" } ], "dates": [ { "region": "eu", "text": "1994-02-24" } ] }
+    ]
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "header": { "APIversion": "2.0", "commandRequested": "https://api.screenscraper.fr/api2/ssuserInfos.php?devid={{DEVID}}&devpassword={{DEVPASSWORD}}&ssid={{SSID}}&sspassword={{SSPASSWORD}}", "success": "true", "error": "" },
+  "response": {
+    "ssuser": { "id": "{{SSID}}", "numid": "1", "niveau": "1", "maxthreads": "{{MAXTHREADS}}", "maxdownloadspeed": "2048", "requeststoday": "{{TODAY}}", "requestskotoday": "0", "maxrequestspermin": "1024", "maxrequestsperday": "20000", "maxrequestskoperday": "2000" }
+  }
+}

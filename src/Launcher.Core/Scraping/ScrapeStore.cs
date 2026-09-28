@@ -1,0 +1,652 @@
+using Launcher.Core.Config;
+using Launcher.Core.Library;
+using Launcher.Core.Media;
+using Launcher.Core.Scanning;
+using Microsoft.Data.Sqlite;
+
+namespace Launcher.Core.Scraping;
+
+/// <summary>What the library knows about a game before it's scraped.</summary>
+/// <param name="FileTitle">The cleaned file-name title (not a scraped one).</param>
+/// <param name="StoredMatches">Automatic matches in library.db: provider → (id, method).</param>
+/// <param name="ManualMatches">Manual matches in userdata.db, which win: provider → id.</param>
+/// <param name="Media">Current media rows: kind → (source, path, size, mtime).</param>
+public sealed record GameContext(
+    GameKey Key,
+    long GameId,
+    string RelPath,
+    string RomPath,
+    long SizeBytes,
+    string FileTitle,
+    int? Disc,
+    RomHashes? Hashes,
+    IReadOnlyDictionary<string, (string Id, string Method)> StoredMatches,
+    IReadOnlyDictionary<string, string> ManualMatches,
+    IReadOnlyDictionary<string, (string Source, string Path, long? SizeBytes, long? MtimeMs)> Media);
+
+/// <summary>A provider's outcome, for <c>scrape_log</c>.</summary>
+/// <param name="Status">'ok', 'not_found' or 'error'.</param>
+public sealed record ProviderLog(string Provider, string Status, string? Detail);
+
+/// <summary>Everything one scrape writes, in one transaction.</summary>
+/// <param name="Metadata">Null leaves the game's metadata as it is (nothing was found).</param>
+/// <param name="Matches">Provider → (id, method).</param>
+/// <param name="Status">'ok', 'partial', 'not_found' or 'error'.</param>
+public sealed record ScrapeWrite(
+    MergedMetadata? Metadata,
+    IReadOnlyDictionary<string, (string Id, string Method)> Matches,
+    IReadOnlyList<(string Kind, string Source, StoredMedia Media)> Media,
+    IReadOnlyList<ProviderLog> Log,
+    string Status,
+    IReadOnlyList<string> Providers,
+    long At);
+
+/// <summary>A scrape job taken from the queue.</summary>
+public sealed record QueuedJob(long BatchId, long Seq, GameKey Game);
+
+/// <summary>A batch in <c>userdata.db</c>.</summary>
+public sealed record ScrapeBatchInfo(long BatchId, string Kind, string? Target, int Total, int Done, int Failed, int Pending, DateTimeOffset CreatedAt, bool Finished, bool Cancelled);
+
+/// <summary>The SQL behind scraping. Every method runs on a connection it's given (the library writer's, or a reader's).</summary>
+internal static class ScrapeStore
+{
+    public static GameContext? LoadContext(SqliteConnection connection, GameKey key)
+    {
+        long gameId;
+        string relPath, romDir;
+        long size;
+        int? disc;
+        RomHashes? hashes;
+        using (var command = connection.CreateCommand())
+        {
+            command.CommandText = """
+                SELECT g.game_id, g.rel_path, d.path, g.size_bytes, g.disc, g.crc32, g.md5, g.sha1
+                FROM games g JOIN rom_dirs d ON d.dir_id = g.dir_id
+                WHERE g.system_id = $system AND g.path_key = $key
+                """;
+            command.Parameters.AddWithValue("$system", key.SystemId);
+            command.Parameters.AddWithValue("$key", key.PathKey);
+            using var reader = command.ExecuteReader();
+            if (!reader.Read())
+            {
+                return null;
+            }
+
+            gameId = reader.GetInt64(0);
+            relPath = reader.GetString(1);
+            romDir = reader.GetString(2);
+            size = reader.GetInt64(3);
+            disc = reader.IsDBNull(4) ? null : reader.GetInt32(4);
+            hashes = reader.IsDBNull(5) || reader.IsDBNull(6) || reader.IsDBNull(7)
+                ? null
+                : new RomHashes(reader.GetString(5), reader.GetString(6), reader.GetString(7));
+        }
+
+        var stored = new Dictionary<string, (string, string)>(StringComparer.Ordinal);
+        using (var command = connection.CreateCommand())
+        {
+            command.CommandText = "SELECT scraper, scraper_game_id, method FROM scraper_matches WHERE game_id = $id";
+            command.Parameters.AddWithValue("$id", gameId);
+            using var reader = command.ExecuteReader();
+            while (reader.Read())
+            {
+                stored[reader.GetString(0)] = (reader.GetString(1), reader.GetString(2));
+            }
+        }
+
+        var manual = new Dictionary<string, string>(StringComparer.Ordinal);
+        using (var command = connection.CreateCommand())
+        {
+            command.CommandText = "SELECT scraper, scraper_game_id FROM user.manual_matches WHERE system_id = $system AND path_key = $key";
+            command.Parameters.AddWithValue("$system", key.SystemId);
+            command.Parameters.AddWithValue("$key", key.PathKey);
+            using var reader = command.ExecuteReader();
+            while (reader.Read())
+            {
+                manual[reader.GetString(0)] = reader.GetString(1);
+            }
+        }
+
+        var media = new Dictionary<string, (string, string, long?, long?)>(StringComparer.Ordinal);
+        using (var command = connection.CreateCommand())
+        {
+            command.CommandText = "SELECT kind, source, path, size_bytes, mtime_ms FROM media WHERE game_id = $id";
+            command.Parameters.AddWithValue("$id", gameId);
+            using var reader = command.ExecuteReader();
+            while (reader.Read())
+            {
+                media[reader.GetString(0)] = (reader.GetString(1), reader.GetString(2),
+                    reader.IsDBNull(3) ? null : reader.GetInt64(3), reader.IsDBNull(4) ? null : reader.GetInt64(4));
+            }
+        }
+
+        var fileTitle = TitleParser.Parse(LibraryStore.FileStemOf(relPath)).Title;
+        var romPath = Path.GetFullPath(Path.Combine(romDir, relPath.Replace('/', Path.DirectorySeparatorChar)));
+        return new GameContext(key, gameId, relPath, romPath, size, fileTitle, disc, hashes, stored, manual, media);
+    }
+
+    public static void SaveHashes(SqliteConnection connection, GameKey key, long sizeBytes, RomHashes hashes)
+    {
+        using var command = connection.CreateCommand();
+        // Only if the file is still the one that was hashed.
+        command.CommandText = """
+            UPDATE games SET crc32 = $crc, md5 = $md5, sha1 = $sha1
+            WHERE system_id = $system AND path_key = $key AND size_bytes = $size
+            """;
+        command.Parameters.AddWithValue("$crc", hashes.Crc32);
+        command.Parameters.AddWithValue("$md5", hashes.Md5);
+        command.Parameters.AddWithValue("$sha1", hashes.Sha1);
+        command.Parameters.AddWithValue("$system", key.SystemId);
+        command.Parameters.AddWithValue("$key", key.PathKey);
+        command.Parameters.AddWithValue("$size", sizeBytes);
+        command.ExecuteNonQuery();
+    }
+
+    /// <summary>
+    /// Writes a scrape in one transaction, keyed by <see cref="GameKey"/> (never a cached game id, which a rebuild
+    /// can change). The user's own art rows and every userdata.db override are left alone.
+    /// Returns false when the game is no longer in the library.
+    /// </summary>
+    public static bool Save(SqliteConnection connection, GameKey key, ScrapeWrite write) =>
+        Save(connection, null, key, write);
+
+    public static bool Save(SqliteConnection connection, SqliteTransaction? outer, GameKey key, ScrapeWrite write)
+    {
+        var transaction = outer ?? connection.BeginTransaction();
+        try
+        {
+            SqliteCommand Command(string sql)
+            {
+                var command = connection.CreateCommand();
+                command.Transaction = transaction;
+                command.CommandText = sql;
+                return command;
+            }
+
+            long gameId;
+            int? disc;
+            string relPath;
+            using (var find = Command("SELECT game_id, disc, rel_path FROM games WHERE system_id = $system AND path_key = $key"))
+            {
+                find.Parameters.AddWithValue("$system", key.SystemId);
+                find.Parameters.AddWithValue("$key", key.PathKey);
+                using var reader = find.ExecuteReader();
+                if (!reader.Read())
+                {
+                    return false;
+                }
+
+                gameId = reader.GetInt64(0);
+                disc = reader.IsDBNull(1) ? null : reader.GetInt32(1);
+                relPath = reader.GetString(2);
+            }
+
+            if (write.Metadata is { IsEmpty: false } m)
+            {
+                using (var upsert = Command("""
+                    INSERT INTO metadata (game_id, title, description, release_date, developer, publisher, genre, players, rating, source)
+                    VALUES ($id, $title, $description, $release, $developer, $publisher, $genre, $players, $rating, $source)
+                    ON CONFLICT (game_id) DO UPDATE SET title = excluded.title, description = excluded.description,
+                        release_date = excluded.release_date, developer = excluded.developer, publisher = excluded.publisher,
+                        genre = excluded.genre, players = excluded.players, rating = excluded.rating, source = excluded.source
+                    """))
+                {
+                    upsert.Parameters.AddWithValue("$id", gameId);
+                    upsert.Parameters.AddWithValue("$title", (object?)m.Title ?? DBNull.Value);
+                    upsert.Parameters.AddWithValue("$description", (object?)m.Description ?? DBNull.Value);
+                    upsert.Parameters.AddWithValue("$release", (object?)m.ReleaseDate ?? DBNull.Value);
+                    upsert.Parameters.AddWithValue("$developer", (object?)m.Developer ?? DBNull.Value);
+                    upsert.Parameters.AddWithValue("$publisher", (object?)m.Publisher ?? DBNull.Value);
+                    upsert.Parameters.AddWithValue("$genre", (object?)m.Genre ?? DBNull.Value);
+                    upsert.Parameters.AddWithValue("$players", (object?)m.Players ?? DBNull.Value);
+                    upsert.Parameters.AddWithValue("$rating", (object?)m.Rating ?? DBNull.Value);
+                    upsert.Parameters.AddWithValue("$source", string.Join(',', m.Sources));
+                    upsert.ExecuteNonQuery();
+                }
+
+                // games.title holds the scraped title for the grid query; a lone disc keeps its number (A4).
+                var title = m.Title ?? TitleParser.Parse(LibraryStore.FileStemOf(relPath)).Title;
+                if (m.Title is not null && disc is { } n)
+                {
+                    title += $" (Disc {n})";
+                }
+
+                using var titles = Command("UPDATE games SET title = $title, sort_title = $sort WHERE game_id = $id");
+                titles.Parameters.AddWithValue("$title", title);
+                titles.Parameters.AddWithValue("$sort", TitleParser.SortKey(title));
+                titles.Parameters.AddWithValue("$id", gameId);
+                titles.ExecuteNonQuery();
+            }
+
+            foreach (var (provider, (id, method)) in write.Matches)
+            {
+                using var match = Command("""
+                    INSERT INTO scraper_matches (game_id, scraper, scraper_game_id, method, matched_at) VALUES ($id, $scraper, $gid, $method, $at)
+                    ON CONFLICT (game_id, scraper) DO UPDATE SET scraper_game_id = excluded.scraper_game_id, method = excluded.method,
+                        matched_at = CASE WHEN scraper_game_id = excluded.scraper_game_id THEN matched_at ELSE excluded.matched_at END
+                    """);
+                match.Parameters.AddWithValue("$id", gameId);
+                match.Parameters.AddWithValue("$scraper", provider);
+                match.Parameters.AddWithValue("$gid", id);
+                match.Parameters.AddWithValue("$method", method);
+                match.Parameters.AddWithValue("$at", write.At);
+                match.ExecuteNonQuery();
+            }
+
+            foreach (var (kind, source, stored) in write.Media)
+            {
+                // The user's own art beats scraped art (A4): never replace a 'user' row.
+                using var media = Command("""
+                    INSERT INTO media (game_id, kind, path, width, height, source, size_bytes, mtime_ms)
+                    VALUES ($id, $kind, $path, $width, $height, $source, $size, $mtime)
+                    ON CONFLICT (game_id, kind) DO UPDATE SET path = excluded.path, width = excluded.width, height = excluded.height,
+                        source = excluded.source, size_bytes = excluded.size_bytes, mtime_ms = excluded.mtime_ms
+                    WHERE media.source <> 'user'
+                    """);
+                media.Parameters.AddWithValue("$id", gameId);
+                media.Parameters.AddWithValue("$kind", kind);
+                media.Parameters.AddWithValue("$path", stored.RelativePath);
+                media.Parameters.AddWithValue("$width", stored.Width);
+                media.Parameters.AddWithValue("$height", stored.Height);
+                media.Parameters.AddWithValue("$source", source);
+                media.Parameters.AddWithValue("$size", stored.SizeBytes);
+                media.Parameters.AddWithValue("$mtime", stored.MtimeMs);
+                media.ExecuteNonQuery();
+            }
+
+            foreach (var entry in write.Log)
+            {
+                using var log = Command("""
+                    INSERT INTO scrape_log (game_id, scraper, status, attempted_at, detail) VALUES ($id, $scraper, $status, $at, $detail)
+                    ON CONFLICT (game_id, scraper) DO UPDATE SET status = excluded.status, attempted_at = excluded.attempted_at, detail = excluded.detail
+                    """);
+                log.Parameters.AddWithValue("$id", gameId);
+                log.Parameters.AddWithValue("$scraper", entry.Provider);
+                log.Parameters.AddWithValue("$status", entry.Status);
+                log.Parameters.AddWithValue("$at", write.At);
+                log.Parameters.AddWithValue("$detail", (object?)entry.Detail ?? DBNull.Value);
+                log.ExecuteNonQuery();
+            }
+
+            using (var state = Command("""
+                INSERT INTO scrape_state (game_id, status, providers, scraped_at) VALUES ($id, $status, $providers, $at)
+                ON CONFLICT (game_id) DO UPDATE SET status = excluded.status, providers = excluded.providers, scraped_at = excluded.scraped_at
+                """))
+            {
+                state.Parameters.AddWithValue("$id", gameId);
+                state.Parameters.AddWithValue("$status", write.Status);
+                state.Parameters.AddWithValue("$providers", write.Providers.Count == 0 ? DBNull.Value : string.Join(',', write.Providers));
+                state.Parameters.AddWithValue("$at", write.At);
+                state.ExecuteNonQuery();
+            }
+
+            if (outer is null)
+            {
+                transaction.Commit();
+            }
+
+            return true;
+        }
+        finally
+        {
+            if (outer is null)
+            {
+                transaction.Dispose();
+            }
+        }
+    }
+
+    /// <summary>What <see cref="Clear"/> removed from the DB, so the caller can delete the files.</summary>
+    /// <param name="Media">Every media row the game had: (root, path, size, mtime), for its file and derivative.</param>
+    /// <param name="SharedUserArt">User art files another game also uses (matched by stem): their rows went, but the files stay.</param>
+    public sealed record Cleared(bool Found, IReadOnlyList<(MediaRoot Root, string Path, long? SizeBytes, long? MtimeMs)> Media, IReadOnlyList<string> SharedUserArt);
+
+    /// <summary>
+    /// Clears everything scraped and every metadata override: metadata, scrape state and log, every match (manual
+    /// ones too), every media row (the user's own art too), and the title back to the file name. The emulator
+    /// override, hidden flag, favourite and play history stay.
+    /// </summary>
+    public static Cleared Clear(SqliteConnection connection, GameKey key)
+    {
+        using var transaction = connection.BeginTransaction();
+        SqliteCommand Command(string sql)
+        {
+            var command = connection.CreateCommand();
+            command.Transaction = transaction;
+            command.CommandText = sql;
+            command.Parameters.AddWithValue("$system", key.SystemId);
+            command.Parameters.AddWithValue("$key", key.PathKey);
+            return command;
+        }
+
+        long? gameId = null;
+        string? relPath = null;
+        using (var find = Command("SELECT game_id, rel_path FROM games WHERE system_id = $system AND path_key = $key"))
+        using (var reader = find.ExecuteReader())
+        {
+            if (reader.Read())
+            {
+                gameId = reader.GetInt64(0);
+                relPath = reader.GetString(1);
+            }
+        }
+
+        var media = new List<(MediaRoot, string, long?, long?)>();
+        var shared = new List<string>();
+        if (gameId is { } id)
+        {
+            using (var select = Command("SELECT source, path, size_bytes, mtime_ms FROM media WHERE game_id = $id"))
+            {
+                select.Parameters.AddWithValue("$id", id);
+                using var reader = select.ExecuteReader();
+                while (reader.Read())
+                {
+                    var root = reader.GetString(0) == "user" ? MediaRoot.Config : MediaRoot.Data;
+                    media.Add((root, reader.GetString(1), reader.IsDBNull(2) ? null : reader.GetInt64(2), reader.IsDBNull(3) ? null : reader.GetInt64(3)));
+                }
+            }
+
+            foreach (var (root, path, _, _) in media.Where(m => m.Item1 == MediaRoot.Config).ToList())
+            {
+                using var others = Command("SELECT COUNT(*) FROM media WHERE source = 'user' AND path = $path AND game_id <> $id");
+                others.Parameters.AddWithValue("$path", path);
+                others.Parameters.AddWithValue("$id", id);
+                if ((long)others.ExecuteScalar()! > 0)
+                {
+                    shared.Add(path);
+                }
+            }
+
+            foreach (var table in (ReadOnlySpan<string>)["metadata", "scrape_state", "scrape_log", "scraper_matches", "media"])
+            {
+                using var delete = Command($"DELETE FROM {table} WHERE game_id = $id");
+                delete.Parameters.AddWithValue("$id", id);
+                delete.ExecuteNonQuery();
+            }
+
+            var title = TitleParser.Parse(LibraryStore.FileStemOf(relPath!));
+            using var titles = Command("UPDATE games SET title = $title, sort_title = $sort WHERE game_id = $id");
+            titles.Parameters.AddWithValue("$title", title.Title);
+            titles.Parameters.AddWithValue("$sort", title.SortTitle);
+            titles.Parameters.AddWithValue("$id", id);
+            titles.ExecuteNonQuery();
+        }
+
+        // userdata.db is keyed by identity, so clear it even for a game that's gone from the library.
+        using (var overrides = Command("""
+            UPDATE user.game_overrides SET title = NULL, sort_title = NULL, description = NULL, release_date = NULL,
+                developer = NULL, publisher = NULL, genre = NULL, players = NULL, rating = NULL
+            WHERE system_id = $system AND path_key = $key
+            """))
+        {
+            overrides.ExecuteNonQuery();
+        }
+
+        using (var manual = Command("DELETE FROM user.manual_matches WHERE system_id = $system AND path_key = $key"))
+        {
+            manual.ExecuteNonQuery();
+        }
+
+        transaction.Commit();
+        return new Cleared(gameId is not null, media, shared);
+    }
+
+    // ---- Selection --------------------------------------------------------------------------------
+
+    /// <summary>A system's games, in grid order.</summary>
+    public static List<GameKey> SystemGames(SqliteConnection connection, string systemId)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT path_key FROM games WHERE system_id = $system ORDER BY sort_title, game_id";
+        command.Parameters.AddWithValue("$system", systemId);
+        using var reader = command.ExecuteReader();
+        var keys = new List<GameKey>();
+        while (reader.Read())
+        {
+            keys.Add(new GameKey(systemId, reader.GetString(0)));
+        }
+
+        return keys;
+    }
+
+    /// <summary>
+    /// "Missing" (M4): never successfully scraped (no state, or not found or failed), plus every game with no front
+    /// cover. In config order of systems, then grid order.
+    /// </summary>
+    public static List<GameKey> MissingGames(SqliteConnection connection, AppConfig config)
+    {
+        var keys = new List<GameKey>();
+        foreach (var system in config.Systems)
+        {
+            using var command = connection.CreateCommand();
+            command.CommandText = """
+                SELECT g.path_key FROM games g
+                LEFT JOIN scrape_state s ON s.game_id = g.game_id
+                LEFT JOIN media m ON m.game_id = g.game_id AND m.kind = 'cover'
+                WHERE g.system_id = $system
+                  AND (s.status IS NULL OR s.status IN ('not_found', 'error') OR m.game_id IS NULL)
+                ORDER BY g.sort_title, g.game_id
+                """;
+            command.Parameters.AddWithValue("$system", system.Id);
+            using var reader = command.ExecuteReader();
+            while (reader.Read())
+            {
+                keys.Add(new GameKey(system.Id, reader.GetString(0)));
+            }
+        }
+
+        return keys;
+    }
+
+    /// <summary>Every media row of a kind, with its root, path, size and time (for baking derivatives).</summary>
+    public static List<(MediaRoot Root, string Path, long SizeBytes, long MtimeMs)> MediaOfKind(SqliteConnection connection, string kind)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT DISTINCT source = 'user', path, size_bytes, mtime_ms FROM media
+            WHERE kind = $kind AND size_bytes IS NOT NULL AND mtime_ms IS NOT NULL
+            """;
+        command.Parameters.AddWithValue("$kind", kind);
+        using var reader = command.ExecuteReader();
+        var rows = new List<(MediaRoot, string, long, long)>();
+        while (reader.Read())
+        {
+            rows.Add((reader.GetBoolean(0) ? MediaRoot.Config : MediaRoot.Data, reader.GetString(1), reader.GetInt64(2), reader.GetInt64(3)));
+        }
+
+        return rows;
+    }
+
+    // ---- The queue (userdata.db) -------------------------------------------------------------------
+
+    public static long CreateBatch(SqliteConnection connection, string kind, string? target, int priority, IReadOnlyList<GameKey> games, long now)
+    {
+        using var transaction = connection.BeginTransaction();
+        long batchId;
+        using (var insert = connection.CreateCommand())
+        {
+            insert.Transaction = transaction;
+            insert.CommandText = """
+                INSERT INTO user.scrape_batches (kind, target, priority, total, created_at) VALUES ($kind, $target, $priority, $total, $now)
+                RETURNING batch_id
+                """;
+            insert.Parameters.AddWithValue("$kind", kind);
+            insert.Parameters.AddWithValue("$target", (object?)target ?? DBNull.Value);
+            insert.Parameters.AddWithValue("$priority", priority);
+            insert.Parameters.AddWithValue("$total", games.Count);
+            insert.Parameters.AddWithValue("$now", now);
+            batchId = (long)insert.ExecuteScalar()!;
+        }
+
+        using (var job = connection.CreateCommand())
+        {
+            job.Transaction = transaction;
+            job.CommandText = "INSERT INTO user.scrape_jobs (batch_id, seq, system_id, path_key) VALUES ($batch, $seq, $system, $key)";
+            var batch = job.Parameters.Add("$batch", SqliteType.Integer);
+            var seq = job.Parameters.Add("$seq", SqliteType.Integer);
+            var system = job.Parameters.Add("$system", SqliteType.Text);
+            var key = job.Parameters.Add("$key", SqliteType.Text);
+            batch.Value = batchId;
+            for (var i = 0; i < games.Count; i++)
+            {
+                seq.Value = i;
+                system.Value = games[i].SystemId;
+                key.Value = games[i].PathKey;
+                job.ExecuteNonQuery();
+            }
+        }
+
+        if (games.Count == 0)
+        {
+            using var finish = connection.CreateCommand();
+            finish.Transaction = transaction;
+            finish.CommandText = "UPDATE user.scrape_batches SET finished_at = $now WHERE batch_id = $batch";
+            finish.Parameters.AddWithValue("$now", now);
+            finish.Parameters.AddWithValue("$batch", batchId);
+            finish.ExecuteNonQuery();
+        }
+
+        transaction.Commit();
+        return batchId;
+    }
+
+    /// <summary>The next jobs to run: single games first, then batches in the order they were asked for.</summary>
+    /// <param name="exclude">Jobs already running, which stay in the table until they finish.</param>
+    public static List<QueuedJob> NextJobs(SqliteConnection connection, int limit, IReadOnlyCollection<(long, long)> exclude)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT j.batch_id, j.seq, j.system_id, j.path_key
+            FROM user.scrape_jobs j JOIN user.scrape_batches b ON b.batch_id = j.batch_id
+            WHERE b.finished_at IS NULL
+            ORDER BY b.priority, b.batch_id, j.seq
+            LIMIT $limit
+            """;
+        command.Parameters.AddWithValue("$limit", limit + exclude.Count);
+        using var reader = command.ExecuteReader();
+        var jobs = new List<QueuedJob>();
+        while (reader.Read() && jobs.Count < limit)
+        {
+            var id = (reader.GetInt64(0), reader.GetInt64(1));
+            if (!exclude.Contains(id))
+            {
+                jobs.Add(new QueuedJob(id.Item1, id.Item2, new GameKey(reader.GetString(2), reader.GetString(3))));
+            }
+        }
+
+        return jobs;
+    }
+
+    /// <summary>Marks a job done (deleting it) and counts it. Finishes the batch when it was the last. Returns the batch.</summary>
+    public static ScrapeBatchInfo? CompleteJob(SqliteConnection connection, QueuedJob job, bool failed, long now)
+    {
+        using var transaction = connection.BeginTransaction();
+        using (var delete = connection.CreateCommand())
+        {
+            delete.Transaction = transaction;
+            delete.CommandText = "DELETE FROM user.scrape_jobs WHERE batch_id = $batch AND seq = $seq";
+            delete.Parameters.AddWithValue("$batch", job.BatchId);
+            delete.Parameters.AddWithValue("$seq", job.Seq);
+            if (delete.ExecuteNonQuery() == 0)
+            {
+                // Cancelled while it ran.
+                transaction.Commit();
+                return GetBatch(connection, job.BatchId);
+            }
+        }
+
+        using (var count = connection.CreateCommand())
+        {
+            count.Transaction = transaction;
+            count.CommandText = failed
+                ? "UPDATE user.scrape_batches SET done = done + 1, failed = failed + 1 WHERE batch_id = $batch"
+                : "UPDATE user.scrape_batches SET done = done + 1 WHERE batch_id = $batch";
+            count.Parameters.AddWithValue("$batch", job.BatchId);
+            count.ExecuteNonQuery();
+        }
+
+        using (var finish = connection.CreateCommand())
+        {
+            finish.Transaction = transaction;
+            finish.CommandText = """
+                UPDATE user.scrape_batches SET finished_at = $now
+                WHERE batch_id = $batch AND finished_at IS NULL
+                  AND NOT EXISTS (SELECT 1 FROM user.scrape_jobs WHERE batch_id = $batch)
+                """;
+            finish.Parameters.AddWithValue("$now", now);
+            finish.Parameters.AddWithValue("$batch", job.BatchId);
+            finish.ExecuteNonQuery();
+        }
+
+        transaction.Commit();
+        return GetBatch(connection, job.BatchId);
+    }
+
+    /// <summary>Drops a batch's remaining jobs and marks it finished and cancelled.</summary>
+    public static void CancelBatch(SqliteConnection connection, long batchId, long now)
+    {
+        using var transaction = connection.BeginTransaction();
+        using (var delete = connection.CreateCommand())
+        {
+            delete.Transaction = transaction;
+            delete.CommandText = "DELETE FROM user.scrape_jobs WHERE batch_id = $batch";
+            delete.Parameters.AddWithValue("$batch", batchId);
+            delete.ExecuteNonQuery();
+        }
+
+        using (var update = connection.CreateCommand())
+        {
+            update.Transaction = transaction;
+            update.CommandText = "UPDATE user.scrape_batches SET cancelled = 1, finished_at = COALESCE(finished_at, $now) WHERE batch_id = $batch";
+            update.Parameters.AddWithValue("$now", now);
+            update.Parameters.AddWithValue("$batch", batchId);
+            update.ExecuteNonQuery();
+        }
+
+        transaction.Commit();
+    }
+
+    public static ScrapeBatchInfo? GetBatch(SqliteConnection connection, long batchId) =>
+        Batches(connection, "WHERE b.batch_id = $batch", batchId).FirstOrDefault();
+
+    public static List<ScrapeBatchInfo> UnfinishedBatches(SqliteConnection connection) =>
+        Batches(connection, "WHERE b.finished_at IS NULL ORDER BY b.priority, b.batch_id", null);
+
+    /// <summary>Keeps the newest finished batches' history only.</summary>
+    public static void PruneFinished(SqliteConnection connection, int keep)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            DELETE FROM user.scrape_batches WHERE finished_at IS NOT NULL AND batch_id NOT IN
+                (SELECT batch_id FROM user.scrape_batches WHERE finished_at IS NOT NULL ORDER BY batch_id DESC LIMIT $keep)
+            """;
+        command.Parameters.AddWithValue("$keep", keep);
+        command.ExecuteNonQuery();
+    }
+
+    private static List<ScrapeBatchInfo> Batches(SqliteConnection connection, string where, long? batchId)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = $"""
+            SELECT b.batch_id, b.kind, b.target, b.total, b.done, b.failed,
+                   (SELECT COUNT(*) FROM user.scrape_jobs j WHERE j.batch_id = b.batch_id), b.created_at, b.finished_at IS NOT NULL, b.cancelled
+            FROM user.scrape_batches b {where}
+            """;
+        if (batchId is not null)
+        {
+            command.Parameters.AddWithValue("$batch", batchId.Value);
+        }
+
+        using var reader = command.ExecuteReader();
+        var batches = new List<ScrapeBatchInfo>();
+        while (reader.Read())
+        {
+            batches.Add(new ScrapeBatchInfo(
+                reader.GetInt64(0), reader.GetString(1), reader.IsDBNull(2) ? null : reader.GetString(2),
+                reader.GetInt32(3), reader.GetInt32(4), reader.GetInt32(5), reader.GetInt32(6),
+                DateTimeOffset.FromUnixTimeMilliseconds(reader.GetInt64(7)), reader.GetBoolean(8), reader.GetInt64(9) != 0));
+        }
+
+        return batches;
+    }
+}

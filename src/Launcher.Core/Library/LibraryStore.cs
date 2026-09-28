@@ -186,16 +186,22 @@ internal static class LibraryStore
         return height > 0 ? (float)reader.GetInt32(widthOrdinal) / height : 0;
     }
 
+    // The user's metadata overrides win over scraped values, field by field (M4).
     private const string GameDetailsSql = """
         SELECT g.system_id, g.path_key, d.path, g.rel_path, COALESCE(o.title, g.title), g.region, g.languages,
                g.revision, g.disc, g.tags, g.size_bytes, f.added_at IS NOT NULL, COALESCE(o.hidden, 0), o.title,
                o.emulator, g.game_id,
-               mt.source, mt.description, mt.release_date, mt.developer, mt.publisher, mt.genre, mt.players, mt.rating
+               COALESCE(mt.source, CASE WHEN COALESCE(o.description, o.release_date, o.developer, o.publisher, o.genre, o.players, o.rating) IS NOT NULL THEN 'user' END),
+               COALESCE(o.description, mt.description), COALESCE(o.release_date, mt.release_date),
+               COALESCE(o.developer, mt.developer), COALESCE(o.publisher, mt.publisher), COALESCE(o.genre, mt.genre),
+               COALESCE(o.players, mt.players), COALESCE(o.rating, mt.rating),
+               ss.status, ss.providers, ss.scraped_at
         FROM games g
         JOIN rom_dirs d ON d.dir_id = g.dir_id
         LEFT JOIN user.game_overrides o ON o.system_id = g.system_id AND o.path_key = g.path_key
         LEFT JOIN user.favourites f ON f.system_id = g.system_id AND f.path_key = g.path_key
         LEFT JOIN metadata mt ON mt.game_id = g.game_id
+        LEFT JOIN scrape_state ss ON ss.game_id = g.game_id
         """;
 
     public static GameDetails? GetGame(SqliteConnection connection, long gameId)
@@ -251,7 +257,11 @@ internal static class LibraryStore
                 NullableString(reader, 21),
                 NullableString(reader, 22),
                 reader.IsDBNull(23) ? null : reader.GetDouble(23),
-                reader.GetString(16)));
+                reader.GetString(16)),
+            reader.IsDBNull(24) ? null : new ScrapeInfo(
+                reader.GetString(24),
+                NullableString(reader, 25) is { } providers ? providers.Split(',') : [],
+                DateTimeOffset.FromUnixTimeMilliseconds(reader.GetInt64(26))));
     }
 
     public static PlayStats? GetPlayStats(SqliteConnection connection, GameKey game)
@@ -302,6 +312,28 @@ internal static class LibraryStore
         command.Parameters.AddWithValue("$key", game.PathKey);
         command.Parameters.AddWithValue("$title", (object?)title ?? DBNull.Value);
         command.Parameters.AddWithValue("$sort", title is null ? DBNull.Value : TitleParser.SortKey(title));
+        command.ExecuteNonQuery();
+    }
+
+    public static void SetMetadataOverride(SqliteConnection connection, GameKey game, MetadataOverride values)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            INSERT INTO user.game_overrides (system_id, path_key, description, release_date, developer, publisher, genre, players, rating)
+            VALUES ($system, $key, $description, $release, $developer, $publisher, $genre, $players, $rating)
+            ON CONFLICT (system_id, path_key) DO UPDATE SET description = excluded.description,
+                release_date = excluded.release_date, developer = excluded.developer, publisher = excluded.publisher,
+                genre = excluded.genre, players = excluded.players, rating = excluded.rating
+            """;
+        command.Parameters.AddWithValue("$system", game.SystemId);
+        command.Parameters.AddWithValue("$key", game.PathKey);
+        command.Parameters.AddWithValue("$description", (object?)values.Description ?? DBNull.Value);
+        command.Parameters.AddWithValue("$release", (object?)values.ReleaseDate ?? DBNull.Value);
+        command.Parameters.AddWithValue("$developer", (object?)values.Developer ?? DBNull.Value);
+        command.Parameters.AddWithValue("$publisher", (object?)values.Publisher ?? DBNull.Value);
+        command.Parameters.AddWithValue("$genre", (object?)values.Genre ?? DBNull.Value);
+        command.Parameters.AddWithValue("$players", (object?)values.Players ?? DBNull.Value);
+        command.Parameters.AddWithValue("$rating", (object?)values.Rating ?? DBNull.Value);
         command.ExecuteNonQuery();
     }
 
@@ -462,19 +494,21 @@ internal static class LibraryStore
     /// </summary>
     /// <param name="media">The user art found for each scan, at the same index; null entries (or a null list) leave art alone.</param>
     /// <param name="keepOnly">When set, systems not in this set are deleted (a full rescan).</param>
+    /// <param name="added">When set, collects the games this scan added (their scraped data is restored after, M4).</param>
     public static List<SystemScanSummary> Apply(
         SqliteConnection connection,
         IReadOnlyList<SystemScan> scans,
         IReadOnlyList<UserMediaScan?>? media,
         IReadOnlySet<string>? keepOnly,
-        long now)
+        long now,
+        List<GameKey>? added = null)
     {
         var summaries = new List<SystemScanSummary>(scans.Count);
         using var transaction = connection.BeginTransaction();
         using var statements = new Statements(connection, transaction);
         for (var i = 0; i < scans.Count; i++)
         {
-            summaries.Add(ApplyOne(connection, transaction, statements, scans[i], media?[i], now));
+            summaries.Add(ApplyOne(connection, transaction, statements, scans[i], media?[i], now, added));
         }
 
         if (keepOnly is not null)
@@ -509,7 +543,8 @@ internal static class LibraryStore
     }
 
     private static SystemScanSummary ApplyOne(
-        SqliteConnection connection, SqliteTransaction transaction, Statements s, SystemScan scan, UserMediaScan? media, long now)
+        SqliteConnection connection, SqliteTransaction transaction, Statements s, SystemScan scan, UserMediaScan? media, long now,
+        List<GameKey>? addedKeys)
     {
         var system = scan.SystemId;
         s.Bind(s.InsertSystem, ("$system", system));
@@ -569,6 +604,7 @@ internal static class LibraryStore
                 BindTitle(s, s.InsertGame, title);
                 s.InsertGame.ExecuteNonQuery();
                 added++;
+                addedKeys?.Add(new GameKey(system, game.PathKey));
                 continue;
             }
 
@@ -586,8 +622,13 @@ internal static class LibraryStore
             s.UpdateGame.ExecuteNonQuery();
             if (renamed)
             {
-                // A case-only rename changes the file-name title too.
+                // A case-only rename changes the file-name title too, unless the game has a scraped title.
                 var title = TitleParser.Parse(FileStem(game.RelPath));
+                if (ScrapedTitle(connection, transaction, old.GameId) is { } scraped)
+                {
+                    title = title with { Title = scraped, SortTitle = TitleParser.SortKey(scraped) };
+                }
+
                 s.Bind(s.UpdateTitle, ("$id", old.GameId));
                 BindTitle(s, s.UpdateTitle, title);
                 s.UpdateTitle.ExecuteNonQuery();
@@ -779,6 +820,17 @@ internal static class LibraryStore
             delete.ExecuteNonQuery();
         }
     }
+
+    private static string? ScrapedTitle(SqliteConnection connection, SqliteTransaction transaction, long gameId)
+    {
+        using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = "SELECT title FROM metadata WHERE game_id = $id";
+        command.Parameters.AddWithValue("$id", gameId);
+        return command.ExecuteScalar() as string;
+    }
+
+    internal static string FileStemOf(string relPath) => FileStem(relPath);
 
     private static void BindTitle(Statements s, SqliteCommand command, TitleInfo title) =>
         s.Bind(command, false,

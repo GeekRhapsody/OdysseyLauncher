@@ -57,7 +57,7 @@ public sealed class MigrationTests : IDisposable
         Assert.Equal(MigrationRunner.Library[^1].Version, MigrationRunner.GetVersion(connection));
         Assert.Equal("wal", Scalar(connection, "PRAGMA journal_mode"));
         Assert.Equal(
-            ["games", "games_by_dir", "games_by_system", "media", "metadata", "playlists", "rom_dirs", "scrape_log", "scraper_matches", "systems"],
+            ["games", "games_by_dir", "games_by_system", "media", "metadata", "playlists", "rom_dirs", "scrape_log", "scrape_state", "scraper_matches", "systems"],
             Tables(connection));
     }
 
@@ -71,7 +71,7 @@ public sealed class MigrationTests : IDisposable
         using var connection = Sqlite.Open(path);
         Assert.Equal(MigrationRunner.User[^1].Version, MigrationRunner.GetVersion(connection));
         Assert.Equal(
-            ["favourites", "game_overrides", "manual_matches", "play_sessions", "play_sessions_open", "play_stats", "play_stats_recent"],
+            ["favourites", "game_overrides", "manual_matches", "play_sessions", "play_sessions_open", "play_stats", "play_stats_recent", "scrape_batches", "scrape_jobs"],
             Tables(connection));
         Assert.Empty(UserDatabase.ListBackups(path));
     }

@@ -1,0 +1,53 @@
+{
+  "header": {
+    "APIversion": "2.0",
+    "dateTime": "2026-09-28 12:00:00",
+    "commandRequested": "https://api.screenscraper.fr/api2/jeuInfos.php?devid={{DEVID}}&devpassword={{DEVPASSWORD}}&softname=OdysseyLauncher-0.1.0&output=json&ssid={{SSID}}&sspassword={{SSPASSWORD}}&systemeid=1&romtype=rom&romnom=Sonic",
+    "success": "true",
+    "error": ""
+  },
+  "response": {
+    "serveurs": { "cpu1": "12", "threadsmin": "2000", "closefornomember": "0", "closeforleecher": "0", "maxthreadfornonmember": "256", "maxthreadformember": "4096" },
+    "ssuser": {
+      "id": "{{SSID}}", "numid": "1", "niveau": "1", "contribution": "2", "maxthreads": "{{MAXTHREADS}}", "maxdownloadspeed": "2048",
+      "requeststoday": "{{TODAY}}", "requestskotoday": "1", "maxrequestspermin": "1024", "maxrequestsperday": "20000", "maxrequestskoperday": "2000", "favregion": "eu"
+    },
+    "jeu": {
+      "id": "1187",
+      "romid": "134473",
+      "notgame": "false",
+      "noms": [
+        { "region": "ss", "text": "Sonic The Hedgehog 3" },
+        { "region": "eu", "text": "Sonic the Hedgehog 3" },
+        { "region": "jp", "text": "Sonic 3" }
+      ],
+      "systeme": { "id": "1", "text": "Megadrive" },
+      "editeur": { "id": "3", "text": "Sega" },
+      "developpeur": { "id": "12", "text": "Sonic Team" },
+      "joueurs": { "text": "1-2" },
+      "note": { "text": "16" },
+      "synopsis": [
+        { "langue": "fr", "text": "Texte en fran&ccedil;ais." },
+        { "langue": "en", "text": "Sonic and Tails race to stop Dr. Robotnik&#039;s Death Egg." }
+      ],
+      "dates": [
+        { "region": "us", "text": "1994-02-02" },
+        { "region": "eu", "text": "1994-02-24" },
+        { "region": "jp", "text": "1994-05-27" }
+      ],
+      "genres": [
+        { "id": "7", "nomcourt": "0101", "principale": "1", "parentid": "0", "noms": [ { "langue": "en", "text": "Platform" }, { "langue": "fr", "text": "Plateforme" } ] },
+        { "id": "13", "nomcourt": "0102", "principale": "0", "parentid": "7", "noms": [ { "langue": "en", "text": "Action" } ] }
+      ],
+      "medias": [
+        { "type": "box-2D", "parent": "jeu", "url": "https://neoclone.screenscraper.fr/api2/mediaJeu.php?devid={{DEVID}}&devpassword={{DEVPASSWORD}}&softname=OdysseyLauncher-0.1.0&ssid={{SSID}}&sspassword={{SSPASSWORD}}&systemeid=1&jeuid=1187&media=box-2D(us)", "region": "us", "crc": "0001", "size": "610671", "format": "png" },
+        { "type": "box-2D", "parent": "jeu", "url": "https://neoclone.screenscraper.fr/api2/mediaJeu.php?devid={{DEVID}}&devpassword={{DEVPASSWORD}}&softname=OdysseyLauncher-0.1.0&ssid={{SSID}}&sspassword={{SSPASSWORD}}&systemeid=1&jeuid=1187&media=box-2D(eu)", "region": "eu", "crc": "0002", "size": "600000", "format": "png" },
+        { "type": "box-texture", "parent": "jeu", "url": "https://neoclone.screenscraper.fr/api2/mediaJeu.php?devid={{DEVID}}&devpassword={{DEVPASSWORD}}&softname=OdysseyLauncher-0.1.0&ssid={{SSID}}&sspassword={{SSPASSWORD}}&systemeid=1&jeuid=1187&media=box-texture(eu)", "region": "eu", "format": "png" },
+        { "type": "box-2D-side", "parent": "jeu", "url": "https://neoclone.screenscraper.fr/api2/mediaJeu.php?devid={{DEVID}}&devpassword={{DEVPASSWORD}}&softname=OdysseyLauncher-0.1.0&ssid={{SSID}}&sspassword={{SSPASSWORD}}&systemeid=1&jeuid=1187&media=box-2D-side(eu)", "region": "eu", "format": "png" },
+        { "type": "ss", "parent": "jeu", "url": "https://neoclone.screenscraper.fr/api2/mediaJeu.php?devid={{DEVID}}&devpassword={{DEVPASSWORD}}&softname=OdysseyLauncher-0.1.0&ssid={{SSID}}&sspassword={{SSPASSWORD}}&systemeid=1&jeuid=1187&media=ss(wor)", "region": "wor", "format": "png" },
+        { "type": "wheel", "parent": "editeur", "url": "https://neoclone.screenscraper.fr/api2/mediaGroup.php?devid={{DEVID}}&devpassword={{DEVPASSWORD}}&groupid=3&media=wheel", "format": "png" }
+      ],
+      "rom": { "id": "134473", "romfilename": "Sonic the Hedgehog 3 (Europe).md", "romcrc": "{{CRC}}", "romsize": "2097152", "romregions": "eu", "romtype": "rom" },
+    }
+  }
+}

@@ -1,0 +1,4 @@
+{ "success": true, "page": 0, "total": 2, "limit": 50, "data": [
+  { "id": 11, "score": 0, "style": "alternate", "width": 600, "height": 900, "nsfw": false, "humor": false, "notes": null, "mime": "image/png", "language": "en", "url": "https://cdn2.steamgriddb.com/grid/a600.png", "thumb": "https://cdn2.steamgriddb.com/thumb/a600.jpg", "lock": false, "epilepsy": false, "upvotes": 0, "downvotes": 0, "author": { "name": "someone", "steam64": "0", "avatar": "https://example.invalid/a.jpg" } },
+  { "id": 12, "score": 0, "style": "alternate", "width": 660, "height": 930, "nsfw": false, "humor": false, "notes": null, "mime": "image/png", "language": "en", "url": "https://cdn2.steamgriddb.com/grid/b660.png", "thumb": "https://cdn2.steamgriddb.com/thumb/b660.jpg", "lock": false, "epilepsy": false, "upvotes": 0, "downvotes": 0 }
+] }
