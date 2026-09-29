@@ -439,14 +439,21 @@ internal static class ScrapeStore
     }
 
     /// <summary>Every media row of a kind, with its root, path, size and time (for baking derivatives).</summary>
-    public static List<(MediaRoot Root, string Path, long SizeBytes, long MtimeMs)> MediaOfKind(SqliteConnection connection, string kind)
+    /// <summary>Every indexed file of the given kinds, once each (a file several games share is one entry).</summary>
+    public static List<(MediaRoot Root, string Path, long SizeBytes, long MtimeMs)> MediaOfKinds(SqliteConnection connection, IReadOnlyList<string> kinds)
     {
         using var command = connection.CreateCommand();
-        command.CommandText = """
+        var names = new string[kinds.Count];
+        for (var i = 0; i < kinds.Count; i++)
+        {
+            names[i] = "$k" + i.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            command.Parameters.AddWithValue(names[i], kinds[i]);
+        }
+
+        command.CommandText = $"""
             SELECT DISTINCT source = 'user', path, size_bytes, mtime_ms FROM media
-            WHERE kind = $kind AND size_bytes IS NOT NULL AND mtime_ms IS NOT NULL
+            WHERE kind IN ({string.Join(", ", names)}) AND size_bytes IS NOT NULL AND mtime_ms IS NOT NULL
             """;
-        command.Parameters.AddWithValue("$kind", kind);
         using var reader = command.ExecuteReader();
         var rows = new List<(MediaRoot, string, long, long)>();
         while (reader.Read())

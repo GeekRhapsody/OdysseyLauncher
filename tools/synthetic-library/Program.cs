@@ -6,19 +6,22 @@ using Launcher.Core.Config;
 using Launcher.Core.Library;
 using Launcher.Core.Media;
 
-// synthetic-library --out=<absolute folder> --covers=<absolute M1 spike library> [--games=10000] [--no-art-every=9]
+// synthetic-library --out=<absolute folder> --covers=<absolute M1 spike library> [--games=10000] [--others=<n>]
+//                   [--no-art-every=9] [--slots=back,spine,...]
 //
 // Writes a portable user folder for `--user-dir`: settings, systems and emulators config, 20 systems (the 14 built-in
-// ones plus 6 more), PlayStation 2 with --games games and the others with 30 to 400 each, and empty ROM files with
-// generated No-Intro-style names. Every game but one in --no-art-every has a cover in ConfigDir/media, hardlinked
-// from the spike library's JPEGs, and its baked BC7 derivative in cache/textures, hardlinked from the spike's DDS
-// files, so the library costs almost no disk. Then it scans the library, so the app boots warm.
+// ones plus 6 more), PlayStation 2 with --games games and the others with --others each (default 30 to 400), and
+// empty ROM files with generated No-Intro-style names. Every game but one in --no-art-every has a cover in
+// ConfigDir/media, hardlinked from the spike library's JPEGs, and its baked BC7 derivative in cache/textures,
+// hardlinked from the spike's DDS files, so the library costs almost no disk. With --slots, those games also get art
+// of each named kind (a different spike image for each), for themes whose templates use more slots than the cover.
+// Then it scans the library, so the app boots warm.
 //
 // The folder is deleted and recreated, but only if it's empty or was made by this tool.
 var options = Options.Parse(args);
 if (options is null)
 {
-    Console.Error.WriteLine("usage: synthetic-library --out=<absolute folder> --covers=<absolute spike library> [--games=10000] [--no-art-every=9]");
+    Console.Error.WriteLine("usage: synthetic-library --out=<absolute folder> --covers=<absolute spike library> [--games=10000] [--others=<n>] [--no-art-every=9] [--slots=back,spine,...]");
     return 2;
 }
 
@@ -98,7 +101,7 @@ var covers = 0;
 var games = 0;
 foreach (var system in loaded.Config.Systems)
 {
-    var count = system.Id == "ps2" ? options.Games : random.Next(30, 401);
+    var count = system.Id == "ps2" ? options.Games : options.Others ?? random.Next(30, 401);
     var extension = system.Extensions.FirstOrDefault(e => e is not ".zip" and not ".7z" and not ".m3u" and not ".cue") ?? system.Extensions[0];
     var folder = Path.Combine(romRoot, system.Id);
     Directory.CreateDirectory(folder);
@@ -119,20 +122,13 @@ foreach (var system in loaded.Config.Systems)
             continue;
         }
 
-        // The spike's cover N, as the game's user art, and its baked derivative under the key the app looks up.
-        var n = spikeCover++ % 10_000;
-        var sourceJpeg = Path.Combine(options.Covers, "jpg", n.ToString("D5", CultureInfo.InvariantCulture) + ".jpg");
-        var sourceDds = Path.Combine(options.Covers, "dds-bc7", n.ToString("D5", CultureInfo.InvariantCulture) + ".dds");
-        var relative = $"{UserMedia.FolderName}/{system.Id}/{MediaKinds.Cover}/{stem}.jpg";
-        var art = Path.Combine(root, relative.Replace('/', Path.DirectorySeparatorChar));
-        Directory.CreateDirectory(Path.GetDirectoryName(art)!);
-        HardLink(art, sourceJpeg);
-        var info = new FileInfo(art);
-        var key = TextureDerivatives.FileName(MediaRoot.Config, relative, info.Length, new DateTimeOffset(info.LastWriteTimeUtc).ToUnixTimeMilliseconds());
-        var derivative = Path.Combine(cacheDir, key);
-        if (!File.Exists(derivative))
+        // The spike's cover N, as the game's user art, and its baked derivative under the key the app looks up; each
+        // extra slot kind gets another spike image.
+        var n = spikeCover++;
+        Link(system.Id, MediaKinds.Cover, stem, n % 10_000);
+        for (var k = 0; k < options.Slots.Count; k++)
         {
-            HardLink(derivative, sourceDds);
+            Link(system.Id, options.Slots[k], stem, (n + 3_331 * (k + 1)) % 10_000);
         }
 
         covers++;
@@ -156,6 +152,23 @@ using (var library = await LibraryService.OpenAsync(loaded.Config, root, null, d
 Console.WriteLine($"Run the app with ++ --user-dir={root}");
 return 0;
 
+void Link(string systemId, string kind, string stem, int n)
+{
+    var sourceJpeg = Path.Combine(options.Covers, "jpg", n.ToString("D5", CultureInfo.InvariantCulture) + ".jpg");
+    var sourceDds = Path.Combine(options.Covers, "dds-bc7", n.ToString("D5", CultureInfo.InvariantCulture) + ".dds");
+    var relative = $"{UserMedia.FolderName}/{systemId}/{kind}/{stem}.jpg";
+    var art = Path.Combine(root, relative.Replace('/', Path.DirectorySeparatorChar));
+    Directory.CreateDirectory(Path.GetDirectoryName(art)!);
+    HardLink(art, sourceJpeg);
+    var info = new FileInfo(art);
+    var key = TextureDerivatives.FileName(MediaRoot.Config, relative, info.Length, new DateTimeOffset(info.LastWriteTimeUtc).ToUnixTimeMilliseconds());
+    var derivative = Path.Combine(cacheDir, key);
+    if (!File.Exists(derivative))
+    {
+        HardLink(derivative, sourceDds);
+    }
+}
+
 static void HardLink(string link, string target)
 {
     if (!File.Exists(target))
@@ -169,14 +182,16 @@ static void HardLink(string link, string target)
     }
 }
 
-internal sealed record Options(string Out, string Covers, int Games, int NoArtEvery)
+internal sealed record Options(string Out, string Covers, int Games, int? Others, int NoArtEvery, IReadOnlyList<string> Slots)
 {
     public static Options? Parse(string[] args)
     {
         string? output = null;
         string? covers = null;
         var games = 10_000;
+        int? others = null;
         var noArtEvery = 9;
+        var slots = new List<string>();
         foreach (var arg in args)
         {
             var (name, value) = arg.IndexOf('=') is var i and > 0 ? (arg[..i], arg[(i + 1)..]) : (arg, "");
@@ -191,6 +206,21 @@ internal sealed record Options(string Out, string Covers, int Games, int NoArtEv
                 case "--games" when int.TryParse(value, CultureInfo.InvariantCulture, out var n) && n > 0:
                     games = n;
                     break;
+                case "--others" when int.TryParse(value, CultureInfo.InvariantCulture, out var n) && n >= 0:
+                    others = n;
+                    break;
+                case "--slots":
+                    foreach (var kind in value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                    {
+                        if (!MediaKinds.Images.Contains(kind) || kind == MediaKinds.Cover || slots.Contains(kind))
+                        {
+                            return null;
+                        }
+
+                        slots.Add(kind);
+                    }
+
+                    break;
                 case "--no-art-every" when int.TryParse(value, CultureInfo.InvariantCulture, out var n) && n >= 0:
                     noArtEvery = n;
                     break;
@@ -199,7 +229,7 @@ internal sealed record Options(string Out, string Covers, int Games, int NoArtEv
             }
         }
 
-        return output is null || covers is null ? null : new Options(output, covers, games, noArtEvery);
+        return output is null || covers is null ? null : new Options(output, covers, games, others, noArtEvery, slots);
     }
 }
 

@@ -144,7 +144,7 @@ try
         case "bake":
             {
                 var summary = await service.Derivatives.BakeMissingAsync(null, stop.Token);
-                Console.WriteLine($"Covers: {summary.Covers}; baked {summary.Baked}, already baked {summary.AlreadyBaked}, failed {summary.Failed}, stale removed {summary.Pruned} ({summary.Elapsed.TotalSeconds:0.0} s)");
+                Console.WriteLine($"Images: {summary.Images}; baked {summary.Baked}, already baked {summary.AlreadyBaked}, failed {summary.Failed}, stale removed {summary.Pruned} ({summary.Elapsed.TotalSeconds:0.0} s)");
                 return summary.Failed > 0 ? 1 : 0;
             }
 

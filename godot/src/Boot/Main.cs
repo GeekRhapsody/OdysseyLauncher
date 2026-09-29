@@ -23,10 +23,12 @@ namespace Launcher.App.Boot;
 /// <summary>
 /// The main scene (A1 Boot, A3 boot path). Boots straight into the systems grid:
 /// <list type="number">
-/// <item>On the thread pool: settings and systems config, then library.db and the systems query.</item>
-/// <item>Meanwhile on the main thread: the look, the camera, the cover array, the grids and the overlay, with the
-/// built-in models loading on Godot's loader threads.</item>
-/// <item>When both are done, the systems grid is bound; the next drawn frame is <c>interactive</c>.</item>
+/// <item>On the thread pool: settings and systems config, the theme (its manifests, and each system's model
+/// candidates), then library.db and the systems query.</item>
+/// <item>Meanwhile on the main thread: the camera, the cover array and the overlay; then, as soon as the theme is
+/// resolved, its models load (Godot's loader threads for built-in ones, a worker for user files).</item>
+/// <item>When both are done, the look and the grids are built and the systems grid is bound; the next drawn frame is
+/// <c>interactive</c>.</item>
 /// <item>After that, a warm-up spread over a few frames: every pipeline drawn once, the first cover upload, the
 /// glyphs, and the launch controller. Nothing is scanned at boot; systems never scanned are scanned after it.</item>
 /// </list>
@@ -46,9 +48,12 @@ public partial class Main : Node3D
 
     private readonly MainThreadQueue _queue = new();
     private readonly CancellationTokenSource _shutdown = new();
-    private readonly TemplateLibrary _models = new();
+    private readonly ModelLoader _loader = new();
     private DebugOptions _options = DebugOptions.None;
     private AppServices? _services;
+    private ThemePlan? _plan;
+    private ThemeRuntime? _theme;
+    private LookStage? _look;
     private Exception? _bootFailure;
     private Camera3D _camera = null!;
     private TextureStreamer? _streamer;
@@ -86,11 +91,12 @@ public partial class Main : Node3D
         var executableDir = Path.GetDirectoryName(OS.GetExecutablePath()) ?? ".";
         var options = _options;
         var token = _shutdown.Token;
+        var headless = _headless;
         _ = Task.Run(async () =>
         {
             try
             {
-                _services = await AppServices.LoadAsync(options, executableDir, token).ConfigureAwait(false);
+                _services = await AppServices.LoadAsync(options, executableDir, headless ? null : plan => Volatile.Write(ref _plan, plan), token).ConfigureAwait(false);
             }
             catch (Exception e) when (e is not OperationCanceledException)
             {
@@ -105,27 +111,39 @@ public partial class Main : Node3D
         }
 
         NavInput.RegisterActions();
-        _models.Request(ConfigLoader.GameModels);
         _camera = new Camera3D { Fov = FieldOfView, Position = new Vector3(0, 0, CameraDistance), Current = true };
         AddChild(_camera);
-        Look.Default.Build(this, _camera);
+
+        // The environment, gradient and lights are made now, while the main thread would only wait; the theme's look
+        // is shown on them once it's known.
+        _look = new LookStage(this, _camera);
         ApplyRenderScale();
         GetViewport().SizeChanged += OnViewportSizeChanged;
 
-        // Pool textures are created at boot and only updated while browsing (A3).
+        // Pool textures are created at boot and only updated while browsing (A3). The cover-class array is made now,
+        // since every game template has a cover (A7); a theme's other slots get theirs once its models are in.
         if (!_options.NoTextures)
         {
             _streamer = new TextureStreamer(CoverSlots, TextureStreamer.DefaultWorkers);
-            _streamer.CreateArray();
+            _streamer.CreateBootArray();
 
             // The first layer update can take tens of milliseconds (M1), so it's done now, while the DB opens, rather
             // than in the first frames after interactive.
             _streamer.WarmUpload();
         }
 
-
-        _overlay = new InfoOverlay();
+        _overlay = new InfoOverlay { Visible = !_options.NoOverlay };
         AddChild(_overlay);
+
+        // The games grid needs nothing from the theme or the library until it's given templates, so it's built now,
+        // while the main thread would only wait for them: its title atlas and slot-state texture are its dearest parts.
+        _gamesGrid = new ItemGrid(_streamer, default, CoverSlots, blockSize: 160, spines: true, systemCards: false)
+        {
+            RowsVisible = GameRowsVisible,
+            Name = "Games",
+            Visible = false,
+        };
+        AddChild(_gamesGrid);
     }
 
     public override void _ExitTree()
@@ -207,13 +225,26 @@ public partial class Main : Node3D
             return;
         }
 
-        var modelsReady = _models.Poll();
-        if (modelsReady)
+        // The theme's models start loading as soon as the theme is resolved, while the DB opens.
+        if (_theme is null && Volatile.Read(ref _plan) is { } plan)
         {
-            DebugHooks.Timeline.Mark(BootMarks.ModelsLoaded);
+            _theme = new ThemeRuntime(plan, _loader);
         }
 
-        if (_services is not { } services || !modelsReady)
+        try
+        {
+            if (_theme?.Poll() == true)
+            {
+                DebugHooks.Timeline.Mark(BootMarks.ModelsLoaded);
+            }
+        }
+        catch (InvalidOperationException e)
+        {
+            _bootFailure = e;
+            return;
+        }
+
+        if (_services is not { } services || _theme is not { Ready: true })
         {
             return;
         }
@@ -229,44 +260,44 @@ public partial class Main : Node3D
         _streamer?.SetFolders(services.Paths.CacheDir, services.Paths.ConfigDir, services.Paths.DataDir);
 
         var clock = System.Diagnostics.Stopwatch.StartNew();
-        var templates = new List<ItemMesh>();
-        foreach (var id in ConfigLoader.GameModels)
-        {
-            templates.Add(_models.Get(id));
-        }
+        var theme = _theme!;
+        _look!.Show(theme.LookFor(null), 0);
+        var lookMs = clock.Elapsed.TotalMilliseconds;
+        _gamesGrid!.SetBackground(_look.Colours);
+        _gamesGrid.SetTemplates(theme.GameTemplates);
+        var templatesMs = clock.Elapsed.TotalMilliseconds;
 
-        _gamesGrid = new ItemGrid(templates, _streamer, Look.Default, CoverSlots, blockSize: 160, spines: true, tintCase: false)
-        {
-            RowsVisible = GameRowsVisible,
-            Name = "Games",
-        };
         // Every system fits in the pool, with room for the columns to change; the virtual systems are 2 more.
         var systemSlots = Math.Clamp(services.Systems.Count + 2 + ItemGrid.MaxColumns, 24, MaxSystemSlots);
-        _systemsGrid = new ItemGrid([_models.Get(TemplateLibrary.GenericSystemId)], null, Look.Default, systemSlots, blockSize: 192, spines: false, tintCase: true)
+        _systemsGrid = new ItemGrid(null, _look.Colours, systemSlots, blockSize: 192, spines: false, systemCards: true)
         {
             RowsVisible = SystemRowsVisible,
             Name = "Systems",
         };
+        _systemsGrid.SetTemplates(theme.CardTemplates);
         var gridsMs = clock.Elapsed.TotalMilliseconds;
         AddChild(_systemsGrid);
-        AddChild(_gamesGrid);
+        _gamesGrid.Visible = true;
         var addMs = clock.Elapsed.TotalMilliseconds;
         UpdateGridViews();
         ApplyDisplaySettings(services.Config);
+        InstallBootLayout(theme);
         DebugHooks.Timeline.Mark(BootMarks.SceneBuilt);
 
-        _navigator = new Navigator(services, _queue, _systemsGrid, _gamesGrid, _overlay!, ConfigLoader.GameModels)
+        _navigator = new Navigator(services, _queue, _systemsGrid, _gamesGrid, _overlay!, _look, _loader, theme)
         {
             Streamer = _streamer,
         };
         AddChild(_navigator);
-        _navigator.ShowSystems(0);
+        _navigator.ShowSystems();
 
         // Every template's pipeline is drawn in the first frame, faded into the background (A3), so it's compiled
         // before interactive rather than in a hitch just after it.
         _gamesGrid.BeginWarmUp();
         DebugHooks.Timeline.Mark(BootMarks.SystemsGridBound);
-        GD.Print(FormattableString.Invariant($"Boot: grids built in {gridsMs:0.0} ms, added in {addMs - gridsMs:0.0} ms, bound in {clock.Elapsed.TotalMilliseconds - addMs:0.0} ms."));
+        GD.Print(FormattableString.Invariant($"Boot: look {lookMs:0.0} ms, games templates {templatesMs - lookMs:0.0} ms, systems grid {gridsMs - templatesMs:0.0} ms, added in {addMs - gridsMs:0.0} ms, bound in {clock.Elapsed.TotalMilliseconds - addMs:0.0} ms."));
+        GD.Print($"Theme: '{theme.Plan.Active.Id}' ({theme.Plan.Active.Name}): {theme.GameTemplates.Count} game template(s), {theme.CardTemplates.Count} system model(s); media slots: {theme.Layout}.");
+        DebugHooks.Theme = (theme.Plan.Active.Id, theme.Layout.ToString());
 
         var games = 0;
         foreach (var system in services.Systems)
@@ -276,6 +307,48 @@ public partial class Main : Node3D
 
         DebugHooks.Library = new BenchLibrary(services.Systems.Count + 2, games, null, 0);
         GCSettings.LatencyMode = GCLatencyMode.SustainedLowLatency;
+    }
+
+    /// <summary>
+    /// The theme's slot layout for the streamer. With only the cover class, the boot array is enough. Other slots'
+    /// 256² array is made on a worker (creating textures on the main thread can stall for tens of milliseconds), and
+    /// installed when it's ready: the games grid isn't on screen before then, and shows each slot's fallback if it is.
+    /// </summary>
+    private void InstallBootLayout(ThemeRuntime theme)
+    {
+        if (_streamer is not { } streamer)
+        {
+            return;
+        }
+
+        var layout = theme.Layout;
+        var large = streamer.Large;
+        if (layout.SmallCount == 0 && (layout.LargeCount == 0 || large is not null))
+        {
+            streamer.Install(layout, layout.LargeCount > 0 ? large : null, null);
+            _gamesGrid!.EnableTextures();
+            return;
+        }
+
+        streamer.Install(layout, large, null);
+        _ = Task.Run(() =>
+        {
+            var built = System.Diagnostics.Stopwatch.StartNew();
+            var arrays = streamer.BuildArrays(layout, large, null);
+            var builtMs = built.Elapsed.TotalMilliseconds;
+            _queue.Post(() =>
+            {
+                if (_navigator?.ThemeId is { } id && id != theme.Plan.Active.Id)
+                {
+                    return;
+                }
+
+                var installed = System.Diagnostics.Stopwatch.StartNew();
+                streamer.Install(layout, arrays.Large, arrays.Small);
+                _gamesGrid!.EnableTextures();
+                GD.Print(FormattableString.Invariant($"Boot: media arrays for {layout} built and warmed in {builtMs:0.0} ms on a worker, installed in {installed.Elapsed.TotalMilliseconds:0.0} ms."));
+            });
+        });
     }
 
     private void OnFramePostDraw()
@@ -373,6 +446,14 @@ public partial class Main : Node3D
         if (command != NavCommand.None)
         {
             _navigator!.Run(command);
+        }
+        else if (step == "theme")
+        {
+            _navigator!.SwitchTheme(null);
+        }
+        else if (step == "rescan")
+        {
+            _navigator!.Rescan(null);
         }
 
         GD.Print($"Nav script: {step} -> {_navigator!.Describe()} (frame {Engine.GetFramesDrawn()})");

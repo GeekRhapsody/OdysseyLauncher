@@ -12,6 +12,9 @@ public static class MediaKinds
     public const string Logo = "logo";
     public const string Hero = "hero";
 
+    /// <summary>A per-game model: the user's <c>ConfigDir/models/games/&lt;system&gt;/&lt;rel path&gt;.glb</c> (M6).</summary>
+    public const string Model = "model";
+
     /// <summary>The kinds that are images, and so can be the user's own art in <c>ConfigDir/media/&lt;system&gt;/&lt;kind&gt;/</c>.</summary>
     public static IReadOnlyList<string> Images { get; } = [Cover, Back, Spine, BoxTexture, Label, Screenshot, Logo, Hero];
 

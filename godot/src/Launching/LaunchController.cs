@@ -65,6 +65,9 @@ public partial class LaunchController : Node
     /// </summary>
     public bool IsInputBlocked => _gameMode || Time.GetTicksMsec() < _inputBlockedUntilMs;
 
+    /// <summary>True while a game runs (textures are evicted then).</summary>
+    public bool InGameMode => _gameMode;
+
     public override void _Ready()
     {
         // Keeps working while the tree is paused for a game.

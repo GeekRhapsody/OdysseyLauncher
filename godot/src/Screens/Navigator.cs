@@ -5,19 +5,23 @@ using System.Threading;
 using System.Threading.Tasks;
 using Godot;
 using Launcher.App.Boot;
+using Launcher.App.Diagnostics;
 using Launcher.App.Grid;
 using Launcher.App.Launching;
+using Launcher.App.Models;
 using Launcher.App.Navigation;
 using Launcher.App.Textures;
-using Launcher.Core.Config;
+using Launcher.App.Theming;
 using Launcher.Core.Library;
 
 namespace Launcher.App.Screens;
 
 /// <summary>
 /// The screens (A1 Screens): Systems → Games → Launching, and back, with animated transitions between the two
-/// grids, focus memory per system, the focused item's details in the overlay, favourites, rescans and launching.
-/// Library calls run on the thread pool and their results come back through the <see cref="MainThreadQueue"/>.
+/// grids, each system's look cross-faded in (A6), focus memory per system, the focused item's details in the
+/// overlay, favourites, rescans, launching, and themes (M6): switching one at run time, per-game models, and
+/// rebinding a game's media when it changes. Library calls run on the thread pool and their results come back
+/// through the <see cref="MainThreadQueue"/>.
 /// </summary>
 public sealed partial class Navigator : Node
 {
@@ -27,9 +31,10 @@ public sealed partial class Navigator : Node
     private const double DetailsDelay = 0.12;
     private const float TransitionSeconds = 0.45f;
     private const double LaunchAnimationSeconds = 0.7;
+    private const double StatusSeconds = 2.5;
     private const int CachedLists = 3;
 
-    private const string SystemsHints = "A / Enter  Open     View / F5  Rescan";
+    private const string SystemsHints = "A / Enter  Open     View / F5  Rescan     Menu / T  Theme";
     private const string GamesHints = "A / Enter  Play     B / Esc  Back     Y / F  Favourite     LB RB  Page     LT RT  Letter";
 
     private static readonly GridPose Shown = new(0, 1, 0);
@@ -41,14 +46,19 @@ public sealed partial class Navigator : Node
     private readonly ItemGrid _systemsGrid;
     private readonly ItemGrid _gamesGrid;
     private readonly InfoOverlay _overlay;
+    private readonly LookStage _stage;
+    private readonly ModelLoader _loader;
     private readonly NavInput _input = new();
-    private readonly Func<string, int> _templateOf;
-    private readonly int _templateCount;
     private readonly Func<string, string> _systemNameOf;
     private readonly Dictionary<string, long> _lastGame = new(StringComparer.Ordinal);
     private readonly List<GamesSource> _cache = [];
+    private readonly List<(GamesSource Source, int Model, string Path)> _perGameLoading = [];
     private readonly CancellationTokenSource _shutdown = new();
 
+    private ThemeRuntime _theme;
+    private ThemeRuntime? _pendingTheme;
+    private bool _switchingTheme;
+    private double _themeRequestedAt;
     private SystemsSource _systems = null!;
     private GamesSource? _games;
     private Screen _screen = Screen.Systems;
@@ -58,14 +68,14 @@ public sealed partial class Navigator : Node
     private int _focusedIndex = -1;
     private long _focusKey = -1;
     private double _detailsDue = -1;
+    private double _statusClearAt = -1;
     private double _clock;
     private GameDetails? _focusedGame;
     private bool _scanning;
     private double _launchStartedAt;
     private GameDetails? _launchGame;
-    private int _systemsTemplate;
 
-    public Navigator(AppServices services, MainThreadQueue queue, ItemGrid systemsGrid, ItemGrid gamesGrid, InfoOverlay overlay, IReadOnlyList<string> templateIds)
+    public Navigator(AppServices services, MainThreadQueue queue, ItemGrid systemsGrid, ItemGrid gamesGrid, InfoOverlay overlay, LookStage stage, ModelLoader loader, ThemeRuntime theme)
     {
         Name = "Navigator";
         _services = services;
@@ -73,24 +83,17 @@ public sealed partial class Navigator : Node
         _systemsGrid = systemsGrid;
         _gamesGrid = gamesGrid;
         _overlay = overlay;
-        _templateCount = templateIds.Count;
-        var indexOf = new Dictionary<string, int>(StringComparer.Ordinal);
-        for (var i = 0; i < templateIds.Count; i++)
-        {
-            indexOf[templateIds[i]] = i;
-        }
-
-        var config = services.Config;
-        var systemTemplate = new Dictionary<string, int>(StringComparer.Ordinal);
+        _stage = stage;
+        _loader = loader;
+        _theme = theme;
         var systemName = new Dictionary<string, string>(StringComparer.Ordinal);
-        foreach (var system in config.Systems)
+        foreach (var system in services.Config.Systems)
         {
-            systemTemplate[system.Id] = indexOf.TryGetValue(system.GameModel, out var t) ? t : 0;
             systemName[system.Id] = system.Name;
         }
 
-        _templateOf = id => systemTemplate.TryGetValue(id, out var t) ? t : 0;
         _systemNameOf = id => systemName.TryGetValue(id, out var n) ? n : id;
+        services.Library.MediaChanged += OnLibraryMediaChanged;
     }
 
     private enum Screen
@@ -104,7 +107,7 @@ public sealed partial class Navigator : Node
     /// <summary>The launch controller, once the warm-up has built it.</summary>
     public LaunchController? Launcher { get; set; }
 
-    /// <summary>The cover streamer, for evicting textures while a game runs.</summary>
+    /// <summary>The media streamer, for evicting textures while a game runs and for a theme's layout.</summary>
     public TextureStreamer? Streamer { get; set; }
 
     /// <summary>True once a system's games are bound and its transition has finished.</summary>
@@ -114,6 +117,12 @@ public sealed partial class Navigator : Node
 
     public string? CurrentSystem => _games?.Id;
 
+    /// <summary>The active theme's id.</summary>
+    public string ThemeId => _theme.Plan.Active.Id;
+
+    /// <summary>True while a theme switch loads.</summary>
+    public bool SwitchingTheme => _switchingTheme;
+
     /// <summary>Where the focus is, for the <c>--nav-script</c> log.</summary>
     public string Describe()
     {
@@ -121,14 +130,13 @@ public sealed partial class Navigator : Node
         var title = _screen == Screen.Systems
             ? grid.FocusIndex >= 0 ? _systems.Entries[grid.FocusIndex].Name : "-"
             : _games is not null && grid.FocusIndex >= 0 ? _games.Row(grid.FocusIndex).Title : "-";
-        return $"{_screen}, {(_screen == Screen.Systems ? "systems" : _games?.Id ?? "?")}, item {grid.FocusIndex}: {title}";
+        return $"{_screen}, {(_screen == Screen.Systems ? "systems" : _games?.Id ?? "?")}, item {grid.FocusIndex}: {title} (theme {ThemeId})";
     }
 
     /// <summary>Builds the systems grid from the boot query. Main thread.</summary>
-    public void ShowSystems(int systemsTemplate)
+    public void ShowSystems()
     {
-        _systemsTemplate = systemsTemplate;
-        _systems = new SystemsSource(BuildEntries(_services.Systems), systemsTemplate);
+        _systems = new SystemsSource(BuildEntries(_services.Systems), _systemsGrid.Templates.Count);
         _systemsGrid.Bind(_systems, FirstRealSystem());
         _systemsGrid.Fade = 0;
         _gamesGrid.Fade = 1;
@@ -138,6 +146,7 @@ public sealed partial class Navigator : Node
 
     public override void _ExitTree()
     {
+        _services.Library.MediaChanged -= OnLibraryMediaChanged;
         _shutdown.Cancel();
     }
 
@@ -148,10 +157,33 @@ public sealed partial class Navigator : Node
         var dt = (float)delta;
         HandleInput(delta);
         Animate(dt);
+        if (_stage.Tick(dt))
+        {
+            var colours = _stage.Colours;
+            _systemsGrid.SetBackground(colours);
+            _gamesGrid.SetBackground(colours);
+        }
+
         if (_detailsDue >= 0 && _clock >= _detailsDue)
         {
             _detailsDue = -1;
             RequestDetails();
+        }
+
+        if (_statusClearAt >= 0 && _clock >= _statusClearAt)
+        {
+            _statusClearAt = -1;
+            _overlay.SetStatus(null);
+        }
+
+        if (_pendingTheme is { } pending)
+        {
+            PollTheme(pending);
+        }
+
+        if (_perGameLoading.Count > 0 && _theme.PollLoads())
+        {
+            FinishPerGameModels();
         }
 
         if (_screen == Screen.Launching && _launchGame is not null && _clock - _launchStartedAt >= LaunchAnimationSeconds)
@@ -227,6 +259,9 @@ public sealed partial class Navigator : Node
                 break;
             case NavCommand.Rescan when _screen == Screen.Systems:
                 Rescan(null);
+                break;
+            case NavCommand.NextTheme when _screen == Screen.Systems:
+                SwitchTheme(null);
                 break;
         }
     }
@@ -377,33 +412,54 @@ public sealed partial class Navigator : Node
         _entering = entry.Id;
         _systemsAnimation.Start(Shown, SystemsHidden, TransitionSeconds);
         _overlay.ClearDetails();
+        _stage.Show(_theme.LookFor(entry.Virtual == VirtualKind.None ? entry.Id : null), _theme.TransitionSeconds);
 
         var cached = entry.Virtual == VirtualKind.None ? _cache.Find(s => s.Id == entry.Id) : null;
         if (cached is not null)
         {
-            _queue.Post(() => OnGamesLoaded(cached, focusIndex));
+            var theme = _theme;
+            _queue.Post(() => OnGamesLoaded(cached, focusIndex, null, theme));
             return;
         }
 
+        LoadGames(entry, focusIndex, null);
+    }
+
+    /// <summary>A list and its media for the theme's slots, on the thread pool; then <see cref="OnGamesLoaded"/>.</summary>
+    private void LoadGames(SystemEntry entry, int? focusIndex, long? focusGame)
+    {
         var library = _services.Library;
         var token = _shutdown.Token;
-        var templateOf = _templateOf;
+        var theme = _theme;
+        var kinds = theme.Layout.MediaKinds;
         var nameOf = _systemNameOf;
-        var templateCount = _templateCount;
         _ = Task.Run(async () =>
         {
             try
             {
-                GamesSource source = entry.Virtual switch
+                GamesSource source;
+                if (entry.Virtual == VirtualKind.None)
                 {
-                    VirtualKind.Favourites => GamesSource.ForVirtual(entry.Id, entry.Name,
-                        await library.GetFavouritesAsync(token).ConfigureAwait(false), templateOf, nameOf, templateCount),
-                    VirtualKind.RecentlyPlayed => GamesSource.ForVirtual(entry.Id, entry.Name,
-                        await library.GetRecentlyPlayedAsync(RecentlyPlayedLimit, token).ConfigureAwait(false), templateOf, nameOf, templateCount),
-                    _ => GamesSource.ForSystem(entry.Id, entry.Name,
-                        await library.GetGamesAsync(entry.Id, token).ConfigureAwait(false), templateOf, templateCount),
-                };
-                _queue.Post(() => OnGamesLoaded(source, focusIndex));
+                    var list = await library.GetGamesAsync(entry.Id, token).ConfigureAwait(false);
+                    var media = await library.GetGameMediaAsync(entry.Id, kinds, token).ConfigureAwait(false);
+                    source = GamesSource.ForSystem(entry.Id, entry.Name, list, media, kinds, theme.ColourOf);
+                }
+                else
+                {
+                    var rows = entry.Virtual == VirtualKind.Favourites
+                        ? await library.GetFavouritesAsync(token).ConfigureAwait(false)
+                        : await library.GetRecentlyPlayedAsync(RecentlyPlayedLimit, token).ConfigureAwait(false);
+                    var ids = new long[rows.Count];
+                    for (var i = 0; i < ids.Length; i++)
+                    {
+                        ids[i] = rows[i].Game.GameId;
+                    }
+
+                    var media = await library.GetGameMediaAsync(ids, kinds, token).ConfigureAwait(false);
+                    source = GamesSource.ForVirtual(entry.Id, entry.Name, rows, media, kinds, theme.ColourOf, nameOf);
+                }
+
+                _queue.Post(() => OnGamesLoaded(source, focusIndex, focusGame, theme));
             }
             catch (OperationCanceledException)
             {
@@ -415,9 +471,17 @@ public sealed partial class Navigator : Node
         }, token);
     }
 
-    private void OnGamesLoaded(GamesSource source, int? focusIndex)
+    /// <param name="focusGame">Set when the shown list was loaded again (a theme switch): keep the focus on this game.</param>
+    private void OnGamesLoaded(GamesSource source, int? focusIndex, long? focusGame, ThemeRuntime theme)
     {
-        if (_screen != Screen.Entering || _entering != source.Id)
+        if (theme != _theme)
+        {
+            // Loaded for a theme that has since been switched: the switch loads it again.
+            return;
+        }
+
+        var reloading = focusGame is not null && _games is not null && _games.Id == source.Id && _screen is Screen.Games or Screen.Launching;
+        if (!reloading && (_screen != Screen.Entering || _entering != source.Id))
         {
             return;
         }
@@ -433,8 +497,18 @@ public sealed partial class Navigator : Node
         }
 
         _games = source;
-        var focus = focusIndex ?? (_lastGame.TryGetValue(source.Id, out var gameId) ? Math.Max(0, source.IndexOf(gameId)) : 0);
+        source.BindTemplates(_theme.GameTemplateOf, _gamesGrid.Templates.Count);
+        RequestPerGameModels(source);
+        var focus = focusIndex
+            ?? (focusGame is { } game ? Math.Max(0, source.IndexOf(game))
+            : _lastGame.TryGetValue(source.Id, out var gameId) ? Math.Max(0, source.IndexOf(gameId)) : 0);
         _gamesGrid.Bind(source, focus);
+        if (reloading)
+        {
+            OnFocusChanged();
+            return;
+        }
+
         _gamesAnimation.Start(GamesHidden, Shown, TransitionSeconds);
         _screen = Screen.Games;
         _overlay.SetHints(GamesHints);
@@ -445,9 +519,15 @@ public sealed partial class Navigator : Node
     private void OnGamesFailed(SystemEntry entry, string message)
     {
         GD.PushError($"Couldn't load {entry.Name}'s games: {message}");
+        if (_screen != Screen.Entering)
+        {
+            return;
+        }
+
         _screen = Screen.Systems;
         _entering = null;
         _systemsAnimation.Start(SystemsHidden, Shown, TransitionSeconds);
+        _stage.Show(_theme.LookFor(null), _theme.TransitionSeconds);
         _overlay.SetStatus($"Couldn't load {entry.Name}'s games. {message}");
     }
 
@@ -478,11 +558,327 @@ public sealed partial class Navigator : Node
         _screen = Screen.Systems;
         _games = null;
         _entering = null;
+        _perGameLoading.Clear();
         _gamesAnimation.Start(Shown, GamesHidden, TransitionSeconds);
         _systemsAnimation.Start(SystemsHidden, Shown, TransitionSeconds);
+        _stage.Show(_theme.LookFor(null), _theme.TransitionSeconds);
         _overlay.SetStatus(null);
         _overlay.SetHints(SystemsHints);
         OnFocusChanged();
+    }
+
+    // ---- Per-game models (A7) ----------------------------------------------------------------------
+
+    /// <summary>
+    /// Starts loading the list's per-game models. A game shows its system's template until its own model has
+    /// loaded, then switches to it without rebinding anything else.
+    /// </summary>
+    private void RequestPerGameModels(GamesSource source)
+    {
+        for (var model = 0; model < source.ModelPaths.Count; model++)
+        {
+            var path = source.ModelPaths[model];
+            switch (_theme.RequestPerGame(path))
+            {
+                case ModelState.Ready:
+                    UsePerGameModel(source, model, path);
+                    break;
+                case ModelState.Loading when !_perGameLoading.Exists(p => p.Source == source && p.Model == model):
+                    _perGameLoading.Add((source, model, path));
+                    break;
+            }
+        }
+    }
+
+    private void FinishPerGameModels()
+    {
+        for (var i = _perGameLoading.Count - 1; i >= 0; i--)
+        {
+            var (source, model, path) = _perGameLoading[i];
+            var state = _theme.RequestPerGame(path);
+            if (state == ModelState.Loading)
+            {
+                continue;
+            }
+
+            _perGameLoading.RemoveAt(i);
+            if (state == ModelState.Ready && source == _games)
+            {
+                UsePerGameModel(source, model, path);
+            }
+        }
+    }
+
+    private void UsePerGameModel(GamesSource source, int model, string path)
+    {
+        if (_theme.PerGame(path) is not { } template)
+        {
+            return;
+        }
+
+        var index = _gamesGrid.AddTemplate(template, perItem: true);
+        foreach (var game in source.SetModelTemplate(model, index, _gamesGrid.Templates.Count))
+        {
+            if (source == _games)
+            {
+                _gamesGrid.RefreshItem(game);
+            }
+        }
+    }
+
+    // ---- Media changes (M6) -------------------------------------------------------------------------
+
+    /// <summary>A worker thread: some games' media changed (a rescan, a scrape, a clear, a bake).</summary>
+    private void OnLibraryMediaChanged(object? sender, MediaChangedEventArgs e) => _queue.Post(() => OnMediaChanged(e.Games));
+
+    /// <summary>
+    /// Re-reads the shown list's media and rebinds the games whose media changed, keeping their models and the slots
+    /// that didn't change. A bake (no games named) rebinds every bound game, so slots that were missing a derivative
+    /// try again.
+    /// </summary>
+    private void OnMediaChanged(IReadOnlyList<GameKey>? games)
+    {
+        _cache.Clear();
+        if (_games is not { } source || (games is not null && !Concerns(source, games)))
+        {
+            return;
+        }
+
+        var library = _services.Library;
+        var token = _shutdown.Token;
+        var kinds = source.Kinds;
+        var ids = source.Id is FavouritesId or RecentlyPlayedId ? source.GameIds() : null;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                var rows = ids is null
+                    ? await library.GetGameMediaAsync(source.Id, kinds, token).ConfigureAwait(false)
+                    : await library.GetGameMediaAsync(ids, kinds, token).ConfigureAwait(false);
+                _queue.Post(() =>
+                {
+                    if (_games != source)
+                    {
+                        return;
+                    }
+
+                    var changed = source.ReplaceMedia(rows, null);
+                    if (games is null)
+                    {
+                        for (var i = 0; i < source.Count; i++)
+                        {
+                            _gamesGrid.RefreshItem(i);
+                        }
+                    }
+                    else
+                    {
+                        foreach (var game in changed)
+                        {
+                            _gamesGrid.RefreshItem(game);
+                        }
+                    }
+
+                    RequestPerGameModels(source);
+                    GD.Print($"Media: {changed.Count} game(s) in {source.Id} changed and were rebound in place{(games is null ? "; every bound game looked for its media again" : string.Empty)}.");
+                });
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            catch (Exception e)
+            {
+                GD.PushWarning($"Media: couldn't re-read {source.Id}'s media: {e.Message}");
+            }
+        }, token);
+    }
+
+    private static bool Concerns(GamesSource source, IReadOnlyList<GameKey> games)
+    {
+        foreach (var game in games)
+        {
+            foreach (var system in source.SystemIds)
+            {
+                if (system == game.SystemId)
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    // ---- Themes (M6) ------------------------------------------------------------------------------
+
+    /// <summary>
+    /// Loads a theme (null: the next one, in id order) in the background and applies it when its models are in:
+    /// systems and templates are rebuilt without a restart. For this session only; the settings screen (M7) will
+    /// write <c>[display] theme</c>.
+    /// </summary>
+    public void SwitchTheme(string? id)
+    {
+        if (_switchingTheme)
+        {
+            return;
+        }
+
+        var available = _theme.Plan.Themes.Available;
+        var target = id ?? available[(Math.Max(0, IndexOf(available, ThemeId)) + 1) % available.Count];
+        _switchingTheme = true;
+        _themeRequestedAt = _clock;
+        _overlay.SetStatus($"Loading the theme '{target}'…");
+        var services = _services;
+        _ = Task.Run(() =>
+        {
+            try
+            {
+                var plan = ThemePlan.Build(services.Config, services.Paths, target, services.BuiltInThemes);
+                foreach (var diagnostic in plan.Diagnostics)
+                {
+                    GD.Print(diagnostic.ToString());
+                }
+
+                _queue.Post(() =>
+                {
+                    _loader.ForgetUserModels();
+                    _pendingTheme = new ThemeRuntime(plan, _loader);
+                });
+            }
+            catch (Exception e)
+            {
+                _queue.Post(() => ThemeFailed(e.Message));
+            }
+        });
+    }
+
+    private void PollTheme(ThemeRuntime pending)
+    {
+        try
+        {
+            if (pending.Poll())
+            {
+                ApplyTheme(pending);
+            }
+        }
+        catch (InvalidOperationException e)
+        {
+            ThemeFailed(e.Message);
+        }
+    }
+
+    private void ThemeFailed(string message)
+    {
+        _pendingTheme = null;
+        _switchingTheme = false;
+        GD.PushError($"Theme: {message}");
+        ShowStatus($"The theme couldn't be loaded. {message}");
+    }
+
+    /// <summary>Main thread: swaps every template, the slot layout and the look, and rebinds what's on screen.</summary>
+    private void ApplyTheme(ThemeRuntime theme)
+    {
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        _pendingTheme = null;
+        _switchingTheme = false;
+        _theme = theme;
+        _services.Theme = theme.Plan;
+        _cache.Clear();
+        _perGameLoading.Clear();
+
+        _systemsGrid.SetTemplates(theme.CardTemplates);
+        _gamesGrid.DisableTextures();
+        _gamesGrid.SetTemplates(theme.GameTemplates);
+        InstallLayout(theme);
+
+        var systemsFocus = _systemsGrid.FocusIndex;
+        _systems = new SystemsSource(BuildEntries(_services.Systems), _systemsGrid.Templates.Count);
+        _systemsGrid.Bind(_systems, Math.Max(0, systemsFocus));
+        var shownEntry = _games is { } shown ? FindEntry(shown.Id) : null;
+        _stage.Show(theme.LookFor(shownEntry is { Virtual: VirtualKind.None } ? shownEntry.Id : null), theme.TransitionSeconds);
+
+        if (_screen == Screen.Entering && _entering is { } entering && FindEntry(entering) is { } enteringEntry)
+        {
+            // A list still loading for the old theme is dropped when it arrives, so it's loaded again for this one.
+            LoadGames(enteringEntry, null, null);
+        }
+        else if (_games is { } games && shownEntry is not null)
+        {
+            // The shown list is bound to the new templates at once, then loaded again with the media kinds the new
+            // theme's chains name.
+            var focusIndex = Math.Max(0, _gamesGrid.FocusIndex);
+            var focusGame = focusIndex < games.Count ? games.Row(focusIndex).GameId : 0;
+            games.BindTemplates(theme.GameTemplateOf, _gamesGrid.Templates.Count);
+            _gamesGrid.Bind(games, focusIndex);
+            LoadGames(shownEntry, null, focusGame);
+        }
+
+        DebugHooks.Theme = (theme.Plan.Active.Id, theme.Layout.ToString());
+        GD.Print(FormattableString.Invariant($"Theme: now '{theme.Plan.Active.Id}' ({theme.Plan.Active.Name}), {_clock - _themeRequestedAt:0.000} s after it was asked for, applied in {clock.Elapsed.TotalMilliseconds:0.0} ms on the main thread: {theme.GameTemplates.Count} game template(s), {theme.CardTemplates.Count} system model(s); media slots: {theme.Layout}."));
+        ShowStatus($"Theme: {theme.Plan.Active.Name}");
+        OnFocusChanged();
+    }
+
+    /// <summary>The theme's slot layout: its arrays are built on a worker (creating textures can stall), then installed.</summary>
+    private void InstallLayout(ThemeRuntime theme)
+    {
+        if (Streamer is not { } streamer)
+        {
+            return;
+        }
+
+        var layout = theme.Layout;
+        var (large, small) = (streamer.Large, streamer.Small);
+        _ = Task.Run(() =>
+        {
+            var built = System.Diagnostics.Stopwatch.StartNew();
+            var arrays = streamer.BuildArrays(layout, large, small);
+            GD.Print(FormattableString.Invariant($"Theme: media arrays for {layout} ready in {built.Elapsed.TotalMilliseconds:0.0} ms on a worker (reused: large {arrays.Large == large}, small {arrays.Small == small})."));
+            _queue.Post(() =>
+            {
+                if (theme != _theme)
+                {
+                    return;
+                }
+
+                streamer.Install(layout, arrays.Large, arrays.Small);
+                if (Launcher?.InGameMode != true)
+                {
+                    _gamesGrid.EnableTextures();
+                }
+            });
+        });
+    }
+
+    private SystemEntry? FindEntry(string id)
+    {
+        foreach (var entry in _systems.Entries)
+        {
+            if (entry.Id == id)
+            {
+                return entry;
+            }
+        }
+
+        return null;
+    }
+
+    private static int IndexOf(IReadOnlyList<string> list, string value)
+    {
+        for (var i = 0; i < list.Count; i++)
+        {
+            if (list[i] == value)
+            {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    private void ShowStatus(string status)
+    {
+        _overlay.SetStatus(status);
+        _statusClearAt = _clock + StatusSeconds;
     }
 
     // ---- Favourites and rescans -------------------------------------------------------------------
@@ -576,14 +972,14 @@ public sealed partial class Navigator : Node
         }, token);
     }
 
-    /// <summary>Bake missing cover derivatives after each scan (off in benches, which measure a library as it is).</summary>
+    /// <summary>Bake missing derivatives after each scan (off in benches, which measure a library as it is).</summary>
     public bool BakeAfterScans { get; set; }
 
     private int _baking;
 
     /// <summary>
-    /// Bakes every cover that has no derivative yet, the user's own art included (M4), on the derivative service's
-    /// below-normal thread. Covers baked now show the next time their system is entered.
+    /// Bakes every image that has no derivative yet, the user's own art included (M4), on the derivative service's
+    /// below-normal thread. The library then reports media changed, so the grid shows them (M6).
     /// </summary>
     public void BakeDerivatives()
     {
@@ -604,12 +1000,7 @@ public sealed partial class Navigator : Node
             if (summary.Baked + summary.Failed + summary.Pruned > 0)
             {
                 GD.Print(string.Create(CultureInfo.InvariantCulture,
-                    $"Derivatives: {summary.Baked} baked, {summary.Failed} failed, {summary.Pruned} stale removed, of {summary.Covers} covers ({summary.Elapsed.TotalSeconds:0.0} s)"));
-            }
-
-            if (summary.Baked > 0)
-            {
-                _queue.Post(() => _cache.Clear());
+                    $"Derivatives: {summary.Baked} baked, {summary.Failed} failed, {summary.Pruned} stale removed, of {summary.Images} images ({summary.Elapsed.TotalSeconds:0.0} s)"));
             }
         }
         catch (OperationCanceledException)
@@ -637,7 +1028,7 @@ public sealed partial class Navigator : Node
         _services.Systems = systems;
         _cache.Clear();
         var focus = _systemsGrid.FocusIndex;
-        _systems = new SystemsSource(BuildEntries(systems), _systemsTemplate);
+        _systems = new SystemsSource(BuildEntries(systems), _systemsGrid.Templates.Count);
         if (_screen == Screen.Systems)
         {
             _systemsGrid.Bind(_systems, focus);
@@ -708,17 +1099,17 @@ public sealed partial class Navigator : Node
         _detailsDue = _clock;
     }
 
-    /// <summary>A game is starting: free the cover textures for the emulator (A1 Starting).</summary>
+    /// <summary>A game is starting: free the media textures for the emulator (A1 Starting).</summary>
     public void OnGameModeEntered()
     {
         _gamesGrid.DisableTextures();
         Streamer?.Evict();
     }
 
-    /// <summary>Back in the launcher: recreate the cover array and re-request what's on screen.</summary>
+    /// <summary>Back in the launcher: recreate the media arrays and re-request what's on screen.</summary>
     public void OnGameModeLeft()
     {
-        Streamer?.CreateArray();
+        Streamer?.Restore();
         _gamesGrid.EnableTextures();
     }
 
@@ -756,17 +1147,18 @@ public sealed partial class Navigator : Node
 
     private List<SystemEntry> BuildEntries(IReadOnlyList<SystemSummary> summaries)
     {
+        var virtualCard = _theme.CardTemplateOf(null);
         var entries = new List<SystemEntry>
         {
-            new(FavouritesId, "Favourites", "The games you've marked", Palette.Favourites, null, null, VirtualKind.Favourites),
-            new(RecentlyPlayedId, "Recently played", "Newest first", Palette.RecentlyPlayed, null, null, VirtualKind.RecentlyPlayed),
+            new(FavouritesId, "Favourites", "The games you've marked", Palette.Favourites, null, null, VirtualKind.Favourites, virtualCard),
+            new(RecentlyPlayedId, "Recently played", "Newest first", Palette.RecentlyPlayed, null, null, VirtualKind.RecentlyPlayed, virtualCard),
         };
         foreach (var summary in summaries)
         {
             if (_services.Config.FindSystem(summary.SystemId) is { } system)
             {
                 entries.Add(new SystemEntry(system.Id, system.Name, DetailsFormatter.SystemSubtitle(system, summary.GameCount),
-                    Palette.ForSystem(system.Id), system, summary, VirtualKind.None));
+                    _theme.ColourOf(system.Id), system, summary, VirtualKind.None, _theme.CardTemplateOf(system.Id)));
             }
         }
 

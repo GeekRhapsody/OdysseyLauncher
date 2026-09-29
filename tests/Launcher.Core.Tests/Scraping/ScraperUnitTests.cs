@@ -374,7 +374,7 @@ public sealed class DerivativeServiceTests : IAsyncLifetime
 
         var first = await service.Derivatives.BakeMissingAsync(null, Ct);
 
-        Assert.Equal((1, 1, 0), (first.Covers, first.Baked, first.Failed));
+        Assert.Equal((1, 1, 0), (first.Images, first.Baked, first.Failed));
         var row = (await _bed.Library.GetGamesAsync("megadrive", Ct)).Games.Single();
         var old = TextureDerivatives.PathFor(_bed.Paths.CacheDir, MediaRoot.Config, row.CoverPath!, row.CoverSizeBytes, row.CoverMtimeMs);
         Assert.Equal(Bc7DdsWriter.FileLength, new FileInfo(old).Length);
@@ -405,6 +405,6 @@ public sealed class DerivativeServiceTests : IAsyncLifetime
         var summary = await service.Derivatives.BakeMissingAsync(null, Ct);
 
         Assert.False(service.Derivatives.CanBake);
-        Assert.Equal((1, 0), (summary.Covers, summary.Baked));
+        Assert.Equal((1, 0), (summary.Images, summary.Baked));
     }
 }

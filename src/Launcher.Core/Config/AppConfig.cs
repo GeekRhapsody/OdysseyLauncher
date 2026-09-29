@@ -76,6 +76,10 @@ public enum RomDirSource
 /// from settings.toml, then the system's own <c>exclude</c>.
 /// </param>
 /// <param name="IgdbPlatforms">IGDB platform ids searched for this system's games (a regional twin too, such as Famicom); null or empty skips IGDB.</param>
+/// <param name="GameModel">
+/// <c>game_model</c>: a game template id the user chose for this system, looked up in the active theme and then the
+/// built-in one (A7). Null when unset: the theme decides.
+/// </param>
 public sealed record SystemConfig(
     string Id,
     string Name,
@@ -85,7 +89,7 @@ public sealed record SystemConfig(
     IReadOnlyList<string> Extensions,
     string Emulator,
     IReadOnlyList<string> AltEmulators,
-    string GameModel,
+    string? GameModel,
     int? ScreenScraperId,
     IReadOnlyList<string> RomDirs,
     RomDirSource RomDirSource,

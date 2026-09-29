@@ -15,6 +15,9 @@ public enum FrontSplit
 
     /// <summary>The top part is the front slot (a label); the part below it is plain case.</summary>
     TopLabel,
+
+    /// <summary>The top part is the front slot; the part below it is <see cref="BoxSpec.LowerSlot"/> (a screenshot panel).</summary>
+    LowerPanel,
 }
 
 /// <summary>
@@ -25,8 +28,13 @@ public enum FrontSplit
 /// <param name="SpineRadius">Front-view corner radius on the spine side.</param>
 /// <param name="OpeningRadius">Front-view corner radius on the opening side.</param>
 /// <param name="Bevel">The chamfer between the front or back and the sides.</param>
-/// <param name="SplitAt">For <see cref="FrontSplit.SpineStrip"/>, the strip's width; for <see cref="FrontSplit.TopLabel"/>, the case part's height.</param>
+/// <param name="SplitAt">
+/// For <see cref="FrontSplit.SpineStrip"/>, the strip's width; for <see cref="FrontSplit.TopLabel"/>, the case part's
+/// height; for <see cref="FrontSplit.LowerPanel"/>, the lower slot's height.
+/// </param>
 /// <param name="PrintedOpeningSide">The opening side shows the spine art too (a cardboard box printed on both sides).</param>
+/// <param name="LowerSlot">For <see cref="FrontSplit.LowerPanel"/>, the lower part's slot.</param>
+/// <param name="TestCardOnLowerSlot">Give the lower slot's material an authored texture (a test card), its last fallback.</param>
 public sealed record BoxSpec(
     string Id,
     float Width,
@@ -43,7 +51,9 @@ public sealed record BoxSpec(
     bool HasSpineSlot = true,
     FrontSplit Split = FrontSplit.None,
     float SplitAt = 0,
-    bool PrintedOpeningSide = false);
+    bool PrintedOpeningSide = false,
+    string? LowerSlot = null,
+    bool TestCardOnLowerSlot = false);
 
 /// <summary>
 /// Builds a <see cref="BoxSpec"/> as an <see cref="ArrayMesh"/> with one surface per material, to the model spec (A7):
@@ -77,10 +87,11 @@ public sealed class BoxBuilder
     {
         "spine" => spec.Depth / (spec.Height - 2 * spec.SpineRadius),
         "back" => spec.Width / spec.Height,
+        _ when slot == spec.LowerSlot => spec.Width / spec.SplitAt,
         _ => spec.Split switch
         {
             FrontSplit.SpineStrip => (spec.Width - spec.SplitAt) / spec.Height,
-            FrontSplit.TopLabel => spec.Width / (spec.Height - spec.SplitAt),
+            FrontSplit.TopLabel or FrontSplit.LowerPanel => spec.Width / (spec.Height - spec.SplitAt),
             _ => spec.Width / spec.Height,
         },
     };
@@ -194,11 +205,12 @@ public sealed class BoxBuilder
                 break;
             }
 
-            case FrontSplit.TopLabel:
+            case FrontSplit.TopLabel or FrontSplit.LowerPanel:
             {
                 var split = s.SplitAt;
+                var lower = s.Split == FrontSplit.LowerPanel ? s.LowerSlot! : "case";
                 Cap(Clip(polygon, split, keepAbove: true, vertical: false), z, Vector3.Back, s.FrontSlot, p => PlanarUv(p, left, right, split, s.Height));
-                Cap(Clip(polygon, split, keepAbove: false, vertical: false), z, Vector3.Back, "case", p => PlanarUv(p, left, right, 0, split));
+                Cap(Clip(polygon, split, keepAbove: false, vertical: false), z, Vector3.Back, lower, p => PlanarUv(p, left, right, 0, split));
                 break;
             }
 
@@ -393,6 +405,11 @@ public sealed class BoxBuilder
                 Roughness = isSlot ? s.ArtRoughness : s.CaseRoughness,
                 Metallic = 0,
             };
+            if (name == s.LowerSlot && s.TestCardOnLowerSlot)
+            {
+                material.AlbedoTexture = ImageTexture.CreateFromImage(TestCard());
+            }
+
             if (isSlot)
             {
                 // The face's aspect ratio (A7), so a loader needn't measure the slot mesh.
@@ -411,8 +428,45 @@ public sealed class BoxBuilder
             "cover" or "label" => 0,
             "spine" => 1,
             "back" => 2,
+            "case" => 4,
             _ => 3,
         };
+    }
+
+    /// <summary>
+    /// A 16:9 test card: seven colour bars over a strip of greys and a checker, so a slot showing its authored texture
+    /// is obvious in a capture.
+    /// </summary>
+    public static Image TestCard()
+    {
+        const int Width = 256;
+        const int Height = 144;
+        Color[] bars = [new("#C0C0C0"), new("#C0C000"), new("#00C0C0"), new("#00C000"), new("#C000C0"), new("#C00000"), new("#0000C0")];
+        var image = Image.CreateEmpty(Width, Height, false, Image.Format.Rgb8);
+        for (var y = 0; y < Height; y++)
+        {
+            for (var x = 0; x < Width; x++)
+            {
+                Color colour;
+                if (y < Height * 2 / 3)
+                {
+                    colour = bars[x * bars.Length / Width];
+                }
+                else if (y < Height * 5 / 6)
+                {
+                    colour = Color.FromHsv(0, 0, x * 5 / Width / 4f);
+                }
+                else
+                {
+                    colour = (x / 16 + y / 12) % 2 == 0 ? Colors.White : new Color("#101010");
+                }
+
+                image.SetPixel(x, y, colour);
+            }
+        }
+
+        image.GenerateMipmaps();
+        return image;
     }
 
     private sealed class Surface

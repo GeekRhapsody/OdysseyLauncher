@@ -20,7 +20,8 @@ OdysseyLauncher/
   Directory.Build.props      Version, Nullable=enable, ExportRelease => Optimize=true (Godot's SDK only does this for its own project)
   src/Launcher.Core/         net8.0 class library, no Godot reference (a test enforces this)
   tests/Launcher.Core.Tests/ xUnit v3
-  godot/                     project.godot, OdysseyLauncher.csproj (-> Launcher.Core), src/, scenes/, shaders/, assets/, themes/
+  godot/                     project.godot, OdysseyLauncher.csproj (-> Launcher.Core), src/, scenes/, shaders/, themes/ (the built-in theme)
+  tests/themes/              user themes for tests and captures (M6: slot-showcase)
   tools/verify.ps1           build, test, Godot headless build/import/smoke run
   docs/  CLAUDE.md
 ```
@@ -31,12 +32,13 @@ OdysseyLauncher/
 |---|---|
 | `Config` | `ConfigLoader` loads TOML (Tomlyn), layering user files over built-in defaults (embedded resources). <br>Maps Tomlyn's syntax tree by hand into a tree that keeps every key's position, so diagnostics still point at the right file after merging (M2). <br>Merges recursively; scalars and arrays are replaced. <br>Validates, with file:line:column:key diagnostics; unknown keys get a "did you mean" warning. <br>Parsers take text plus a source name, so the app can feed `res://` files from the PCK. <br>From M7, writes go through Tomlyn's syntax tree, so comments survive. |
 | `Data` | `LibraryDatabase` and `UserDatabase` (create, migrate, back up), `MigrationRunner`, and the connection helpers. <br>**Microsoft.Data.Sqlite's async API is synchronous**, so reads run on the thread pool, and writes go through one dedicated writer thread (`DbWriter`). <br>Readers come from our own pool (`ReaderPool`), not Microsoft.Data.Sqlite's: each has `userdata.db` ATTACHed once and is `query_only`, and the pool can be closed and held back while a rebuilt library file is swapped in. <br>Every connection sets WAL, `foreign_keys=ON`, `synchronous=NORMAL` and `busy_timeout`. |
-| `Scanning` | `RomScanner` walks a system's ROM folders by file name (extensions, recursion, excludes). Several folders per system are allowed; the first folder wins a `path_key` collision. <br>Folders are listed with a 256 KB buffer, and `LibraryService` scans 8 systems at once on dedicated threads, because a network share costs a round trip per listing refill. Excluded folders (by default ES-DE's `images`, `manuals` and `videos`) aren't listed at all. <br>Multi-file games: files referenced by an `.m3u`, `.cue` or `.gdi` are hidden. Parsed playlists are cached in `library.db` by size and mtime, so a rescan doesn't re-read them. <br>`TitleParser` turns No-Intro and Redump names into a display title and a sort key, keeping region, languages, revision, disc and other tags as separate fields. <br>Normalises paths to `rel_path` and `path_key`. <br>From M5, `UserMedia` also indexes the user's own art, `ConfigDir/media/<system>/<kind>/<rel path>.<ext>` (PNG, JPEG or WebP), into `media` with source `user`: a file matches the game with the same `path_key`, or every game whose `path_key` is its name plus an extension. Each file's size and time are stored (migration 0002), so a rescan reads only new or changed headers. Model overrides are M6's. |
+| `Scanning` | `RomScanner` walks a system's ROM folders by file name (extensions, recursion, excludes). Several folders per system are allowed; the first folder wins a `path_key` collision. <br>Folders are listed with a 256 KB buffer, and `LibraryService` scans 8 systems at once on dedicated threads, because a network share costs a round trip per listing refill. Excluded folders (by default ES-DE's `images`, `manuals` and `videos`) aren't listed at all. <br>Multi-file games: files referenced by an `.m3u`, `.cue` or `.gdi` are hidden. Parsed playlists are cached in `library.db` by size and mtime, so a rescan doesn't re-read them. <br>`TitleParser` turns No-Intro and Redump names into a display title and a sort key, keeping region, languages, revision, disc and other tags as separate fields. <br>Normalises paths to `rel_path` and `path_key`. <br>From M5, `UserMedia` also indexes the user's own art, `ConfigDir/media/<system>/<kind>/<rel path>.<ext>` (PNG, JPEG or WebP), into `media` with source `user`: a file matches the game with the same `path_key`, or every game whose `path_key` is its name plus an extension. Each file's size and time are stored (migration 0002), so a rescan reads only new or changed headers. From M6, per-game models, `ConfigDir/models/games/<system>/<rel path>.glb`, are indexed the same way, as media kind `model` (no header is read). |
 | `Scraping` | (M4) `IScraper` for ScreenScraper, IGDB and SteamGridDB, each with a capability map (the fields and media kinds it can supply). <br>`ScrapeService`: scrape a game, a system, or everything missing, and clear a game, as operations with progress events (raised on worker threads). They go through a persistent queue in `userdata.db` (resumed after the app closes; single games jump ahead; cancellable), and games run concurrently within each provider's limits. <br>`ProviderGate` bounds each provider's requests in flight, per second and per minute, and holds them during a rate-limit pause or after a used-up quota; `ScraperHttp` retries rate limits and transient failures with exponential backoff, honouring Retry-After. <br>Provider selection: `[scraping] provider` first, then each `fallback` in order, asked only for what's still missing and what its capability map has; a provider with no credentials is skipped and reported. <br>`ProviderAccounts` reads credentials from `secrets.toml` and `ODYSSEY_*` variables. <br>Match resolution (A2), and the saved responses in `scraped/responses/` (credentials redacted), from which `ScrapedRestore` rebuilds a game's scraped data offline when a scan adds it. |
-| `Media` | (M4) `MediaStore`: scraped media at deterministic paths (`scraped/media/...`), written atomically (a temporary file, then a replacing move), with the image checked by its first bytes. <br>`Bc7Encoder` (modes 6 and 1) and `Bc7DdsWriter` make the derivative; `DerivativeBaker` decodes (`IImageDecoder`), squeezes to 512² and encodes; `DerivativeService` bakes on its own below-normal thread, and `BakeMissingAsync` bakes every cover without a derivative and deletes stale ones. <br>From M5: `ImageHeaders` reads a PNG, JPEG or WebP's size from its header only; `TextureDerivatives` names each baked derivative (`CacheDir/textures/<key>.dds`, the key a SHA-256 of the source's root, path, size and time), allocation-light so texture workers can call it per cover; `MediaKinds` lists the kinds. |
-| `Models` | `ModelInspector` validates a `.glb` against the A7 spec by reading only the GLB JSON chunk and the image headers. It has no Godot dependency. |
+| `Media` | (M4) `MediaStore`: scraped media at deterministic paths (`scraped/media/...`), written atomically (a temporary file, then a replacing move), with the image checked by its first bytes. <br>`Bc7Encoder` (modes 6 and 1) and `Bc7DdsWriter` make the derivative; `DerivativeBaker` decodes (`IImageDecoder`), squeezes to 512² and encodes; `DerivativeService` bakes on its own below-normal thread, and `BakeMissingAsync` bakes every image without a derivative (every kind from M6, since any can fill a theme's slot) and deletes stale ones. <br>From M5: `ImageHeaders` reads a PNG, JPEG or WebP's size from its header only; `TextureDerivatives` names each baked derivative (`CacheDir/textures/<key>.dds`, the key a SHA-256 of the source's root, path, size and time), allocation-light so texture workers can call it per cover; `MediaKinds` lists the kinds. |
+| `Theming` | (M6) `ThemeLoader` parses and validates a theme manifest (A6) from text plus a source name, over `IThemeFiles` (a folder on disk, or the app's PCK), with file:line:column:key diagnostics like config's; a bad block falls back to the built-in theme's, a bad template is left out. `ThemeCatalog` finds user themes (`ConfigDir/themes/<id>/`) and picks the active one, the built-in `memory-card` staying the last resort. `ModelResolver` lists each system's model candidates for its games and its card in precedence order (A7), with its look and colour. `SlotChain` and `MediaSlots`: the media slots, their standard texture sizes, and fallback-chain resolution (allocation-free, for the grid). |
+| `Models` | `GlbInfo` reads a `.glb`'s material names from its JSON chunk only (theme validation checks a template's slots before the app loads it). `ModelInspector`, which validates a `.glb` against the A7 spec and budgets, is still to come (M6 part 2). It has no Godot dependency. |
 | `Launching` | `LaunchPlanner` is pure and static: it picks the emulator (this launch's choice, then the game's override, then the system's) and expands its templates into a final argument list (A5). A named emulator that isn't configured is an error, never a silent fallback. <br>`LaunchService` checks the ROM, executable, core and working folder exist, runs the plan through `IProcessRunner`, and records the play session through `IPlayHistory`. One game at a time. <br>Events, raised on worker threads: `Starting`, `Running` (process id), then exactly one of `Exited` (exit code, duration) or `Failed` (a reason written for the user). A non-zero exit within 5 s is `Failed`, and isn't counted as a play. Cancelling ends the game's whole process tree. (M3) |
-| `Library` | `LibraryService`, the façade the app uses: systems summary (boot), games list (on entry), the Favourites and Recently played lists, favourites and overrides, and rescan and rebuild jobs with progress, and metadata overrides (M4; scrape jobs are `ScrapeService`'s). Scans and rebuilds run one at a time; each writes in one transaction. |
+| `Library` | `LibraryService`, the façade the app uses: systems summary (boot), games list (on entry), the Favourites and Recently played lists, favourites and overrides, and rescan and rebuild jobs with progress, and metadata overrides (M4; scrape jobs are `ScrapeService`'s). Scans and rebuilds run one at a time; each writes in one transaction. <br>From M6: `GetGameMediaAsync` (a system's or chosen games' media of the kinds a theme's chains name, one indexed query), and the `MediaChanged` event, raised after a rescan that changed user art or models, a scrape that saved media, a clear, a rebuild, or a bake. |
 | `Platform` | The only OS-specific code. <br>Interfaces: `IPlatformPaths`, `IProcessRunner`, `IWindowFocus`; `PlatformServices` picks the implementations. <br>**Windows** (`Platform/Windows`, `LibraryImport` to kernel32 and user32): <br>- `WindowsProcessRunner` creates the emulator inside a new job object (`PROC_THREAD_ATTRIBUTE_JOB_LIST`) with `CreateProcessW`, and the game has ended when the job has no processes, so stub launchers are followed. A dedicated thread waits on the job's completion port, and also asks the job every second, because Windows doesn't guarantee job messages. The job doesn't kill the game if the launcher dies, allows explicit breakaway, and no handles are inherited. <br>- `WindowsCommandLine` quotes each argument by the C runtime's rules, since Windows passes one UTF-16 string. <br>- `WindowsWindowFocus`: see Platform glue below. <br>- `WicImageDecoder` (M4) decodes PNG, JPEG and WebP and scales them with the Windows Imaging Component, through raw COM vtable calls (no interop package). <br>**Linux stub:** `PortableProcessRunner` (`Process` with `ArgumentList`; follows the started process only) and `NullWindowFocus`; no image decoder yet, so no derivatives. |
 | `Diagnostics` | Debug-argument parser, `StartupTimeline`, `FrameTimeStats`, `BenchReport` (System.Text.Json source generation), a minimal `ILog`, and `Redactor` (M4), which masks every known credential (as written, URL-encoded and JSON-escaped) and the value of any credential-bearing URL parameter or bearer header. |
 
@@ -46,15 +48,15 @@ Every `await` in Core uses `ConfigureAwait(false)`. Analyser rule CA2007 is an e
 
 | Area | Responsibility |
 |---|---|
-| `Boot` | Main scene (M5). `AppServices` loads config and opens the library on the thread pool, while the main thread builds the look, the cover array and the grids, and Godot's loader threads load the built-in models. When both are done the systems grid is bound; its first drawn frame is `interactive`. A warm-up follows, one step a frame: the launch controller, then glyphs. Systems never scanned are scanned in the background after it, and then covers without a derivative are baked (M4; also after F5). `MainThreadQueue` carries every background result to the main thread within 3 ms a frame. |
-| `Screens` | `Navigator` (M5): Systems → Games → Launching → back. Transitions move the two grids in depth, scale them and fade them into the background, staggered so the opaque grids barely overlap. The last focused game is remembered per system, and the last 3 game lists are cached. Favourites and Recently played are cards in the systems grid, mixing templates. Details (the `metadata` fields, file-name tags and play history) are queried and formatted on the thread pool 0.12 s after the focus rests, so held moves don't query. `InfoOverlay` is the PS2-style text: the title with a soft glow top left, what it belongs to under it, details bottom left and controls bottom right. |
+| `Boot` | Main scene (M5). `AppServices` loads config, resolves the theme (M6: manifests and each system's model candidates) and opens the library on the thread pool. The main thread makes the cover array while that runs, and starts loading the theme's models as soon as the theme is resolved, while the DB opens. When both are done it builds the look and the grids and binds the systems grid; its first drawn frame is `interactive`. A headless run (`--launch` only) resolves no theme. A warm-up follows, one step a frame: the launch controller, then glyphs. Systems never scanned are scanned in the background after it, and then covers without a derivative are baked (M4; also after F5). `MainThreadQueue` carries every background result to the main thread within 3 ms a frame. |
+| `Screens` | `Navigator` (M5): Systems → Games → Launching → back. Transitions move the two grids in depth, scale them and fade them into the background, staggered so the opaque grids barely overlap. From M6: entering a system cross-fades to its look; the next theme (T or Menu) loads in the background and is applied without a restart (templates, slot layout, look, and the shown list loaded again with the new theme's media kinds); per-game models load when their list does and replace their game's template in place; `MediaChanged` re-reads the shown list's media and rebinds only the games whose media changed. The last focused game is remembered per system, and the last 3 game lists are cached. Favourites and Recently played are cards in the systems grid, mixing templates. Details (the `metadata` fields, file-name tags and play history) are queried and formatted on the thread pool 0.12 s after the focus rests, so held moves don't query. `InfoOverlay` is the PS2-style text: the title with a soft glow top left, what it belongs to under it, details bottom left and controls bottom right. |
 | `Navigation` | `NavInput` (M5) polls `nav_*` actions each frame rather than using `_Input`, which allocates per event: arrows, Enter/Space, Escape/Backspace, Page Up/Down, Home/End, `[` `]`, F and F5; the D-pad, left stick, A/B/Y, shoulders (page), triggers (letter) and View (rescan). A held move repeats after 0.32 s, then speeds up from every 120 ms to every 35 ms over 1.4 s. Input is dropped while `LaunchController.IsInputBlocked`, and a button still held when that ends doesn't count. |
-| `Grid` | `ItemGrid` (M5), a virtualised 3D grid. <br>A cell pool (at most 64 for games) covers the visible rows plus spare rows, most of them ahead of the scroll, and cells are re-bound rather than recreated. <br>Template items are drawn as **one `MultiMesh` per template**, all with one material. Each pool cell has a fixed instance in every template's MultiMesh (hidden where unused), a fixed `Texture2DArray` layer and a fixed place in the title atlas. `INSTANCE_CUSTOM` = (layer + fade × 0.999, the plain colour packed as a 24-bit integer, idle phase or −1 when focused, the art's aspect or 0): Godot 4 multiplies a MultiMesh's instance colour into `COLOR`, which carries material data here. <br>Per-game custom `.glb` models (M6) use per-node instances bound to the same cells. <br>**The items never move to scroll: the grid's root does** (one transform), as the camera would, so a frame only touches newly bound rows, the focused items and fading covers. Two grids (systems and games) each have their own root. <br>Items are sized so 3.2 rows of games fit (2.7 of systems), unless that leaves fewer than 5 columns. A single part-filled row is centred. <br>`TitleAtlas`, a SubViewport of labels, draws each cell's title as a square block and a spine strip; it redraws only in a frame where a title changed. <br>**One update drives every item**, called by the main scene each frame. <br>A cell's texture request is superseded when it's re-bound, so late results are dropped. <br>Critically damped scrolling, the focused row always on the focus line, a little above the middle. |
-| `Models` | `TemplateLibrary` (M5) loads the built-in models and merges each into one surface for the item shader: per vertex, `COLOR` is the material's base colour (linear) and roughness, and `UV2` the face id (cover, back, spine, case, label, from the material's name) and the face's aspect (`extras.aspect`, or the slot mesh's bounds). <br>Later (M6): resolves each item's model (order in A7), converts each user `.glb` once into a cached native scene, and plays idle, focused and launch clips. The procedural fallbacks are in the grid: lift, scale and sway when focused; bob when not; spin up and fly forward to launch. |
-| `Textures` | `TextureStreamer` (M5): prioritised, cancellable requests (one per pool cell); 2 dedicated decode workers; mandatory baked derivatives (BC7 DDS, 512² with mips); the pool's `Texture2DArray` created at boot and only updated while browsing; a per-frame budget of 4 MB and 8 uploads; pooled `Image`s; and an opaque placeholder-to-cover fade in the shader. A missing derivative shows the box as it looks with no art. The LRU cache and the focused item's full-resolution upgrade are later (M6). |
-| `Theming` | `Look`: the four-corner gradient on a background canvas layer (`Environment` background mode Canvas), three `DirectionalLight3D` children of the camera, and an ambient colour. The item shader gets the corners too, to fade items into the background. M5 uses the default look; theme loading and cross-fades between per-system looks are M6's. |
+| `Grid` | `ItemGrid` (M5), a virtualised 3D grid. <br>A cell pool (at most 64 for games) covers the visible rows plus spare rows, most of them ahead of the scroll, and cells are re-bound rather than recreated. <br>Template items are drawn as **one `MultiMesh` per template**, with materials of the one item shader (M6: templates share one unless their authored textures or tint differ, so there's never a variant). Each pool cell has a fixed instance in every template's MultiMesh (hidden where unused), a fixed layer per slot channel in the streamer's arrays (`SlotLayout`), a row of the slot-state texture and a fixed place in the title atlas. `INSTANCE_CUSTOM` = (the cell, the plain colour packed as a 24-bit integer, idle phase or −1 when focused, unused): Godot 4 multiplies a MultiMesh's instance colour into `COLOR`, which carries material data here. The slot-state texture (RGBA32F, 8 slots × 64 cells, created once and only updated) holds, per cell and slot, the fallback shown without media, the media's aspect, its fade and its layer. <br>Each slot walks its template's fallback chain against the game's media when a cell binds; `RefreshItem` redoes that after the game's media changed, keeping its model and unchanged slots. <br>Per-game models (M6) are templates too, added when they load: a MultiMesh each, scaled to fit the cell. <br>**The items never move to scroll: the grid's root does** (one transform), as the camera would, so a frame only touches newly bound rows, the focused items and fading covers. Two grids (systems and games) each have their own root. <br>Items are sized so 3.2 rows of games fit (2.7 of systems), unless that leaves fewer than 5 columns. A single part-filled row is centred. <br>`TitleAtlas`, a SubViewport of labels, draws each cell's title as a square block and a spine strip; it redraws only in a frame where a title changed. <br>**One update drives every item**, called by the main scene each frame. <br>A cell's texture request is superseded when it's re-bound, so late results are dropped. <br>Critically damped scrolling, the focused row always on the focus line, a little above the middle. |
+| `Models` | (M6, replacing M5's `TemplateLibrary`) `ModelLoader` loads model candidates, built-in (`res://`) and user files alike: each `.glb` is parsed by `GltfDocument` and converted from its CPU-side `ImporterMesh`es on its own worker, so they load in parallel, once per session. Godot's threaded loader of imported scenes took about 25 ms a model, one after another. `ModelConverter` merges every surface into one for the item shader and fits the model to the spec (standing on y = 0, centred, largest side 1 m): per vertex, `COLOR` is the material's base colour (linear) and roughness, and `UV2` the face code ((media slot + 1) × 8 + (authored texture + 1)) and the face's aspect (`extras.aspect`, or the slot mesh's bounds). A game template with no `cover` material is rejected, so the next candidate is used. `ItemTemplate` is the result. <br>Still to do (M6 part 2): caching converted user models in `CacheDir/models/`, `ModelInspector` budgets, and idle, focused and launch clips. The procedural fallbacks are in the grid: lift, scale and sway when focused; bob when not; spin up and fly forward to launch. |
+| `Textures` | `TextureStreamer` (M5; slots from M6): prioritised, cancellable requests, one per pool cell and slot channel; 2 dedicated decode workers; mandatory baked derivatives (BC7 DDS, 512² with mips); two arrays, 512² layers for the cover and 256² for every other slot (mip 1 of the same derivative), created up front (the cover's at boot, the others on a worker once the theme's layout is known) and only updated while browsing; a per-frame budget of 4 MB and a cap of 4 cover-sized uploads (a 256² layer counts a quarter); pooled `Image`s; and an opaque fallback-to-media fade in the shader. A missing derivative moves the slot on down its chain. The LRU cache and the focused item's full-resolution upgrade are later (M6 part 2). |
+| `Theming` | `LookStage` (M6, was M5's `Look`): the four-corner gradient on a background canvas layer (`Environment` background mode Canvas), three `DirectionalLight3D` children of the camera, and an ambient colour, cross-fading to another look over the theme's `look_transition_ms`. The item materials get the corners too, to fade items into the background. `ThemePlan` (thread pool) resolves a theme for the enabled systems; `ThemeRuntime` (main thread) loads each system's first candidate that loads and gives the grids their templates, the slot layout, and each system's look and colour. |
 | `Diagnostics` | `DebugHooks` autoload (`--capture`, `--bench`), timeline marks, and a log sink that writes to Godot's output and a file. `ScrollBench` (M5) drives `--bench-scenario=scroll`. |
-| `Tools` | `BoxTemplateGenerator` (M5), a `[Tool]` node that builds the built-in models (A7) procedurally and exports them with `GLTFDocument`. |
+| `Tools` | `BoxTemplateGenerator` (M5), a `[Tool]` node that builds the built-in theme's models (A7) procedurally and exports them with `GLTFDocument`; from M6 also the test theme's (`tests/themes/slot-showcase/models/`). |
 | Platform glue | A main-thread queue with a per-frame time budget. <br>`Launching/LaunchController` (M3), built on first use, not at boot. `LaunchService` events reach it through `CallDeferred`. <br>- **Starting:** `RenderLoopEnabled = false`, low-processor mode with `Engine.MaxFps = 10`, the tree paused (no animation or processing), the master bus muted, and input swallowed. From M5, textures are evicted too. <br>- **Running:** `IWindowFocus.BeforeLaunch` lets any process take the foreground (`AllowSetForegroundWindow(ASFW_ANY)`, withdrawn by Windows at the next keyboard or mouse input), because a stub launcher's real emulator is a grandchild. A 4 Hz timer waits until another process's window is in front (or 10 s), then minimises the launcher with `SW_SHOWMINNOACTIVE`, so nothing unrelated is activated in between. <br>- **Exited or Failed:** game mode is undone, then `AfterExit` restores the window and takes the foreground: restore and `SetForegroundWindow`; then the same with the foreground window's input queue attached; then with a synthetic Alt key held (Windows lifts its lock after keyboard input); otherwise the taskbar button flashes. System settings (the foreground lock timeout) are never changed. Input stays swallowed until 500 ms after focus returns, so the button that quit the emulator doesn't act in the launcher. <br>- Input processing is on only while input is swallowed: an always-on `_Input` allocated about 1.9 KB per frame, because the Deck sends joypad motion all the time ([perf/m3-launching.md](perf/m3-launching.md)). The navigator also drops its input while `IsInputBlocked`. <br>- From M5 the controller is built in the warm-up after `interactive`, takes the shared `AppServices`, and raises `GameModeEntered` and `GameModeLeft`: the cover array is freed while a game runs and recreated afterwards, and the bound covers re-requested. |
 
 ## A2. Key interfaces (sketch)
@@ -95,6 +97,8 @@ public readonly record struct GameRow(long GameId, string Title, string? CoverPa
 public interface ILibrary {
     Task<IReadOnlyList<SystemSummary>> GetSystemsAsync(CancellationToken ct);   // boot: one small indexed query
     Task<GameList> GetGamesAsync(string systemId, CancellationToken ct);        // entry: compact, pre-sorted rows
+    Task<IReadOnlyList<GameMediaRow>> GetGameMediaAsync(string systemId, IReadOnlyList<string> kinds, CancellationToken ct);  // M6: the theme's slot kinds
+    Task<IReadOnlyList<GameMediaRow>> GetGameMediaAsync(IReadOnlyList<long> gameIds, IReadOnlyList<string> kinds, CancellationToken ct);
     Task<IReadOnlyList<VirtualGameRow>> GetFavouritesAsync(CancellationToken ct);
     Task<IReadOnlyList<VirtualGameRow>> GetRecentlyPlayedAsync(int limit, CancellationToken ct);
     Task<GameDetails?> GetGameAsync(long gameId, CancellationToken ct);         // the focused item and launching
@@ -110,6 +114,29 @@ public interface IPlayHistory {                                                 
     Task<long> BeginSessionAsync(GameKey game, string emulatorId, DateTimeOffset startedAt, CancellationToken ct);
     Task EndSessionAsync(PlaySessionEnd end, CancellationToken ct);             // closes the session and updates play_stats, in one transaction
     Task<PlayStats?> GetPlayStatsAsync(GameKey game, CancellationToken ct);
+}
+
+// LibraryService (M6): raised on a worker thread after a rescan changed user art or models, a scrape saved media,
+// a clear, a rebuild (Games null) or a bake (Games null).
+event EventHandler<MediaChangedEventArgs> MediaChanged;
+public readonly record struct MediaRef(MediaRoot Root, string Path, float Aspect, long SizeBytes, long MtimeMs);
+
+// Launcher.Core.Theming (M6)
+public static class ThemeLoader {                                               // never throws for user mistakes
+    public static ThemeLoadResult Load(ThemeSource source, Look? fallback);    // fallback: the built-in theme's look
+}
+public static class ThemeCatalog {
+    public const string BuiltInId = "memory-card";
+    public static ThemeSet Load(IReadOnlyList<ThemeSource> builtIns, IReadOnlyList<ThemeSource> users, string wantedId, List<Diagnostic> diagnostics);
+}
+public sealed class ModelResolver {                                             // pure; precedence in A7
+    IReadOnlyList<ModelCandidate> GameTemplates(string systemId);             // best first; the app uses the first that loads
+    ModelCandidate PerGame(string relativePath);                               // the indexed ConfigDir/models/games/... file
+    IReadOnlyList<ModelCandidate> SystemModels(string? systemId);              // null: Favourites and Recently played
+    Rgb? ColourOf(string systemId);  Look LookFor(string? systemId);
+}
+public sealed record SlotChain(int Slot, IReadOnlyList<SlotSource> Sources) {  // media kinds, then "generated" or "authored"
+    SlotResolution Resolve<TMedia>(int from, ref TMedia media) where TMedia : struct, IMediaAvailability;  // no allocation
 }
 
 // Launcher.Core.Scraping (M4)
@@ -163,16 +190,18 @@ public sealed class LaunchService {                                             
     Task<LaunchOutcome> LaunchAsync(GameDetails game, string? emulatorOverride, CancellationToken ct);
 }
 
-// Launcher.App.Textures (Godot side), as built in M5: a class, not an interface
+// Launcher.App.Textures (Godot side), as built in M5 and given slot channels in M6: a class, not an interface
 public sealed class TextureStreamer {
-    Texture2DArray CreateArray();                                                  // at boot: one layer per pool slot
-    void Request(int slot, int row, MediaRoot root, string relPath, long sizeBytes, long mtimeMs);   // supersedes the slot's last request
-    void Cancel(int slot);
-    void SetView(float centreRow, float direction);                                // priorities: nearest first, ahead of the scroll
+    void CreateBootArray();                                                        // at boot: the cover-class (512²) array
+    (Texture2DArray? Large, Texture2DArray? Small) BuildArrays(SlotLayout layout, ...);  // any thread: 512² and 256² arrays
+    void Install(SlotLayout layout, Texture2DArray? large, Texture2DArray? small);  // main thread: a theme's layout
+    void Request(int cell, int channel, int row, in MediaRef media);              // supersedes the cell's channel's last request
+    void Cancel(int cell, int channel);  void CancelCell(int cell);
+    void SetView(float centreRow, float direction);                                // priorities: nearest first, ahead of the scroll, covers first
     void PumpUploads(ITextureSink sink, long budgetBytes, int cap);               // main thread, once per frame
-    void Evict();                                                                   // while a game runs
+    void Evict();  void Restore();                                                 // while a game runs, and after
 }
-public interface ITextureSink { void OnLayerReady(int slot); void OnLayerMissing(int slot); }
+public interface ITextureSink { void OnLayerReady(int cell, int channel); void OnLayerMissing(int cell, int channel); }
 ```
 
 **Match resolution for scraping (per game, per scraper):**
@@ -223,7 +252,7 @@ Once matched, re-scrapes use `FetchAsync(id)` and never search again; the stored
 
 **Boot path:**
 1. Engine and .NET start-up. This is outside the target, but M1 still measures ReadyToRun and the shader baker, because they also cut the JIT and shader work inside it.
-2. Settings, theme and systems config, in about 10 ms. M1 measures Tomlyn's first-use cost.
+2. Settings, theme and systems config, in about 10 ms. M1 measures Tomlyn's first-use cost. The theme (M6): the built-in and user manifests, and each system's model candidates, on the thread pool; its models start loading as soon as it's resolved, while the DB opens.
 3. Open `library.db` read-only and run `SELECT system_id, game_count FROM systems`, in about 5 ms.
 4. System models: built-ins are Godot-imported, and user models come from the converted-scene cache, behind proxies.
 5. First frame, then the `interactive` mark.
@@ -236,6 +265,9 @@ Everything else waits until after `interactive`, and nothing is scanned at boot.
 - Only the visible cells are bound.
 
 **Texture streaming:**
+- **Media slots (M6).** A template's materials named after a media kind are slots; each slot walks its fallback chain (A7) for each game. Only slots whose chains name a media kind get texture layers, and only the kinds the chains name are queried ("load only the slots a template uses"). **Media is standardised per slot:** every derivative is the whole image squeezed into a 512² BC7 DDS with a full mip chain (below); the cover's layers are 512² and use it whole; every other slot's layers are 256² and use its mip chain from mip 1 (the worker skips the DDS header and mip 0, and `Image.SetData` takes the rest: no second bake). So any image can fill any slot, and a slot's size never depends on the media. The shader crops by the media's own aspect (`media.width`/`height`).
+  - **Memory:** the cover array is 64 × 341 KB = 21.8 MB; each other slot adds 64 × 85 KB = 5.5 MB. All eight slots would be 60.1 MB, under the 64 MB pool target; the built-in theme's three (cover, back, spine) are 32.8 MB.
+  - **Why not per-slot arrays at 512²:** three would already be 65.5 MB, over the pool target, and a slot other than the cover is smaller on screen (a spine, a back, a screenshot panel).
 - **Baked derivatives are mandatory.** The grid only reads cached derivatives from `CacheDir/textures/`: one canonical size, with mipmaps, keyed by source path, size and mtime.
   - They're baked at scrape time and by a background job.
   - A missing derivative shows the placeholder and queues a low-priority bake.
@@ -258,7 +290,8 @@ Everything else waits until after `interactive`, and nothing is scanned at boot.
   - **Every pool texture is created at boot, and only *updated* while browsing**, on the main thread: `Texture2DArray.UpdateLayer` takes 0.03 ms for BC7 and 0.17 ms for RGBA8.
   - Creating a texture on the main thread has 17–66 ms outliers, so it never happens while browsing.
   - `RenderingServer.Texture2DCreate` from a worker works in 4.7 without stalling the main thread, but it blocks the worker for about 12 ms per call. It's only for one-off textures outside the pool, such as the focused item's full-resolution art.
-  - The budget is **4 MB per frame**; BC7 only reaches it in the first frames. Add a cap of at most 8 uploads per frame (proposed, untested), because a few M1 hitch frames followed a burst of uploads.
+  - The budget is **4 MB per frame**; BC7 only reaches it in the first frames. The cap is **4 cover-sized uploads per frame** (M6; M1 proposed 8 because a few hitch frames followed a burst of uploads, and M5 kept 8). A 256² layer counts a quarter of a cover's, their size ratio. M6 found bursts of 5 to 8 covers in one frame (a whole row being bound) make single uploads take 14–21 ms; capped at 4 the longest was 1 ms, and the grid stayed 100% textured ([perf/m6-themes.md](perf/m6-themes.md#upload-cap)).
+  - Workers take covers first: another slot's request counts as 0.35 rows further away.
   - Warm the first upload at boot, while the DB opens (M5), because the first one takes up to 43 ms.
   - Godot's upload staging buffer is capped at 16 MB (`rendering_device/staging_buffer/max_size_mb`; the default is 128). At 2560×1440 the default grew the working set past 512 MB ([perf/m5-navigation.md](perf/m5-navigation.md)).
 - **Memory:** an LRU cache with a starting budget of 256 MB.
@@ -550,7 +583,7 @@ aliases = ["genesis", "md"]
 extensions = [".md", ".gen", ".smd", ".bin", ".zip", ".7z"]   # matched ignoring case
 emulator = "retroarch-genesis-plus-gx"
 alt_emulators = []
-game_model = "clamshell"             # built-in box template id; default "dvd_case"
+game_model = "clamshell"             # M6: user only; a game template id in the theme (else the built-in theme). Unset by default: the theme decides
 screenscraper_id = 1
 igdb_platforms = [29]                # IGDB platform ids; NES and SNES add their Japanese twins (99, 58)
 
@@ -658,11 +691,13 @@ client_secret = "..."
 
 ## A6. Theme manifest (`themes/<id>/theme.toml`)
 
+A theme is a folder with a `theme.toml` and the models it names. Paths are relative to the folder, `/`-separated, and can't leave it. The built-in theme is [`godot/themes/memory-card/theme.toml`](../godot/themes/memory-card/theme.toml); the M6 test theme is [`tests/themes/slot-showcase/theme.toml`](../tests/themes/slot-showcase/theme.toml).
+
 ```toml
 format = 1
 name = "Memory Card"
 author = "Odyssey Launcher"
-look_transition_ms = 300
+look_transition_ms = 300             # how long a cross-fade between looks takes; default 300, 0 to 5000
 
 [look.background]                    # icon.sys-style: one sRGB colour per screen corner
 top_left     = "#1B1F4A"
@@ -672,46 +707,56 @@ bottom_right = "#0B0B24"
 
 [look.ambient]
 colour = "#303038"
-energy = 1.0
+energy = 1.0                         # default 1
 
 [[look.lights]]                      # 1-3 directional lights, as in icon.sys
 direction = [-0.5, -0.4, -0.75]      # direction the light travels, in view space: +X right, +Y up, +Z towards the viewer
-colour = "#FFFFFF"
-energy = 1.0
+colour = "#FFFFFF"                   # default white
+energy = 1.0                         # default 1
 
-[[look.lights]]
-direction = [0.7, -0.2, -0.6]
-colour = "#8090FF"
-energy = 0.5
+[defaults]
+system_model = "models/systems/generic.glb"   # the card for systems without their own model
+tint_system_model = true                      # its plain materials take each system's colour
+game_template = "dvd_case"                    # for systems the theme doesn't assign one
 
-[[look.lights]]
-direction = [0.0, 0.9, -0.4]
-colour = "#FF9060"
-energy = 0.25
+[templates.dvd_case]                 # a game template: a model, and optional slot chains
+model = "models/templates/dvd_case.glb"
 
-[systems.saturn.look.background]     # per-system look, used while that system's games are shown
+[templates.dvd_case.slots]           # optional: a slot the table doesn't list is [<its kind>, "generated"]
+back = ["back", "screenshot", "generated"]
+
+[systems.saturn]
+model = "models/systems/saturn.glb"  # optional: the system's card (default: [defaults] system_model)
+tint = false                         # optional: default false for its own model, else tint_system_model
+colour = "#4A4F5C"                   # optional: its card's tint and its plain boxes' colour
+game_template = "jewel_case"         # optional: a template id in this theme (default: [defaults] game_template)
+
+[systems.saturn.look.background]     # optional: the look while its games are shown
 top_left = "#2A1A3A"
 top_right = "#2A1A3A"
 bottom_left = "#050008"
 bottom_right = "#100818"
 ```
 
-- **Colours:** `#RRGGBB` sRGB. `energy` is a linear multiplier.
+- **Colours:** `#RRGGBB` sRGB. `energy` is a linear multiplier, 0 to 16.
 - **Background:**
   - The four corners interpolate in sRGB, as on the PS2.
   - The gradient is drawn on a background canvas layer rather than a sky, which avoids radiance-map and cubemap-pass problems and makes cross-fades free.
-  - With the Linear tonemapper, glow off and ambient source Colour, each corner pixel renders as its exact hex value. The scaffold capture confirms this: all four corners match with a delta of 0.
+  - With the Linear tonemapper, glow off and ambient source Colour, each corner pixel renders as its exact hex value **on Forward+**. On the Mobile renderer (the one we use, M1) the canvas background is composited through the 3D buffer, whose precision moves dark corners by up to 2/255 (M6 measured `#04040C` as `#06060D`); Forward+ gives the hex values exactly ([perf/m6-themes.md](perf/m6-themes.md#corner-colours)).
   - Reflections are disabled.
 - **Lights:**
   - Directions are in **view space**, as in icon.sys, so the three `DirectionalLight3D`s are children of the camera.
   - Any non-zero direction is valid, including straight up and down.
   - Lights the theme doesn't define are switched off.
 - **Per-system looks:**
-  - Entering a system cross-fades to its look.
-  - A per-system `background`, `ambient` or `lights` block **replaces** the default block whole. A background needs all four corners.
-  - Anything left unspecified falls back to the default look.
-- **Theme models:** a theme can ship `models/systems/<system>.glb` and `models/templates/<system>.glb`.
-- **Locations:** built-in themes live in `res://themes/`, and user themes in `ConfigDir/themes/`. A user theme with the same id replaces the built-in one.
+  - Entering a system cross-fades to its look over `look_transition_ms`, and leaving cross-fades back; the systems grid, Favourites and Recently played use the theme's own look. Mid-fade, the lights' directions, colours and energies blend, and a light only one side has fades from or to energy 0.
+  - A per-system `background`, `ambient` or `lights` block **replaces** the theme's block whole. A background needs all four corners.
+  - Anything left unspecified falls back to the theme's look; a theme's own blocks fall back to the built-in theme's.
+  - The built-in theme gives each of the 14 built-in systems a colour, a template and its own background and lights (generated from its colour).
+- **Templates** (`[templates.<id>]`): a game template is a `.glb` that must have a `cover` material (A7), and optional slot chains (A7 Media slots). Themes name their templates and assign them to systems; the resolution order is in A7.
+- **Validation:** like config (A5), a syntax error or an unsupported `format` rejects the theme (the built-in one is used), and every other problem is a diagnostic naming the file, line, column and key: `user/themes/neon/theme.toml:12:1: error: templates.box.model: 'box.glb' doesn't exist in the theme's folder`. A bad look block falls back to the built-in theme's; a template whose model is missing, isn't a `.glb` inside the folder, or has no `cover` material is left out, and whatever named it falls through to the next model in line; a bad slot chain falls back to the slot's default chain; unknown keys are warnings with "did you mean". A user theme's models are inspected (their material names, from the GLB's JSON chunk) when the manifest loads; a built-in theme's are checked by Core's tests against the repo's files instead, and at load time.
+- **Locations:** built-in themes live in `res://themes/` (the export includes each `theme.toml`, and each `.glb` as the file itself: Godot's "keep file" import), and user themes in `ConfigDir/themes/<id>/`. A user theme with the same id replaces the built-in one, but the built-in `memory-card` stays the last resort for anything the active theme doesn't provide. `[display] theme` in settings.toml picks the theme; `--theme=<id>` overrides it for a run.
+- **Switching:** T on the keyboard or Menu on a gamepad (on the systems screen) loads the next theme in id order in the background and applies it without a restart (M6). It lasts for the session: the settings screen (M7) will write `[display] theme`.
 - **Later:** a `[ui]` section is reserved for fonts, sounds and UI colours.
 
 ## A7. glTF model spec
@@ -722,12 +767,12 @@ bottom_right = "#100818"
 | Units and axes | glTF defaults, with no conversion: metres, right-handed, +Y up, the front facing +Z (towards the viewer). |
 | Origin | The bottom-centre of the rest-pose bounding box. The model stands on y=0, and spin is about +Y through the origin. |
 | Size | The bounding box fits x∈[-0.5,0.5], y∈[0,1], z∈[-0.5,0.5], with the largest side about 1 m. <br>The loader fits the rest-pose bounding box to the grid cell by scaling a **wrapper node**, so animation clips are never touched. <br>Anything off by more than 10× gets a "wrong units?" warning. |
-| Media slots | A material whose name matches a media kind gets that image as its base colour. <br>`cover` is required on game templates. `back`, `spine`, `label` and `screenshot` are optional. <br>Matching ignores case and a trailing Blender `.NNN` suffix. <br>TEXCOORD_0 spans 0..1 across the face, upright, and sampling is clamped. <br>Art is centre-cropped to fill. The face's aspect ratio comes from the material's `extras.aspect`, or else from the slot mesh's bounds. <br>With no art, the slot keeps its authored placeholder texture. <br>Set the base colour factor to white. |
+| Media slots | A material whose name is a media kind (`cover`, `back`, `spine`, `box_texture`, `label`, `screenshot`, `logo`, `hero`) is a slot, and shows that game's media through its fallback chain (below). <br>`cover` is required on game templates; every other slot is optional. <br>Matching ignores case and a trailing Blender `.NNN` suffix. <br>TEXCOORD_0 spans 0..1 across the face, upright, and sampling is clamped. <br>Art is centre-cropped to fill. The face's aspect ratio comes from the material's `extras.aspect`, or else from the slot mesh's bounds. <br>The material's own base colour texture is the chain's last fallback. <br>Set the base colour factor to white. |
 | Materials | Remapped onto the launcher's fixed shader set (lit, unlit, slot), so a user model never adds a shader variant. <br>Supported: base colour, metallic/roughness, normal, emissive, vertex colours, `KHR_materials_unlit`, `KHR_texture_transform`, alpha OPAQUE or MASK, and double-sided. BLEND counts as MASK. <br>Anything else is ignored. |
 | Animations (optional; names match like slots) | `idle` loops while not focused. <br>`focused` loops while focused. <br>`launch` plays once; the emulator starts when it ends or after 2 s, whichever comes first. <br>Node TRS, skinning (≤64 joints, 4 influences per vertex) and morph targets (≤8) are supported. Other clips are ignored. |
 | Procedural fallbacks | The grid's focus lift and scale always apply. <br>Spin or bob runs only for a state without a clip. <br>The launch fallback spins up and moves towards the camera. |
 | Ignored | Cameras, `KHR_lights_punctual` and extra scenes. Theme lights are the only lights. |
-| Runtime handling | The first time a user `.glb` is used, a worker converts it to a native scene in `CacheDir/models/`, keyed by path, size and mtime. Textures are mipmapped and scaled to fit the budget. <br>A proxy shows until it's ready. |
+| Runtime handling | Every `.glb` (the built-in theme's, a user theme's, or the user's own) is parsed by `GltfDocument` on a worker and converted there from its CPU-side meshes; the main thread only uploads the merged mesh (M6). Every model is fitted to the spec (standing on y = 0, centred, largest side 1 m). A per-game model shows its system's template until it has loaded, and is scaled down to fit the cell. <br>Still to do (M6 part 2): caching the converted scene in `CacheDir/models/`, keyed by path, size and mtime, and mipmapping and scaling its textures to fit the budget. |
 
 ### Budgets
 
@@ -743,24 +788,45 @@ These are provisional; M1 and M6 confirm them on the Deck.
 - Over budget: the model loads, with a warning.
 - More than 2× any budget: the model is rejected, and the next model in the resolution order is used.
 
+### Media slots and fallback chains (M6)
+
+Each slot of a game template has a **fallback chain**, walked for every game when its cell binds:
+- A media kind: the game's media of that kind, if it has one. Any image kind can fill any slot (a back slot can show a screenshot).
+- `generated`: a face the launcher draws (below), for `cover`, `back`, `spine` and `label` only.
+- `authored`: the material's own texture, as the model was made (or its base colour).
+
+The first media kind the game has wins; `generated` or `authored` ends the walk; and every chain ends, implicitly, with `authored`. While the media loads, the chain's next `generated` or `authored` entry shows, and the media fades in over it. If the media has no usable derivative, the walk carries on from the next entry. A slot the theme doesn't list is `[<its kind>, "generated"]` where the launcher can draw it, else `[<its kind>]`. System cards have no media: their slots are `generated` where possible, else `authored`.
+
+```toml
+[templates.showcase_case.slots]      # the test theme's template
+cover = ["cover", "generated"]
+spine = ["spine", "logo", "generated"]
+screenshot = ["screenshot", "hero", "authored"]   # "authored": the model's own test card
+```
+
+When a game's media changes (a rescan finds new or removed art or models, a scrape saves media, a game is cleared, or derivatives are baked), the library raises `MediaChanged`, and the shown list's media is read again: each changed game's cell walks its chains again, keeping its model and every slot whose media is unchanged.
+
 ### Resolution order (first hit wins)
 
-User files are matched by `path_key`, with or without the ROM's extension.
+User files are matched by `path_key`, with or without the ROM's extension, and found by folder convention: per-game models are indexed by the scanner (media kind `model`), and the two per-system folders are listed when the theme loads, so nothing is probed per item. A candidate that fails to load, or a game template with no `cover` material, is skipped for the next one.
 
-- **System:**
-  1. `ConfigDir/models/systems/<system>.glb`
-  2. the theme's `models/systems/<system>.glb`
-  3. the built-in `res://assets/models/systems/<system>.glb`
-  4. the generic built-in
-- **Game:**
+- **Game** (M6):
   1. `ConfigDir/models/games/<system>/<rel path>.glb`
   2. `ConfigDir/models/templates/<system>.glb`
-  3. the theme's `models/templates/<system>.glb`
-  4. the built-in template named by `game_model`
+  3. the user's `game_model` in systems.toml: that template id in the active theme, else in the built-in theme (a warning if neither has it)
+  4. the active theme's `[systems.<system>] game_template`
+  5. the active theme's `[defaults] game_template`
+  6. the built-in theme's `[systems.<system>] game_template`
+  7. the built-in theme's `[defaults] game_template` (`dvd_case`)
+- **System card:**
+  1. `ConfigDir/models/systems/<system>.glb`
+  2. the active theme's `[systems.<system>] model`
+  3. the active theme's `[defaults] system_model`
+  4. the built-in theme's (`models/systems/generic.glb`)
 
-The built-in templates (M5) are `dvd_case` (PlayStation 2, GameCube), `jewel_case` (PlayStation, Saturn, Dreamcast), `cartridge_box` (NES, SNES, N64, the Game Boy family), `clamshell` (Mega Drive, Master System) and `umd_case` (PSP), plus the generic system model `generic`, a memory-card-shaped slab with a `label` slot. `BoxTemplateGenerator` builds them from real case sizes in millimetres: a rounded-rectangle front outline extruded to the depth, with bevelled edges, one surface per material (the front slot, `back`, `spine`, `case`), and `extras.aspect` on each slot. It exports them with Godot's glTF exporter; the output is deterministic, and `BuiltInModelTests` checks each file against this spec. About 220 triangles each.
+User models (levels 1 and 2) use the default slot chains. The built-in theme's templates (M5) are `dvd_case` (PlayStation 2, GameCube), `jewel_case` (PlayStation, Saturn, Dreamcast), `cartridge_box` (NES, SNES, N64, the Game Boy family), `clamshell` (Mega Drive, Master System) and `umd_case` (PSP), plus the generic system model, a memory-card-shaped slab with a `label` slot, in [`godot/themes/memory-card/models/`](../godot/themes/memory-card/models/). `BoxTemplateGenerator` builds them from real case sizes in millimetres: a rounded-rectangle front outline extruded to the depth, with bevelled edges, one surface per material (the front slot, `back`, `spine`, `case`), and `extras.aspect` on each slot. It exports them with Godot's glTF exporter; the output is deterministic, and `BuiltInModelTests` checks each file against this spec. About 220 triangles each.
 
-**Generated faces (M5).** With front art only, the item shader makes the rest. The spine is the cover's dominant colour, with the title reading top to bottom and a darker band where a logo would be. The back is a darker gradient of that colour, with the title and a strip of the cover. The dominant colour is chosen per vertex from the cover's 4×4 mip, as the texel most like the others, preferring saturated ones. With no art, the front is the plain colour (the system's colour, varied per game) with the title and a thin frame. Titles come from the title atlas.
+**Generated faces (M5; `generated` in a chain from M6).** With front art only, the item shader makes the rest. The spine is the cover's dominant colour, with the title reading top to bottom and a darker band where a logo would be. The back is a darker gradient of that colour, with the title and a strip of the cover. The dominant colour is chosen per vertex from the cover's 4×4 mip, as the texel most like the others, preferring saturated ones. With no art, the front is the plain colour (the system's colour, varied per game) with the title and a thin frame. Titles come from the title atlas.
 
 ## Decisions log
 
@@ -834,3 +900,15 @@ The built-in templates (M5) are `dvd_case` (PlayStation 2, GameCube), `jewel_cas
 | 2026-09-28 | **IGDB conventions:** rating from `total_rating`, else `aggregated_rating`, else `rating`, over 100; release date from the system's `release_dates` in the most wanted region, as precise as its `date_format` (else `first_release_date`); players from the system's multiplayer modes ("1" for a game whose only mode is single player); companies and genres joined with commas; images at `t_1080p`. The token is cached on disk and requested again a day before expiry or when refused. | IGDB has three ratings, no player-count field, and tokens that can't be refreshed, with a limit of 25 per application. |
 | 2026-09-28 | **The app bakes missing derivatives after its background scans** (and after F5), on `DerivativeService`'s below-normal thread; not in benches. Covers baked then show the next time their system is entered. | The M5 carry-over: the user's own art had no derivatives. An A/B against M5 in one session shows no change in scroll or start-up ([perf/m4-scraping.md](perf/m4-scraping.md)). |
 | 2026-09-28 | **`odyssey-scrape` (`tools/scrape-cli`) exposes every operation** for live testing with the owner's credentials, on the app's own folders or a `--user-dir`. It's in the solution. | The owner asked for it. In the solution so it always builds with Core. |
+| 2026-09-29 | **Theme manifests name everything explicitly (M6):** `[templates.<id>]` (a model and optional slot chains), `[defaults]` (`system_model`, `tint_system_model`, `game_template`), and `[systems.<id>]` (`model`, `tint`, `colour`, `game_template`, `look`), replacing A6's folder convention (`models/systems/<system>.glb`, `models/templates/<system>.glb` inside a theme). | Every file is then named by a key, so a missing or broken one is reported at its key and line; a template can serve several systems; and nothing in a theme is probed. |
+| 2026-09-29 | **The built-in theme owns the system-to-box mapping.** The M5 templates moved to `godot/themes/memory-card/`, whose manifest assigns them (and a colour and look) to the 14 built-in systems; `game_model` left the built-in systems.toml and `ConfigLoader.GameModels` is gone. `game_model` is now the user's choice of a template id, looked up in the active theme then the built-in one, and ranks above the theme's own choice. | The owner's brief: no special-case code for default boxes. Config is the user's intent, so a `game_model` the user wrote beats a theme's default. |
+| 2026-09-29 | **Resolution order (A7):** games: per-game model; `ConfigDir/models/templates/<system>.glb`; `game_model`; the active theme's system template; its default template; the built-in theme's two. Cards: `ConfigDir/models/systems/<system>.glb`; the theme's system model; its default; the built-in theme's. The app loads candidates in order and uses the first that loads (a game template needs a `cover`). | A6's order, with the built-in theme as the last resort, so a partial theme always has a model for every system. |
+| 2026-09-29 | **Media slots are every image kind, each with a fallback chain** of media kinds, `generated` and `authored`, ending with the material's authored texture. A slot a template doesn't list is `[<kind>, "generated"]`. | The owner's brief. `generated` keeps M5's drawn spines, backs and title cards as something any theme can use, not a special case of the default boxes. |
+| 2026-09-29 | **Slot media is standardised to two sizes:** the cover at 512² (the derivative whole) and every other slot at 256² (the same derivative from mip 1). Two `Texture2DArray`s, a layer per pool cell and slot channel; only slots whose chains name a media kind get layers, and only those kinds are queried. Per-cell slot state (fallback, aspect, fade, layer) lives in an RGBA32F texture the shader fetches in the vertex stage. Templates share a material unless their authored textures or tint differ (the same shader either way). | Keeps M1's batched MultiMesh plus `Texture2DArray` approach, which needs fixed layer sizes. One derivative serves any slot with no second bake, and all eight slots fit the 64 MB pool target (60.1 MB; three 512² arrays would be 65.5 MB). INSTANCE_CUSTOM has four floats, too few for per-slot state. |
+| 2026-09-29 | **The upload cap counts a 256² layer as a quarter of a cover**, and workers take covers first. | The cap guards against bursts of upload cost, which scales with bytes; covers matter most on screen. |
+| 2026-09-29 | **`LibraryService.MediaChanged`** is raised after a rescan changed user art or models, a scrape saved media, a clear, a rebuild or a bake; the navigator re-reads the shown list's media and rebinds only the games that changed, in place. Derivatives are baked for every image kind. | The owner's brief: rebind without reloading the model. Covers baked in the background now appear without re-entering the system. |
+| 2026-09-29 | **Per-game models are templates too:** a MultiMesh each (not per-node instances), added when they finish loading, scaled to fit the cell; loaded from the `.glb` each session (no `CacheDir/models/` cache yet). Supersedes the 2026-09-27 "per-node instances for custom models". | One path for every model, and the same one draw call per model. Converting on a worker from `GltfDocument`'s CPU-side meshes needs no scene cache for correctness; the cache is a load-time optimisation for M6 part 2. |
+| 2026-09-29 | **Switching theme at run time:** T or Menu on the systems screen, or `--nav-script` `theme`; the plan is built on the thread pool, models load in the background, the texture arrays are built on a worker, then templates, layout, look and the shown list are swapped. Session-only until M7 writes `[display] theme`. | The owner's brief: no restart. Creating textures on the main thread can stall for tens of milliseconds (M1). |
+| 2026-09-29 | **Corner colours are exact on Forward+ but within 2/255 on Mobile**, because Mobile composites the canvas background through its 3D buffer. We stay on Mobile. | Measured (A6). M1 chose Mobile for 36–42% less GPU time; a 2/255 shift in dark corners isn't visible. |
+| 2026-09-29 | **A headless run resolves no theme.** | With `--quit-after`, the engine shut down while the boot task was reading `res://` through Godot's file API on the thread pool, which crashed. Headless runs only launch. |
+| 2026-09-29 | **The upload cap is 4 cover-sized uploads per frame**, down from 8. | Measured in M6: a whole row of 5 to 8 covers uploaded in one frame made single uploads take 14–21 ms (so M5's occasional upload maxima); with 4 the longest was 1 ms, and covers stayed 100% textured ([perf/m6-themes.md](perf/m6-themes.md#upload-cap)). |

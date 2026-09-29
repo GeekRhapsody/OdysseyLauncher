@@ -7,14 +7,16 @@ using Launcher.Core.Scraping;
 namespace Launcher.Core.Media;
 
 /// <summary>What <see cref="DerivativeService.BakeMissingAsync"/> did.</summary>
-public sealed record BakeSummary(int Covers, int Baked, int AlreadyBaked, int Failed, int Pruned, TimeSpan Elapsed);
+/// <param name="Images">The indexed images of every kind (covers, backs, spines...), each file once.</param>
+public sealed record BakeSummary(int Images, int Baked, int AlreadyBaked, int Failed, int Pruned, TimeSpan Elapsed);
 
 /// <summary>
-/// Bakes the grid's cover derivatives (A3) off the main thread: on its own worker threads at below-normal priority,
-/// so a bake never competes with the render loop or holds a thread-pool thread for its ~0.2 s. Scraping bakes each
-/// new cover as it's saved; <see cref="BakeMissingAsync"/> bakes every cover in the library that has no derivative
-/// (the user's own art too), and deletes derivatives nothing uses any more. A derivative's name includes its source's
-/// size and time, so a changed source gets a new one.
+/// Bakes the grid's derivatives (A3) off the main thread: on its own worker threads at below-normal priority, so a
+/// bake never competes with the render loop or holds a thread-pool thread for its ~0.2 s. Every image kind gets one,
+/// since a theme's template can show any of them in a slot (M6). Scraping bakes each new image as it's saved;
+/// <see cref="BakeMissingAsync"/> bakes every image in the library that has no derivative (the user's own art too),
+/// and deletes derivatives nothing uses any more. A derivative's name includes its source's size and time, so a
+/// changed source gets a new one.
 /// </summary>
 public sealed class DerivativeService : IDisposable
 {
@@ -93,22 +95,22 @@ public sealed class DerivativeService : IDisposable
     }
 
     /// <summary>
-    /// Bakes every cover in the library that has no derivative, then deletes the derivatives no cover names (stale
-    /// ones whose source changed or went). Safe to run while browsing: one below-normal thread by default.
+    /// Bakes every image in the library that has no derivative, then deletes the derivatives no image names (stale
+    /// ones whose source changed or went). Safe to run while browsing: one below-normal thread by default. When any
+    /// were baked, <see cref="LibraryService.MediaChanged"/> is raised for every game, so the grid can show them.
     /// </summary>
     public async Task<BakeSummary> BakeMissingAsync(IProgress<JobProgress>? progress, CancellationToken cancellationToken)
     {
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
-        var covers = await _library.ReadAsync(c => ScrapeStore.MediaOfKind(c, MediaKinds.Cover), cancellationToken).ConfigureAwait(false);
+        var images = await _library.ReadAsync(c => ScrapeStore.MediaOfKinds(c, MediaKinds.Images), cancellationToken).ConfigureAwait(false);
         var wanted = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var missing = new List<(MediaRoot Root, string Path, long Size, long Mtime)>();
-        foreach (var cover in covers)
+        foreach (var image in images)
         {
-            var path = PathFor(cover.Root, cover.Path, cover.SizeBytes, cover.MtimeMs);
-            wanted.Add(Path.GetFileName(path));
-            if (!File.Exists(path))
+            var path = PathFor(image.Root, image.Path, image.SizeBytes, image.MtimeMs);
+            if (wanted.Add(Path.GetFileName(path)) && !File.Exists(path))
             {
-                missing.Add(cover);
+                missing.Add(image);
             }
         }
 
@@ -146,7 +148,12 @@ public sealed class DerivativeService : IDisposable
             }
         }
 
-        return new BakeSummary(covers.Count, baked, covers.Count - missing.Count, _baker is null ? missing.Count : failed, pruned, stopwatch.Elapsed);
+        if (baked > 0)
+        {
+            _library.RaiseMediaChanged(null);
+        }
+
+        return new BakeSummary(images.Count, baked, images.Count - missing.Count, _baker is null ? missing.Count : failed, pruned, stopwatch.Elapsed);
     }
 
     public void Dispose()

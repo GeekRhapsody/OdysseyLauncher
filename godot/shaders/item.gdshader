@@ -2,26 +2,36 @@ shader_type spatial;
 render_mode cull_back, depth_draw_opaque;
 
 // The launcher's one shader for grid items (ARCHITECTURE.md A3, A7): one draw call per template MultiMesh, opaque,
-// no variants. Every model is remapped onto it (Models/TemplateLibrary.cs):
+// no variants. Every model is remapped onto it (Models/ModelConverter.cs):
 //   COLOR     = the material's base colour (linear) and roughness
-//   UV        = the face's own 0..1 UV, upright seen from outside
-//   UV2       = (face id, the face's width over its height)
-// and each instance carries INSTANCE_CUSTOM =
-//   r: the texture layer plus the cover fade (layer + fade * 0.999)
+//   UV        = the face's own UV (0..1 across a slot face, upright seen from outside)
+//   UV2       = (face code, the face's width over its height), where the face code is
+//               (media slot + 1) * 8 + (authored texture + 1), 0 meaning none in either part
+// Each instance carries INSTANCE_CUSTOM =
+//   r: the pool cell, which picks its row of slot_state and its place in the title atlas
 //   g: the plain colour of a box with no art (or of a system card), sRGB packed as r * 65536 + g * 256 + b
 //   b: the idle phase, or -1 when focused
-//   a: the art's aspect ratio, or 0 for none
+// and slot_state holds, per cell (y) and media slot (x): what the slot shows without media (1 generated,
+// 0 authored), the media's aspect (0 when none is wanted), its fade in, and its layer.
 // (Godot 4 multiplies a MultiMesh's instance colour into COLOR, which carries the material data here.)
 
-const int FACE_COVER = 0;
-const int FACE_BACK = 1;
-const int FACE_SPINE = 2;
-const int FACE_CASE = 3;
-const int FACE_LABEL = 4;
+// Media slots, in Launcher.Core.Theming.MediaSlots order.
+const int SLOT_COVER = 0;
+const int SLOT_BACK = 1;
+const int SLOT_SPINE = 2;
+const int SLOT_LABEL = 4;
 
-// Cover art: one layer per pool cell, BC7 512x512 with mips. The whole source image is squeezed into the square;
-// the shader crops it to the face (Launcher.Core.Media.TextureDerivatives).
-uniform sampler2DArray covers : source_color, filter_linear_mipmap_anisotropic, repeat_disable;
+// Media, one layer per pool cell and slot channel, BC7 with mips. The whole image is squeezed into the square and
+// cropped here to the face. The cover's layers are 512²; every other slot's are 256² (Grid/SlotLayout.cs).
+uniform sampler2DArray slots_large : source_color, filter_linear_mipmap_anisotropic, repeat_disable;
+uniform sampler2DArray slots_small : source_color, filter_linear_mipmap_anisotropic, repeat_disable;
+uniform sampler2D slot_state : filter_nearest, repeat_disable;
+
+// The template's own textures, as its materials were authored (a slot's last fallback, or a plain material's).
+uniform sampler2D authored_1 : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
+uniform sampler2D authored_2 : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
+uniform sampler2D authored_3 : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
+uniform sampler2D authored_4 : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
 
 // Titles, drawn by a SubViewport (Grid/TitleAtlas.cs): a square block per cell, and a strip per cell for spines.
 // Only the alpha is used.
@@ -37,23 +47,24 @@ uniform float grid_fade = 0.0;
 // Items fade towards the background near the top and bottom of the screen, under the overlay's text:
 // (top band, bottom band, strength), in screen fractions.
 uniform vec3 edge_fade = vec3(0.2, 0.22, 0.8);
-// The systems grid tints each card's case by its system colour.
+// A system card's plain materials take its system's colour.
 uniform bool tint_case = false;
 
-// The four background corners, sRGB, as on the canvas layer behind the scene.
+// The four background corners, sRGB, as on the canvas layer behind the scene (they cross-fade with the look).
 uniform vec3 bg_top_left = vec3(0.106, 0.122, 0.290);
 uniform vec3 bg_top_right = vec3(0.106, 0.122, 0.290);
 uniform vec3 bg_bottom_left = vec3(0.016, 0.016, 0.047);
 uniform vec3 bg_bottom_right = vec3(0.043, 0.043, 0.141);
 
-varying flat float v_layer;
-varying flat float v_fade;
-varying flat float v_art_aspect;
+varying flat float v_cell;
+varying flat int v_slot;
+varying flat int v_tex;
+varying flat vec4 v_state;
+varying flat vec4 v_cover;
 varying flat float v_focus;
 varying flat vec3 v_plain;
 varying flat vec3 v_dominant;
 varying flat vec3 v_ink;
-varying flat int v_face;
 varying flat float v_face_aspect;
 varying flat vec3 v_base;
 varying flat float v_roughness;
@@ -72,7 +83,7 @@ vec3 dominant_colour(float layer) {
 	vec3 c[16];
 	for (int i = 0; i < 16; i++) {
 		vec2 uv = (vec2(float(i % 4), float(i / 4)) + 0.5) / 4.0;
-		c[i] = sqrt(textureLod(covers, vec3(uv, layer), 7.0).rgb);
+		c[i] = sqrt(textureLod(slots_large, vec3(uv, layer), 7.0).rgb);
 	}
 	vec3 best = c[0];
 	float best_score = -1.0;
@@ -92,14 +103,17 @@ vec3 dominant_colour(float layer) {
 }
 
 void vertex() {
-	v_layer = floor(INSTANCE_CUSTOM.r);
-	v_fade = clamp((INSTANCE_CUSTOM.r - v_layer) / 0.999, 0.0, 1.0);
-	v_art_aspect = INSTANCE_CUSTOM.a;
+	v_cell = floor(INSTANCE_CUSTOM.r + 0.5);
+	int cell = int(v_cell);
+	int code = int(UV2.x + 0.5);
+	v_slot = code / 8 - 1;
+	v_tex = code % 8 - 1;
+	v_face_aspect = UV2.y;
+	v_state = v_slot >= 0 ? texelFetch(slot_state, ivec2(v_slot, cell), 0) : vec4(0.0);
+	v_cover = texelFetch(slot_state, ivec2(SLOT_COVER, cell), 0);
 	v_focus = INSTANCE_CUSTOM.b < 0.0 ? 1.0 : 0.0;
 	float packed = INSTANCE_CUSTOM.g;
 	v_plain = to_linear(vec3(floor(packed / 65536.0), mod(floor(packed / 256.0), 256.0), mod(packed, 256.0)) / 255.0);
-	v_face = int(UV2.x + 0.5);
-	v_face_aspect = UV2.y;
 	v_base = COLOR.rgb;
 	v_roughness = COLOR.a;
 
@@ -108,10 +122,10 @@ void vertex() {
 		VERTEX.y += sin(TIME * 1.3 + INSTANCE_CUSTOM.b) * 0.012;
 	}
 
-	// Generated faces take their colour from the art once it's there.
+	// A generated spine or back takes its colour from the cover once the cover's art is there.
 	v_dominant = v_plain;
-	if (v_art_aspect > 0.0 && v_fade > 0.0 && (v_face == FACE_SPINE || v_face == FACE_BACK)) {
-		v_dominant = mix(v_plain, dominant_colour(v_layer), v_fade);
+	if ((v_slot == SLOT_SPINE || v_slot == SLOT_BACK) && v_state.x > 0.5 && v_cover.y > 0.0 && v_cover.z > 0.0) {
+		v_dominant = mix(v_plain, dominant_colour(v_cover.w), v_cover.z);
 	}
 	v_ink = luminance(v_dominant) > 0.3 ? vec3(0.02) : vec3(0.92);
 }
@@ -133,16 +147,16 @@ float title_block(vec2 uv, vec3 rect, float face_aspect) {
 	if (any(lessThan(local, vec2(0.0))) || any(greaterThan(local, vec2(1.0)))) {
 		return 0.0;
 	}
-	int layer = int(v_layer + 0.5);
-	vec2 origin = vec2(float(layer % block_columns), float(layer / block_columns)) * block_size;
+	int cell = int(v_cell);
+	vec2 origin = vec2(float(cell % block_columns), float(cell / block_columns)) * block_size;
 	return texture(titles, origin + local * block_size).a;
 }
 
 // The spine strip's coverage: the text reads top to bottom, with the tops of the letters towards the front.
 float title_spine(vec2 uv) {
 	vec2 local = vec2(uv.y, 1.0 - uv.x);
-	int layer = int(v_layer + 0.5);
-	vec2 origin = spine_origin + vec2(float(layer % spine_columns), float(layer / spine_columns)) * spine_size;
+	int cell = int(v_cell);
+	vec2 origin = spine_origin + vec2(float(cell % spine_columns), float(cell / spine_columns)) * spine_size;
 	return texture(titles, origin + clamp(local, vec2(0.002), vec2(0.998)) * spine_size).a;
 }
 
@@ -154,47 +168,84 @@ vec3 plain_face(vec2 uv, vec3 colour) {
 	return mix(shaded, colour * 1.6 + 0.04, frame * 0.6);
 }
 
+// The material's own texture (or its base colour alone).
+vec3 authored(vec2 uv) {
+	vec3 texel = vec3(1.0);
+	if (v_tex == 0) {
+		texel = texture(authored_1, uv).rgb;
+	} else if (v_tex == 1) {
+		texel = texture(authored_2, uv).rgb;
+	} else if (v_tex == 2) {
+		texel = texture(authored_3, uv).rgb;
+	} else if (v_tex == 3) {
+		texel = texture(authored_4, uv).rgb;
+	}
+	return v_base * texel;
+}
+
+// The slot's media, cropped to the face.
+vec3 media(vec2 uv, float face_aspect) {
+	vec3 coord = vec3(crop(uv, v_state.y, face_aspect), v_state.w);
+	return v_slot == SLOT_COVER ? texture(slots_large, coord).rgb : texture(slots_small, coord).rgb;
+}
+
+// The faces the launcher draws itself (M5): a title card for the cover (dim and untitled while its art loads), a spine
+// and back in the cover's colour with the title, and a paper label with the title.
+vec3 generated(vec2 uv, float face_aspect, bool loading, out float roughness) {
+	roughness = v_roughness;
+	if (v_slot == SLOT_COVER) {
+		vec3 plain = plain_face(uv, v_plain);
+		if (loading) {
+			return plain * 0.6;
+		}
+		float ink = title_block(uv, vec3(0.1, 0.5 - 0.4 * face_aspect, 0.8), face_aspect);
+		return mix(plain, vec3(0.95), ink);
+	}
+	if (v_slot == SLOT_SPINE) {
+		vec3 base = v_dominant * 0.9;
+		// A darker band at the top, where a real spine carries the platform's logo.
+		base *= uv.y < 0.1 ? 0.3 : 1.0;
+		return mix(base, v_ink, title_spine(uv));
+	}
+	if (v_slot == SLOT_BACK) {
+		vec3 base = v_dominant * mix(0.6, 0.3, uv.y);
+		float ink = title_block(uv, vec3(0.15, 0.04, 0.7), face_aspect);
+		vec3 back = mix(base, v_ink, ink);
+		// A strip of the cover in the lower half, as a back's screenshots would be.
+		vec4 strip = vec4(0.1, 0.56, 0.9, 0.92);
+		if (v_cover.y > 0.0 && uv.x > strip.x && uv.x < strip.z && uv.y > strip.y && uv.y < strip.w) {
+			vec2 local = (uv - strip.xy) / (strip.zw - strip.xy);
+			float strip_aspect = (strip.z - strip.x) / ((strip.w - strip.y) / face_aspect);
+			vec3 art = texture(slots_large, vec3(crop(local, v_cover.y, strip_aspect), v_cover.w)).rgb;
+			back = mix(back, art, v_cover.z);
+		}
+		return back;
+	}
+	if (v_slot == SLOT_LABEL) {
+		vec3 paper = mix(vec3(0.86, 0.87, 0.9), v_plain, 0.12);
+		float ink = title_block(uv, vec3(0.06, 0.5 - 0.44 * face_aspect, 0.88), face_aspect);
+		roughness = 0.6;
+		return mix(paper, vec3(0.03, 0.035, 0.06), ink);
+	}
+	return authored(uv);
+}
+
 void fragment() {
-	vec3 albedo = v_base;
+	vec3 albedo;
 	float roughness = v_roughness;
 	vec2 uv = UV;
 	float face_aspect = max(v_face_aspect, 0.01);
 
-	if (v_face == FACE_COVER) {
-		vec3 plain = plain_face(uv, v_plain);
-		float ink = title_block(uv, vec3(0.1, 0.5 - 0.4 * face_aspect, 0.8), face_aspect);
-		vec3 titled = mix(plain, vec3(0.95), ink);
-		if (v_art_aspect > 0.0) {
-			vec3 art = texture(covers, vec3(crop(uv, v_art_aspect, face_aspect), v_layer)).rgb;
-			// Opaque placeholder-to-cover fade inside the one shader (A3): no blending, no extra variant.
-			albedo = mix(plain * 0.6, art, v_fade);
-		} else {
-			albedo = titled;
+	if (v_slot < 0) {
+		albedo = authored(uv);
+		if (tint_case) {
+			albedo = mix(albedo, v_plain, 0.85);
 		}
-	} else if (v_face == FACE_SPINE) {
-		vec3 base = v_dominant * 0.9;
-		// A darker band at the top, where a real spine carries the platform's logo.
-		base *= uv.y < 0.1 ? 0.3 : 1.0;
-		albedo = mix(base, v_ink, title_spine(uv));
-	} else if (v_face == FACE_BACK) {
-		vec3 base = v_dominant * mix(0.6, 0.3, uv.y);
-		float ink = title_block(uv, vec3(0.15, 0.04, 0.7), face_aspect);
-		albedo = mix(base, v_ink, ink);
-		// A strip of the cover in the lower half, as a back's screenshots would be.
-		vec4 strip = vec4(0.1, 0.56, 0.9, 0.92);
-		if (v_art_aspect > 0.0 && uv.x > strip.x && uv.x < strip.z && uv.y > strip.y && uv.y < strip.w) {
-			vec2 local = (uv - strip.xy) / (strip.zw - strip.xy);
-			float strip_aspect = (strip.z - strip.x) / ((strip.w - strip.y) / face_aspect);
-			vec3 art = texture(covers, vec3(crop(local, v_art_aspect, strip_aspect), v_layer)).rgb;
-			albedo = mix(albedo, art, v_fade);
-		}
-	} else if (v_face == FACE_LABEL) {
-		vec3 paper = mix(vec3(0.86, 0.87, 0.9), v_plain, 0.12);
-		float ink = title_block(uv, vec3(0.06, 0.5 - 0.44 * face_aspect, 0.88), face_aspect);
-		albedo = mix(paper, vec3(0.03, 0.035, 0.06), ink);
-		roughness = 0.6;
-	} else if (tint_case) {
-		albedo = mix(v_base, v_plain, 0.85);
+	} else {
+		bool wants_media = v_state.y > 0.0;
+		vec3 fallback = v_state.x > 0.5 ? generated(uv, face_aspect, wants_media, roughness) : authored(uv);
+		// Opaque fallback-to-media fade inside the one shader (A3): no blending, no extra variant.
+		albedo = wants_media ? mix(fallback, media(uv, face_aspect), v_state.z) : fallback;
 	}
 
 	// The focused item glows a little, as the PS2 browser's selection does.

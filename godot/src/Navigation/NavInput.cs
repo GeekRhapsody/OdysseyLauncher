@@ -21,6 +21,9 @@ public enum NavCommand
     Back,
     Favourite,
     Rescan,
+
+    /// <summary>Switch to the next theme (M6; the settings screen will choose one in M7).</summary>
+    NextTheme,
 }
 
 /// <summary>
@@ -53,6 +56,7 @@ public sealed class NavInput
     private static readonly StringName Back = "nav_back";
     private static readonly StringName Favourite = "nav_favourite";
     private static readonly StringName Rescan = "nav_rescan";
+    private static readonly StringName NextTheme = "nav_next_theme";
 
     private static readonly (StringName Action, NavCommand Command)[] Repeating =
     [
@@ -64,7 +68,7 @@ public sealed class NavInput
     private static readonly (StringName Action, NavCommand Command)[] Presses =
     [
         (Accept, NavCommand.Accept), (Back, NavCommand.Back), (Favourite, NavCommand.Favourite),
-        (First, NavCommand.First), (Last, NavCommand.Last), (Rescan, NavCommand.Rescan),
+        (First, NavCommand.First), (Last, NavCommand.Last), (Rescan, NavCommand.Rescan), (NextTheme, NavCommand.NextTheme),
     ];
 
     private NavCommand _held;
@@ -77,7 +81,7 @@ public sealed class NavInput
 
     /// <summary>
     /// Adds the <c>nav_*</c> actions to the input map, once at boot: arrows, Enter/Space, Escape/Backspace and the
-    /// rest on the keyboard; the D-pad, left stick, A/B/Y, shoulders and triggers on a gamepad.
+    /// rest on the keyboard; the D-pad, left stick, A/B/Y, shoulders, triggers, View and Menu on a gamepad.
     /// </summary>
     public static void RegisterActions()
     {
@@ -95,6 +99,7 @@ public sealed class NavInput
         Add(Back, [Key.Escape, Key.Backspace], [JoyButton.B]);
         Add(Favourite, [Key.F], [JoyButton.Y]);
         Add(Rescan, [Key.F5], [JoyButton.Back]);
+        Add(NextTheme, [Key.T], [JoyButton.Start]);
     }
 
     private static void Add(StringName action, Key[] keys, JoyButton[] buttons, (JoyAxis Axis, float Direction)? axis = null)

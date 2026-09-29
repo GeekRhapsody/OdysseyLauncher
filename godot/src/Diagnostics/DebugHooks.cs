@@ -55,6 +55,9 @@ public partial class DebugHooks : Node
     /// <summary>The 3D render scale in use, for the report.</summary>
     public static double RenderScale { get; set; } = 1;
 
+    /// <summary>The active theme and the games grid's media slots, for the report (M6).</summary>
+    public static (string Theme, string MediaSlots)? Theme { get; set; }
+
     private static DebugHooks? _instance;
 
     public override void _EnterTree()
@@ -311,7 +314,7 @@ public partial class DebugHooks : Node
                     ScreenHeight = screenSize.Y,
                 },
                 Scenario = _options.BenchScenario.ToString().ToLowerInvariant(),
-                Options = new BenchOptions(RenderScale, _options.Upscaler.ToString().ToLowerInvariant(), _options.UploadCap, _options.NoTextures),
+                Options = new BenchOptions(RenderScale, _options.Upscaler.ToString().ToLowerInvariant(), _options.UploadCap, _options.NoTextures, Theme?.Theme, Theme?.MediaSlots),
                 Library = Library,
                 AppStartupMs = Timeline.Between(StartupMarks.AutoloadEnterTree, StartupMarks.Interactive),
                 StartupMs = Timeline.ToDictionary(),

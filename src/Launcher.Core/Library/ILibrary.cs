@@ -38,6 +38,23 @@ public readonly record struct GameRow(
     long CoverSizeBytes = 0,
     long CoverMtimeMs = 0);
 
+/// <summary>One indexed media file: what the grid needs to name its derivative and crop it.</summary>
+/// <param name="Path">Relative to the folder <paramref name="Root"/> names.</param>
+/// <param name="Aspect">Width over height; 0 when unknown (models, and images whose header wasn't read).</param>
+/// <param name="SizeBytes">The file's size when it was indexed; 0 when unknown.</param>
+/// <param name="MtimeMs">The file's modification time (unix ms) when it was indexed; 0 when unknown.</param>
+public readonly record struct MediaRef(MediaRoot Root, string Path, float Aspect, long SizeBytes, long MtimeMs);
+
+/// <summary>A game's media of one kind (<see cref="ILibrary.GetGameMediaAsync(string, IReadOnlyList{string}, CancellationToken)"/>).</summary>
+public readonly record struct GameMediaRow(long GameId, string Kind, MediaRef Media);
+
+/// <summary>Which games' media changed (<see cref="LibraryService.MediaChanged"/>).</summary>
+/// <param name="games">The games whose <c>media</c> rows changed; null when any game's may have (a rebuild), or its derivatives were baked.</param>
+public sealed class MediaChangedEventArgs(IReadOnlyList<GameKey>? games) : EventArgs
+{
+    public IReadOnlyList<GameKey>? Games { get; } = games;
+}
+
 /// <summary>A system's games, visible ones only, already in grid order.</summary>
 public sealed record GameList(string SystemId, IReadOnlyList<GameRow> Games);
 
@@ -157,6 +174,15 @@ public interface ILibrary
 
     /// <summary>Entering a system: one indexed query of compact, pre-sorted rows.</summary>
     Task<GameList> GetGamesAsync(string systemId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// A system's media of the given kinds, for the slots a theme's templates use (M6): one row per game and kind that
+    /// has a file. One indexed query, like <see cref="GetGamesAsync"/>.
+    /// </summary>
+    Task<IReadOnlyList<GameMediaRow>> GetGameMediaAsync(string systemId, IReadOnlyList<string> kinds, CancellationToken cancellationToken);
+
+    /// <summary>The same for chosen games: a virtual system's, or games whose media just changed.</summary>
+    Task<IReadOnlyList<GameMediaRow>> GetGameMediaAsync(IReadOnlyList<long> gameIds, IReadOnlyList<string> kinds, CancellationToken cancellationToken);
 
     Task<IReadOnlyList<VirtualGameRow>> GetFavouritesAsync(CancellationToken cancellationToken);
 

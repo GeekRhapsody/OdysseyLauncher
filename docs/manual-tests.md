@@ -226,3 +226,18 @@ This is the M4 acceptance's live scrape of a 50-game set, and the check of the b
 - Which games were wrong: not found, matched to the wrong game, or with the wrong cover.
 - Any `ss-systems` row that names the wrong console.
 - Whether resume carried on, and anything in the output that looked like a credential.
+
+## M6: themes with a controller
+
+This checks what captures can't: the Menu button switching themes on the real display, the look cross-fading as you enter and leave a system, and a model of your own. It uses the M3 set-up (`C:\OdysseyTest`) with the M5 Mega Drive ROMs.
+
+1. Copy the test theme into the user folder: `Copy-Item -Recurse tests\themes\slot-showcase C:\OdysseyTest\themes\`.
+2. Start the export full screen: `& .\artifacts\export\windows\OdysseyLauncher.exe --fullscreen ++ --user-dir=C:\OdysseyTest`, and use only the gamepad.
+3. **Looks.** Press A on Mega Drive: the background and lights cross-fade to Mega Drive's blue look over about a third of a second while the games come up. B cross-fades back.
+4. **Switching.** On the systems grid, press Menu: "Loading the theme 'slot-showcase'…", then "Theme: Slot Showcase". The cards become square tiles, the background turns plum and teal, and nothing restarts. Enter Mega Drive: the games are tall cases with a screenshot panel; games with no screenshot show a test card there. Menu again (on the systems grid) goes back to Memory Card.
+5. **Your own model.** Quit, copy any `.glb` with a material named `cover` (for example `tests\themes\slot-showcase\models\templates\showcase_case.glb`) to `C:\OdysseyTest\models\games\megadrive\<a ROM's name without its extension>.glb`, start again and press View to rescan. Enter Mega Drive: that one game shows your model, the same height as its neighbours, with its cover on the `cover` material.
+
+### Send back
+
+- Anything that differed: a stutter as a theme switches or a look cross-fades, a look that snaps instead of fading, the wrong model or a missing cover on a game, or a model that isn't the size of its neighbours.
+- The log lines: `Select-String -Path "$env:APPDATA\Godot\app_userdata\Odyssey Launcher\logs\godot.log" -Pattern '^Theme|^Models|^Media|error|warning'`.

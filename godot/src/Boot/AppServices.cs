@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Godot;
 using Launcher.App.Diagnostics;
+using Launcher.App.Theming;
 using Launcher.Core.Config;
 using Launcher.Core.Diagnostics;
 using Launcher.Core.Library;
@@ -19,6 +20,7 @@ namespace Launcher.App.Boot;
 public static class BootMarks
 {
     public const string ConfigLoaded = "config_loaded";
+    public const string ThemeResolved = "theme_resolved";
     public const string LibraryOpened = "library_opened";
     public const string SystemsLoaded = "systems_loaded";
     public const string ModelsLoaded = "models_loaded";
@@ -28,18 +30,22 @@ public static class BootMarks
 }
 
 /// <summary>
-/// Config, paths and the library, loaded off the main thread at boot (A3 boot path, steps 2 and 3) and shared by
-/// everything after. Loading does file and DB I/O, so it only ever runs on the thread pool.
+/// Config, paths, the theme and the library, loaded off the main thread at boot (A3 boot path, steps 2 and 3) and
+/// shared by everything after. Loading does file and DB I/O, so it only ever runs on the thread pool.
 /// </summary>
 public sealed class AppServices : IDisposable
 {
-    private AppServices(PlatformPaths paths, ConfigLoadResult config, LibraryService library, IReadOnlyList<SystemSummary> systems)
+    private AppServices(
+        PlatformPaths paths, ConfigLoadResult config, LibraryService library, IReadOnlyList<SystemSummary> systems,
+        ThemePlan? theme, IReadOnlyList<Launcher.Core.Theming.ThemeSource> builtInThemes)
     {
         Paths = paths;
         Config = config.Config;
         Diagnostics = config.Diagnostics;
         Library = library;
         Systems = systems;
+        Theme = theme;
+        BuiltInThemes = builtInThemes;
     }
 
     public PlatformPaths Paths { get; }
@@ -54,6 +60,15 @@ public sealed class AppServices : IDisposable
     public IReadOnlyList<SystemSummary> Systems { get; set; }
 
     /// <summary>
+    /// The theme in use, resolved for the enabled systems (replaced when the theme is switched). Null in a headless run,
+    /// which only launches.
+    /// </summary>
+    public ThemePlan? Theme { get; set; }
+
+    /// <summary>The app's own themes, read once at boot, for theme switches.</summary>
+    public IReadOnlyList<Launcher.Core.Theming.ThemeSource> BuiltInThemes { get; }
+
+    /// <summary>
     /// Bakes cover derivatives on its own below-normal thread (M4). Built on first use, after <c>interactive</c>, so
     /// its thread costs nothing at boot. Null decoder on platforms without one: nothing is baked there.
     /// </summary>
@@ -64,15 +79,50 @@ public sealed class AppServices : IDisposable
     /// <summary>The root folder a media path is relative to.</summary>
     public string RootOf(MediaRoot root) => root == MediaRoot.Config ? Paths.ConfigDir : Paths.DataDir;
 
-    /// <summary>Thread pool only.</summary>
-    public static async Task<AppServices> LoadAsync(DebugOptions options, string executableDir, CancellationToken cancellationToken)
+    /// <summary>
+    /// Thread pool only. <paramref name="themeResolved"/> is called (on the thread pool) as soon as the theme is, before
+    /// the library opens, so the main thread can start loading its models while the DB opens. Null skips the theme
+    /// (a headless run, which only launches and can quit at once: nothing here then calls into Godot).
+    /// </summary>
+    public static async Task<AppServices> LoadAsync(
+        DebugOptions options, string executableDir, Action<ThemePlan>? themeResolved, CancellationToken cancellationToken)
     {
         var stopwatch = Stopwatch.StartNew();
+
+        // The built-in theme needs no config, so it's read while config loads. (Starting its models' threaded loads
+        // from here too made them finish later, not sooner: docs/perf/m6-themes.md.)
+        Task<(IReadOnlyList<Launcher.Core.Theming.ThemeSource> Sources, Launcher.Core.Theming.ThemeLoadResult Theme)>? builtIn = null;
+        if (themeResolved is not null)
+        {
+            builtIn = Task.Run(() =>
+            {
+                IReadOnlyList<Launcher.Core.Theming.ThemeSource> sources = ThemePlan.BuiltInSources();
+                return (sources, Launcher.Core.Theming.ThemeCatalog.LoadBuiltIn(sources));
+            }, cancellationToken);
+        }
+
         var home = System.Environment.GetFolderPath(System.Environment.SpecialFolder.UserProfile);
         var paths = options.UserDir is { } userDir ? PlatformPaths.InOneFolder(userDir, home) : PlatformPaths.Detect(executableDir);
         var config = new ConfigLoader().Load(ConfigSources.FromDirectory(paths.ConfigDir, paths.HomeDir));
         var configMs = stopwatch.Elapsed.TotalMilliseconds;
         DebugHooks.Timeline.Mark(BootMarks.ConfigLoaded);
+
+        // The theme resolves while the library opens: both are I/O-bound, and the theme's models (loaded as soon as
+        // it's resolved) are then in by the time the DB is.
+        Task<(IReadOnlyList<Launcher.Core.Theming.ThemeSource> BuiltIns, ThemePlan? Plan, double Ms)>? resolving = null;
+        if (themeResolved is not null && builtIn is not null)
+        {
+            var themeId = options.Theme ?? config.Config.Settings.Display.Theme;
+            resolving = Task.Run(async () =>
+            {
+                var clock = Stopwatch.StartNew();
+                var (builtIns, builtInTheme) = await builtIn.ConfigureAwait(false);
+                var plan = ThemePlan.Build(config.Config, paths, themeId, builtIns, builtInTheme);
+                DebugHooks.Timeline.Mark(BootMarks.ThemeResolved);
+                themeResolved(plan);
+                return (builtIns, (ThemePlan?)plan, clock.Elapsed.TotalMilliseconds);
+            }, cancellationToken);
+        }
 
         var library = await LibraryService.OpenAsync(config.Config, paths.DataDir, null, cancellationToken).ConfigureAwait(false);
         library.ConfigDir = paths.ConfigDir;
@@ -82,9 +132,16 @@ public sealed class AppServices : IDisposable
         {
             var systems = await library.GetSystemsAsync(cancellationToken).ConfigureAwait(false);
             DebugHooks.Timeline.Mark(BootMarks.SystemsLoaded);
+            var systemsMs = stopwatch.Elapsed.TotalMilliseconds;
+            var (builtInThemes, theme, themeMs) = resolving is null ? ([], null, 0) : await resolving.ConfigureAwait(false);
             GD.Print(string.Create(CultureInfo.InvariantCulture,
-                $"Boot: config {configMs:0.0} ms, library {libraryMs - configMs:0.0} ms, systems query {stopwatch.Elapsed.TotalMilliseconds - libraryMs:0.0} ms (off the main thread); config in {paths.ConfigDir}, data in {paths.DataDir}"));
+                $"Boot: config {configMs:0.0} ms, then in parallel: theme '{theme?.Active.Id ?? "(headless: none)"}' {themeMs:0.0} ms, library {libraryMs - configMs:0.0} ms and systems query {systemsMs - libraryMs:0.0} ms (off the main thread); config in {paths.ConfigDir}, data in {paths.DataDir}"));
             foreach (var diagnostic in config.Diagnostics)
+            {
+                GD.Print(diagnostic.ToString());
+            }
+
+            foreach (var diagnostic in theme?.Diagnostics ?? [])
             {
                 GD.Print(diagnostic.ToString());
             }
@@ -94,7 +151,7 @@ public sealed class AppServices : IDisposable
                 GD.Print($"Boot: closed {library.ClosedOrphanSessions} play session(s) left open by a crash.");
             }
 
-            return new AppServices(paths, config, library, systems);
+            return new AppServices(paths, config, library, systems, theme, builtInThemes);
         }
         catch
         {

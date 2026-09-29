@@ -4,10 +4,13 @@ using Godot;
 using Launcher.App.Grid;
 using Launcher.Core.Config;
 using Launcher.Core.Library;
+using Launcher.Core.Media;
+using Launcher.Core.Theming;
 
 namespace Launcher.App.Screens;
 
 /// <summary>One card of the systems grid: a configured system, or Favourites or Recently played.</summary>
+/// <param name="Template">The card's model, as an index into the systems grid's templates.</param>
 public sealed record SystemEntry(
     string Id,
     string Name,
@@ -15,7 +18,8 @@ public sealed record SystemEntry(
     Color Colour,
     SystemConfig? System,
     SystemSummary? Summary,
-    VirtualKind Virtual);
+    VirtualKind Virtual,
+    int Template);
 
 public enum VirtualKind
 {
@@ -24,35 +28,20 @@ public enum VirtualKind
     RecentlyPlayed,
 }
 
-/// <summary>Colours for cards and plain boxes. UI choices, not config (M6 themes may override them).</summary>
+/// <summary>
+/// Colours the theme doesn't give: the virtual systems' cards, and a system with no colour in either the active theme
+/// or the built-in one (a user-defined system), which gets one from its id.
+/// </summary>
 public static class Palette
 {
-    private static readonly Dictionary<string, Color> Systems = new(StringComparer.Ordinal)
-    {
-        ["gb"] = new Color("#8A9A5B"),
-        ["gbc"] = new Color("#6B3FA0"),
-        ["gba"] = new Color("#3F3A9E"),
-        ["nes"] = new Color("#A8232E"),
-        ["snes"] = new Color("#6C5BA6"),
-        ["n64"] = new Color("#2F8F4E"),
-        ["gc"] = new Color("#5A4FCF"),
-        ["mastersystem"] = new Color("#B83A3A"),
-        ["megadrive"] = new Color("#1F3E8C"),
-        ["saturn"] = new Color("#4A4F5C"),
-        ["dreamcast"] = new Color("#D06A1E"),
-        ["psx"] = new Color("#7C8594"),
-        ["ps2"] = new Color("#1F3A7A"),
-        ["psp"] = new Color("#3B3E48"),
-    };
-
     public static readonly Color Favourites = new("#C99A2E");
     public static readonly Color RecentlyPlayed = new("#2E8C7A");
 
-    public static Color ForSystem(string id)
+    public static Color ForSystem(Rgb? themeColour, string id)
     {
-        if (Systems.TryGetValue(id, out var colour))
+        if (themeColour is { } colour)
         {
-            return colour;
+            return Color.Color8(colour.R, colour.G, colour.B);
         }
 
         var hash = (uint)StringComparer.Ordinal.GetHashCode(id);
@@ -70,9 +59,11 @@ public static class Palette
     }
 }
 
-/// <summary>The systems grid: every card uses the generic system model, tinted by its colour.</summary>
-public sealed class SystemsSource(IReadOnlyList<SystemEntry> entries, int template) : IGridSource
+/// <summary>The systems grid: each card uses its system's model from the theme, tinted by its colour where the theme says so.</summary>
+public sealed class SystemsSource(IReadOnlyList<SystemEntry> entries, int templateCount) : IGridSource
 {
+    private readonly bool[] _uses = Uses(entries, templateCount);
+
     public IReadOnlyList<SystemEntry> Entries => entries;
 
     public int Count => entries.Count;
@@ -80,52 +71,114 @@ public sealed class SystemsSource(IReadOnlyList<SystemEntry> entries, int templa
     public void Describe(int index, out CellInfo cell)
     {
         var entry = entries[index];
-        cell = new CellInfo { Title = entry.Name, Template = template, Plain = entry.Colour };
+        cell = new CellInfo { Title = entry.Name, Template = entry.Template, Plain = entry.Colour };
     }
 
-    public bool UsesTemplate(int t) => t == template;
+    /// <summary>Systems have no media: their slots show what the theme draws or authored.</summary>
+    public bool TryGetMedia(int index, int slot, out MediaRef media)
+    {
+        media = default;
+        return false;
+    }
+
+    public bool UsesTemplate(int template) => template < _uses.Length && _uses[template];
+
+    private static bool[] Uses(IReadOnlyList<SystemEntry> entries, int count)
+    {
+        var uses = new bool[count];
+        foreach (var entry in entries)
+        {
+            if (entry.Template < count)
+            {
+                uses[entry.Template] = true;
+            }
+        }
+
+        return uses;
+    }
 }
 
 /// <summary>
-/// A grid of games, from one system's list or a virtual one. Built on the thread pool (it works out each game's
-/// letter group for letter jumps), then handed to the main thread.
+/// A grid of games, from one system's list or a virtual one, with each game's media for the slots the theme uses and
+/// its per-game model, if any. Built on the thread pool (it works out each game's letter group for letter jumps),
+/// then handed to the main thread, which binds it to templates (<see cref="BindTemplates"/>) and updates its media
+/// when they change (<see cref="ReplaceMedia"/>).
 /// </summary>
 public sealed class GamesSource : IGridSource
 {
     private readonly GameRow[] _rows;
-    private readonly int[] _templates;
+    private readonly int[] _system;
+    private readonly string[] _systemIds;
     private readonly Color[] _colours;
     private readonly string[] _systemNames;
     private readonly char[] _letters;
-    private readonly bool[] _usesTemplate;
+    private readonly MediaRef[]?[] _media = new MediaRef[]?[MediaSlots.Count];
+    private readonly bool[] _replaces = new bool[MediaSlots.Count];
+    private readonly int[] _model;
+    private readonly List<string> _modelPaths = [];
+    private Dictionary<long, int>? _index;
+    private int[] _systemTemplate = [];
+    private int[] _modelTemplate = [];
+    private bool[] _usesTemplate = [];
 
-    /// <param name="templateOf">A system id's template index in the games grid.</param>
-    private GamesSource(string id, string name, IReadOnlyList<(string SystemId, GameRow Row)> rows, Func<string, int> templateOf, Func<string, string> nameOf, int templateCount)
+    private GamesSource(
+        string id, string name, IReadOnlyList<(string SystemId, GameRow Row)> rows, IReadOnlyList<GameMediaRow> media,
+        IReadOnlyList<string> kinds, Func<string, Color> colourOf, Func<string, string> nameOf)
     {
         Id = id;
         Name = name;
+        Kinds = kinds;
         _rows = new GameRow[rows.Count];
-        _templates = new int[rows.Count];
+        _system = new int[rows.Count];
         _colours = new Color[rows.Count];
         _systemNames = new string[rows.Count];
         _letters = new char[rows.Count];
-        _usesTemplate = new bool[templateCount];
-        var systemColours = new Dictionary<string, Color>(StringComparer.Ordinal);
+        _model = new int[rows.Count];
+        Array.Fill(_model, -1);
+        var systems = new List<string>();
+        var systemColours = new List<Color>();
         for (var i = 0; i < rows.Count; i++)
         {
             var (systemId, row) = rows[i];
             _rows[i] = row;
-            _templates[i] = templateOf(systemId);
-            _usesTemplate[_templates[i]] = true;
-            _systemNames[i] = nameOf(systemId);
-            if (!systemColours.TryGetValue(systemId, out var colour))
+            var system = systems.IndexOf(systemId);
+            if (system < 0)
             {
-                systemColours[systemId] = colour = Palette.ForSystem(systemId);
+                system = systems.Count;
+                systems.Add(systemId);
+                systemColours.Add(colourOf(systemId));
             }
 
-            _colours[i] = Palette.PlainBox(colour, row.GameId);
+            _system[i] = system;
+            _systemNames[i] = nameOf(systemId);
+            _colours[i] = Palette.PlainBox(systemColours[system], row.GameId);
             _letters[i] = LetterOf(row.Title);
         }
+
+        _systemIds = [.. systems];
+
+        // The kinds the theme's chains name come from the media query, which replaces them; the cover also comes with
+        // each row, for a theme whose chains never name it.
+        foreach (var kind in kinds)
+        {
+            if (MediaSlots.IndexOf(kind) is var slot and >= 0)
+            {
+                _media[slot] = new MediaRef[_rows.Length];
+                _replaces[slot] = true;
+            }
+        }
+
+        var cover = _media[MediaSlots.Cover] ??= new MediaRef[_rows.Length];
+        for (var i = 0; i < _rows.Length; i++)
+        {
+            var row = _rows[i];
+            if (row.CoverPath is not null)
+            {
+                cover[i] = new MediaRef(row.CoverRoot, row.CoverPath, row.CoverAspect, row.CoverSizeBytes, row.CoverMtimeMs);
+            }
+        }
+
+        ReplaceMedia(media, null);
     }
 
     /// <summary>The entry id this list belongs to (a system id, or a virtual one).</summary>
@@ -134,6 +187,15 @@ public sealed class GamesSource : IGridSource
     /// <summary>The heading for the grid (the system's name).</summary>
     public string Name { get; }
 
+    /// <summary>The media kinds this list was loaded with (the theme's, when it was built).</summary>
+    public IReadOnlyList<string> Kinds { get; }
+
+    /// <summary>The systems its games come from (one, except in a virtual list).</summary>
+    public IReadOnlyList<string> SystemIds => _systemIds;
+
+    /// <summary>The per-game model files its games use (ConfigDir-relative), each once.</summary>
+    public IReadOnlyList<string> ModelPaths => _modelPaths;
+
     public int Count => _rows.Length;
 
     public GameRow Row(int index) => _rows[index];
@@ -141,7 +203,20 @@ public sealed class GamesSource : IGridSource
     /// <summary>The name of the system the game belongs to, for the overlay.</summary>
     public string SystemName(int index) => _systemNames[index];
 
-    public static GamesSource ForSystem(string id, string name, GameList list, Func<string, int> templateOf, int templateCount)
+    /// <summary>Every game id, for refreshing a virtual list's media.</summary>
+    public long[] GameIds()
+    {
+        var ids = new long[_rows.Length];
+        for (var i = 0; i < ids.Length; i++)
+        {
+            ids[i] = _rows[i].GameId;
+        }
+
+        return ids;
+    }
+
+    public static GamesSource ForSystem(
+        string id, string name, GameList list, IReadOnlyList<GameMediaRow> media, IReadOnlyList<string> kinds, Func<string, Color> colourOf)
     {
         var rows = new (string, GameRow)[list.Games.Count];
         for (var i = 0; i < rows.Length; i++)
@@ -149,10 +224,12 @@ public sealed class GamesSource : IGridSource
             rows[i] = (list.SystemId, list.Games[i]);
         }
 
-        return new GamesSource(id, name, rows, templateOf, _ => name, templateCount);
+        return new GamesSource(id, name, rows, media, kinds, colourOf, _ => name);
     }
 
-    public static GamesSource ForVirtual(string id, string name, IReadOnlyList<VirtualGameRow> list, Func<string, int> templateOf, Func<string, string> nameOf, int templateCount)
+    public static GamesSource ForVirtual(
+        string id, string name, IReadOnlyList<VirtualGameRow> list, IReadOnlyList<GameMediaRow> media, IReadOnlyList<string> kinds,
+        Func<string, Color> colourOf, Func<string, string> nameOf)
     {
         var rows = new (string, GameRow)[list.Count];
         for (var i = 0; i < rows.Length; i++)
@@ -160,23 +237,154 @@ public sealed class GamesSource : IGridSource
             rows[i] = (list[i].SystemId, list[i].Game);
         }
 
-        return new GamesSource(id, name, rows, templateOf, nameOf, templateCount);
+        return new GamesSource(id, name, rows, media, kinds, colourOf, nameOf);
+    }
+
+    /// <summary>
+    /// Main thread: which grid template each of its systems uses, and each per-game model once it has loaded
+    /// (-1 until then: the game shows its system's template meanwhile).
+    /// </summary>
+    public void BindTemplates(Func<string, int> systemTemplate, int templateCount)
+    {
+        _systemTemplate = new int[_systemIds.Length];
+        for (var s = 0; s < _systemIds.Length; s++)
+        {
+            _systemTemplate[s] = systemTemplate(_systemIds[s]);
+        }
+
+        // Per-game models are added to the grid as they load, so their template indices start over.
+        _modelTemplate = new int[_modelPaths.Count];
+        Array.Fill(_modelTemplate, -1);
+        UpdateUses(templateCount);
+    }
+
+    /// <summary>Main thread: a per-game model has loaded as a grid template. Returns the games that use it.</summary>
+    public List<int> SetModelTemplate(int model, int template, int templateCount)
+    {
+        _modelTemplate[model] = template;
+        UpdateUses(templateCount);
+        var games = new List<int>();
+        for (var i = 0; i < _model.Length; i++)
+        {
+            if (_model[i] == model)
+            {
+                games.Add(i);
+            }
+        }
+
+        return games;
+    }
+
+    /// <summary>
+    /// Replaces the media of the games the rows cover (<paramref name="gameIds"/>: those games; null: every game) and
+    /// returns the indices whose media or per-game model changed. Main thread once the source is bound.
+    /// </summary>
+    public List<int> ReplaceMedia(IReadOnlyList<GameMediaRow> rows, IReadOnlyList<long>? gameIds)
+    {
+        if (_index is null)
+        {
+            _index = new Dictionary<long, int>(_rows.Length);
+            for (var i = 0; i < _rows.Length; i++)
+            {
+                _index.TryAdd(_rows[i].GameId, i);
+            }
+        }
+
+        // What the rows say, per game; a game being replaced that has no row of a kind has none of it now.
+        var incoming = new Dictionary<int, (MediaRef[] Slots, string? Model)>();
+        foreach (var row in rows)
+        {
+            if (!_index.TryGetValue(row.GameId, out var i))
+            {
+                continue;
+            }
+
+            if (!incoming.TryGetValue(i, out var entry))
+            {
+                entry = (new MediaRef[MediaSlots.Count], null);
+            }
+
+            if (row.Kind == MediaKinds.Model)
+            {
+                entry.Model = row.Media.Path;
+            }
+            else if (MediaSlots.IndexOf(row.Kind) is var slot and >= 0)
+            {
+                entry.Slots[slot] = row.Media;
+            }
+
+            incoming[i] = entry;
+        }
+
+        var changed = new List<int>();
+        var count = gameIds?.Count ?? _rows.Length;
+        for (var n = 0; n < count; n++)
+        {
+            var i = n;
+            if (gameIds is not null && !_index.TryGetValue(gameIds[n], out i))
+            {
+                continue;
+            }
+
+            incoming.TryGetValue(i, out var entry);
+            var differs = false;
+            for (var slot = 0; slot < MediaSlots.Count; slot++)
+            {
+                if (!_replaces[slot])
+                {
+                    continue;
+                }
+
+                var media = entry.Slots is null ? default : entry.Slots[slot];
+                if (_media[slot]![i] != media)
+                {
+                    _media[slot]![i] = media;
+                    differs = true;
+                }
+            }
+
+            var model = entry.Model is { } path ? ModelIndex(path) : -1;
+            if (model != _model[i])
+            {
+                _model[i] = model;
+                differs = true;
+            }
+
+            if (differs)
+            {
+                changed.Add(i);
+            }
+        }
+
+        if (_modelTemplate.Length != _modelPaths.Count)
+        {
+            var grown = new int[_modelPaths.Count];
+            Array.Fill(grown, -1);
+            Array.Copy(_modelTemplate, grown, _modelTemplate.Length);
+            _modelTemplate = grown;
+        }
+
+        return changed;
     }
 
     public void Describe(int index, out CellInfo cell)
     {
         ref readonly var row = ref _rows[index];
-        cell = new CellInfo
+        var model = _model[index];
+        var template = model >= 0 && _modelTemplate[model] >= 0 ? _modelTemplate[model] : _systemTemplate[_system[index]];
+        cell = new CellInfo { Title = row.Title, Template = template, Plain = _colours[index] };
+    }
+
+    public bool TryGetMedia(int index, int slot, out MediaRef media)
+    {
+        if (_media[slot] is { } kind && kind[index].Path is not null)
         {
-            Title = row.Title,
-            Template = _templates[index],
-            Plain = _colours[index],
-            CoverRoot = row.CoverRoot,
-            CoverPath = row.CoverPath,
-            CoverAspect = row.CoverAspect,
-            CoverSizeBytes = row.CoverSizeBytes,
-            CoverMtimeMs = row.CoverMtimeMs,
-        };
+            media = kind[index];
+            return true;
+        }
+
+        media = default;
+        return false;
     }
 
     public bool UsesTemplate(int template) => template < _usesTemplate.Length && _usesTemplate[template];
@@ -265,6 +473,38 @@ public sealed class GamesSource : IGridSource
         }
 
         return '#';
+    }
+
+    private int ModelIndex(string path)
+    {
+        var index = _modelPaths.IndexOf(path);
+        if (index < 0)
+        {
+            index = _modelPaths.Count;
+            _modelPaths.Add(path);
+        }
+
+        return index;
+    }
+
+    private void UpdateUses(int templateCount)
+    {
+        _usesTemplate = new bool[templateCount];
+        foreach (var template in _systemTemplate)
+        {
+            if (template >= 0 && template < templateCount)
+            {
+                _usesTemplate[template] = true;
+            }
+        }
+
+        foreach (var template in _modelTemplate)
+        {
+            if (template >= 0 && template < templateCount)
+            {
+                _usesTemplate[template] = true;
+            }
+        }
     }
 
     private static char RemoveAccent(char c)

@@ -47,7 +47,9 @@ public class ConfigLoaderTests
             Assert.NotEmpty(system.Extensions);
             Assert.All(system.Extensions, ext => Assert.StartsWith(".", ext, StringComparison.Ordinal));
             Assert.NotNull(system.ScreenScraperId);
-            Assert.Contains(system.GameModel, ConfigLoader.GameModels);
+
+            // The theme decides each system's box (M6); game_model is only the user's choice.
+            Assert.Null(system.GameModel);
         });
 
         // Checked against ScreenScraper's own system pages (see Defaults/systems.toml).
@@ -236,7 +238,7 @@ public class ConfigLoaderTests
         var gamegear = result.Config.Systems[^1];
         Assert.Equal("gamegear", gamegear.Id);
         Assert.Equal([".gg", ".zip"], gamegear.Extensions);
-        Assert.Equal("dvd_case", gamegear.GameModel);
+        Assert.Null(gamegear.GameModel);
         Assert.True(gamegear.Recursive);
     }
 
@@ -624,15 +626,23 @@ public class ConfigLoaderTests
     }
 
     [Fact]
-    public void An_unknown_box_template_is_an_error_with_a_suggestion()
+    public void A_game_model_is_a_template_id_the_theme_resolves_later()
     {
-        var result = Load(systems: """
+        // Themes load after config, so any well-formed id is accepted here; ModelResolver reports one no theme defines.
+        var chosen = Load(systems: """
             [systems.megadrive]
-            game_model = "clamshel"
+            game_model = "tall_case"
             """);
+        Assert.Empty(chosen.Diagnostics);
+        Assert.Equal("tall_case", chosen.Config.FindSystem("megadrive")!.GameModel);
 
-        var error = Single(result, Severity.Error);
-        Assert.Contains("did you mean 'clamshell'?", error.Message, StringComparison.Ordinal);
+        var malformed = Load(systems: """
+            [systems.megadrive]
+            game_model = "Tall Case"
+            """);
+        var error = Single(malformed, Severity.Error);
+        Assert.Equal("systems.megadrive.game_model", error.Key);
+        Assert.Contains("isn't a template id", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]

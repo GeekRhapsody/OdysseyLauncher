@@ -98,9 +98,11 @@ public sealed record BenchGc(
 
 /// <param name="RenderScale">The 3D render scale in use (1 = native).</param>
 /// <param name="Upscaler"><c>bilinear</c> or <c>fsr</c>.</param>
-/// <param name="UploadCap">Most cover uploads in one frame; 0 means no cap.</param>
+/// <param name="UploadCap">Most cover-sized uploads in one frame (a 256² layer counts a quarter); 0 means no cap.</param>
 /// <param name="NoTextures">The no-texture control: covers aren't streamed.</param>
-public sealed record BenchOptions(double RenderScale, string Upscaler, int UploadCap, bool NoTextures);
+/// <param name="Theme">The active theme's id (M6).</param>
+/// <param name="MediaSlots">The games grid's media slots, with their standard sizes: "cover (512²), spine (256²)".</param>
+public sealed record BenchOptions(double RenderScale, string Upscaler, int UploadCap, bool NoTextures, string? Theme = null, string? MediaSlots = null);
 
 /// <param name="Systems">Systems in the systems grid, virtual ones included.</param>
 /// <param name="Games">Games across every system.</param>

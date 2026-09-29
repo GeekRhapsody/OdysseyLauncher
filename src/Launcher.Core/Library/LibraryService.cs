@@ -66,10 +66,19 @@ public sealed class LibraryService : ILibrary, IPlayHistory, IDisposable
     public const int DefaultScanParallelism = 8;
 
     /// <summary>
-    /// The user's ConfigDir, whose <c>media/&lt;system&gt;/&lt;kind&gt;/</c> art scans index (source <c>user</c>). Null
-    /// indexes none and leaves existing rows alone. Set it before scanning.
+    /// The user's ConfigDir, whose <c>media/&lt;system&gt;/&lt;kind&gt;/</c> art and <c>models/games/&lt;system&gt;/</c>
+    /// models scans index (source <c>user</c>). Null indexes none and leaves existing rows alone. Set it before scanning.
     /// </summary>
     public string? ConfigDir { get; set; }
+
+    /// <summary>
+    /// A game's media rows changed: a rescan indexed new or changed user art or models, a scrape saved media, a game
+    /// was cleared, or derivatives were baked (M6). Raised on a worker thread after the change is committed, so the
+    /// grid can rebind the games it shows without reloading their models.
+    /// </summary>
+    public event EventHandler<MediaChangedEventArgs>? MediaChanged;
+
+    internal void RaiseMediaChanged(IReadOnlyList<GameKey>? games) => MediaChanged?.Invoke(this, new MediaChangedEventArgs(games));
 
     /// <summary>Config for the next query or scan. Takes effect at once; rescan to apply new ROM folders.</summary>
     public AppConfig Config
@@ -125,6 +134,24 @@ public sealed class LibraryService : ILibrary, IPlayHistory, IDisposable
     {
         ArgumentNullException.ThrowIfNull(systemId);
         return _readers.RunAsync(c => new GameList(systemId, LibraryStore.GetGames(c, systemId, 256)), cancellationToken);
+    }
+
+    public Task<IReadOnlyList<GameMediaRow>> GetGameMediaAsync(string systemId, IReadOnlyList<string> kinds, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(systemId);
+        ArgumentNullException.ThrowIfNull(kinds);
+        return kinds.Count == 0
+            ? Task.FromResult<IReadOnlyList<GameMediaRow>>([])
+            : _readers.RunAsync<IReadOnlyList<GameMediaRow>>(c => LibraryStore.GetGameMedia(c, systemId, kinds), cancellationToken);
+    }
+
+    public Task<IReadOnlyList<GameMediaRow>> GetGameMediaAsync(IReadOnlyList<long> gameIds, IReadOnlyList<string> kinds, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(gameIds);
+        ArgumentNullException.ThrowIfNull(kinds);
+        return kinds.Count == 0 || gameIds.Count == 0
+            ? Task.FromResult<IReadOnlyList<GameMediaRow>>([])
+            : _readers.RunAsync<IReadOnlyList<GameMediaRow>>(c => LibraryStore.GetGameMedia(c, gameIds, kinds), cancellationToken);
     }
 
     public Task<IReadOnlyList<VirtualGameRow>> GetFavouritesAsync(CancellationToken cancellationToken)
@@ -253,16 +280,22 @@ public sealed class LibraryService : ILibrary, IPlayHistory, IDisposable
             var scans = await Task.Run(() => Scan(systems, caches, configDir, progress, cancellationToken), cancellationToken).ConfigureAwait(false);
             var keepOnly = systemId is null ? config.Systems.Select(s => s.Id).ToHashSet(StringComparer.Ordinal) : null;
             var now = _clock.GetUtcNow().ToUnixTimeMilliseconds();
+            var mediaChanged = new List<GameKey>();
             var summaries = await _writer.RunAsync(
                 c =>
                 {
                     var added = new List<GameKey>();
-                    var written = LibraryStore.Apply(c, scans.Roms, scans.Media, keepOnly, now, added);
+                    var written = LibraryStore.Apply(c, scans.Roms, scans.Media, keepOnly, now, added, mediaChanged);
 
                     // Games that are new to the library get their scraped data back from scraped/responses/ (M4).
                     ScrapedRestore.Apply(c, DataDir, config, added);
                     return written;
                 }, cancellationToken).ConfigureAwait(false);
+            if (mediaChanged.Count > 0)
+            {
+                RaiseMediaChanged(mediaChanged);
+            }
+
             return new ScanSummary(summaries, scans.Diagnostics(), stopwatch.Elapsed);
         }
         finally
@@ -310,6 +343,7 @@ public sealed class LibraryService : ILibrary, IPlayHistory, IDisposable
                 }),
                 CancellationToken.None).ConfigureAwait(false);
             progress?.Report(new JobProgress("swap", 1, 1));
+            RaiseMediaChanged(null);
             return new ScanSummary(summaries, scans.Diagnostics(), stopwatch.Elapsed);
         }
         finally

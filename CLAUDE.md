@@ -19,11 +19,13 @@ A fully 3D game launcher frontend (systems grid → games grid → emulator), st
 | `tools/launch-smoke.ps1` | Runs the app with `--launch` against the fake emulator, in an isolated user folder. |
 | `docs/manual-tests.md` | Checks a script can't observe (window focus with a real emulator). |
 | `tools/core-bench/` | Times Core's config, scan and query paths on self-contained .NET 8 (the export's runtime). Not in the solution. |
-| `tools/synthetic-library/` | Writes a portable user folder with 20 systems and 14,215 games (10,000 on PS2), with covers and BC7 derivatives hardlinked from the M1 spike library (`artifacts/spike-library`). Not in the solution. |
+| `tools/synthetic-library/` | Writes a portable user folder with 20 systems and 14,215 games (10,000 on PS2), with covers and BC7 derivatives hardlinked from the M1 spike library (`artifacts/spike-library`). `--games`, `--others` and `--slots=back,spine,...` (art for more slots) make other libraries. Not in the solution. |
 | `tools/bench-summary.py` | One line per bench run (scroll, textures, memory) from `artifacts/bench/<folder>`. |
 | `tools/scrape-cli/` | `odyssey-scrape`: every scraping operation from the command line (`providers`, `game`, `system`, `missing`, `clear`, `show`, `resume`, `bake`, `scan`, `ss-systems`), for live tests with the owner's credentials. In the solution. |
 | `tests/Launcher.Core.Tests/Scraping/Fixtures/` | Recorded provider responses. Credentials appear as `{{DEVPASSWORD}}`-style placeholders, which the tests' fake HTTP handler fills with fake values. |
-| `godot/src/Tools/`, `godot/scenes/tools/` | The `[Tool]` generator for the built-in models; its output is `godot/assets/models/{templates,systems}/*.glb`. Excluded from exports. |
+| `godot/themes/memory-card/` | The built-in theme: `theme.toml` (looks, templates and each built-in system's colour, template and look) and its models. Every other theme falls back to it. |
+| `tests/themes/` | Themes for tests and captures (`slot-showcase`: a game template with three slots). Copy one into a user folder's `themes/` to use it. |
+| `godot/src/Tools/`, `godot/scenes/tools/` | The `[Tool]` generator for the built-in models; its output is `godot/themes/memory-card/models/{templates,systems}/*.glb`, plus the test theme's `tests/themes/slot-showcase/models/`. Excluded from exports. |
 
 ## Commands (PowerShell, repo root)
 
@@ -41,8 +43,8 @@ A fully 3D game launcher frontend (systems grid → games grid → emulator), st
 | `godot --path godot` | Runs the app windowed. Use `godot --path godot -e` for the editor. |
 | `godot --path godot --export-release "Windows Desktop" $PWD/artifacts/export/windows/OdysseyLauncher.exe` | Exports an ExportRelease build (the preset is in `godot/export_presets.cfg`). **Not `--headless`:** the shader baker needs a rendering device, and a headless export silently bakes nothing (a 49 KB PCK instead of about 2.6 MB). |
 | `.\tools\bench-export.ps1` | Exports, then runs one warm-up plus 5 benched runs of the export and prints the medians. Options: `-SkipExport`, `-Runs`, `-Frames`, `-Resolution`, `-Fullscreen`, `-EngineArgs '--rendering-driver', 'vulkan'`, `-Label`, `-AppArgs "--user-dir=$PWD\artifacts\synthetic", '--bench-scenario=scroll'`, `-TimeoutSeconds`. **Use this for any number you compare with a target**, with nothing else running on the machine. |
-| `godot --headless --path godot res://scenes/tools/generate_box_templates.tscn` | Regenerates the built-in models (deterministic), then `--import`. Commit the `.glb` and `.import` files. `BuiltInModelTests` checks them against the model spec. |
-| `dotnet run --project tools/synthetic-library -c ExportRelease -- "--out=$PWD\artifacts\synthetic" "--covers=$PWD\artifacts\spike-library"` | The synthetic library, for `--user-dir`. About 50 s. |
+| `godot --headless --path godot res://scenes/tools/generate_box_templates.tscn` | Regenerates the built-in theme's models and the test theme's (deterministic), then `--import`. Commit the `.glb` and `.import` files. `BuiltInModelTests` checks them against the model spec. |
+| `dotnet run --project tools/synthetic-library -c ExportRelease -- "--out=$PWD\artifacts\synthetic" "--covers=$PWD\artifacts\spike-library"` | The synthetic library, for `--user-dir`. About 50 s. M6's 3,000-game library with art for four more slots: `"--out=$PWD\artifacts\synthetic-3000" ... --games=2620 --others=20 --slots=back,spine,screenshot,logo`, then copy `tests/themes/slot-showcase` into its `themes/`. |
 | `.\tools\scrape-cli\bin\Debug\net8.0\odyssey-scrape.exe [--user-dir=<folder>] <command>` | Scraping by hand (`help` lists the commands). Without `--user-dir` it uses the app's AppData folders. **Don't run a live scrape yourself:** it needs the owner's credentials, and it's the owner's manual test (`docs/manual-tests.md`). `providers`, `scan`, `show` and `bake` make no network calls. |
 | `python tools/bench-summary.py "artifacts/bench/*-<label>"` | Per-run summary of bench folders. |
 
@@ -66,8 +68,9 @@ godot --path godot --resolution 1280x800 -- --bench=$PWD/artifacts/bench.json --
   - `gc`: GC activity, including `main_thread_allocated_bytes`.
   - `scenario`, `options`, `library`, `memory`, and in the scroll scenario `scroll` (the scroll frames alone, textured fraction, main-thread allocation) and `textures`.
 - **`--bench-scenario=scroll`** enters the biggest system (or `--bench-system=<id>`) and scrolls from the first row to the last in `--bench-scroll-seconds` (default 60, the M1 rate). **`--no-textures`** is the control the hitch target is compared with, in the same session.
-- **`--render-scale=<0.25–1>`** and **`--upscaler=bilinear|fsr`** override the automatic cap of 1080p for 3D (FSR1 needs Forward+). **`--upload-cap=<n>`** sets the covers uploaded per frame (default 8, 0 = no cap).
-- **`--start-system=<id>`** (with **`--start-index=<n>`**) enters a system once interactive, and **`--nav-script=down,right,accept,back,...`** plays navigation commands through the controller's path, one every 30 frames, logging each (`Nav script:`). Use them with `--capture` for transitions, focus and screens.
+- **`--render-scale=<0.25–1>`** and **`--upscaler=bilinear|fsr`** override the automatic cap of 1080p for 3D (FSR1 needs Forward+). **`--upload-cap=<n>`** sets the cover-sized uploads per frame (default 4, a 256² slot layer counting a quarter; 0 = no cap).
+- **`--start-system=<id>`** (with **`--start-index=<n>`**) enters a system once interactive, and **`--nav-script=down,right,accept,back,...`** plays navigation commands through the controller's path, one every 30 frames, logging each (`Nav script:`). Use them with `--capture` for transitions, focus and screens. The steps `theme` (the next theme, applied without a restart) and `rescan` (every system, from any screen) exercise theme switching and media rebinding.
+- **`--theme=<id>`** uses that theme instead of settings.toml's `[display] theme` (a user theme must be in the user folder's `themes/`). **`--no-overlay`** hides the text overlay, whose scrims darken the screen's top and bottom, so a capture shows a look's corners (exact on Forward+, within 2/255 on Mobile: ARCHITECTURE.md A6).
 - **`--launch=<system>/<rel path>`** launches that game once the app is interactive, scanning the system first if the game isn't in the library. It works headless too.
   - **`--user-dir=<folder>`** keeps config, data and cache in that folder (the portable layout), instead of AppData.
   - **`--quit-after-launch`** quits once the game has ended: exit code 0 if it ran, 1 if the launch failed.

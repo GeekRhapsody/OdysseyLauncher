@@ -204,6 +204,13 @@ public sealed class ScrollBench : IDisposable
 
         GD.Print(FormattableString.Invariant(
             $"Scroll bench: {_system}, {_rows - 1} rows in {_options.BenchScrollSeconds} s: mean {frames.MeanMs:0.00} ms, p99 {frames.P99Ms:0.00} ms, {frames.HitchCount} hitches, textured {scroll.TexturedFractionMean:P1}, main thread allocated {allocated} B"));
+        if (_streamer is { } s)
+        {
+            var (largeCount, largeMs, largeMax) = s.LargeUploadStats;
+            var (smallCount, smallMs, smallMax) = s.SmallUploadStats;
+            GD.Print(FormattableString.Invariant(
+                $"Scroll bench: uploads of 512² layers {largeCount} (mean {(largeCount > 0 ? largeMs / largeCount : 0):0.000} ms, max {largeMax:0.0} ms), of 256² layers {smallCount} (mean {(smallCount > 0 ? smallMs / smallCount : 0):0.000} ms, max {smallMax:0.0} ms); slots {s.Layout}"));
+        }
         DebugHooks.CompleteScroll(scroll, textures, new BenchLibrary(_systems, _games, _system, _systemGames));
     }
 

@@ -320,6 +320,11 @@ public sealed class ScrapeService : IDisposable
             }
 
             deleted += ScrapedResponses.Delete(_library.DataDir, game);
+            if (cleared.Found)
+            {
+                _library.RaiseMediaChanged([game]);
+            }
+
             return new ClearResult(cleared.Found, deleted, cleared.SharedUserArt);
         }, cancellationToken).ConfigureAwait(false);
     }
@@ -855,7 +860,9 @@ public sealed class ScrapeService : IDisposable
                     }
 
                     list.Add(new SavedMedia(kind, stored.RelativePath, stored.Width, stored.Height));
-                    if (kind == MediaKinds.Cover)
+
+                    // Any image can fill a theme's slot (M6), so each gets its derivative now.
+                    if (MediaKinds.Images.Contains(kind))
                     {
                         await Derivatives.BakeAsync(MediaRoot.Data, stored.RelativePath, stored.SizeBytes, stored.MtimeMs, cancellationToken).ConfigureAwait(false);
                     }
@@ -890,6 +897,11 @@ public sealed class ScrapeService : IDisposable
 
         var write = new ScrapeWrite(found.Count > 0 ? merge.Metadata() : null, matches, saved, log, status, found, now);
         await _library.WriteAsync(c => ScrapeStore.Save(c, key, write), cancellationToken).ConfigureAwait(false);
+        if (saved.Count > 0)
+        {
+            _library.RaiseMediaChanged([key]);
+        }
+
         return new ScrapeGameResult(key, status, found, saved.Select(s => s.Kind).ToList(), log);
     }
 

@@ -5,6 +5,7 @@ using Launcher.App.Models;
 using Launcher.App.Textures;
 using Launcher.App.Theming;
 using Launcher.Core.Library;
+using Launcher.Core.Theming;
 
 namespace Launcher.App.Grid;
 
@@ -18,19 +19,6 @@ public struct CellInfo
 
     /// <summary>The colour of a box with no art, or of a system card.</summary>
     public Color Plain;
-
-    public MediaRoot CoverRoot;
-
-    /// <summary>The library's own string (relative to the root), or null for no art.</summary>
-    public string? CoverPath;
-
-    /// <summary>The art's width over its height; 0 when unknown.</summary>
-    public float CoverAspect;
-
-    /// <summary>The art file's indexed size and time, for its derivative's key; 0 when unknown (the streamer reads them).</summary>
-    public long CoverSizeBytes;
-
-    public long CoverMtimeMs;
 }
 
 /// <summary>The items a grid shows, in order.</summary>
@@ -38,8 +26,14 @@ public interface IGridSource
 {
     int Count { get; }
 
-    /// <summary>Main thread, while binding a row: must not allocate.</summary>
+    /// <summary>Main thread, while binding: must not allocate.</summary>
     void Describe(int index, out CellInfo cell);
+
+    /// <summary>
+    /// Main thread, while binding: the item's media of the kind in slot number <paramref name="slot"/>
+    /// (<see cref="MediaSlots"/>), if it has one. Must not allocate.
+    /// </summary>
+    bool TryGetMedia(int index, int slot, out MediaRef media);
 
     /// <summary>Whether any item uses the template (so its MultiMesh is drawn at all).</summary>
     bool UsesTemplate(int template);
@@ -48,9 +42,16 @@ public interface IGridSource
 /// <summary>
 /// A virtualised 3D grid (A1 Grid): a pool of cells covering the visible rows plus a margin, re-bound as rows scroll
 /// into view rather than recreated. Each template is one <see cref="MultiMesh"/> with a fixed instance per cell, and
-/// every cell has a fixed layer in the shared cover array and a fixed place in the title atlas. The items never
-/// move to scroll: the grid's root does (one transform), so a frame only touches newly bound rows, the focused
-/// items and fading covers. One <c>_Process</c> drives everything, and nothing in it allocates.
+/// a material of the one item shader (shared by templates with the same authored textures and tint). Every cell has a
+/// fixed layer per slot channel in the streamer's arrays, a row of the slot-state texture and a fixed place in the
+/// title atlas. The items never move to scroll: the grid's root does (one transform), so a frame only touches newly
+/// bound rows, the focused items and fading slots. One <c>Tick</c> drives everything, and nothing in it allocates.
+/// <para>
+/// Each slot of a cell's template walks its fallback chain (A7, M6) against the item's media: the first media kind it
+/// has is requested, and the chain's next <c>generated</c> or <c>authored</c> entry shows until it arrives (or if its
+/// derivative turns out missing, the walk carries on). <see cref="RefreshItem"/> redoes that for one item after its
+/// media changed, keeping its model and every slot whose media is the same.
+/// </para>
 /// </summary>
 public sealed partial class ItemGrid : Node3D, ITextureSink
 {
@@ -65,28 +66,42 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
     private const float FocusLift = 0.55f;
     private const float FocusScale = 1.12f;
     private const float ScrollSmoothTime = 0.11f;
+    private const int Slots = MediaSlots.Count;
 
     private static readonly Transform3D Hidden = new(new Basis(Vector3.Zero, Vector3.Zero, Vector3.Zero), Vector3.Zero);
+    private static readonly Shader ItemShader = GD.Load<Shader>("res://shaders/item.gdshader");
 
-    private readonly IReadOnlyList<ItemMesh> _templates;
     private readonly TextureStreamer? _streamer;
-    private readonly int _maxSlots;
-    private readonly ShaderMaterial _material;
-    private readonly MultiMesh[] _multiMeshes;
-    private readonly MultiMeshInstance3D[] _instances;
+    private readonly int _maxCells;
+    private readonly bool _systemCards;
+    private readonly List<ItemTemplate> _templates = [];
+    private readonly List<bool> _perItem = [];
+    private readonly List<MultiMesh> _multiMeshes = [];
+    private readonly List<MultiMeshInstance3D> _instances = [];
+    private readonly List<ShaderMaterial> _materials = [];
+    private readonly List<ItemTemplate> _materialOwners = [];
+    private readonly List<int> _templateMaterial = [];
+    private readonly List<float> _fit = [];
     private readonly TitleAtlas _atlas;
     private readonly Node3D _root = new() { Name = "Items" };
+    private readonly Image _stateImage;
+    private readonly ImageTexture _stateTexture;
+    private bool _stateDirty;
 
-    // Per pool slot.
-    private readonly int[] _slotItem;
-    private readonly int[] _slotTemplate;
-    private readonly float[] _slotFade;
-    private readonly float[] _slotPhase;
-    private readonly float[] _slotAspect;
-    private readonly bool[] _slotWantsArt;
-    private readonly bool[] _slotTextured;
-    private readonly Color[] _slotPlain;
-    private readonly Transform3D[] _slotBase;
+    // Per pool cell.
+    private readonly int[] _cellItem;
+    private readonly int[] _cellTemplate;
+    private readonly float[] _cellPhase;
+    private readonly Color[] _cellPlain;
+    private readonly Transform3D[] _cellBase;
+
+    // Per pool cell and slot: cell × Slots + slot.
+    private readonly bool[] _wanted;
+    private readonly bool[] _textured;
+    private readonly float[] _fade;
+    private readonly byte[] _fallback;
+    private readonly int[] _next;
+    private readonly MediaRef[] _media;
     private int[] _boundRow = [];
 
     private IGridSource? _source;
@@ -96,6 +111,7 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
     private int _rows;
     private float _pitchX = 1;
     private float _pitchY = 1;
+    private float _cellWidth = 1;
     private float _itemHeight = 1;
     private float _scale = 1;
     private float _viewHeight = 4.4f;
@@ -108,8 +124,8 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
     private float _scrollVelocity;
     private float _targetScroll;
     private int _focus = -1;
-    private int _focusSlot = -1;
-    private int _previousSlot = -1;
+    private int _focusCell = -1;
+    private int _previousCell = -1;
     private float _focusBlend;
     private float _previousBlend;
     private float _focusTime;
@@ -117,69 +133,41 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
     private int _fadingSlots;
     private bool _texturesEnabled = true;
 
-    private float _fade;
+    private float _gridFade;
     private Vector3 _offset;
     private float _zoom = 1;
     private bool _rootDirty = true;
+    private LookColours _background;
 
-    /// <param name="templates">The models this grid can show, indexed by <see cref="CellInfo.Template"/>.</param>
-    /// <param name="streamer">The cover streamer, or null for a grid without art (the systems grid).</param>
+    /// <param name="streamer">The media streamer, or null for a grid without media (the systems grid).</param>
+    /// <param name="systemCards">A grid of system cards: their plain materials can take the system's colour.</param>
     /// <param name="blockSize">The title atlas's block size in pixels.</param>
-    public ItemGrid(IReadOnlyList<ItemMesh> templates, TextureStreamer? streamer, Look look, int maxSlots, int blockSize, bool spines, bool tintCase)
+    public ItemGrid(TextureStreamer? streamer, LookColours background, int maxCells, int blockSize, bool spines, bool systemCards)
     {
         Name = "Grid";
-        _templates = templates;
         _streamer = streamer;
-        _maxSlots = maxSlots;
-        _slotItem = new int[maxSlots];
-        _slotTemplate = new int[maxSlots];
-        _slotFade = new float[maxSlots];
-        _slotPhase = new float[maxSlots];
-        _slotAspect = new float[maxSlots];
-        _slotWantsArt = new bool[maxSlots];
-        _slotTextured = new bool[maxSlots];
-        _slotPlain = new Color[maxSlots];
-        _slotBase = new Transform3D[maxSlots];
-        Array.Fill(_slotItem, -1);
-        Array.Fill(_slotTemplate, -1);
+        _maxCells = maxCells;
+        _systemCards = systemCards;
+        _background = background;
+        _cellItem = new int[maxCells];
+        _cellTemplate = new int[maxCells];
+        _cellPhase = new float[maxCells];
+        _cellPlain = new Color[maxCells];
+        _cellBase = new Transform3D[maxCells];
+        _wanted = new bool[maxCells * Slots];
+        _textured = new bool[maxCells * Slots];
+        _fade = new float[maxCells * Slots];
+        _fallback = new byte[maxCells * Slots];
+        _next = new int[maxCells * Slots];
+        _media = new MediaRef[maxCells * Slots];
+        Array.Fill(_cellItem, -1);
+        Array.Fill(_cellTemplate, -1);
 
-        _atlas = new TitleAtlas(maxSlots, blockSize, spines);
-        _material = new ShaderMaterial { Shader = GD.Load<Shader>("res://shaders/item.gdshader") };
-        look.ApplyTo(_material);
-        _material.SetShaderParameter(ShaderParams.TintCase, tintCase);
-        if (streamer?.Array is { } array)
-        {
-            _material.SetShaderParameter(ShaderParams.Covers, array);
-        }
-
-        _multiMeshes = new MultiMesh[templates.Count];
-        _instances = new MultiMeshInstance3D[templates.Count];
-        for (var t = 0; t < templates.Count; t++)
-        {
-            var multiMesh = new MultiMesh
-            {
-                TransformFormat = MultiMesh.TransformFormatEnum.Transform3D,
-                UseCustomData = true,
-                Mesh = templates[t].Mesh,
-                InstanceCount = maxSlots,
-            };
-            for (var slot = 0; slot < maxSlots; slot++)
-            {
-                multiMesh.SetInstanceTransform(slot, Hidden);
-                multiMesh.SetInstanceCustomData(slot, new Color(slot, 0, 0, 0));
-            }
-
-            _multiMeshes[t] = multiMesh;
-            _instances[t] = new MultiMeshInstance3D
-            {
-                Name = templates[t].Id,
-                Multimesh = multiMesh,
-                MaterialOverride = _material,
-                CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
-                Visible = false,
-            };
-            _root.AddChild(_instances[t]);
-        }
+        // One texel per cell and slot (item.gdshader): the fallback shown without media, the media's aspect (0: none
+        // wanted), its fade, and its layer. Made once; only updated after that.
+        _stateImage = Image.CreateEmpty(Slots, maxCells, false, Image.Format.Rgbaf);
+        _stateTexture = ImageTexture.CreateFromImage(_stateImage);
+        _atlas = new TitleAtlas(maxCells, blockSize, spines);
     }
 
     public int Count => _count;
@@ -188,8 +176,13 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
 
     public int FocusIndex => _focus;
 
+    public int Rows => _rows;
+
     /// <summary>The source currently bound, or null.</summary>
     public IGridSource? Source => _source;
+
+    /// <summary>The templates the grid can show, indexed by <see cref="CellInfo.Template"/>.</summary>
+    public IReadOnlyList<ItemTemplate> Templates => _templates;
 
     /// <summary>Rows of items that fit the view's height (sets the items' size on screen).</summary>
     public float RowsVisible
@@ -201,16 +194,20 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
     /// <summary>0 = shown, 1 = faded into the background (then not drawn at all).</summary>
     public float Fade
     {
-        get => _fade;
+        get => _gridFade;
         set
         {
-            if (_fade == value)
+            if (_gridFade == value)
             {
                 return;
             }
 
-            _fade = value;
-            _material.SetShaderParameter(ShaderParams.GridFade, value);
+            _gridFade = value;
+            foreach (var material in _materials)
+            {
+                material.SetShaderParameter(ShaderParams.GridFade, value);
+            }
+
             Visible = value < 1;
         }
     }
@@ -237,21 +234,163 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
         }
     }
 
-    /// <summary>True once every on-screen cell that has art shows it (the bench's "visible textured").</summary>
+    /// <summary>True once every on-screen slot that wants media shows it (the bench's "visible textured").</summary>
     public bool VisibleTextured { get; private set; }
 
-    /// <summary>The share of on-screen cells with art that show it this frame; 1 when none has art.</summary>
+    /// <summary>The share of on-screen media slots that show their media this frame; 1 when none wants any.</summary>
     public float VisibleTexturedFraction { get; private set; } = 1;
 
-    /// <summary>Whether any on-screen cell wants art this frame.</summary>
+    /// <summary>Whether any on-screen slot wants media this frame.</summary>
     public bool AnyVisibleArt { get; private set; }
 
-    /// <summary>The title atlas and the item root.</summary>
     public override void _Ready()
     {
         AddChild(_atlas);
-        _atlas.ApplyTo(_material);
         AddChild(_root);
+        foreach (var material in _materials)
+        {
+            _atlas.ApplyTo(material);
+        }
+    }
+
+    /// <summary>
+    /// Main thread: replaces every template (a theme was applied). Unbinds everything; bind a source again after.
+    /// </summary>
+    public void SetTemplates(IReadOnlyList<ItemTemplate> templates)
+    {
+        UnbindAll();
+        foreach (var instance in _instances)
+        {
+            instance.QueueFree();
+        }
+
+        _templates.Clear();
+        _perItem.Clear();
+        _multiMeshes.Clear();
+        _instances.Clear();
+        _materials.Clear();
+        _materialOwners.Clear();
+        _templateMaterial.Clear();
+        _fit.Clear();
+        foreach (var template in templates)
+        {
+            AddTemplate(template, perItem: false);
+        }
+    }
+
+    /// <summary>
+    /// Main thread: adds a template, such as a per-game model once it has loaded (A7). A per-item template doesn't
+    /// change the grid's pitch: it's scaled down to fit the cell.
+    /// </summary>
+    public int AddTemplate(ItemTemplate template, bool perItem)
+    {
+        for (var t = 0; t < _templates.Count; t++)
+        {
+            if (_templates[t] == template)
+            {
+                return t;
+            }
+        }
+
+        var material = MaterialFor(template);
+
+        var multiMesh = new MultiMesh
+        {
+            TransformFormat = MultiMesh.TransformFormatEnum.Transform3D,
+            UseCustomData = true,
+            Mesh = template.Mesh,
+            InstanceCount = _maxCells,
+        };
+        for (var cell = 0; cell < _maxCells; cell++)
+        {
+            multiMesh.SetInstanceTransform(cell, Hidden);
+            multiMesh.SetInstanceCustomData(cell, new Color(cell, 0, 0, 0));
+        }
+
+        var instance = new MultiMeshInstance3D
+        {
+            Name = template.Mesh.ResourceName,
+            Multimesh = multiMesh,
+            MaterialOverride = material,
+            CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+            Visible = perItem,
+        };
+        _root.AddChild(instance);
+        _templates.Add(template);
+        _perItem.Add(perItem);
+        _multiMeshes.Add(multiMesh);
+        _instances.Add(instance);
+        _fit.Add(FitOf(template, perItem));
+        return _templates.Count - 1;
+    }
+
+    /// <summary>
+    /// A material for the template: shared with any template whose authored textures and tint are the same (every
+    /// built-in box), since only those differ between them. Binding the texture arrays to one material instead of five
+    /// kept the working set as it was in M5.
+    /// </summary>
+    private ShaderMaterial MaterialFor(ItemTemplate template)
+    {
+        for (var m = 0; m < _materials.Count; m++)
+        {
+            var owner = _materialOwners[m];
+            if (owner.Tint == template.Tint && SameTextures(owner, template))
+            {
+                _templateMaterial.Add(m);
+                return _materials[m];
+            }
+        }
+
+        var material = new ShaderMaterial { Shader = ItemShader };
+        material.SetShaderParameter(ShaderParams.GridFade, _gridFade);
+        material.SetShaderParameter(ShaderParams.TintCase, _systemCards && template.Tint);
+        material.SetShaderParameter(ShaderParams.SlotState, _stateTexture);
+        for (var i = 0; i < ItemTemplate.MaxAuthoredTextures; i++)
+        {
+            if (template.Authored[i] is { } texture)
+            {
+                material.SetShaderParameter(ShaderParams.Authored[i], texture);
+            }
+        }
+
+        _background.ApplyTo(material);
+        if (IsInsideTree())
+        {
+            _atlas.ApplyTo(material);
+        }
+
+        if (_texturesEnabled && _streamer is not null)
+        {
+            SetArrays(material);
+        }
+
+        _materials.Add(material);
+        _materialOwners.Add(template);
+        _templateMaterial.Add(_materials.Count - 1);
+        return material;
+
+        static bool SameTextures(ItemTemplate a, ItemTemplate b)
+        {
+            for (var i = 0; i < ItemTemplate.MaxAuthoredTextures; i++)
+            {
+                if (a.Authored[i] != b.Authored[i])
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+    }
+
+    /// <summary>The look's corners, for items fading into the background (every frame of a look's cross-fade).</summary>
+    public void SetBackground(in LookColours background)
+    {
+        _background = background;
+        foreach (var material in _materials)
+        {
+            background.ApplyTo(material);
+        }
     }
 
     /// <summary>
@@ -282,16 +421,22 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
         {
             var used = source.UsesTemplate(t);
             _instances[t].Visible = used;
-            if (used)
+            if (used && !_perItem[t])
             {
                 width = Math.Max(width, _templates[t].Size.X);
                 height = Math.Max(height, _templates[t].Size.Y);
             }
         }
 
+        _cellWidth = width;
         _pitchX = width * PitchXFactor;
         _pitchY = height * PitchYFactor;
         _itemHeight = height;
+        for (var t = 0; t < _templates.Count; t++)
+        {
+            _fit[t] = FitOf(_templates[t], _perItem[t]);
+        }
+
         // Items are sized so RowsVisible rows fit the height, unless that leaves fewer than PreferredColumns across
         // (wide templates such as jewel cases): then they're sized to fit those columns, and more rows show.
         var usableWidth = _viewHeight * _viewAspect * 0.9f;
@@ -302,14 +447,15 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
         _rows = (_count + _columns - 1) / _columns;
 
         // The pool covers the visible rows plus a margin, or every row when there are fewer; a full pool that
-        // doesn't fit the slots gives up columns.
+        // doesn't fit the cells gives up columns.
         _poolRows = Math.Max(1, Math.Min(Mathf.CeilToInt(rowsShown) + 3, _rows));
-        while (_columns > MinColumns && _columns * _poolRows > _maxSlots)
+        while (_columns > MinColumns && _columns * _poolRows > _maxCells)
         {
             _columns--;
             _rows = (_count + _columns - 1) / _columns;
             _poolRows = Math.Max(1, Math.Min(Mathf.CeilToInt(rowsShown) + 3, _rows));
         }
+
         _boundRow = new int[_poolRows];
         Array.Fill(_boundRow, -1);
 
@@ -318,7 +464,7 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
         _focus = _count == 0 ? -1 : Math.Clamp(focus, 0, _count - 1);
         _targetScroll = _scroll = _focus < 0 ? 0 : _focus / _columns;
         _scrollVelocity = 0;
-        _focusSlot = _previousSlot = -1;
+        _focusCell = _previousCell = -1;
         _focusBlend = _previousBlend = 0;
         _launchTime = -1;
         VisibleTextured = false;
@@ -326,25 +472,45 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
         BindVisibleRows();
     }
 
-    /// <summary>Main thread: hides every item and drops every texture request.</summary>
+    /// <summary>Main thread: hides every item and drops every media request.</summary>
     public void UnbindAll()
     {
-        for (var slot = 0; slot < _maxSlots; slot++)
+        for (var cell = 0; cell < _maxCells; cell++)
         {
-            if (_slotTemplate[slot] >= 0)
-            {
-                _multiMeshes[_slotTemplate[slot]].SetInstanceTransform(slot, Hidden);
-                _slotTemplate[slot] = -1;
-            }
-
-            _slotItem[slot] = -1;
-            _streamer?.Cancel(slot);
+            HideCell(cell);
         }
 
         Array.Fill(_boundRow, -1);
         _fadingSlots = 0;
         _source = null;
         _count = 0;
+    }
+
+    /// <summary>
+    /// Main thread: the item's media (or its template) changed, so its bound cell, if any, walks its slot chains again.
+    /// Its model stays; slots whose media is unchanged keep their layers; a slot whose derivative was missing tries again.
+    /// </summary>
+    public void RefreshItem(int item)
+    {
+        var cell = CellOf(item);
+        if (cell < 0 || _source is null)
+        {
+            return;
+        }
+
+        _source.Describe(item, out var info);
+        var template = Math.Clamp(info.Template, 0, _templates.Count - 1);
+        if (template != _cellTemplate[cell])
+        {
+            _multiMeshes[_cellTemplate[cell]].SetInstanceTransform(cell, Hidden);
+            _cellTemplate[cell] = template;
+            _instances[template].Visible = true;
+            _cellBase[cell] = BaseTransform(template, _cellBase[cell].Origin);
+            SetCellTransform(cell, _cellBase[cell]);
+            WriteCustom(cell);
+        }
+
+        ResolveSlots(cell, item, refresh: true);
     }
 
     /// <summary>Main thread: moves the focus by <paramref name="step"/> items, stopping at the ends of a row for ±1.</summary>
@@ -403,8 +569,6 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
         _rootDirty = true;
     }
 
-    public int Rows => _rows;
-
     /// <summary>The focused item spins up and flies towards the camera (the A7 launch fallback).</summary>
     public void PlayLaunch() => _launchTime = 0;
 
@@ -414,33 +578,54 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
     public void DisableTextures()
     {
         _texturesEnabled = false;
-        for (var slot = 0; slot < _maxSlots; slot++)
+        for (var cell = 0; cell < _maxCells; cell++)
         {
-            _streamer?.Cancel(slot);
-            if (_slotTextured[slot])
+            _streamer?.CancelCell(cell);
+            for (var slot = 0; slot < Slots; slot++)
             {
-                _slotTextured[slot] = false;
-                _slotFade[slot] = 0;
-                WriteCustom(slot);
+                var i = cell * Slots + slot;
+                if (_textured[i])
+                {
+                    _textured[i] = false;
+                    _fade[i] = 0;
+                    WriteState(cell, slot);
+                }
             }
         }
 
-        _material.SetShaderParameter(ShaderParams.Covers, default(Variant));
+        _fadingSlots = 0;
+        foreach (var material in _materials)
+        {
+            material.SetShaderParameter(ShaderParams.SlotsLarge, default(Variant));
+            material.SetShaderParameter(ShaderParams.SlotsSmall, default(Variant));
+        }
     }
 
-    /// <summary>After the cover array is (re)created: points the material at it and re-requests every bound cover.</summary>
+    /// <summary>After the streamer's arrays are (re)created: points the materials at them and re-requests every bound slot.</summary>
     public void EnableTextures()
     {
         _texturesEnabled = true;
-        if (_streamer?.Array is not { } array)
+        if (_streamer is null)
         {
             return;
         }
 
-        _material.SetShaderParameter(ShaderParams.Covers, array);
-        for (var slot = 0; slot < _maxSlots; slot++)
+        foreach (var material in _materials)
         {
-            RequestCover(slot);
+            SetArrays(material);
+        }
+
+        if (_source is null)
+        {
+            return;
+        }
+
+        for (var cell = 0; cell < _maxCells; cell++)
+        {
+            if (_cellItem[cell] >= 0)
+            {
+                ResolveSlots(cell, _cellItem[cell], refresh: true);
+            }
         }
     }
 
@@ -451,9 +636,9 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
     public void BeginWarmUp()
     {
         Visible = true;
-        _material.SetShaderParameter(ShaderParams.GridFade, 1.0f);
         for (var t = 0; t < _templates.Count; t++)
         {
+            _materials[_templateMaterial[t]].SetShaderParameter(ShaderParams.GridFade, 1.0f);
             _instances[t].Visible = true;
             _multiMeshes[t].SetInstanceTransform(0, new Transform3D(Basis.Identity, new Vector3(t * 0.3f, 0, -2)));
         }
@@ -465,12 +650,12 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
     {
         for (var t = 0; t < _templates.Count; t++)
         {
-            _multiMeshes[t].SetInstanceTransform(0, _slotTemplate[0] == t ? _slotBase[0] : Hidden);
+            _multiMeshes[t].SetInstanceTransform(0, _cellTemplate[0] == t ? _cellBase[0] : Hidden);
             _instances[t].Visible = _source?.UsesTemplate(t) ?? false;
+            _materials[_templateMaterial[t]].SetShaderParameter(ShaderParams.GridFade, _gridFade);
         }
 
-        _material.SetShaderParameter(ShaderParams.GridFade, _fade);
-        Visible = _fade < 1;
+        Visible = _gridFade < 1;
     }
 
     /// <summary>The font sizes the title atlas draws at, for the glyph warm-up.</summary>
@@ -479,23 +664,29 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
     /// <summary>Called by the owner each frame (the grid's one per-frame update).</summary>
     public void Tick(float dt)
     {
-        if (_source is null)
+        if (_source is not null)
+        {
+            SmoothScroll(dt);
+            UpdateRoot();
+            BindVisibleRows();
+            UpdateFocus(dt);
+            AnimateFades(dt);
+            MeasureTexturing();
+        }
+        else
         {
             UpdateRoot();
-            _atlas.Flush();
-            return;
         }
 
-        SmoothScroll(dt);
-        UpdateRoot();
-        BindVisibleRows();
-        UpdateFocus(dt);
-        AnimateFades(dt);
         _atlas.Flush();
-        MeasureTexturing();
+        if (_stateDirty)
+        {
+            _stateDirty = false;
+            _stateTexture.Update(_stateImage);
+        }
     }
 
-    /// <summary>Main thread, once per frame, after <see cref="Tick"/>: uploads covers within the budget.</summary>
+    /// <summary>Main thread, once per frame, after <see cref="Tick"/>: uploads media within the budget.</summary>
     public void PumpTextures(long budgetBytes, int cap)
     {
         if (_streamer is not null && _texturesEnabled && _source is not null)
@@ -505,31 +696,33 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
         }
     }
 
-    public void OnLayerReady(int slot)
+    public void OnLayerReady(int cell, int channel)
     {
-        if (_slotItem[slot] < 0 || !_slotWantsArt[slot])
+        var slot = _streamer!.Layout.Slots[channel];
+        var i = cell * Slots + slot;
+        if (_cellItem[cell] < 0 || !_wanted[i] || _textured[i])
         {
             return;
         }
 
-        _slotTextured[slot] = true;
-        if (_slotFade[slot] < 1)
-        {
-            _fadingSlots++;
-        }
+        _textured[i] = true;
+        _fadingSlots++;
     }
 
-    public void OnLayerMissing(int slot)
+    public void OnLayerMissing(int cell, int channel)
     {
-        if (_slotItem[slot] < 0)
+        var item = _cellItem[cell];
+        var slot = _streamer!.Layout.Slots[channel];
+        var i = cell * Slots + slot;
+        if (item < 0 || !_wanted[i] || _source is null || _templates[_cellTemplate[cell]].Chain(slot) is not { } chain)
         {
             return;
         }
 
-        // No derivative yet (baking is M4's): the box shows as it would with no art, title and all.
-        _slotWantsArt[slot] = false;
-        _slotAspect[slot] = 0;
-        WriteCustom(slot);
+        // No derivative yet (or a broken one): carry on down the chain, to the next media kind or the fallback.
+        var media = new SourceMedia(_source, item, true);
+        var resolution = chain.Resolve(_next[i], ref media);
+        Apply(cell, slot, channel, resolution, item);
     }
 
     // ---- Binding --------------------------------------------------------------------------------
@@ -567,119 +760,207 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
         _boundRow[poolRow] = row;
         for (var column = 0; column < _columns; column++)
         {
-            var slot = poolRow * _columns + column;
+            var cell = poolRow * _columns + column;
             var item = row * _columns + column;
-            if (slot == _focusSlot)
+            if (cell == _focusCell)
             {
-                _focusSlot = -1;
+                _focusCell = -1;
             }
 
-            if (slot == _previousSlot)
+            if (cell == _previousCell)
             {
-                _previousSlot = -1;
+                _previousCell = -1;
             }
 
-            if (_slotTextured[slot] && _slotFade[slot] < 1)
-            {
-                _fadingSlots--;
-            }
-
-            _slotTextured[slot] = false;
-            _slotFade[slot] = 0;
             if (item >= _count)
             {
-                HideSlot(slot);
+                HideCell(cell);
                 continue;
             }
 
-            _source!.Describe(item, out var cell);
-            var template = Math.Clamp(cell.Template, 0, _templates.Count - 1);
-            if (_slotTemplate[slot] >= 0 && _slotTemplate[slot] != template)
+            _source!.Describe(item, out var info);
+            var template = Math.Clamp(info.Template, 0, _templates.Count - 1);
+            if (_cellTemplate[cell] >= 0 && _cellTemplate[cell] != template)
             {
-                _multiMeshes[_slotTemplate[slot]].SetInstanceTransform(slot, Hidden);
+                _multiMeshes[_cellTemplate[cell]].SetInstanceTransform(cell, Hidden);
             }
 
-            _slotItem[slot] = item;
-            _slotTemplate[slot] = template;
-            _slotPlain[slot] = cell.Plain;
-            _slotPhase[slot] = item * 2.39996f % Mathf.Tau;
-            _slotWantsArt[slot] = cell.CoverPath is not null;
-            _slotAspect[slot] = cell.CoverPath is null ? 0 : cell.CoverAspect > 0 ? cell.CoverAspect : _templates[template].CoverAspect;
+            _cellItem[cell] = item;
+            _cellTemplate[cell] = template;
+            _cellPlain[cell] = info.Plain;
+            _cellPhase[cell] = item * 2.39996f % Mathf.Tau;
 
             // A grid of one part-filled row is centred; otherwise rows fill from the left.
             var shown = _rows == 1 ? _count : _columns;
             var x = (column - (shown - 1) / 2.0f) * _pitchX;
-            _slotBase[slot] = new Transform3D(Basis.Identity, new Vector3(x, -row * _pitchY - _itemHeight / 2, 0));
-            var multiMesh = _multiMeshes[template];
-            multiMesh.SetInstanceTransform(slot, _slotBase[slot]);
-            WriteCustom(slot);
-            _atlas.SetTitle(slot, cell.Title);
-            if (_slotWantsArt[slot])
+            _cellBase[cell] = BaseTransform(template, new Vector3(x, -row * _pitchY - _itemHeight / 2, 0));
+            _multiMeshes[template].SetInstanceTransform(cell, _cellBase[cell]);
+            WriteCustom(cell);
+            _atlas.SetTitle(cell, info.Title);
+            ResolveSlots(cell, item, refresh: false);
+        }
+    }
+
+    /// <summary>
+    /// Walks each of the cell's template slots down its chain against the item's media. On a refresh, a slot whose
+    /// media is the same as before keeps its layer (and its request in flight).
+    /// </summary>
+    private void ResolveSlots(int cell, int item, bool refresh)
+    {
+        var template = _templates[_cellTemplate[cell]];
+        for (var slot = 0; slot < Slots; slot++)
+        {
+            var i = cell * Slots + slot;
+            if (template.Chain(slot) is not { } chain)
             {
-                if (_texturesEnabled && _streamer?.Array is not null)
+                ClearSlot(cell, slot);
+                continue;
+            }
+
+            // A slot the grid has no layers for (a per-game model's slot the theme never fills) shows its fallback.
+            var channel = _streamer is null ? -1 : _streamer.Layout.ChannelOf(slot);
+            var media = new SourceMedia(_source!, item, channel >= 0);
+            var resolution = chain.Resolve(0, ref media);
+            if (refresh && resolution.MediaSlot >= 0 && _wanted[i]
+                && _source!.TryGetMedia(item, resolution.MediaSlot, out var current) && current == _media[i])
+            {
+                if (!_textured[i] && _texturesEnabled && _streamer?.HasArrays == true)
                 {
-                    _streamer.Request(slot, row, cell.CoverRoot, cell.CoverPath!, cell.CoverSizeBytes, cell.CoverMtimeMs);
+                    _streamer.Request(cell, channel, item / _columns, _media[i]);
                 }
+
+                continue;
             }
-            else
+
+            Apply(cell, slot, channel, resolution, item);
+        }
+    }
+
+    /// <summary>Shows a resolution in a cell's slot: requests its media, or shows its fallback.</summary>
+    private void Apply(int cell, int slot, int channel, SlotResolution resolution, int item)
+    {
+        var i = cell * Slots + slot;
+        if (_textured[i] && _fade[i] < 1)
+        {
+            _fadingSlots--;
+        }
+
+        _textured[i] = false;
+        _fade[i] = 0;
+        _fallback[i] = resolution.Fallback == SlotSourceKind.Generated ? (byte)1 : (byte)0;
+        _next[i] = resolution.Next;
+        if (resolution.MediaSlot >= 0 && _source!.TryGetMedia(item, resolution.MediaSlot, out var media))
+        {
+            _wanted[i] = true;
+            _media[i] = media;
+            if (_texturesEnabled && _streamer?.HasArrays == true)
             {
-                _streamer?.Cancel(slot);
+                _streamer.Request(cell, channel, item / _columns, media);
             }
         }
-    }
-
-    private void RequestCover(int slot)
-    {
-        if (_slotItem[slot] < 0 || !_slotWantsArt[slot] || _slotTextured[slot] || _source is null || _streamer is null)
+        else
         {
-            return;
+            _wanted[i] = false;
+            _media[i] = default;
+            if (channel >= 0)
+            {
+                _streamer?.Cancel(cell, channel);
+            }
         }
 
-        _source.Describe(_slotItem[slot], out var cell);
-        if (cell.CoverPath is not null)
-        {
-            _streamer.Request(slot, _slotItem[slot] / _columns, cell.CoverRoot, cell.CoverPath, cell.CoverSizeBytes, cell.CoverMtimeMs);
-        }
+        WriteState(cell, slot);
     }
 
-    private void HideSlot(int slot)
+    private void ClearSlot(int cell, int slot)
     {
-        if (_slotTemplate[slot] >= 0)
+        var i = cell * Slots + slot;
+        if (_textured[i] && _fade[i] < 1)
         {
-            _multiMeshes[_slotTemplate[slot]].SetInstanceTransform(slot, Hidden);
-            _slotTemplate[slot] = -1;
+            _fadingSlots--;
         }
 
-        _slotItem[slot] = -1;
-        _slotWantsArt[slot] = false;
-        _streamer?.Cancel(slot);
+        _wanted[i] = false;
+        _textured[i] = false;
+        _fade[i] = 0;
+        _media[i] = default;
     }
 
-    private void WriteCustom(int slot)
+    private void HideCell(int cell)
     {
-        var template = _slotTemplate[slot];
+        if (_cellTemplate[cell] >= 0)
+        {
+            _multiMeshes[_cellTemplate[cell]].SetInstanceTransform(cell, Hidden);
+            _cellTemplate[cell] = -1;
+        }
+
+        _cellItem[cell] = -1;
+        for (var slot = 0; slot < Slots; slot++)
+        {
+            ClearSlot(cell, slot);
+        }
+
+        _streamer?.CancelCell(cell);
+    }
+
+    private void SetArrays(ShaderMaterial material)
+    {
+        material.SetShaderParameter(ShaderParams.SlotsLarge, _streamer?.Large is { } large ? large : default(Variant));
+        material.SetShaderParameter(ShaderParams.SlotsSmall, _streamer?.Small is { } small ? small : default(Variant));
+    }
+
+    /// <summary>One texel per cell and slot: (fallback: 1 generated, 0 authored; media aspect or 0; fade; layer).</summary>
+    private void WriteState(int cell, int slot)
+    {
+        var i = cell * Slots + slot;
+        var aspect = 0f;
+        var layer = 0f;
+        if (_wanted[i])
+        {
+            aspect = _media[i].Aspect > 0 ? _media[i].Aspect : _templates[_cellTemplate[cell]].SlotAspect(slot);
+            var channel = _streamer!.Layout.ChannelOf(slot);
+            layer = _streamer.Layout.LayerOf(cell, channel);
+        }
+
+        _stateImage.SetPixel(slot, cell, new Color(_fallback[i], aspect, _textured[i] ? _fade[i] : 0, layer));
+        _stateDirty = true;
+    }
+
+    private void WriteCustom(int cell)
+    {
+        var template = _cellTemplate[cell];
         if (template < 0)
         {
             return;
         }
 
-        // See item.gdshader: the layer and fade share a channel, and the plain colour is packed into one.
-        var phase = slot == _focusSlot ? -1 : _slotPhase[slot];
-        var plain = _slotPlain[slot];
+        // See item.gdshader: the cell, the plain colour packed into one channel, and the idle phase (-1: focused).
+        var phase = cell == _focusCell ? -1 : _cellPhase[cell];
+        var plain = _cellPlain[cell];
         var packed = (Math.Clamp(plain.R8, 0, 255) << 16) | (Math.Clamp(plain.G8, 0, 255) << 8) | Math.Clamp(plain.B8, 0, 255);
-        _multiMeshes[template].SetInstanceCustomData(slot, new Color(slot + _slotFade[slot] * 0.999f, packed, phase, _slotAspect[slot]));
+        _multiMeshes[template].SetInstanceCustomData(cell, new Color(cell, packed, phase, 0));
     }
 
-    private int SlotOf(int item)
+    private int CellOf(int item)
     {
-        if (item < 0 || _columns == 0)
+        if (item < 0 || _columns == 0 || _boundRow.Length == 0)
         {
             return -1;
         }
 
         var row = item / _columns;
         var poolRow = row % _poolRows;
-        return _boundRow.Length > 0 && _boundRow[poolRow] == row ? poolRow * _columns + item % _columns : -1;
+        return _boundRow[poolRow] == row ? poolRow * _columns + item % _columns : -1;
+    }
+
+    /// <summary>A per-item model is scaled down to the cell; theme templates set the cell, so they're drawn as they are.</summary>
+    private float FitOf(ItemTemplate template, bool perItem) => perItem
+        ? Math.Min(1, Math.Min(_cellWidth / Math.Max(template.Size.X, 0.01f), _itemHeight / Math.Max(template.Size.Y, 0.01f)))
+        : 1;
+
+    private Transform3D BaseTransform(int template, Vector3 origin)
+    {
+        var fit = _fit[template];
+        return new Transform3D(Basis.Identity.Scaled(new Vector3(fit, fit, fit)), origin);
     }
 
     // ---- Motion ---------------------------------------------------------------------------------
@@ -723,36 +1004,36 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
 
     private void UpdateFocus(float dt)
     {
-        var slot = SlotOf(_focus);
-        if (slot != _focusSlot)
+        var cell = CellOf(_focus);
+        if (cell != _focusCell)
         {
-            if (_focusSlot >= 0)
+            if (_focusCell >= 0)
             {
-                if (_previousSlot >= 0)
+                if (_previousCell >= 0)
                 {
-                    SetSlotTransform(_previousSlot, _slotBase[_previousSlot]);
+                    SetCellTransform(_previousCell, _cellBase[_previousCell]);
                 }
 
-                _previousSlot = _focusSlot;
+                _previousCell = _focusCell;
                 _previousBlend = _focusBlend;
             }
 
-            _focusSlot = slot;
+            _focusCell = cell;
             _focusBlend = 0;
             _focusTime = 0;
-            if (_previousSlot >= 0)
+            if (_previousCell >= 0)
             {
-                WriteCustom(_previousSlot);
+                WriteCustom(_previousCell);
             }
 
-            if (_focusSlot >= 0)
+            if (_focusCell >= 0)
             {
-                WriteCustom(_focusSlot);
+                WriteCustom(_focusCell);
             }
         }
 
         _focusTime += dt;
-        if (_focusSlot >= 0)
+        if (_focusCell >= 0)
         {
             _focusBlend = Math.Min(1, _focusBlend + dt * FocusBlendPerSecond);
             var launch = 0f;
@@ -762,16 +1043,16 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
                 launch = Math.Min(1, _launchTime / 0.7f);
             }
 
-            SetSlotTransform(_focusSlot, FocusTransform(_focusSlot, _focusBlend, _focusTime, launch));
+            SetCellTransform(_focusCell, FocusTransform(_focusCell, _focusBlend, _focusTime, launch));
         }
 
-        if (_previousSlot >= 0)
+        if (_previousCell >= 0)
         {
             _previousBlend = Math.Max(0, _previousBlend - dt * FocusBlendPerSecond);
-            SetSlotTransform(_previousSlot, FocusTransform(_previousSlot, _previousBlend, 0, 0));
+            SetCellTransform(_previousCell, FocusTransform(_previousCell, _previousBlend, 0, 0));
             if (_previousBlend <= 0)
             {
-                _previousSlot = -1;
+                _previousCell = -1;
             }
         }
     }
@@ -780,7 +1061,7 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
     /// The focused item lifts towards the camera, grows a little and sways to show its spine; launching spins it up
     /// and flies it forward.
     /// </summary>
-    private Transform3D FocusTransform(int slot, float blend, float time, float launch)
+    private Transform3D FocusTransform(int cell, float blend, float time, float launch)
     {
         var eased = blend * blend * (3 - 2 * blend);
         var scale = 1 + (FocusScale - 1) * eased;
@@ -794,21 +1075,22 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
             scale += e * 0.3f;
         }
 
-        var basis = new Basis(Vector3.Up, angle).Scaled(new Vector3(scale, scale, scale));
+        var fit = _fit[_cellTemplate[cell]];
+        var basis = new Basis(Vector3.Up, angle).Scaled(new Vector3(scale * fit, scale * fit, scale * fit));
         // Coming towards the camera, an item would drift outwards in perspective (off screen at the edge columns), so
         // it's pulled in to stay where it was on screen; launching, it flies towards the middle.
         var toCamera = Math.Clamp(1 - lift * _scale * _zoom / _cameraDistance, 0.2f, 1);
-        var baseOrigin = _slotBase[slot].Origin;
+        var baseOrigin = _cellBase[cell].Origin;
         var origin = new Vector3(baseOrigin.X * toCamera, baseOrigin.Y + _itemHeight / 2 * (1 - scale), baseOrigin.Z + lift);
         return new Transform3D(basis, origin);
     }
 
-    private void SetSlotTransform(int slot, Transform3D transform)
+    private void SetCellTransform(int cell, Transform3D transform)
     {
-        var template = _slotTemplate[slot];
+        var template = _cellTemplate[cell];
         if (template >= 0)
         {
-            _multiMeshes[template].SetInstanceTransform(slot, transform);
+            _multiMeshes[template].SetInstanceTransform(cell, transform);
         }
     }
 
@@ -821,17 +1103,17 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
         }
 
         var step = dt / FadeSeconds;
-        for (var slot = 0; slot < _maxSlots; slot++)
+        for (var i = 0; i < _textured.Length; i++)
         {
-            if (_slotTextured[slot] && _slotFade[slot] < 1)
+            if (_textured[i] && _fade[i] < 1)
             {
-                _slotFade[slot] = Math.Min(1, _slotFade[slot] + step);
-                if (_slotFade[slot] >= 1)
+                _fade[i] = Math.Min(1, _fade[i] + step);
+                if (_fade[i] >= 1)
                 {
                     _fadingSlots--;
                 }
 
-                WriteCustom(slot);
+                WriteState(i / Slots, i % Slots);
             }
         }
     }
@@ -854,16 +1136,22 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
 
             for (var column = 0; column < _columns; column++)
             {
-                var slot = poolRow * _columns + column;
-                if (_slotItem[slot] < 0 || !_slotWantsArt[slot])
+                var cell = poolRow * _columns + column;
+                if (_cellItem[cell] < 0)
                 {
                     continue;
                 }
 
-                wanting++;
-                if (_slotTextured[slot])
+                for (var i = cell * Slots; i < (cell + 1) * Slots; i++)
                 {
-                    textured++;
+                    if (_wanted[i])
+                    {
+                        wanting++;
+                        if (_textured[i])
+                        {
+                            textured++;
+                        }
+                    }
                 }
             }
         }
@@ -874,5 +1162,14 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
         {
             VisibleTextured = true;
         }
+    }
+
+    /// <summary>
+    /// What media an item has, for <see cref="SlotChain.Resolve"/>: a struct, so resolving allocates nothing. With no
+    /// layers for the slot, nothing counts, so the chain ends at its fallback.
+    /// </summary>
+    private readonly struct SourceMedia(IGridSource source, int item, bool canShow) : IMediaAvailability
+    {
+        public bool Has(int slot) => canShow && source.TryGetMedia(item, slot, out _);
     }
 }

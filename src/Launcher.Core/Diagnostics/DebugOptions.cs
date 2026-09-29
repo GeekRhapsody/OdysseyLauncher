@@ -45,6 +45,8 @@ public sealed record DebugOptions
     public const string LaunchArg = "--launch";
     public const string UserDirArg = "--user-dir";
     public const string QuitAfterLaunchArg = "--quit-after-launch";
+    public const string ThemeArg = "--theme";
+    public const string NoOverlayArg = "--no-overlay";
 
     public const int DefaultCaptureFrame = 60;
     public const int DefaultBenchFrames = 600;
@@ -52,33 +54,35 @@ public sealed record DebugOptions
     public const double DefaultBenchScrollSeconds = 60;
 
     /// <summary>
-    /// Cover uploads in one frame, at most (ARCHITECTURE.md A3). M1 proposed 8, because a few of its hitch frames
-    /// followed a burst of uploads.
+    /// Cover-sized uploads in one frame, at most (ARCHITECTURE.md A3; a 256² slot layer counts a quarter). M1 proposed
+    /// 8, because a few of its hitch frames followed a burst of uploads. M6 measured bursts of 5 to 8 covers in a
+    /// frame (a whole row) making single uploads take 14–21 ms; at 4 the longest was 1 ms, still 100% textured.
     /// </summary>
-    public const int DefaultUploadCap = 8;
+    public const int DefaultUploadCap = 4;
 
     private static readonly string[] KnownArgs =
     [
         CaptureArg, CaptureFrameArg, BenchArg, BenchFramesArg, BenchScenarioArg, BenchSystemArg, BenchScrollSecondsArg,
         NoTexturesArg, RenderScaleArg, UpscalerArg, UploadCapArg, StartSystemArg, StartIndexArg, NavScriptArg, LaunchArg,
-        UserDirArg, QuitAfterLaunchArg,
+        UserDirArg, QuitAfterLaunchArg, ThemeArg, NoOverlayArg,
     ];
 
     /// <summary>
-    /// The steps <c>--nav-script</c> takes: the navigation commands (as the controller sends them), and
-    /// <c>wait</c>, which does nothing for a step.
+    /// The steps <c>--nav-script</c> takes: the navigation commands (as the controller sends them), <c>theme</c> (the
+    /// next theme, as T does), <c>rescan</c> (every system, from any screen, so a capture can show media changing),
+    /// and <c>wait</c>, which does nothing for a step.
     /// </summary>
     public static IReadOnlyList<string> NavScriptSteps { get; } =
     [
         "up", "down", "left", "right", "pageup", "pagedown", "letterprevious", "letternext", "first", "last",
-        "accept", "back", "favourite", "wait",
+        "accept", "back", "favourite", "theme", "rescan", "wait",
     ];
 
     /// <summary>Frames between <c>--nav-script</c> steps: long enough for a transition to finish.</summary>
     public const int NavScriptStepFrames = 30;
 
     /// <summary>Arguments that are switches, with no value.</summary>
-    private static readonly string[] FlagArgs = [QuitAfterLaunchArg, NoTexturesArg];
+    private static readonly string[] FlagArgs = [QuitAfterLaunchArg, NoTexturesArg, NoOverlayArg];
 
     public static DebugOptions None { get; } = new();
 
@@ -139,6 +143,15 @@ public sealed record DebugOptions
 
     /// <summary>Quit once the <c>--launch</c> game has ended: exit code 0 if it ran, 1 if the launch failed.</summary>
     public bool QuitAfterLaunch { get; init; }
+
+    /// <summary><c>--theme</c>: use this theme id for the run instead of settings.toml's <c>[display] theme</c>; null for that.</summary>
+    public string? Theme { get; init; }
+
+    /// <summary>
+    /// <c>--no-overlay</c>: hide the text overlay, whose scrims darken the top and bottom of the screen, so a capture
+    /// shows the look's corners exactly.
+    /// </summary>
+    public bool NoOverlay { get; init; }
 
     public bool CaptureRequested => CapturePath is not null;
 
@@ -203,6 +216,8 @@ public sealed record DebugOptions
                 LaunchArg => ParseLaunch(options, value, errors),
                 UserDirArg => options with { UserDir = ParsePath(name, value, null, errors) },
                 QuitAfterLaunchArg => options with { QuitAfterLaunch = true },
+                ThemeArg => options with { Theme = ParseId(name, value, errors) },
+                NoOverlayArg => options with { NoOverlay = true },
                 _ => options,
             };
         }
@@ -353,7 +368,7 @@ public sealed record DebugOptions
             return value;
         }
 
-        errors.Add($"{name} needs a system id, e.g. {Example(name)}; got '{value}'.");
+        errors.Add($"{name} needs {(name == ThemeArg ? "a theme" : "a system")} id, e.g. {Example(name)}; got '{value}'.");
         return null;
     }
 
@@ -372,6 +387,7 @@ public sealed record DebugOptions
         NavScriptArg => $"{NavScriptArg}=down,right,accept,back",
         LaunchArg => $"{LaunchArg}=megadrive/Sonic the Hedgehog (USA, Europe).md",
         UserDirArg => $"{UserDirArg}=C:/OdysseyTest",
+        ThemeArg => $"{ThemeArg}=slot-showcase",
         _ => $"{BenchFramesArg}={DefaultBenchFrames}",
     };
 }

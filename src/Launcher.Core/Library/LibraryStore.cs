@@ -134,6 +134,72 @@ internal static class LibraryStore
         return games;
     }
 
+    private const string GameMediaColumns = "m.game_id, m.kind, m.path, m.source, m.width, m.height, m.size_bytes, m.mtime_ms";
+
+    /// <summary>Through <c>games_by_system</c>, then each game's <c>media</c> rows by primary key.</summary>
+    public static List<GameMediaRow> GetGameMedia(SqliteConnection connection, string systemId, IReadOnlyList<string> kinds)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = $"""
+            SELECT {GameMediaColumns} FROM games g JOIN media m ON m.game_id = g.game_id
+            WHERE g.system_id = $system AND m.kind IN ({KindParameters(command, kinds)})
+            """;
+        command.Parameters.AddWithValue("$system", systemId);
+        var rows = new List<GameMediaRow>();
+        ReadGameMedia(command, rows);
+        return rows;
+    }
+
+    public static List<GameMediaRow> GetGameMedia(SqliteConnection connection, IReadOnlyList<long> gameIds, IReadOnlyList<string> kinds)
+    {
+        const int Chunk = 500;
+        var rows = new List<GameMediaRow>();
+        for (var start = 0; start < gameIds.Count; start += Chunk)
+        {
+            using var command = connection.CreateCommand();
+            var ids = new string[Math.Min(Chunk, gameIds.Count - start)];
+            for (var i = 0; i < ids.Length; i++)
+            {
+                ids[i] = "$g" + i.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                command.Parameters.AddWithValue(ids[i], gameIds[start + i]);
+            }
+
+            command.CommandText = $"""
+                SELECT {GameMediaColumns} FROM media m
+                WHERE m.game_id IN ({string.Join(", ", ids)}) AND m.kind IN ({KindParameters(command, kinds)})
+                """;
+            ReadGameMedia(command, rows);
+        }
+
+        return rows;
+    }
+
+    private static string KindParameters(SqliteCommand command, IReadOnlyList<string> kinds)
+    {
+        var names = new string[kinds.Count];
+        for (var i = 0; i < kinds.Count; i++)
+        {
+            names[i] = "$k" + i.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            command.Parameters.AddWithValue(names[i], kinds[i]);
+        }
+
+        return string.Join(", ", names);
+    }
+
+    private static void ReadGameMedia(SqliteCommand command, List<GameMediaRow> rows)
+    {
+        using var reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            rows.Add(new GameMediaRow(reader.GetInt64(0), reader.GetString(1), new MediaRef(
+                RootOf(reader.GetString(3)),
+                reader.GetString(2),
+                Aspect(reader, 4),
+                reader.IsDBNull(6) ? 0 : reader.GetInt64(6),
+                reader.IsDBNull(7) ? 0 : reader.GetInt64(7))));
+        }
+    }
+
     public static List<VirtualGameRow> GetFavourites(SqliteConnection connection, AppConfig config) =>
         ReadVirtual(connection, FavouritesSql, null, config);
 
@@ -495,20 +561,22 @@ internal static class LibraryStore
     /// <param name="media">The user art found for each scan, at the same index; null entries (or a null list) leave art alone.</param>
     /// <param name="keepOnly">When set, systems not in this set are deleted (a full rescan).</param>
     /// <param name="added">When set, collects the games this scan added (their scraped data is restored after, M4).</param>
+    /// <param name="mediaChanged">When set, collects the games whose user art or model rows changed (M6).</param>
     public static List<SystemScanSummary> Apply(
         SqliteConnection connection,
         IReadOnlyList<SystemScan> scans,
         IReadOnlyList<UserMediaScan?>? media,
         IReadOnlySet<string>? keepOnly,
         long now,
-        List<GameKey>? added = null)
+        List<GameKey>? added = null,
+        List<GameKey>? mediaChanged = null)
     {
         var summaries = new List<SystemScanSummary>(scans.Count);
         using var transaction = connection.BeginTransaction();
         using var statements = new Statements(connection, transaction);
         for (var i = 0; i < scans.Count; i++)
         {
-            summaries.Add(ApplyOne(connection, transaction, statements, scans[i], media?[i], now, added));
+            summaries.Add(ApplyOne(connection, transaction, statements, scans[i], media?[i], now, added, mediaChanged));
         }
 
         if (keepOnly is not null)
@@ -544,7 +612,7 @@ internal static class LibraryStore
 
     private static SystemScanSummary ApplyOne(
         SqliteConnection connection, SqliteTransaction transaction, Statements s, SystemScan scan, UserMediaScan? media, long now,
-        List<GameKey>? addedKeys)
+        List<GameKey>? addedKeys, List<GameKey>? mediaChanged)
     {
         var system = scan.SystemId;
         s.Bind(s.InsertSystem, ("$system", system));
@@ -652,7 +720,7 @@ internal static class LibraryStore
         ApplyPlaylists(connection, transaction, s, system, scan.Playlists);
         if (media is not null)
         {
-            ApplyUserMedia(connection, transaction, system, media);
+            ApplyUserMedia(connection, transaction, system, media, mediaChanged);
         }
 
         s.Bind(s.UpdateSystem, ("$system", system), ("$now", now));
@@ -704,9 +772,10 @@ internal static class LibraryStore
     /// Makes the system's <c>source = 'user'</c> media rows match the art found on disk. A file matches the game whose
     /// <c>path_key</c> is its match key; otherwise every game whose <c>path_key</c> is its match key plus an
     /// extension. The user's art replaces a scraped row of the same kind; removing it leaves no row until the next
-    /// scrape (M4) restores the scraped one.
+    /// scrape (M4) restores the scraped one. Per-game models (kind <c>model</c>) are matched the same way.
     /// </summary>
-    private static void ApplyUserMedia(SqliteConnection connection, SqliteTransaction transaction, string system, UserMediaScan media)
+    private static void ApplyUserMedia(
+        SqliteConnection connection, SqliteTransaction transaction, string system, UserMediaScan media, List<GameKey>? changed)
     {
         var existing = new Dictionary<(long GameId, string Kind), MediaRow>();
         using (var select = connection.CreateCommand())
@@ -736,6 +805,7 @@ internal static class LibraryStore
         }
 
         var byKey = new Dictionary<string, long>(StringComparer.Ordinal);
+        var keyOf = new Dictionary<long, string>();
         var byStem = new Dictionary<string, List<long>>(StringComparer.Ordinal);
         using (var games = connection.CreateCommand())
         {
@@ -747,6 +817,7 @@ internal static class LibraryStore
             {
                 var key = reader.GetString(1);
                 byKey[key] = reader.GetInt64(0);
+                keyOf[reader.GetInt64(0)] = key;
                 var dot = key.LastIndexOf('.');
                 if (dot > key.LastIndexOf('/') + 1)
                 {
@@ -802,11 +873,12 @@ internal static class LibraryStore
             upsert.Parameters.AddWithValue("$id", id);
             upsert.Parameters.AddWithValue("$kind", kind);
             upsert.Parameters.AddWithValue("$path", file.Path);
-            upsert.Parameters.AddWithValue("$width", file.Width);
-            upsert.Parameters.AddWithValue("$height", file.Height);
+            upsert.Parameters.AddWithValue("$width", file.Width is { } width ? width : DBNull.Value);
+            upsert.Parameters.AddWithValue("$height", file.Height is { } height ? height : DBNull.Value);
             upsert.Parameters.AddWithValue("$size", file.SizeBytes);
             upsert.Parameters.AddWithValue("$mtime", file.MtimeMs);
             upsert.ExecuteNonQuery();
+            Changed(id);
         }
 
         using var delete = connection.CreateCommand();
@@ -818,6 +890,15 @@ internal static class LibraryStore
             delete.Parameters.AddWithValue("$id", id);
             delete.Parameters.AddWithValue("$kind", kind);
             delete.ExecuteNonQuery();
+            Changed(id);
+        }
+
+        void Changed(long id)
+        {
+            if (changed is not null && keyOf.TryGetValue(id, out var key) && !changed.Contains(new GameKey(system, key)))
+            {
+                changed.Add(new GameKey(system, key));
+            }
         }
     }
 

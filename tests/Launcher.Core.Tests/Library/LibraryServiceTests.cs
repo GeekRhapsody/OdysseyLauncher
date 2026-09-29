@@ -413,6 +413,80 @@ public sealed class LibraryServiceTests : IAsyncLifetime
         Assert.Equal("back:media/snes/back/Game.png", command.ExecuteScalar());
     }
 
+    // ---- Media for theme slots and per-game models (M6) --------------------------------------------
+
+    [Fact]
+    public async Task Slot_media_come_by_system_or_by_game_for_only_the_kinds_asked()
+    {
+        Rom("snes/Game A.sfc");
+        Rom("snes/Game B.sfc");
+        Rom("nes/Other.nes");
+        Art("snes/back/Game A.png", TestImages.Png(500, 1000));
+        Art("snes/spine/Game A.png", TestImages.Png(50, 1000));
+        Art("snes/screenshot/Game B.png", TestImages.Png(640, 480));
+        Art("nes/back/Other.png", TestImages.Png(10, 10));
+        await _library.RescanAsync(null, null, Ct);
+
+        var rows = await _library.GetGameMediaAsync("snes", ["back", "screenshot"], Ct);
+
+        var a = await Game("snes", "Game A");
+        var b = await Game("snes", "Game B");
+        Assert.Equal(
+            [(a.GameId, "back", "media/snes/back/Game A.png", 0.5f), (b.GameId, "screenshot", "media/snes/screenshot/Game B.png", 640f / 480)],
+            rows.Select(r => (r.GameId, r.Kind, r.Media.Path, r.Media.Aspect)).OrderBy(r => r.Kind, StringComparer.Ordinal));
+        Assert.All(rows, r => Assert.Equal(MediaRoot.Config, r.Media.Root));
+        Assert.All(rows, r => Assert.True(r.Media.SizeBytes > 0 && r.Media.MtimeMs > 0));
+
+        var byGame = await _library.GetGameMediaAsync([a.GameId], ["spine", "back"], Ct);
+        Assert.Equal(["back", "spine"], byGame.Select(r => r.Kind).Order(StringComparer.Ordinal));
+        Assert.Empty(await _library.GetGameMediaAsync("snes", [], Ct));
+    }
+
+    [Fact]
+    public async Task Per_game_models_are_indexed_like_art_so_nothing_is_probed_per_item()
+    {
+        Rom("ps2/Game A (USA).iso");
+        Rom("ps2/Sub/Game B.chd");
+        Rom("ps2/Game C.iso");
+        var modelA = _dir.File("config/models/games/ps2/Game A (USA).glb", "glTF");
+        _dir.File("config/models/games/ps2/Sub/Game B.chd.glb", "glTF");
+        _dir.File("config/models/games/ps2/Game C.txt", "not a model");
+
+        var summary = await _library.RescanAsync("ps2", null, Ct);
+
+        Assert.Empty(summary.Diagnostics);
+        var rows = await _library.GetGameMediaAsync("ps2", [Launcher.Core.Media.MediaKinds.Model], Ct);
+        Assert.Equal(
+            ["models/games/ps2/Game A (USA).glb", "models/games/ps2/Sub/Game B.chd.glb"],
+            rows.Select(r => r.Media.Path).Order(StringComparer.Ordinal));
+        Assert.All(rows, r => Assert.Equal((MediaRoot.Config, 0f), (r.Media.Root, r.Media.Aspect)));
+
+        File.Delete(modelA);
+        await _library.RescanAsync("ps2", null, Ct);
+        Assert.Single(await _library.GetGameMediaAsync("ps2", [Launcher.Core.Media.MediaKinds.Model], Ct));
+    }
+
+    [Fact]
+    public async Task A_rescan_reports_only_the_games_whose_art_or_model_changed()
+    {
+        Rom("snes/Game A.sfc");
+        Rom("snes/Game B.sfc");
+        Art("snes/cover/Game A.png", TestImages.Png(10, 10));
+        var changes = new List<IReadOnlyList<GameKey>?>();
+        _library.MediaChanged += (_, e) => changes.Add(e.Games);
+
+        await _library.RescanAsync("snes", null, Ct);
+        Assert.Equal([new GameKey("snes", "game a.sfc")], Assert.Single(changes)!);
+
+        changes.Clear();
+        await _library.RescanAsync("snes", null, Ct);
+        Assert.Empty(changes);
+
+        _dir.File("config/models/games/snes/Game B.glb", "glTF");
+        await _library.RescanAsync("snes", null, Ct);
+        Assert.Equal([new GameKey("snes", "game b.sfc")], Assert.Single(changes)!);
+    }
+
     [Fact]
     public async Task Scraped_metadata_comes_with_the_game_details()
     {

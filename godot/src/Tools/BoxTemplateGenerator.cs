@@ -4,8 +4,11 @@ using Godot;
 namespace Launcher.App.Tools;
 
 /// <summary>
-/// Generates the built-in models procedurally and exports each with Godot's glTF exporter (A7): the box templates
-/// in <c>res://assets/models/templates/</c> and the generic system model in <c>res://assets/models/systems/</c>.
+/// Generates the built-in models procedurally and exports each with Godot's glTF exporter (A7): the built-in theme's
+/// box templates in <c>res://themes/memory-card/models/templates/</c> and its generic system model in
+/// <c>res://themes/memory-card/models/systems/</c>, and the M6 test theme's models in
+/// <c>tests/themes/slot-showcase/models/</c> (outside the project, so Godot doesn't import them: a user theme's
+/// models are loaded from the <c>.glb</c> at run time).
 /// <para>
 /// Run it headless with <c>godot --headless --path godot res://scenes/tools/generate_box_templates.tscn</c> (it quits
 /// when done), or open that scene in the editor and press Generate in the inspector. Then run
@@ -15,8 +18,11 @@ namespace Launcher.App.Tools;
 [Tool]
 public partial class BoxTemplateGenerator : Node
 {
-    public const string TemplatesDir = "res://assets/models/templates";
-    public const string SystemsDir = "res://assets/models/systems";
+    public const string TemplatesDir = "res://themes/memory-card/models/templates";
+    public const string SystemsDir = "res://themes/memory-card/models/systems";
+
+    /// <summary>The test theme, relative to the project folder.</summary>
+    public const string TestThemeDir = "../tests/themes/slot-showcase/models";
 
     // Sizes are in millimetres, from real cases (width x height x depth).
     public static readonly BoxSpec[] Templates =
@@ -53,6 +59,21 @@ public partial class BoxTemplateGenerator : Node
             CaseColour: new Color("#B4B8C0"), CaseRoughness: 0.45f, ArtRoughness: 0.5f,
             FrontSlot: "label", HasBackSlot: false, HasSpineSlot: false, Split: FrontSplit.TopLabel, SplitAt: 34);
 
+    /// <summary>
+    /// The test theme's game template: a tall case with the cover on the upper front, a 16:9 screenshot panel below
+    /// it whose authored texture is a test card, and a spine. Four materials, the A7 budget.
+    /// </summary>
+    public static readonly BoxSpec ShowcaseCase =
+        new("showcase_case", 135, 262, 16, SpineRadius: 3, OpeningRadius: 5, Bevel: 1.5f,
+            CaseColour: new Color("#1A1D24"), CaseRoughness: 0.35f, ArtRoughness: 0.3f,
+            HasBackSlot: false, Split: FrontSplit.LowerPanel, SplitAt: 76, LowerSlot: "screenshot", TestCardOnLowerSlot: true);
+
+    /// <summary>The test theme's system card: a square tile with a label on its upper part, tinted per system.</summary>
+    public static readonly BoxSpec Tile =
+        new("tile", 100, 100, 10, SpineRadius: 8, OpeningRadius: 8, Bevel: 2,
+            CaseColour: new Color("#C8CCD4"), CaseRoughness: 0.5f, ArtRoughness: 0.5f,
+            FrontSlot: "label", HasBackSlot: false, HasSpineSlot: false, Split: FrontSplit.TopLabel, SplitAt: 30);
+
     [ExportToolButton("Generate")]
     public Callable GenerateButton => Callable.From(() => Generate());
 
@@ -78,9 +99,16 @@ public partial class BoxTemplateGenerator : Node
         }
 
         ok &= Export(GenericSystem, $"{SystemsDir}/{GenericSystem.Id}.glb");
+
+        var testTheme = System.IO.Path.GetFullPath(System.IO.Path.Combine(ProjectSettings.GlobalizePath("res://"), TestThemeDir));
+        DirAccess.MakeDirRecursiveAbsolute(System.IO.Path.Combine(testTheme, "templates"));
+        DirAccess.MakeDirRecursiveAbsolute(System.IO.Path.Combine(testTheme, "systems"));
+        ok &= Export(ShowcaseCase, System.IO.Path.Combine(testTheme, "templates", ShowcaseCase.Id + ".glb"));
+        ok &= Export(Tile, System.IO.Path.Combine(testTheme, "systems", Tile.Id + ".glb"));
         return ok;
     }
 
+    /// <param name="path">A <c>res://</c> path, or an absolute one.</param>
     private static bool Export(BoxSpec spec, string path)
     {
         var mesh = BoxBuilder.Build(spec, out var triangles);

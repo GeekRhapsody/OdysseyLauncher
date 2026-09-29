@@ -209,9 +209,10 @@ public class DebugOptionsTests
     }
 
     [Theory]
-    [InlineData("--render-scale=0.5", 0.5, "bilinear", 8)]
-    [InlineData("--upscaler=FSR", null, "fsr", 8)]
+    [InlineData("--render-scale=0.5", 0.5, "bilinear", DebugOptions.DefaultUploadCap)]
+    [InlineData("--upscaler=FSR", null, "fsr", DebugOptions.DefaultUploadCap)]
     [InlineData("--upload-cap=0", null, "bilinear", 0)]
+    [InlineData("--upload-cap=8", null, "bilinear", 8)]
     public void Rendering_options_parse(string arg, double? scale, string upscaler, int cap)
     {
         var result = DebugOptions.Parse([arg]);
@@ -255,5 +256,18 @@ public class DebugOptionsTests
         Assert.Contains("doesn't know the step 'jump'", Assert.Single(DebugOptions.Parse(["--nav-script=down,jump"]).Errors), StringComparison.Ordinal);
         Assert.Contains("at least one step", Assert.Single(DebugOptions.Parse(["--nav-script=,"]).Errors), StringComparison.Ordinal);
         Assert.Empty(DebugOptions.Parse([]).Options.NavScript);
+    }
+
+    [Fact]
+    public void A_theme_can_be_chosen_switched_and_the_overlay_hidden_for_captures()
+    {
+        var result = DebugOptions.Parse(["--theme=slot-showcase", "--no-overlay", "--nav-script=theme,rescan,wait"]);
+
+        Assert.True(result.IsValid, string.Join("; ", result.Errors));
+        Assert.Equal(("slot-showcase", true), (result.Options.Theme, result.Options.NoOverlay));
+        Assert.Equal(["theme", "rescan", "wait"], result.Options.NavScript);
+        Assert.Contains("needs a theme id", Assert.Single(DebugOptions.Parse(["--theme=Slot Showcase"]).Errors), StringComparison.Ordinal);
+        Assert.Contains("doesn't take a value", Assert.Single(DebugOptions.Parse(["--no-overlay=yes"]).Errors), StringComparison.Ordinal);
+        Assert.Null(DebugOptions.Parse([]).Options.Theme);
     }
 }

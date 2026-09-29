@@ -22,6 +22,9 @@
 #
 # Extensions: .m3u, .cue and .gdi group multi-file games, and the files they reference are hidden.
 # Disc systems leave out .bin, so stray tracks never show as games.
+#
+# Each system's game model (a box template) comes from the theme. game_model = "<template id>" picks one of
+# the theme's templates for a system instead, e.g. game_model = "jewel_case" for a new CD system.
 
 format = 1
 
@@ -32,7 +35,6 @@ year = 1989
 extensions = [".gb", ".sgb", ".zip", ".7z"]
 emulator = "retroarch-gambatte"
 alt_emulators = ["retroarch-mgba"]
-game_model = "cartridge_box"
 screenscraper_id = 9
 igdb_platforms = [33]
 
@@ -43,7 +45,6 @@ year = 1998
 extensions = [".gbc", ".cgb", ".zip", ".7z"]
 emulator = "retroarch-gambatte"
 alt_emulators = ["retroarch-mgba"]
-game_model = "cartridge_box"
 screenscraper_id = 10
 igdb_platforms = [22]
 
@@ -53,7 +54,6 @@ manufacturer = "Nintendo"
 year = 2001
 extensions = [".gba", ".zip", ".7z"]
 emulator = "retroarch-mgba"
-game_model = "cartridge_box"
 screenscraper_id = 12
 igdb_platforms = [24]
 
@@ -65,7 +65,6 @@ aliases = ["famicom"]
 extensions = [".nes", ".unf", ".unif", ".zip", ".7z"]
 emulator = "retroarch-mesen"
 alt_emulators = ["retroarch-fceumm"]
-game_model = "cartridge_box"
 screenscraper_id = 3
 igdb_platforms = [18, 99]
 
@@ -76,7 +75,6 @@ year = 1990
 aliases = ["sfc", "superfamicom"]
 extensions = [".sfc", ".smc", ".swc", ".fig", ".bs", ".zip", ".7z"]
 emulator = "retroarch-snes9x"
-game_model = "cartridge_box"
 screenscraper_id = 4
 igdb_platforms = [19, 58]
 
@@ -86,7 +84,6 @@ manufacturer = "Nintendo"
 year = 1996
 extensions = [".z64", ".n64", ".v64", ".zip", ".7z"]
 emulator = "retroarch-mupen64plus-next"
-game_model = "cartridge_box"
 screenscraper_id = 14
 igdb_platforms = [4]
 
@@ -98,7 +95,6 @@ aliases = ["gamecube"]
 extensions = [".iso", ".gcm", ".gcz", ".rvz", ".ciso"]
 emulator = "dolphin"
 alt_emulators = ["retroarch-dolphin"]
-game_model = "dvd_case"
 screenscraper_id = 13
 igdb_platforms = [21]
 
@@ -109,7 +105,6 @@ year = 1986
 aliases = ["sms"]
 extensions = [".sms", ".zip", ".7z"]
 emulator = "retroarch-genesis-plus-gx"
-game_model = "clamshell"
 screenscraper_id = 2
 igdb_platforms = [64]
 
@@ -120,7 +115,6 @@ year = 1988
 aliases = ["genesis", "md"]
 extensions = [".md", ".gen", ".smd", ".bin", ".zip", ".7z"]
 emulator = "retroarch-genesis-plus-gx"
-game_model = "clamshell"
 screenscraper_id = 1
 igdb_platforms = [29]
 
@@ -130,7 +124,6 @@ manufacturer = "Sega"
 year = 1994
 extensions = [".cue", ".chd", ".ccd", ".m3u"]
 emulator = "retroarch-beetle-saturn"
-game_model = "jewel_case"
 screenscraper_id = 22
 igdb_platforms = [32]
 
@@ -141,7 +134,6 @@ year = 1998
 aliases = ["dc"]
 extensions = [".gdi", ".chd", ".cdi", ".cue", ".m3u"]
 emulator = "retroarch-flycast"
-game_model = "jewel_case"
 screenscraper_id = 23
 igdb_platforms = [23]
 
@@ -153,7 +145,6 @@ aliases = ["ps1"]
 extensions = [".cue", ".chd", ".pbp", ".ccd", ".m3u"]
 emulator = "retroarch-beetle-psx-hw"
 alt_emulators = ["retroarch-swanstation"]
-game_model = "jewel_case"
 screenscraper_id = 57
 igdb_platforms = [7]
 
@@ -163,7 +154,6 @@ manufacturer = "Sony"
 year = 2000
 extensions = [".iso", ".chd", ".cso", ".zso", ".gz", ".cue"]
 emulator = "pcsx2"
-game_model = "dvd_case"
 screenscraper_id = 58
 igdb_platforms = [8]
 
@@ -174,6 +164,5 @@ year = 2004
 extensions = [".iso", ".cso", ".pbp", ".chd"]
 emulator = "retroarch-ppsspp"
 alt_emulators = ["ppsspp"]
-game_model = "umd_case"
 screenscraper_id = 61
 igdb_platforms = [38]
