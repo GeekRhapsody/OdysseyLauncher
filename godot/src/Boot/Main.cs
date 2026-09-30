@@ -17,6 +17,7 @@ using Launcher.App.Theming;
 using Launcher.Core;
 using Launcher.Core.Config;
 using Launcher.Core.Diagnostics;
+using Launcher.Core.Platform;
 
 namespace Launcher.App.Boot;
 
@@ -121,7 +122,7 @@ public partial class Main : Node3D
         GetViewport().SizeChanged += OnViewportSizeChanged;
 
         // Pool textures are created at boot and only updated while browsing (A3). The cover-class array is made now,
-        // since every game template has a cover (A7); a theme's other slots get theirs once its models are in.
+        // since nearly every theme's templates have a cover (A7); a theme's other slots get theirs once its models are in.
         if (!_options.NoTextures)
         {
             _streamer = new TextureStreamer(CoverSlots, TextureStreamer.DefaultWorkers);
@@ -155,6 +156,7 @@ public partial class Main : Node3D
         }
 
         _scrollBench?.Dispose();
+        _loader.FreeScenes();
         _streamer?.Dispose();
         _services?.Dispose();
     }
@@ -228,6 +230,8 @@ public partial class Main : Node3D
         // The theme's models start loading as soon as the theme is resolved, while the DB opens.
         if (_theme is null && Volatile.Read(ref _plan) is { } plan)
         {
+            // User models are processed into CacheDir/models/ and their problems logged to DataDir/logs/models.log (A7).
+            _loader.UseFolders(plan.Paths.CacheDir, plan.Paths.DataDir, PlatformServices.CreateImageDecoder());
             _theme = new ThemeRuntime(plan, _loader);
         }
 

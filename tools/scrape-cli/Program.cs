@@ -1,6 +1,6 @@
-// odyssey-scrape: every M4 scraping operation from the command line, for testing live with your own credentials.
-// It uses the app's config, library, queue and media folders (or a portable folder with --user-dir), so what it
-// scrapes shows in the launcher. Credentials come from ConfigDir/secrets.toml or ODYSSEY_* variables, never from
+// odyssey-scrape: every M4 scraping operation from the command line, for testing live with your own credentials,
+// and (M6) importing, inspecting and removing a game's own 3D model. It uses the app's config, library, queue, media
+// and model folders (or a portable folder with --user-dir), so what it scrapes or imports shows in the launcher. Credentials come from ConfigDir/secrets.toml or ODYSSEY_* variables, never from
 // the command line, and nothing it prints contains them. Ctrl+C pauses: `resume` carries on.
 
 using System.Globalization;
@@ -8,6 +8,7 @@ using Launcher.Core.Config;
 using Launcher.Core.Diagnostics;
 using Launcher.Core.Library;
 using Launcher.Core.Media;
+using Launcher.Core.Models;
 using Launcher.Core.Platform;
 using Launcher.Core.Scanning;
 using Launcher.Core.Scraping;
@@ -27,18 +28,46 @@ const string Usage = """
       scan [<system>]             Rescans ROM folders (every system without an argument)
       ss-systems                  Lists ScreenScraper's systems against each system's screenscraper_id
 
+    Models (M6; no network):
+      import-model --from=<file> <system>/<rel path>
+                                  Imports a .glb, an OBJ zip (.obj, .mtl, textures) or an .obj as the game's model:
+                                  converted, fitted to the per-game budget, put in its model slot and indexed
+      remove-model <system>/<rel path>
+                                  Removes the game's own model (it shows its system's template again)
+      inspect-model [--kind=game|template|system] <file>
+                                  Checks a model against the spec and budgets without importing it
+      models-log                  Prints the model log (rejected and over-budget models, imports)
+
     <rel path> is the ROM's path under its system's ROM folder, as on disk: megadrive/Sonic the Hedgehog 3 (Europe).md
     Credentials: ConfigDir/secrets.toml ([screenscraper] dev_id, dev_password, username, password;
     [steamgriddb] api_key; [igdb] client_id, client_secret), or ODYSSEY_* environment variables.
     """;
 
+Console.OutputEncoding = System.Text.Encoding.UTF8;
 var arguments = args.ToList();
 string? userDir = null;
+string? from = null;
+var kind = ModelKind.PerGame;
 foreach (var argument in arguments.ToList())
 {
     if (argument.StartsWith("--user-dir=", StringComparison.Ordinal))
     {
         userDir = Path.GetFullPath(argument["--user-dir=".Length..]);
+        arguments.Remove(argument);
+    }
+    else if (argument.StartsWith("--from=", StringComparison.Ordinal))
+    {
+        from = Path.GetFullPath(argument["--from=".Length..]);
+        arguments.Remove(argument);
+    }
+    else if (argument.StartsWith("--kind=", StringComparison.Ordinal))
+    {
+        kind = argument["--kind=".Length..] switch
+        {
+            "template" => ModelKind.GameTemplate,
+            "system" => ModelKind.SystemModel,
+            _ => ModelKind.PerGame,
+        };
         arguments.Remove(argument);
     }
 }
@@ -157,6 +186,39 @@ try
 
         case "ss-systems":
             return await ScreenScraperSystems();
+        case "import-model":
+            return await ImportModel(await EnsureGame(Require(argument)), from ?? throw new ArgumentException("Give the model file with --from=<file>."));
+        case "remove-model":
+            {
+                var result = await Models().RemoveGameModelAsync(Key(Require(argument)), stop.Token);
+                Console.WriteLine(result.Status switch
+                {
+                    ModelRemoveStatus.Removed => "Removed: the game shows its system's template again.",
+                    ModelRemoveStatus.Shared => $"Not removed: {result.SharedPath} is the model of every game with that name. Delete the file to remove it for all of them.",
+                    _ => "The game has no model of its own.",
+                });
+                return result.Status == ModelRemoveStatus.Removed ? 0 : 1;
+            }
+
+        case "inspect-model":
+            {
+                var file = Path.GetFullPath(Require(argument));
+                var prepared = ModelImportService.Prepare(file, kind, PlatformServices.CreateImageDecoder(), Path.Combine(paths.CacheDir, ModelCache.FolderName, "scratch"));
+                PrintModel(prepared.Processed?.Report, prepared.Converted, prepared.Messages);
+                return prepared.Processed?.Report.Accepted == true ? 0 : 1;
+            }
+
+        case "models-log":
+            {
+                var lines = ModelLog.ReadRecent(paths.DataDir, 400);
+                Console.WriteLine(lines.Count == 0 ? $"The model log is empty ({ModelLog.PathIn(paths.DataDir)})." : $"{ModelLog.PathIn(paths.DataDir)}:");
+                foreach (var line in lines)
+                {
+                    Console.WriteLine("  " + line);
+                }
+
+                return 0;
+            }
         default:
             Console.Error.WriteLine($"Unknown command '{arguments[0]}'.");
             Console.WriteLine(Usage);
@@ -223,6 +285,52 @@ async Task<GameKey> EnsureGame(string systemAndPath)
     return await library.GetGameAsync(key, stop.Token) is null
         ? throw new ArgumentException($"'{systemAndPath}' isn't in {key.SystemId}'s ROM folders.")
         : key;
+}
+
+ModelImportService Models() => new(library, paths, PlatformServices.CreateImageDecoder());
+
+async Task<int> ImportModel(GameKey key, string file)
+{
+    var result = await Models().ImportGameModelAsync(key, file, stop.Token);
+    Console.WriteLine(result.Status switch
+    {
+        ModelImportStatus.Imported => $"Imported{(result.Converted ? " (converted from OBJ)" : string.Empty)}: {Path.Combine(paths.ConfigDir, result.ModelPath!.Replace('/', Path.DirectorySeparatorChar))}",
+        ModelImportStatus.Rejected => "Rejected: nothing was changed.",
+        ModelImportStatus.Unsupported => "Not imported:",
+        _ => "Not imported: the game isn't in the library.",
+    });
+    PrintModel(result.Report, result.Converted, result.Messages);
+    return result.Status == ModelImportStatus.Imported ? 0 : 1;
+}
+
+static void PrintModel(ModelReport? report, bool converted, IReadOnlyList<string> messages)
+{
+    foreach (var message in messages)
+    {
+        Console.WriteLine($"  {(converted ? "OBJ: " : string.Empty)}{message}");
+    }
+
+    if (report is null)
+    {
+        return;
+    }
+
+    Console.WriteLine("  " + report.Summary());
+    Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"  Size {report.Size[0]:0.###} × {report.Size[1]:0.###} × {report.Size[2]:0.###}; largest texture {report.LargestTextureSide}²; joints {report.Joints}; morph targets {report.MorphTargets}"));
+    foreach (var error in report.Errors)
+    {
+        Console.WriteLine($"  error: {error}");
+    }
+
+    foreach (var warning in report.Warnings)
+    {
+        Console.WriteLine($"  warning: {warning}");
+    }
+
+    foreach (var note in report.Notes)
+    {
+        Console.WriteLine($"  note: {note}");
+    }
 }
 
 int Report(ScrapeBatchResult result)

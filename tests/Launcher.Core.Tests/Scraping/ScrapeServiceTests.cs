@@ -717,6 +717,25 @@ public sealed class ScrapeServiceTests : IAsyncLifetime
         Assert.NotNull((await _bed.Library.GetGamesAsync("megadrive", Ct)).Games.Single(g => g.Title == "Shared" && g.CoverPath is not null).CoverPath);
     }
 
+    [Fact]
+    public async Task Clearing_removes_the_games_own_model_and_its_processed_copy()
+    {
+        _bed.Rom(Sonic);
+        var model = _bed.Dir.File($"user/models/games/{Sonic}.glb");
+        File.WriteAllBytes(model, Launcher.Core.Tests.Models.ModelFixtures.Model(100));
+        await _bed.ScanAsync();
+        var cache = new Launcher.Core.Models.ModelCache(_bed.Paths.CacheDir, null, null);
+        Assert.NotNull(cache.Get(model, Launcher.Core.Models.ModelKind.PerGame).Path);
+        using var service = _bed.Service(ProviderAccounts.None);
+
+        var result = await service.ClearGameAsync(Key(Sonic), Ct);
+
+        Assert.True(result.Found);
+        Assert.False(File.Exists(model));
+        Assert.Empty(Directory.GetFiles(cache.Folder));
+        Assert.Equal(0L, _bed.Query<long>("SELECT COUNT(*) FROM media WHERE kind = 'model'"));
+    }
+
     // ---- Credentials -------------------------------------------------------------------------------
 
     [Fact]

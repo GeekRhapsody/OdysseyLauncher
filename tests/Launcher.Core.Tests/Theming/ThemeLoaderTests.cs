@@ -235,14 +235,16 @@ public sealed class ThemeLoaderTests
     }
 
     [Fact]
-    public void A_game_template_needs_a_cover_material()
+    public void A_game_template_needs_no_cover_material()
     {
-        var result = ThemeFixtures.Parse(MinimalTemplate, Box("label", "case"));
+        // M6 part 2: a CRT showing the screenshot, or a model with no slot at all, is a valid template.
+        var withoutCover = ThemeFixtures.Parse(MinimalTemplate, Box("screenshot", "case"));
+        var withoutSlots = ThemeFixtures.Parse(MinimalTemplate, Box("case"));
 
-        var error = Single(result, Severity.Error);
-        Assert.Equal("templates.box.model", error.Key);
-        Assert.Contains("has no 'cover' material", error.Message, StringComparison.Ordinal);
-        Assert.Empty(result.Theme!.Templates);
+        Assert.Empty(withoutCover.Diagnostics);
+        Assert.Empty(withoutSlots.Diagnostics);
+        Assert.True(withoutCover.Theme!.Templates.ContainsKey("box"));
+        Assert.True(withoutSlots.Theme!.Templates.ContainsKey("box"));
     }
 
     [Fact]

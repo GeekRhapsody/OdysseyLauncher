@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Godot;
 using Launcher.App.Grid;
+using Launcher.App.Models;
 using Launcher.Core.Config;
 using Launcher.Core.Library;
 using Launcher.Core.Media;
@@ -116,9 +117,10 @@ public sealed class GamesSource : IGridSource
     private readonly bool[] _replaces = new bool[MediaSlots.Count];
     private readonly int[] _model;
     private readonly List<string> _modelPaths = [];
+    private readonly List<MediaRef> _modelFiles = [];
     private Dictionary<long, int>? _index;
     private int[] _systemTemplate = [];
-    private int[] _modelTemplate = [];
+    private ItemTemplate?[] _models = [];
     private bool[] _usesTemplate = [];
 
     private GamesSource(
@@ -196,6 +198,9 @@ public sealed class GamesSource : IGridSource
     /// <summary>The per-game model files its games use (ConfigDir-relative), each once.</summary>
     public IReadOnlyList<string> ModelPaths => _modelPaths;
 
+    /// <summary>Per-game model files whose size or time changed in the last <see cref="ReplaceMedia"/> (to load again).</summary>
+    public List<string> ChangedModelFiles { get; } = [];
+
     public int Count => _rows.Length;
 
     public GameRow Row(int index) => _rows[index];
@@ -241,8 +246,8 @@ public sealed class GamesSource : IGridSource
     }
 
     /// <summary>
-    /// Main thread: which grid template each of its systems uses, and each per-game model once it has loaded
-    /// (-1 until then: the game shows its system's template meanwhile).
+    /// Main thread: which grid template each of its systems uses. Per-game models are given as they load
+    /// (<see cref="SetModel"/>); until then a game shows its system's template.
     /// </summary>
     public void BindTemplates(Func<string, int> systemTemplate, int templateCount)
     {
@@ -252,17 +257,14 @@ public sealed class GamesSource : IGridSource
             _systemTemplate[s] = systemTemplate(_systemIds[s]);
         }
 
-        // Per-game models are added to the grid as they load, so their template indices start over.
-        _modelTemplate = new int[_modelPaths.Count];
-        Array.Fill(_modelTemplate, -1);
+        _models = new ItemTemplate?[_modelPaths.Count];
         UpdateUses(templateCount);
     }
 
-    /// <summary>Main thread: a per-game model has loaded as a grid template. Returns the games that use it.</summary>
-    public List<int> SetModelTemplate(int model, int template, int templateCount)
+    /// <summary>Main thread: a per-game model has loaded (drawn on its own node). Returns the games that use it.</summary>
+    public List<int> SetModel(int model, ItemTemplate template)
     {
-        _modelTemplate[model] = template;
-        UpdateUses(templateCount);
+        _models[model] = template;
         var games = new List<int>();
         for (var i = 0; i < _model.Length; i++)
         {
@@ -281,6 +283,7 @@ public sealed class GamesSource : IGridSource
     /// </summary>
     public List<int> ReplaceMedia(IReadOnlyList<GameMediaRow> rows, IReadOnlyList<long>? gameIds)
     {
+        ChangedModelFiles.Clear();
         if (_index is null)
         {
             _index = new Dictionary<long, int>(_rows.Length);
@@ -291,7 +294,7 @@ public sealed class GamesSource : IGridSource
         }
 
         // What the rows say, per game; a game being replaced that has no row of a kind has none of it now.
-        var incoming = new Dictionary<int, (MediaRef[] Slots, string? Model)>();
+        var incoming = new Dictionary<int, (MediaRef[] Slots, MediaRef? Model)>();
         foreach (var row in rows)
         {
             if (!_index.TryGetValue(row.GameId, out var i))
@@ -306,7 +309,7 @@ public sealed class GamesSource : IGridSource
 
             if (row.Kind == MediaKinds.Model)
             {
-                entry.Model = row.Media.Path;
+                entry.Model = row.Media;
             }
             else if (MediaSlots.IndexOf(row.Kind) is var slot and >= 0)
             {
@@ -343,11 +346,28 @@ public sealed class GamesSource : IGridSource
                 }
             }
 
-            var model = entry.Model is { } path ? ModelIndex(path) : -1;
+            var model = entry.Model is { } file ? ModelIndex(file.Path) : -1;
             if (model != _model[i])
             {
                 _model[i] = model;
                 differs = true;
+            }
+
+            // The same file changed (imported again): it's loaded again, and the game shows its template meanwhile.
+            if (entry.Model is { } changedFile && _modelFiles[model] != changedFile)
+            {
+                if (_modelFiles[model].Path is not null)
+                {
+                    ChangedModelFiles.Add(changedFile.Path);
+                    if (model < _models.Length)
+                    {
+                        _models[model] = null;
+                    }
+
+                    differs = true;
+                }
+
+                _modelFiles[model] = changedFile;
             }
 
             if (differs)
@@ -356,12 +376,11 @@ public sealed class GamesSource : IGridSource
             }
         }
 
-        if (_modelTemplate.Length != _modelPaths.Count)
+        if (_models.Length != _modelPaths.Count)
         {
-            var grown = new int[_modelPaths.Count];
-            Array.Fill(grown, -1);
-            Array.Copy(_modelTemplate, grown, _modelTemplate.Length);
-            _modelTemplate = grown;
+            var grown = new ItemTemplate?[_modelPaths.Count];
+            Array.Copy(_models, grown, Math.Min(_models.Length, grown.Length));
+            _models = grown;
         }
 
         return changed;
@@ -371,8 +390,13 @@ public sealed class GamesSource : IGridSource
     {
         ref readonly var row = ref _rows[index];
         var model = _model[index];
-        var template = model >= 0 && _modelTemplate[model] >= 0 ? _modelTemplate[model] : _systemTemplate[_system[index]];
-        cell = new CellInfo { Title = row.Title, Template = template, Plain = _colours[index] };
+        cell = new CellInfo
+        {
+            Title = row.Title,
+            Template = _systemTemplate[_system[index]],
+            Model = model >= 0 ? _models[model] : null,
+            Plain = _colours[index],
+        };
     }
 
     public bool TryGetMedia(int index, int slot, out MediaRef media)
@@ -482,6 +506,7 @@ public sealed class GamesSource : IGridSource
         {
             index = _modelPaths.Count;
             _modelPaths.Add(path);
+            _modelFiles.Add(default);
         }
 
         return index;
@@ -491,14 +516,6 @@ public sealed class GamesSource : IGridSource
     {
         _usesTemplate = new bool[templateCount];
         foreach (var template in _systemTemplate)
-        {
-            if (template >= 0 && template < templateCount)
-            {
-                _usesTemplate[template] = true;
-            }
-        }
-
-        foreach (var template in _modelTemplate)
         {
             if (template >= 0 && template < templateCount)
             {

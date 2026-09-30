@@ -14,6 +14,9 @@ internal static class ThemeFixtures
     /// <summary>The M6 test theme: <c>tests/themes/slot-showcase</c>.</summary>
     public static string SlotShowcaseFolder => Path.Combine(RepoRoot, "tests", "themes", "slot-showcase");
 
+    /// <summary>The M6 sample theme for theme authors: <c>samples/themes/retro-tv</c>.</summary>
+    public static string RetroTvFolder => Path.Combine(RepoRoot, "samples", "themes", "retro-tv");
+
     public static ThemeSource Source(string folder, ThemeOrigin origin)
     {
         var manifest = Path.Combine(folder, ThemeLoader.ManifestFileName);

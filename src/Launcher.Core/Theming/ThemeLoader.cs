@@ -424,7 +424,10 @@ public static class ThemeLoader
             }
         }
 
-        /// <summary>A game template needs a cover (A7); a chain for a slot the model doesn't have is never used.</summary>
+        /// <summary>
+        /// A template's model must be a readable <c>.glb</c>; it needn't have a cover or any slot (M6: a CRT with only a
+        /// screenshot is fine), but a chain for a slot the model doesn't have is never used.
+        /// </summary>
         private void CheckMaterials(TomlTableNode entry, string prefix, string model, Dictionary<int, SlotChain> slots)
         {
             var materials = source.Files.MaterialsOf(model, out var error);
@@ -446,11 +449,6 @@ public static class ThemeLoader
                 {
                     present[slot] = true;
                 }
-            }
-
-            if (!present[MediaSlots.Cover])
-            {
-                v.Error(modelNode, prefix + ".model", $"'{model}' has no 'cover' material, which every game template needs (its materials: {string.Join(", ", materials)})");
             }
 
             foreach (var slot in slots.Keys)

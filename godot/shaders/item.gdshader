@@ -7,10 +7,12 @@ render_mode cull_back, depth_draw_opaque;
 //   UV        = the face's own UV (0..1 across a slot face, upright seen from outside)
 //   UV2       = (face code, the face's width over its height), where the face code is
 //               (media slot + 1) * 8 + (authored texture + 1), 0 meaning none in either part
-// Each instance carries INSTANCE_CUSTOM =
+// Each instance carries INSTANCE_CUSTOM (or, drawn as its own node, node_custom: a per-game model, or a model playing a
+// clip) =
 //   r: the pool cell, which picks its row of slot_state and its place in the title atlas
 //   g: the plain colour of a box with no art (or of a system card), sRGB packed as r * 65536 + g * 256 + b
 //   b: the idle phase, or -1 when focused
+//   a: 1 when an idle clip animates it, so it doesn't bob as well
 // and slot_state holds, per cell (y) and media slot (x): what the slot shows without media (1 generated,
 // 0 authored), the media's aspect (0 when none is wanted), its fade in, and its layer.
 // (Godot 4 multiplies a MultiMesh's instance colour into COLOR, which carries the material data here.)
@@ -26,6 +28,9 @@ const int SLOT_LABEL = 4;
 uniform sampler2DArray slots_large : source_color, filter_linear_mipmap_anisotropic, repeat_disable;
 uniform sampler2DArray slots_small : source_color, filter_linear_mipmap_anisotropic, repeat_disable;
 uniform sampler2D slot_state : filter_nearest, repeat_disable;
+
+// INSTANCE_CUSTOM for an item drawn as its own node (Grid/ItemGrid.cs); a MultiMesh leaves it at -1 and uses its own.
+instance uniform vec4 node_custom = vec4(-1.0, 0.0, 0.0, 0.0);
 
 // The template's own textures, as its materials were authored (a slot's last fallback, or a plain material's).
 uniform sampler2D authored_1 : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
@@ -103,7 +108,8 @@ vec3 dominant_colour(float layer) {
 }
 
 void vertex() {
-	v_cell = floor(INSTANCE_CUSTOM.r + 0.5);
+	vec4 custom = node_custom.r >= 0.0 ? node_custom : INSTANCE_CUSTOM;
+	v_cell = floor(custom.r + 0.5);
 	int cell = int(v_cell);
 	int code = int(UV2.x + 0.5);
 	v_slot = code / 8 - 1;
@@ -111,15 +117,15 @@ void vertex() {
 	v_face_aspect = UV2.y;
 	v_state = v_slot >= 0 ? texelFetch(slot_state, ivec2(v_slot, cell), 0) : vec4(0.0);
 	v_cover = texelFetch(slot_state, ivec2(SLOT_COVER, cell), 0);
-	v_focus = INSTANCE_CUSTOM.b < 0.0 ? 1.0 : 0.0;
-	float packed = INSTANCE_CUSTOM.g;
+	v_focus = custom.b < 0.0 ? 1.0 : 0.0;
+	float packed = custom.g;
 	v_plain = to_linear(vec3(floor(packed / 65536.0), mod(floor(packed / 256.0), 256.0), mod(packed, 256.0)) / 255.0);
 	v_base = COLOR.rgb;
 	v_roughness = COLOR.a;
 
-	// Unfocused items bob gently; it costs nothing on the CPU (A3).
-	if (INSTANCE_CUSTOM.b >= 0.0) {
-		VERTEX.y += sin(TIME * 1.3 + INSTANCE_CUSTOM.b) * 0.012;
+	// Unfocused items bob gently, unless an idle clip animates them (A7); it costs nothing on the CPU (A3).
+	if (custom.b >= 0.0 && custom.a < 0.5) {
+		VERTEX.y += sin(TIME * 1.3 + custom.b) * 0.012;
 	}
 
 	// A generated spine or back takes its colour from the cover once the cover's art is there.

@@ -23,8 +23,9 @@ public sealed class ThemePlan
     /// <summary>The key of the Favourites and Recently played cards, which have no system.</summary>
     public const string VirtualCards = "";
 
-    private ThemePlan(ThemeSet themes, ModelResolver resolver, IReadOnlyList<Diagnostic> diagnostics, AppConfig config)
+    private ThemePlan(ThemeSet themes, ModelResolver resolver, IReadOnlyList<Diagnostic> diagnostics, AppConfig config, PlatformPaths paths)
     {
+        Paths = paths;
         Themes = themes;
         Resolver = resolver;
         Diagnostics = diagnostics;
@@ -38,6 +39,9 @@ public sealed class ThemePlan
     }
 
     public ThemeSet Themes { get; }
+
+    /// <summary>The folders it was resolved from (the model cache and log live there too).</summary>
+    public PlatformPaths Paths { get; }
 
     public Theme Active => Themes.Active;
 
@@ -83,7 +87,7 @@ public sealed class ThemePlan
         var themes = ThemeCatalog.Load(builtIns, users, themeId, diagnostics, builtIn);
         var resolver = new ModelResolver(themes.Active, themes.BuiltIn, UserModels.Find(paths.ConfigDir), config);
         diagnostics.AddRange(resolver.Diagnostics);
-        return new ThemePlan(themes, resolver, diagnostics, config);
+        return new ThemePlan(themes, resolver, diagnostics, config, paths);
     }
 
     /// <summary>
@@ -191,8 +195,14 @@ public sealed class ThemeRuntime
     /// <summary>The loaded per-game model, or null.</summary>
     public ItemTemplate? PerGame(string relativePath) => _loader.Get(Plan.Resolver.PerGame(relativePath), systemCard: false);
 
+    /// <summary>The per-game model's file, as the loader knows it.</summary>
+    public string PerGamePath(string relativePath) => Plan.Resolver.PerGame(relativePath).Path;
+
+    /// <summary>Main thread: a per-game model's file changed, so it's loaded (and processed) again when next requested.</summary>
+    public void ForgetPerGame(string relativePath) => _loader.ReleasePerGame(PerGamePath(relativePath));
+
     /// <summary>Main thread, each frame while per-game models load.</summary>
-    public bool PollLoads() => _loader.Pending > 0 && _loader.Poll();
+    public bool PollLoads() => (_loader.Pending > 0 || _loader.HasResults) && _loader.Poll();
 
     /// <summary>Requests each list's current candidate; moves past failed ones. True while any is still loading.</summary>
     private bool Advance(Dictionary<string, IReadOnlyList<ModelCandidate>> lists, Dictionary<string, int> choice, bool systemCard)

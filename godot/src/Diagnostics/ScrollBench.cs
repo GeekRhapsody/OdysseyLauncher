@@ -18,6 +18,7 @@ public sealed class ScrollBench : IDisposable
 {
     private const double SettleTimeoutSeconds = 3;
     private const double SettleAfterTexturedSeconds = 0.5;
+    private const double ModelsTimeoutSeconds = 30;
 
     private readonly Navigator _navigator;
     private readonly TextureStreamer? _streamer;
@@ -43,6 +44,7 @@ public sealed class ScrollBench : IDisposable
     private int _gen1;
     private int _gen2;
     private int _uploadsAtStart;
+    private int _maxNodeCells;
 
     public ScrollBench(Navigator navigator, TextureStreamer? streamer, DebugOptions options, AppServices services)
     {
@@ -96,6 +98,14 @@ public sealed class ScrollBench : IDisposable
 
             case Phase.Settling:
                 _elapsed += delta;
+
+                // The list's per-game models load in the background; the scroll measures the grid once they're in.
+                if (_navigator.PerGameLoading > 0 && _elapsed < ModelsTimeoutSeconds)
+                {
+                    _elapsed = Math.Min(_elapsed, SettleTimeoutSeconds - SettleAfterTexturedSeconds);
+                    return;
+                }
+
                 if (_visibleTexturedMs is null && grid.VisibleTextured && grid.AnyVisibleArt)
                 {
                     _visibleTexturedMs = (Time.GetTicksUsec() - _enteredUsec) / 1000.0;
@@ -114,6 +124,7 @@ public sealed class ScrollBench : IDisposable
                 var t = Math.Min(1, _elapsed / _options.BenchScrollSeconds);
                 var rowsPerSecond = (float)((_rows - 1) / _options.BenchScrollSeconds);
                 grid.SetScrollDirect((float)(t * (_rows - 1)), rowsPerSecond);
+                _maxNodeCells = Math.Max(_maxNodeCells, grid.NodeCells);
                 if (grid.AnyVisibleArt)
                 {
                     _texturedSum += grid.VisibleTexturedFraction;
@@ -203,7 +214,7 @@ public sealed class ScrollBench : IDisposable
         }
 
         GD.Print(FormattableString.Invariant(
-            $"Scroll bench: {_system}, {_rows - 1} rows in {_options.BenchScrollSeconds} s: mean {frames.MeanMs:0.00} ms, p99 {frames.P99Ms:0.00} ms, {frames.HitchCount} hitches, textured {scroll.TexturedFractionMean:P1}, main thread allocated {allocated} B"));
+            $"Scroll bench: {_system}, {_rows - 1} rows in {_options.BenchScrollSeconds} s: mean {frames.MeanMs:0.00} ms, p99 {frames.P99Ms:0.00} ms, {frames.HitchCount} hitches, textured {scroll.TexturedFractionMean:P1}, main thread allocated {allocated} B, most cells drawn as nodes {_maxNodeCells}"));
         if (_streamer is { } s)
         {
             var (largeCount, largeMs, largeMax) = s.LargeUploadStats;

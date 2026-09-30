@@ -304,6 +304,39 @@ public sealed class LibraryService : ILibrary, IPlayHistory, IDisposable
         }
     }
 
+    /// <summary>
+    /// Indexes one system's user art and per-game models again, without scanning its ROM folders (the import service,
+    /// after it writes or removes a model), and raises <see cref="MediaChanged"/> for the games whose rows changed.
+    /// Needs <see cref="ConfigDir"/>. Returns those games.
+    /// </summary>
+    public async Task<IReadOnlyList<GameKey>> RefreshUserMediaAsync(string systemId, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(systemId);
+        var configDir = ConfigDir ?? throw new InvalidOperationException("ConfigDir isn't set, so there's no user media to index.");
+        await _jobLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            var cache = await _readers.RunAsync(c => LibraryStore.LoadUserMedia(c, systemId), cancellationToken).ConfigureAwait(false);
+            var scan = await Task.Run(() => UserMedia.Scan(configDir, systemId, cache, cancellationToken), cancellationToken).ConfigureAwait(false);
+            var changed = await _writer.RunAsync(c =>
+            {
+                var games = new List<GameKey>();
+                LibraryStore.ApplyUserMediaOnly(c, systemId, scan, games);
+                return games;
+            }, cancellationToken).ConfigureAwait(false);
+            if (changed.Count > 0)
+            {
+                RaiseMediaChanged(changed);
+            }
+
+            return changed;
+        }
+        finally
+        {
+            _jobLock.Release();
+        }
+    }
+
     public async Task<ScanSummary> RebuildAsync(IProgress<JobProgress>? progress, CancellationToken cancellationToken)
     {
         var config = Config;

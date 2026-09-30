@@ -3,6 +3,7 @@ using Launcher.Core.Config;
 using Launcher.Core.Diagnostics;
 using Launcher.Core.Library;
 using Launcher.Core.Media;
+using Launcher.Core.Models;
 using Launcher.Core.Platform;
 using Launcher.Core.Scanning;
 
@@ -282,9 +283,9 @@ public sealed class ScrapeService : IDisposable
 
     /// <summary>
     /// Clears a game's metadata: scraped fields, scraped media files and their derivatives, saved responses, every
-    /// match (manual ones too), the title and metadata overrides, and the user's own art files for it (not a file
-    /// another game also uses). Its status goes back to never scraped. Favourite, play history, emulator and hidden
-    /// stay.
+    /// match (manual ones too), the title and metadata overrides, and the user's own art files and model for it (not
+    /// a file another game also uses; the model's processed copy in the cache goes too). Its status goes back to never
+    /// scraped. Favourite, play history, emulator and hidden stay.
     /// </summary>
     public async Task<ClearResult> ClearGameAsync(GameKey game, CancellationToken cancellationToken)
     {
@@ -310,7 +311,13 @@ public sealed class ScrapeService : IDisposable
 
                 if (root == MediaRoot.Config && !cleared.SharedUserArt.Contains(path))
                 {
-                    Delete(Path.Combine(_options.Paths.ConfigDir, path.Replace('/', Path.DirectorySeparatorChar)));
+                    // The user's own art and their model for the game (M6: its processed copy in the cache goes too).
+                    var file = Path.Combine(_options.Paths.ConfigDir, path.Replace('/', Path.DirectorySeparatorChar));
+                    Delete(file);
+                    if (path.StartsWith(UserMedia.ModelsFolderName + "/", StringComparison.Ordinal))
+                    {
+                        new ModelCache(_options.Paths.CacheDir, null, null).Forget(file);
+                    }
                 }
             }
 

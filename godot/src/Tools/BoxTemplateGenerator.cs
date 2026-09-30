@@ -7,8 +7,9 @@ namespace Launcher.App.Tools;
 /// Generates the built-in models procedurally and exports each with Godot's glTF exporter (A7): the built-in theme's
 /// box templates in <c>res://themes/memory-card/models/templates/</c> and its generic system model in
 /// <c>res://themes/memory-card/models/systems/</c>, and the M6 test theme's models in
-/// <c>tests/themes/slot-showcase/models/</c> (outside the project, so Godot doesn't import them: a user theme's
-/// models are loaded from the <c>.glb</c> at run time).
+/// <c>tests/themes/slot-showcase/models/</c>, and the sample theme's in <c>samples/themes/retro-tv/models/</c>
+/// (<see cref="RetroTvBuilder"/>; both outside the project, so Godot doesn't import them: a user theme's models are
+/// loaded from the <c>.glb</c> at run time).
 /// <para>
 /// Run it headless with <c>godot --headless --path godot res://scenes/tools/generate_box_templates.tscn</c> (it quits
 /// when done), or open that scene in the editor and press Generate in the inspector. Then run
@@ -23,6 +24,9 @@ public partial class BoxTemplateGenerator : Node
 
     /// <summary>The test theme, relative to the project folder.</summary>
     public const string TestThemeDir = "../tests/themes/slot-showcase/models";
+
+    /// <summary>The sample theme for theme authors (M6 part 2), relative to the project folder.</summary>
+    public const string SampleThemeDir = "../samples/themes/retro-tv/models";
 
     // Sizes are in millimetres, from real cases (width x height x depth).
     public static readonly BoxSpec[] Templates =
@@ -105,7 +109,41 @@ public partial class BoxTemplateGenerator : Node
         DirAccess.MakeDirRecursiveAbsolute(System.IO.Path.Combine(testTheme, "systems"));
         ok &= Export(ShowcaseCase, System.IO.Path.Combine(testTheme, "templates", ShowcaseCase.Id + ".glb"));
         ok &= Export(Tile, System.IO.Path.Combine(testTheme, "systems", Tile.Id + ".glb"));
+
+        var sample = System.IO.Path.GetFullPath(System.IO.Path.Combine(ProjectSettings.GlobalizePath("res://"), SampleThemeDir));
+        DirAccess.MakeDirRecursiveAbsolute(System.IO.Path.Combine(sample, "templates"));
+        DirAccess.MakeDirRecursiveAbsolute(System.IO.Path.Combine(sample, "systems"));
+        ok &= ExportScene(RetroTvBuilder.Tv(out var tvTriangles), tvTriangles, System.IO.Path.Combine(sample, "templates", "crt_tv.glb"));
+        ok &= ExportScene(RetroTvBuilder.ConsoleModel(out var consoleTriangles), consoleTriangles, System.IO.Path.Combine(sample, "systems", "console.glb"));
         return ok;
+    }
+
+    /// <summary>A node tree with meshes and an <see cref="AnimationPlayer"/>, exported with its clips.</summary>
+    private static bool ExportScene(Node3D root, int triangles, string path)
+    {
+        try
+        {
+            var document = new GltfDocument();
+            var state = new GltfState();
+            var error = document.AppendFromScene(root, state);
+            if (error == Error.Ok)
+            {
+                error = document.WriteToFilesystem(state, path);
+            }
+
+            if (error != Error.Ok)
+            {
+                GD.PrintErr($"Box templates: couldn't export {path}: {error}");
+                return false;
+            }
+
+            GD.Print($"Box templates: {path}: about {triangles} triangles, {state.GetMaterials().Count} materials, {state.GetAnimations().Count} clips");
+            return true;
+        }
+        finally
+        {
+            root.Free();
+        }
     }
 
     /// <param name="path">A <c>res://</c> path, or an absolute one.</param>

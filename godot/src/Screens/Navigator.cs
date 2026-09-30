@@ -30,7 +30,6 @@ public sealed partial class Navigator : Node
     private const int RecentlyPlayedLimit = 60;
     private const double DetailsDelay = 0.12;
     private const float TransitionSeconds = 0.45f;
-    private const double LaunchAnimationSeconds = 0.7;
     private const double StatusSeconds = 2.5;
     private const int CachedLists = 3;
 
@@ -73,6 +72,7 @@ public sealed partial class Navigator : Node
     private GameDetails? _focusedGame;
     private bool _scanning;
     private double _launchStartedAt;
+    private double _launchSeconds;
     private GameDetails? _launchGame;
 
     public Navigator(AppServices services, MainThreadQueue queue, ItemGrid systemsGrid, ItemGrid gamesGrid, InfoOverlay overlay, LookStage stage, ModelLoader loader, ThemeRuntime theme)
@@ -122,6 +122,9 @@ public sealed partial class Navigator : Node
 
     /// <summary>True while a theme switch loads.</summary>
     public bool SwitchingTheme => _switchingTheme;
+
+    /// <summary>Per-game models of the shown list still loading (the scroll bench waits for them).</summary>
+    public int PerGameLoading => _perGameLoading.Count;
 
     /// <summary>Where the focus is, for the <c>--nav-script</c> log.</summary>
     public string Describe()
@@ -186,7 +189,7 @@ public sealed partial class Navigator : Node
             FinishPerGameModels();
         }
 
-        if (_screen == Screen.Launching && _launchGame is not null && _clock - _launchStartedAt >= LaunchAnimationSeconds)
+        if (_screen == Screen.Launching && _launchGame is not null && _clock - _launchStartedAt >= _launchSeconds)
         {
             var game = _launchGame;
             _launchGame = null;
@@ -498,6 +501,7 @@ public sealed partial class Navigator : Node
 
         _games = source;
         source.BindTemplates(_theme.GameTemplateOf, _gamesGrid.Templates.Count);
+        ReleasePerGameModels();
         RequestPerGameModels(source);
         var focus = focusIndex
             ?? (focusGame is { } game ? Math.Max(0, source.IndexOf(game))
@@ -570,6 +574,33 @@ public sealed partial class Navigator : Node
     // ---- Per-game models (A7) ----------------------------------------------------------------------
 
     /// <summary>
+    /// Before a list is bound: the grid forgets the previous list's per-game models, and the loader drops those no
+    /// shown or cached list uses, so memory follows the lists rather than everything seen this session.
+    /// </summary>
+    private void ReleasePerGameModels()
+    {
+        _gamesGrid.ReleaseModels();
+        var keep = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var list in _cache)
+        {
+            foreach (var path in list.ModelPaths)
+            {
+                keep.Add(_theme.PerGamePath(path));
+            }
+        }
+
+        if (_games is { } shown)
+        {
+            foreach (var path in shown.ModelPaths)
+            {
+                keep.Add(_theme.PerGamePath(path));
+            }
+        }
+
+        _loader.ReleasePerGame(keep);
+    }
+
+    /// <summary>
     /// Starts loading the list's per-game models. A game shows its system's template until its own model has
     /// loaded, then switches to it without rebinding anything else.
     /// </summary>
@@ -616,8 +647,8 @@ public sealed partial class Navigator : Node
             return;
         }
 
-        var index = _gamesGrid.AddTemplate(template, perItem: true);
-        foreach (var game in source.SetModelTemplate(model, index, _gamesGrid.Templates.Count))
+        _gamesGrid.PrepareModel(template);
+        foreach (var game in source.SetModel(model, template))
         {
             if (source == _games)
             {
@@ -663,6 +694,11 @@ public sealed partial class Navigator : Node
                     }
 
                     var changed = source.ReplaceMedia(rows, null);
+                    foreach (var file in source.ChangedModelFiles)
+                    {
+                        _theme.ForgetPerGame(file);
+                    }
+
                     if (games is null)
                     {
                         for (var i = 0; i < source.Count; i++)
@@ -1047,6 +1083,7 @@ public sealed partial class Navigator : Node
 
         _screen = Screen.Launching;
         _launchStartedAt = _clock;
+        _launchSeconds = _gamesGrid.LaunchSeconds;
         _gamesGrid.PlayLaunch();
         var key = _focusKey;
         if (_focusedGame is { GameId: var id } game && id == key)

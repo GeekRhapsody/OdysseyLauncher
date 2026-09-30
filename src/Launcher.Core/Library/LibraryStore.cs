@@ -728,6 +728,14 @@ internal static class LibraryStore
         return new SystemScanSummary(system, added, updated, existing.Count, unchanged, scan.FilesSeen, scan.PlaylistsRead);
     }
 
+    /// <summary>One system's user art and models alone, in a transaction of their own (no ROM scan).</summary>
+    public static void ApplyUserMediaOnly(SqliteConnection connection, string systemId, UserMediaScan media, List<GameKey> changed)
+    {
+        using var transaction = connection.BeginTransaction();
+        ApplyUserMedia(connection, transaction, systemId, media, changed);
+        transaction.Commit();
+    }
+
     private static void ApplyPlaylists(
         SqliteConnection connection, SqliteTransaction transaction, Statements s, string system, IReadOnlyList<PlaylistEntry> playlists)
     {

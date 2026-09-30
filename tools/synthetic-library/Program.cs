@@ -1,13 +1,15 @@
 using System.Diagnostics;
 using System.Globalization;
+using System.Numerics;
 using System.Runtime.InteropServices;
 using System.Text;
 using Launcher.Core.Config;
 using Launcher.Core.Library;
 using Launcher.Core.Media;
+using Launcher.Core.Models;
 
 // synthetic-library --out=<absolute folder> --covers=<absolute M1 spike library> [--games=10000] [--others=<n>]
-//                   [--no-art-every=9] [--slots=back,spine,...]
+//                   [--no-art-every=9] [--slots=back,spine,...] [--models=<n>]
 //
 // Writes a portable user folder for `--user-dir`: settings, systems and emulators config, 20 systems (the 14 built-in
 // ones plus 6 more), PlayStation 2 with --games games and the others with --others each (default 30 to 400), and
@@ -15,13 +17,15 @@ using Launcher.Core.Media;
 // ConfigDir/media, hardlinked from the spike library's JPEGs, and its baked BC7 derivative in cache/textures,
 // hardlinked from the spike's DDS files, so the library costs almost no disk. With --slots, those games also get art
 // of each named kind (a different spike image for each), for themes whose templates use more slots than the cover.
-// Then it scans the library, so the app boots warm.
+// With --models, that many PlayStation 2 games, spread evenly, get a per-game model of their own
+// (ConfigDir/models/games/ps2/<rel path>.glb, M6): a lathed figure on a plinth, about 1,000 triangles, with a cover
+// slot on the plinth and, on every third, a small texture of its own. Then it scans the library, so the app boots warm.
 //
 // The folder is deleted and recreated, but only if it's empty or was made by this tool.
 var options = Options.Parse(args);
 if (options is null)
 {
-    Console.Error.WriteLine("usage: synthetic-library --out=<absolute folder> --covers=<absolute spike library> [--games=10000] [--others=<n>] [--no-art-every=9] [--slots=back,spine,...]");
+    Console.Error.WriteLine("usage: synthetic-library --out=<absolute folder> --covers=<absolute spike library> [--games=10000] [--others=<n>] [--no-art-every=9] [--slots=back,spine,...] [--models=<n>]");
     return 2;
 }
 
@@ -99,6 +103,7 @@ var random = new Random(20260928);
 var spikeCover = 0;
 var covers = 0;
 var games = 0;
+var models = 0;
 foreach (var system in loaded.Config.Systems)
 {
     var count = system.Id == "ps2" ? options.Games : options.Others ?? random.Next(30, 401);
@@ -117,6 +122,14 @@ foreach (var system in loaded.Config.Systems)
 
         File.WriteAllBytes(Path.Combine(folder, stem + extension), []);
         games++;
+        if (system.Id == "ps2" && options.Models > 0 && i % Math.Max(1, count / options.Models) == 0 && models < options.Models)
+        {
+            var model = Path.Combine(root, "models", "games", "ps2", stem + extension + ".glb");
+            Directory.CreateDirectory(Path.GetDirectoryName(model)!);
+            File.WriteAllBytes(model, SyntheticModels.Make(random, models));
+            models++;
+        }
+
         if (options.NoArtEvery > 0 && games % options.NoArtEvery == 0)
         {
             continue;
@@ -135,7 +148,7 @@ foreach (var system in loaded.Config.Systems)
     }
 }
 
-Console.WriteLine($"Wrote {loaded.Config.Systems.Count} systems, {games:N0} games and {covers:N0} covers in {stopwatch.Elapsed.TotalSeconds:0.0} s.");
+Console.WriteLine($"Wrote {loaded.Config.Systems.Count} systems, {games:N0} games, {covers:N0} covers and {models:N0} per-game models in {stopwatch.Elapsed.TotalSeconds:0.0} s.");
 
 stopwatch.Restart();
 using (var library = await LibraryService.OpenAsync(loaded.Config, root, null, default))
@@ -182,7 +195,7 @@ static void HardLink(string link, string target)
     }
 }
 
-internal sealed record Options(string Out, string Covers, int Games, int? Others, int NoArtEvery, IReadOnlyList<string> Slots)
+internal sealed record Options(string Out, string Covers, int Games, int? Others, int NoArtEvery, IReadOnlyList<string> Slots, int Models)
 {
     public static Options? Parse(string[] args)
     {
@@ -191,6 +204,7 @@ internal sealed record Options(string Out, string Covers, int Games, int? Others
         var games = 10_000;
         int? others = null;
         var noArtEvery = 9;
+        var models = 0;
         var slots = new List<string>();
         foreach (var arg in args)
         {
@@ -224,12 +238,15 @@ internal sealed record Options(string Out, string Covers, int Games, int? Others
                 case "--no-art-every" when int.TryParse(value, CultureInfo.InvariantCulture, out var n) && n >= 0:
                     noArtEvery = n;
                     break;
+                case "--models" when int.TryParse(value, CultureInfo.InvariantCulture, out var n) && n >= 0:
+                    models = n;
+                    break;
                 default:
                     return null;
             }
         }
 
-        return output is null || covers is null ? null : new Options(output, covers, games, others, noArtEvery, slots);
+        return output is null || covers is null ? null : new Options(output, covers, games, others, noArtEvery, slots, models);
     }
 }
 
@@ -260,6 +277,128 @@ internal static class Titles
         var revision = random.Next(12) == 0 ? " (Rev 1)" : string.Empty;
         return $"{article}{First[random.Next(First.Length)]} {Second[random.Next(Second.Length)]}{Suffix[random.Next(Suffix.Length)]} {Regions[random.Next(Regions.Length)]}{revision}";
     }
+}
+
+/// <summary>
+/// Per-game models for benches (M6): a figure turned on a lathe (a random profile, 24 sides, 20 rings, 960 triangles)
+/// on a box plinth whose front is a cover slot, in a random colour; every third has a 128² texture of its own on the
+/// plinth, so a list of them has materials of its own too. Within the per-game budget (A7).
+/// </summary>
+internal static class SyntheticModels
+{
+    public static byte[] Make(Random random, int index)
+    {
+        var builder = new GltfBuilder { Generator = "synthetic-library" };
+        var hue = random.NextSingle();
+        var colour = Hsv(hue, 0.55f, 0.75f);
+        var texture = -1;
+        if (index % 3 == 0)
+        {
+            var rgba = new byte[128 * 128 * 4];
+            var stripe = Hsv((hue + 0.5f) % 1, 0.6f, 0.9f);
+            for (var y = 0; y < 128; y++)
+            {
+                for (var x = 0; x < 128; x++)
+                {
+                    var c = ((x + y) / 16 + index) % 2 == 0 ? stripe : colour;
+                    var i = (y * 128 + x) * 4;
+                    rgba[i] = (byte)(c.X * 255);
+                    rgba[i + 1] = (byte)(c.Y * 255);
+                    rgba[i + 2] = (byte)(c.Z * 255);
+                    rgba[i + 3] = 255;
+                }
+            }
+
+            texture = builder.AddImage(PngEncoder.Encode(rgba, 128, 128), "image/png");
+        }
+
+        var figure = builder.AddMaterial("figure", new Vector4(Linear(colour), 1), 0.35f, 0.2f);
+        var plinth = builder.AddMaterial("plinth", texture >= 0 ? Vector4.One : new Vector4(0.08f, 0.08f, 0.1f, 1), 0.6f, 0, texture);
+        var cover = builder.AddMaterial("cover", Vector4.One, 0.3f, aspect: 0.66f / 0.26f);
+
+        // The lathe: a radius for each height, from a couple of random bulges.
+        const int Sides = 24;
+        const int Rings = 20;
+        var a1 = 0.1f + random.NextSingle() * 0.15f;
+        var a2 = random.NextSingle() * 0.12f;
+        var f2 = 1.5f + random.NextSingle() * 3;
+        var positions = new List<Vector3>();
+        var normals = new List<Vector3>();
+        var indices = new List<int>();
+        for (var r = 0; r <= Rings; r++)
+        {
+            var t = (float)r / Rings;
+            var radius = 0.04f + a1 * MathF.Sin(MathF.PI * t) + a2 * MathF.Sin(MathF.PI * f2 * t) * MathF.Sin(MathF.PI * t);
+            for (var s = 0; s <= Sides; s++)
+            {
+                var (sin, cos) = MathF.SinCos(MathF.Tau * s / Sides);
+                positions.Add(new Vector3(cos * radius, 0.3f + t * 0.7f, sin * radius));
+                normals.Add(Vector3.Normalize(new Vector3(cos, 0.15f, sin)));
+            }
+        }
+
+        for (var r = 0; r < Rings; r++)
+        {
+            for (var s = 0; s < Sides; s++)
+            {
+                var a = r * (Sides + 1) + s;
+                var b = a + Sides + 1;
+                indices.AddRange([a, b, a + 1, a + 1, b, b + 1]);
+            }
+        }
+
+        var mesh = builder.AddMesh("figure", [
+            new GltfPrimitive([.. positions], [.. normals], null, [.. indices], figure),
+            Box(new Vector3(0, 0.15f, 0), new Vector3(0.7f, 0.3f, 0.5f), plinth),
+            Box(new Vector3(0, 0.15f, 0.2505f), new Vector3(0.66f, 0.26f, 0.001f), cover),
+        ]);
+        builder.AddNode("figure", mesh);
+        return builder.ToGlb();
+    }
+
+    /// <summary>A box, each face's UVs spanning 0..1 upright, counter-clockwise from outside.</summary>
+    private static GltfPrimitive Box(Vector3 centre, Vector3 size, int material)
+    {
+        var h = size / 2;
+        var positions = new List<Vector3>();
+        var normals = new List<Vector3>();
+        var uvs = new List<Vector2>();
+        var indices = new List<int>();
+        foreach (var (normal, right, up) in (ReadOnlySpan<(Vector3, Vector3, Vector3)>)[
+            (Vector3.UnitZ, Vector3.UnitX, Vector3.UnitY), (-Vector3.UnitZ, -Vector3.UnitX, Vector3.UnitY),
+            (Vector3.UnitX, -Vector3.UnitZ, Vector3.UnitY), (-Vector3.UnitX, Vector3.UnitZ, Vector3.UnitY),
+            (Vector3.UnitY, Vector3.UnitX, -Vector3.UnitZ), (-Vector3.UnitY, Vector3.UnitX, Vector3.UnitZ)])
+        {
+            var c = centre + normal * MathF.Abs(Vector3.Dot(normal, h));
+            var r = right * MathF.Abs(Vector3.Dot(right, h));
+            var u = up * MathF.Abs(Vector3.Dot(up, h));
+            var first = positions.Count;
+            positions.AddRange([c - r + u, c + r + u, c + r - u, c - r - u]);
+            normals.AddRange([normal, normal, normal, normal]);
+            uvs.AddRange([new Vector2(0, 0), new Vector2(1, 0), new Vector2(1, 1), new Vector2(0, 1)]);
+            indices.AddRange([first, first + 3, first + 2, first, first + 2, first + 1]);
+        }
+
+        return new GltfPrimitive([.. positions], [.. normals], [.. uvs], [.. indices], material);
+    }
+
+    private static Vector3 Hsv(float h, float s, float v)
+    {
+        var sector = (int)(h * 6) % 6;
+        var f = h * 6 - MathF.Floor(h * 6);
+        var (p, q, t) = (v * (1 - s), v * (1 - f * s), v * (1 - (1 - f) * s));
+        return sector switch
+        {
+            0 => new Vector3(v, t, p),
+            1 => new Vector3(q, v, p),
+            2 => new Vector3(p, v, t),
+            3 => new Vector3(p, q, v),
+            4 => new Vector3(t, p, v),
+            _ => new Vector3(v, p, q),
+        };
+    }
+
+    private static Vector3 Linear(Vector3 srgb) => new(MathF.Pow(srgb.X, 2.2f), MathF.Pow(srgb.Y, 2.2f), MathF.Pow(srgb.Z, 2.2f));
 }
 
 internal static partial class NativeMethods

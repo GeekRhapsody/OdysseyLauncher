@@ -221,6 +221,9 @@ public static class ShaderParams
     public static readonly StringName SpineColumns = "spine_columns";
     public static readonly StringName GridFade = "grid_fade";
     public static readonly StringName TintCase = "tint_case";
+
+    /// <summary>A per-instance uniform: INSTANCE_CUSTOM for an item drawn as its own node (item.gdshader).</summary>
+    public static readonly StringName NodeCustom = "node_custom";
     public static readonly StringName BackgroundTopLeft = "bg_top_left";
     public static readonly StringName BackgroundTopRight = "bg_top_right";
     public static readonly StringName BackgroundBottomLeft = "bg_bottom_left";

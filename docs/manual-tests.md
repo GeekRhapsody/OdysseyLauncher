@@ -241,3 +241,22 @@ This checks what captures can't: the Menu button switching themes on the real di
 
 - Anything that differed: a stutter as a theme switches or a look cross-fades, a look that snaps instead of fading, the wrong model or a missing cover on a game, or a model that isn't the size of its neighbours.
 - The log lines: `Select-String -Path "$env:APPDATA\Godot\app_userdata\Odyssey Launcher\logs\godot.log" -Pattern '^Theme|^Models|^Media|error|warning'`.
+
+## M6 part 2: your own models, the sample theme and clips
+
+This checks what the scripts can't: a model made in Blender (or downloaded) imported for a real game, the sample theme's clips on the real display, and the model log. It uses the M3 set-up (`C:\OdysseyTest`) with the M5 Mega Drive ROMs. Build the tools first (`dotnet build`), and set `$cli = '.\tools\scrape-cli\bin\Debug\net8.0\odyssey-scrape.exe'`.
+
+1. **Check a model.** Pick a `.glb` of your own (or export one from Blender as [THEMING.md](THEMING.md#9-making-models-in-blender) says), and run `& $cli --user-dir=C:\OdysseyTest inspect-model <file>`. It prints the triangles, materials and textures against the per-game budget, the slots and clips found, and any warnings. Nothing is changed.
+2. **Import it.** `& $cli --user-dir=C:\OdysseyTest import-model --from=<file> "megadrive/<a ROM's file name>"`. It says `Imported:` and where the model went (`C:\OdysseyTest\models\games\megadrive\<ROM file name>.glb`). A textures-too-large model is imported with its textures scaled down (a `note:` line says so).
+3. **An OBJ zip.** Zip an `.obj` with its `.mtl` and textures, and import it for another game the same way: `Imported (converted from OBJ)`.
+4. **A bad file.** Import any non-model file renamed to `.glb`: `Rejected: nothing was changed.`, and `& $cli --user-dir=C:\OdysseyTest models-log` shows why.
+5. **In the app.** Copy the sample theme: `Copy-Item -Recurse samples\themes\retro-tv C:\OdysseyTest\themes\`. Start the export full screen (`& .\artifacts\export\windows\OdysseyLauncher.exe --fullscreen ++ --user-dir=C:\OdysseyTest`) and use only the gamepad.
+   - Enter Mega Drive: your two games show your models, fitted into their cells, with their art on any slot materials.
+   - Press Menu on the systems grid until the theme is Retro TV. The cards are consoles whose cartridges rise and settle (the idle clip). The focused console lifts its cartridge higher and wobbles (focused).
+   - Enter Mega Drive: every game is a television showing its screenshot (else its cover, else colour bars), with its logo (else its title) on the stand. The focused television's aerials sway. Press A: the television spins and its aerials fold before the emulator starts (at most 2 s).
+6. **Clearing removes the model.** `& $cli --user-dir=C:\OdysseyTest clear "megadrive/<the first ROM's file name>"`, then press View in the app: that game shows its template again, and its file in `models\games\megadrive\` is gone.
+
+### Send back
+
+- Anything that differed: a model the wrong size or facing the wrong way, art missing from a slot, a clip that doesn't play or snaps back instead of blending, a stutter when a model loads or a clip starts.
+- The model log (`& $cli --user-dir=C:\OdysseyTest models-log`), and the `inspect-model` output for any model that looked wrong.

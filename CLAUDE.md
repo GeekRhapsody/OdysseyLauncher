@@ -4,6 +4,7 @@ A fully 3D game launcher frontend (systems grid → games grid → emulator), st
 
 - The design is in `docs/ARCHITECTURE.md`. Add to its decisions log whenever a decision changes.
 - Milestones and acceptance criteria are in `docs/ROADMAP.md`. Update its **Progress** section at the end of every milestone.
+- The guide for theme authors is `docs/THEMING.md`. Keep it in step with the manifest, the slots, the model spec and the budgets.
 
 ## Layout
 
@@ -19,13 +20,14 @@ A fully 3D game launcher frontend (systems grid → games grid → emulator), st
 | `tools/launch-smoke.ps1` | Runs the app with `--launch` against the fake emulator, in an isolated user folder. |
 | `docs/manual-tests.md` | Checks a script can't observe (window focus with a real emulator). |
 | `tools/core-bench/` | Times Core's config, scan and query paths on self-contained .NET 8 (the export's runtime). Not in the solution. |
-| `tools/synthetic-library/` | Writes a portable user folder with 20 systems and 14,215 games (10,000 on PS2), with covers and BC7 derivatives hardlinked from the M1 spike library (`artifacts/spike-library`). `--games`, `--others` and `--slots=back,spine,...` (art for more slots) make other libraries. Not in the solution. |
+| `tools/synthetic-library/` | Writes a portable user folder with 20 systems and 14,215 games (10,000 on PS2), with covers and BC7 derivatives hardlinked from the M1 spike library (`artifacts/spike-library`). `--games`, `--others`, `--slots=back,spine,...` (art for more slots) and `--models=<n>` (that many PS2 games get a per-game model) make other libraries. Not in the solution. |
 | `tools/bench-summary.py` | One line per bench run (scroll, textures, memory) from `artifacts/bench/<folder>`. |
-| `tools/scrape-cli/` | `odyssey-scrape`: every scraping operation from the command line (`providers`, `game`, `system`, `missing`, `clear`, `show`, `resume`, `bake`, `scan`, `ss-systems`), for live tests with the owner's credentials. In the solution. |
+| `tools/scrape-cli/` | `odyssey-scrape`: every scraping operation from the command line (`providers`, `game`, `system`, `missing`, `clear`, `show`, `resume`, `bake`, `scan`, `ss-systems`), for live tests with the owner's credentials, and the model commands (`import-model`, `remove-model`, `inspect-model`, `models-log`; no network). In the solution. |
 | `tests/Launcher.Core.Tests/Scraping/Fixtures/` | Recorded provider responses. Credentials appear as `{{DEVPASSWORD}}`-style placeholders, which the tests' fake HTTP handler fills with fake values. |
 | `godot/themes/memory-card/` | The built-in theme: `theme.toml` (looks, templates and each built-in system's colour, template and look) and its models. Every other theme falls back to it. |
 | `tests/themes/` | Themes for tests and captures (`slot-showcase`: a game template with three slots). Copy one into a user folder's `themes/` to use it. |
-| `godot/src/Tools/`, `godot/scenes/tools/` | The `[Tool]` generator for the built-in models; its output is `godot/themes/memory-card/models/{templates,systems}/*.glb`, plus the test theme's `tests/themes/slot-showcase/models/`. Excluded from exports. |
+| `samples/themes/retro-tv/` | The sample theme for theme authors (`docs/THEMING.md`): a CRT television game template (screenshot screen, logo plate, focused and launch clips) and a console system model (idle clip). A user theme: copy it into a user folder's `themes/`. |
+| `godot/src/Tools/`, `godot/scenes/tools/` | The `[Tool]` generator for the built-in models; its output is `godot/themes/memory-card/models/{templates,systems}/*.glb`, plus the test theme's `tests/themes/slot-showcase/models/` and the sample theme's `samples/themes/retro-tv/models/`. Excluded from exports. |
 
 ## Commands (PowerShell, repo root)
 
@@ -43,9 +45,9 @@ A fully 3D game launcher frontend (systems grid → games grid → emulator), st
 | `godot --path godot` | Runs the app windowed. Use `godot --path godot -e` for the editor. |
 | `godot --path godot --export-release "Windows Desktop" $PWD/artifacts/export/windows/OdysseyLauncher.exe` | Exports an ExportRelease build (the preset is in `godot/export_presets.cfg`). **Not `--headless`:** the shader baker needs a rendering device, and a headless export silently bakes nothing (a 49 KB PCK instead of about 2.6 MB). |
 | `.\tools\bench-export.ps1` | Exports, then runs one warm-up plus 5 benched runs of the export and prints the medians. Options: `-SkipExport`, `-Runs`, `-Frames`, `-Resolution`, `-Fullscreen`, `-EngineArgs '--rendering-driver', 'vulkan'`, `-Label`, `-AppArgs "--user-dir=$PWD\artifacts\synthetic", '--bench-scenario=scroll'`, `-TimeoutSeconds`. **Use this for any number you compare with a target**, with nothing else running on the machine. |
-| `godot --headless --path godot res://scenes/tools/generate_box_templates.tscn` | Regenerates the built-in theme's models and the test theme's (deterministic), then `--import`. Commit the `.glb` and `.import` files. `BuiltInModelTests` checks them against the model spec. |
-| `dotnet run --project tools/synthetic-library -c ExportRelease -- "--out=$PWD\artifacts\synthetic" "--covers=$PWD\artifacts\spike-library"` | The synthetic library, for `--user-dir`. About 50 s. M6's 3,000-game library with art for four more slots: `"--out=$PWD\artifacts\synthetic-3000" ... --games=2620 --others=20 --slots=back,spine,screenshot,logo`, then copy `tests/themes/slot-showcase` into its `themes/`. |
-| `.\tools\scrape-cli\bin\Debug\net8.0\odyssey-scrape.exe [--user-dir=<folder>] <command>` | Scraping by hand (`help` lists the commands). Without `--user-dir` it uses the app's AppData folders. **Don't run a live scrape yourself:** it needs the owner's credentials, and it's the owner's manual test (`docs/manual-tests.md`). `providers`, `scan`, `show` and `bake` make no network calls. |
+| `godot --headless --path godot res://scenes/tools/generate_box_templates.tscn` | Regenerates the built-in theme's models, the test theme's and the sample theme's (deterministic), then `--import`. Commit the `.glb` and `.import` files. `BuiltInModelTests` and `ModelInspectorTests` check them against the model spec and budgets. |
+| `dotnet run --project tools/synthetic-library -c ExportRelease -- "--out=$PWD\artifacts\synthetic" "--covers=$PWD\artifacts\spike-library"` | The synthetic library, for `--user-dir`. About 50 s. M6's 3,000-game library with art for four more slots: `"--out=$PWD\artifacts\synthetic-3000" ... --games=2620 --others=20 --slots=back,spine,screenshot,logo`, then copy `tests/themes/slot-showcase` (and `samples/themes/retro-tv`) into its `themes/`. Add `--models=300` for 300 per-game models (M6 part 2 used `artifacts\synthetic-3000-models`). |
+| `.\tools\scrape-cli\bin\Debug\net8.0\odyssey-scrape.exe [--user-dir=<folder>] <command>` | Scraping by hand (`help` lists the commands). Without `--user-dir` it uses the app's AppData folders. **Don't run a live scrape yourself:** it needs the owner's credentials, and it's the owner's manual test (`docs/manual-tests.md`). `providers`, `scan`, `show`, `bake` and the model commands make no network calls. `import-model --from=<file> <system>/<rel path>` imports a game's model; `inspect-model [--kind=template|system] <file>` checks one. |
 | `python tools/bench-summary.py "artifacts/bench/*-<label>"` | Per-run summary of bench folders. |
 
 `godot` is `C:\Users\claudio\Coding\Godot\godot.cmd`. It forwards to the 4.7.2 .NET console build, which waits for exit and passes the exit code through.

@@ -211,7 +211,38 @@ The hitch target was met by the chosen configuration, but it's reworded (see abo
 - **Slot name matching:** tested (case and Blender suffixes). Clip name matching: part 2.
 - **The M1 targets with custom models on screen:** met with the test theme's user models (a user theme's `.glb` files) on screen; a scroll with per-game models on screen isn't benched yet.
 
-Still to do in **part 2**: `ModelInspector` and the budget fixtures (in budget, over, and more than 2× over with fallback); caching converted user models in `CacheDir/models/`; the rest of material remapping (normal, emissive, metallic, unlit, alpha, texture transform) and mipmapping user textures; idle, focused and launch clips; and, carried over from M5, the LRU texture cache and the focused item's full-resolution art.
+**Closed on 2026-09-30 with part 2: user-supplied models and theme authoring.**
+
+The owner's brief for part 2:
+- importing a user's `.glb` for a game into its model slot, as a Core service for M7's game options panel, with a console command to test it now
+- converting a Wavefront OBJ zip to `.glb`
+- run-time `GLTFDocument` loading for user and theme models: fitted to the cell, media bound by slot names, optional idle, focused and launch clips, and no `cover` required
+- budgets enforced at import (textures scaled down, a warning over the triangle budget, never a crash on a bad file, with a fall back to the next model in line and the error in a log the user can read)
+- processed models cached, and processed again when their file changes
+- games with their own model drawn individually beside the batched items, with `--bench` showing that a system with a few hundred of them meets the targets
+- clearing a game's metadata removes its model
+- a sample theme with a custom system model and a game template that isn't a box
+- `docs/THEMING.md` for theme authors using Blender
+
+All of it is done ([perf/m6-models.md](perf/m6-models.md), [captures](perf/m6/part2/captures.jpg), [THEMING.md](THEMING.md), and the [log](#log)).
+
+Against the M6 criteria:
+- **Fixture `.glb` files in budget, over budget and more than 2× over (rejected, with fallback):** tested. `ModelInspectorTests` writes the fixtures with `GltfBuilder`, since their size is the point. The rejection falls through to the next model in line through `ModelCache`, and it's logged.
+- **Slot and clip name matching:** tested (clips: case, Blender's `.NNN` suffix and an `Armature|` prefix).
+- **Captures of the default theme and an alternative one:** part 1, plus the sample theme now.
+- **The M1 targets with in-budget custom models on screen**, with 300 per-game models in a 3,000-game library, on the export:
+  - Met: 0–1 hitches against the control's 0–2, 0 frames over 2×, 100% textured, the visible grid in 14–18 ms, 64 B on the main thread, and 20% less GPU time than part 1's one-MultiMesh-per-model design.
+  - Not met, as in every milestone since M5 and the same for the control: p99, and fullscreen hitches.
+  - **At the limit:** the working set is 512–515 MB against 512 MB, down from 548–558 MB with part 1's design. Each resident per-game model costs about 0.3 MB, mostly D3D12 buffer placement, so a list with many more models would pass the target. The options are in the perf doc, for the owner.
+- **Carried over from M1 and M2:** done in part 1.
+
+Moved or not done:
+- to later (not scheduled), needing the owner's choice:
+  - streaming per-game models by the visible rows (or packing their meshes), for lists with many hundreds of them
+  - the rest of material remapping (metallic, normal, emissive, unlit, alpha, texture transform), which A7 now lists as planned; mipmapped user textures are done
+  - carried over from M5: the LRU texture cache and the focused item's full-resolution art
+- ReadyToRun, which would take the new converter's first-call JIT (+33 ms of our start-up) off the boot: still waits for the owner's approval of the crossgen2 pack
+- the owner's manual test: a Blender model imported for a real game, and the sample theme's clips on the real display ([manual-tests.md](manual-tests.md#m6-part-2-your-own-models-the-sample-theme-and-clips)). Skinned and morph-target clips are untested.
 
 ## M7: Settings UI
 
@@ -237,7 +268,7 @@ Update this at the end of every milestone: the status, the date, and the evidenc
 | M3 Launching | Done (a real emulator and focus are the owner's manual test: [manual-tests.md](manual-tests.md#m3-launching-a-real-emulator-and-focus)) | 2026-09-28 | [perf/m3-launching.md](perf/m3-launching.md), bench JSON in [perf/m3/](perf/m3/); 217 tests; `verify.ps1` now ends with a headless `--launch` through the fake emulator; see the log below |
 | M4 Scraping and media pipeline | Done (the live 50-game scrape and the `systemesListe.php` check need the owner's credentials: [manual-tests.md](manual-tests.md#m4-a-live-scrape)) | 2026-09-28 | [perf/m4-scraping.md](perf/m4-scraping.md), bench JSON in [perf/m4/](perf/m4/), [real cover capture](perf/m4/real-cover-bc7.png); 321 tests, 62 of them new for scraping and derivatives; see the log below |
 | M5 3D navigation | Done (p99 and fullscreen hitches not met, the same without the launcher's work; handheld, 4K and PresentMon still to do) | 2026-09-28 | [perf/m5-navigation.md](perf/m5-navigation.md), bench JSON in [perf/m5/](perf/m5/), [captures](perf/m5/captures.jpg); 259 tests, including the model spec check; see the log below |
-| M6 Theming and custom models | In progress: part 1 of 2 done (themes and media binding) | 2026-09-29 (part 1) | [perf/m6-themes.md](perf/m6-themes.md), bench JSON in [perf/m6/](perf/m6/), [captures](perf/m6/captures.jpg); 368 tests; see the log below |
+| M6 Theming and custom models | Done (the working set is at the target with 300 per-game models; p99 and fullscreen hitches not met, as in M5; a Blender model on the real display is the owner's manual test) | 2026-09-30 | Part 1: [perf/m6-themes.md](perf/m6-themes.md), [perf/m6/](perf/m6/), [captures](perf/m6/captures.jpg). Part 2: [perf/m6-models.md](perf/m6-models.md), [perf/m6/part2/](perf/m6/part2/), [captures](perf/m6/part2/captures.jpg), [THEMING.md](THEMING.md); 427 tests; see the log below |
 | M7 Settings UI | Not started | | |
 
 ### Log
@@ -382,3 +413,40 @@ Update this at the end of every milestone: the status, the date, and the evidenc
   - **Results** ([perf/m6-themes.md](perf/m6-themes.md); 3,000 games, export, Deck docked): start-up of our code 347 ms (M4: 332 ms on the same library); scroll with three slots streaming: 0 hitches and 0 frames over 2× in every final run (the no-texture control had up to 3 and 2), 100% textured, visible grid in 14–20 ms, 64 B of main-thread allocation; fullscreen 2560×1440: 1 hitch in 2 runs, 0 over 2×; working set 420–428 MB (peak 450), fullscreen 425 MB; pool 32.8 MB (three slots).
   - **Found and fixed:** bursts of whole-row uploads made single uploads take 14–31 ms (so M4's frames over 2×): the cap is now 4 cover-sized uploads a frame, and the maximum is 1.1–1.7 ms; the theme on the boot's critical path (+105 ms at first): resolved alongside the library, with the look and games grid built in `_Ready` and the models parsed in parallel on workers (Godot's threaded loader took about 25 ms a model, one after another); a headless run crashing when `--quit-after` shut the engine while the boot task read `res://` (headless runs resolve no theme).
   - **Not done:** part 2 (above); the working set is 70 MB above M4's for reasons not yet found (neither the slot arrays nor the materials); corner colours are within 2/255 on Mobile, exact on Forward+.
+- **2026-09-30: M6 part 2, user models and theme authoring. M6 closed.**
+  - **What was added:**
+    - Core `Models`:
+      - `GlbFile`: a GLB's JSON (mutable) and binary chunk, read and written.
+      - `ModelInspector`: checks every index, range, node and image without Godot; counts triangles, materials, textures, joints and morph targets against `ModelBudget` for its `ModelKind`; finds the slots and the clips (`ModelClips`).
+      - `ModelProcessor`: scales textures over the budget's side down (WIC, then `Media/PngEncoder`) and repacks the file.
+      - `ModelCache`: `CacheDir/models/`, with its reports, a rejection remembered too.
+      - `ModelLog`: `DataDir/logs/models.log`.
+      - `ObjConverter`, through `GltfBuilder`: OBJ, MTL and textures from a zip or a folder, to GLB.
+      - `ModelImportService`: import, remove, and the current model's report.
+    - Core elsewhere: `LibraryService.RefreshUserMediaAsync`; clearing a game removes its model and its cached copy; a game template needs no `cover`.
+    - App:
+      - `ModelLoader` loads user models through the cache (a rejection is logged, and the next model in line is used), and adopts finished loads within 2 ms a frame.
+      - `ModelConverter` decodes base colour images itself with mipmaps, multiplies in vertex colours, and keeps a model's node tree when it has clips (clips renamed to their canonical names, with a generated `_rest` clip). It disposes every Godot wrapper it reads.
+      - `ItemGrid` draws per-game models on per-cell `MeshInstance3D`s, and clips on pooled copies of a model's node tree (every cell for an idle clip; the focused cell for focused and launch clips, swapping back to the MultiMesh once it's at rest). The procedural sway and spin only run without a clip, and the launch waits for the launch clip (at most 2 s).
+      - The item shader's `node_custom` instance uniform carries the per-cell data for nodes.
+      - The scroll bench waits for a list's per-game models.
+    - Content:
+      - the sample theme `samples/themes/retro-tv/`: a CRT television game template (screenshot screen, logo or printed title on its stand, focused and launch clips) and a console system model (idle and focused clips), generated by `RetroTvBuilder`
+      - `docs/THEMING.md`
+    - Tools:
+      - `odyssey-scrape import-model`, `remove-model`, `inspect-model` and `models-log`
+      - `synthetic-library --models=<n>`
+  - **Verification:** `dotnet build`: 0 warnings. 427 tests pass (368 at part 1). The 59 new ones cover the model fixtures (in budget, over, more than 2× over), 15 kinds of broken file, clip names, every committed model in budget, texture scaling, OBJ conversion, the cache (processed once, again when the file changes, rejections remembered), the log, import, removal, and clearing. `verify.ps1` passes. The console commands were run end to end in a scratch user folder: a `.glb` and an OBJ zip imported, a bad file rejected and logged, a model removed, a game cleared. Captures of the sample theme (both grids, a clip, the launch clip) and of per-game models beside batched items were reviewed ([perf/m6/part2/captures.jpg](perf/m6/part2/captures.jpg)).
+  - **Results** ([perf/m6-models.md](perf/m6-models.md); export, Deck docked, 300 per-game models in 3,000 games):
+    - scroll: 0–1 hitches (the control's 0–2), 0 frames over 2×, 100% textured, the visible grid in 14–18 ms, 64 B on the main thread, GPU 1.28–1.36 ms (part 1: 1.67–1.69)
+    - working set 512–515 MB (part 1: 548–558)
+    - start-up of our code 376 ms (part 1: 339 ms, the difference first-call JIT)
+    - the sample theme: 0–1 hitches and 64 B
+  - **Found and fixed:**
+    - Godot wrappers holding each model's parsed state and meshes until finalised (20–40 MB)
+    - the sample theme's node trees first copied mid-scroll (4.8 KB on the main thread)
+    - Godot converting a `Color` given to an instance uniform from sRGB to linear, which scrambled cells and colours
+    - `GltfState.GetSceneNode` returning freed nodes at run time
+    - the runtime importer's textures having no mipmaps
+    - the runtime glTF generator handing back meshes already on the GPU, so models with clips were first drawn without their slots
+  - **Not done:** see M6 above (streaming per-game models, the rest of material remapping, the LRU cache and full-resolution art, ReadyToRun, the owner's manual test).
