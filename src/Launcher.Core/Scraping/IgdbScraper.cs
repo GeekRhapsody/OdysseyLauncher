@@ -258,6 +258,19 @@ public sealed class IgdbScraper : IScraper
         return new ProviderResult(Parse(response, _settings, query.System), MatchMethods.Search, response);
     }
 
+    public async Task<string> TestConnectionAsync(CancellationToken cancellationToken)
+    {
+        if (Unavailable is { } missing)
+        {
+            throw new ProviderException(Id, ProviderFailure.AuthFailed, missing);
+        }
+
+        // An access token (the cached one while it's good: Twitch allows only 25 per application), then the smallest
+        // query IGDB answers.
+        await QueryAsync("fields id; limit 1;", "connection test", cancellationToken).ConfigureAwait(false);
+        return "IGDB accepted the Twitch application's client ID and secret.";
+    }
+
     public async Task<ProviderResult> FetchAsync(string providerGameId, ScrapeQuery query, CancellationToken cancellationToken)
     {
         if (!long.TryParse(providerGameId, NumberStyles.None, CultureInfo.InvariantCulture, out var id))

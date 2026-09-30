@@ -124,6 +124,44 @@ public sealed partial class ScreenScraperScraper : IScraper
         }
     }
 
+    public async Task<string> TestConnectionAsync(CancellationToken cancellationToken)
+    {
+        if (Unavailable is { } missing)
+        {
+            throw new ProviderException(Id, ProviderFailure.AuthFailed, missing);
+        }
+
+        if (!HasUser)
+        {
+            // ssinfraInfos.php needs only the developer credentials, and says whether anonymous users are let in.
+            var (infra, _) = await _http.SendAsync(Id, Gate, () => Get(Url("ssinfraInfos.php")), Classify, "connection test", cancellationToken).ConfigureAwait(false);
+            using var servers = LenientJson.Parse(infra.Text);
+            var closed = servers?.RootElement.Obj("response")?.Obj("serveurs")?.Str("closefornomember") == "1";
+            return "ScreenScraper accepted the developer credentials. With no username and password, anonymous limits apply (one thread)" +
+                (closed ? ", and it's closed to anonymous users right now because it's busy." : ".");
+        }
+
+        // ssuserInfos.php checks the account too, and doesn't count towards the quota.
+        var (reply, _) = await _http.SendAsync(Id, Gate, () => Get(Url("ssuserInfos.php")), Classify, "connection test", cancellationToken).ConfigureAwait(false);
+        using (var document = LenientJson.Parse(reply.Text))
+        {
+            if (document is not null)
+            {
+                UpdateLimits(document.RootElement);
+            }
+        }
+
+        if (Limits is not { } limits)
+        {
+            return "ScreenScraper accepted the credentials.";
+        }
+
+        var today = limits.PerDay is { } perDay
+            ? string.Create(CultureInfo.InvariantCulture, $"{limits.Today ?? 0:N0} of {perDay:N0} requests used today")
+            : "no daily limit reported";
+        return string.Create(CultureInfo.InvariantCulture, $"Signed in to ScreenScraper: {today}, up to {limits.MaxThreads} at once.");
+    }
+
     public async Task<ProviderResult> LookupAsync(ScrapeQuery query, CancellationToken cancellationToken)
     {
         ThrowIfQuotaUsed();

@@ -33,7 +33,7 @@ public sealed partial class Navigator : Node
     private const double StatusSeconds = 2.5;
     private const int CachedLists = 3;
 
-    private const string SystemsHints = "A / Enter  Open     View / F5  Rescan     Menu / T  Theme";
+    private const string SystemsHints = "A / Enter  Open     View / F5  Rescan     Menu / Esc  Settings";
     private const string GamesHints = "A / Enter  Play     B / Esc  Back     Y / F  Favourite     LB RB  Page     LT RT  Letter";
 
     private static readonly GridPose Shown = new(0, 1, 0);
@@ -70,7 +70,6 @@ public sealed partial class Navigator : Node
     private double _statusClearAt = -1;
     private double _clock;
     private GameDetails? _focusedGame;
-    private bool _scanning;
     private double _launchStartedAt;
     private double _launchSeconds;
     private GameDetails? _launchGame;
@@ -106,6 +105,33 @@ public sealed partial class Navigator : Node
 
     /// <summary>The launch controller, once the warm-up has built it.</summary>
     public LaunchController? Launcher { get; set; }
+
+    /// <summary>Rescans and scrapes with progress (M7); the navigator's rescans go through it too.</summary>
+    public Settings.LibraryJobs? Jobs
+    {
+        get => _jobs;
+        set
+        {
+            if (_jobs is not null)
+            {
+                _jobs.ScanCompleted -= OnRescanned;
+            }
+
+            _jobs = value;
+            if (value is not null)
+            {
+                value.ScanCompleted += OnRescanned;
+            }
+        }
+    }
+
+    private Settings.LibraryJobs? _jobs;
+
+    /// <summary>True while another screen (the settings) has the input: the grids ignore it, and wait for it to be let go.</summary>
+    public Func<bool>? InputSuspended { get; set; }
+
+    /// <summary>Menu, or Back on the systems screen: the settings screen should open (M7).</summary>
+    public event Action? SettingsRequested;
 
     /// <summary>The media streamer, for evicting textures while a game runs and for a theme's layout.</summary>
     public TextureStreamer? Streamer { get; set; }
@@ -149,6 +175,7 @@ public sealed partial class Navigator : Node
 
     public override void _ExitTree()
     {
+        Jobs = null;
         _services.Library.MediaChanged -= OnLibraryMediaChanged;
         _shutdown.Cancel();
     }
@@ -208,7 +235,7 @@ public sealed partial class Navigator : Node
 
     private void HandleInput(double delta)
     {
-        var blocked = Launcher?.IsInputBlocked ?? false;
+        var blocked = (Launcher?.IsInputBlocked ?? false) || (InputSuspended?.Invoke() ?? false);
         var command = _input.Poll(delta, blocked || _screen is Screen.Entering or Screen.Launching);
         if (command != NavCommand.None)
         {
@@ -265,6 +292,10 @@ public sealed partial class Navigator : Node
                 break;
             case NavCommand.NextTheme when _screen == Screen.Systems:
                 SwitchTheme(null);
+                break;
+            case NavCommand.Menu:
+            case NavCommand.Back when _screen == Screen.Systems:
+                SettingsRequested?.Invoke();
                 break;
         }
     }
@@ -959,53 +990,16 @@ public sealed partial class Navigator : Node
         }, token);
     }
 
-    /// <summary>Rescans the given systems (null: all), then refreshes the systems grid. Once at a time.</summary>
+    /// <summary>
+    /// Rescans the given systems (null: all) in the background, with its progress on the jobs card (M7), then refreshes
+    /// the systems grid. Once at a time.
+    /// </summary>
     public void Rescan(IReadOnlyList<string>? systemIds)
     {
-        if (_scanning)
+        if (_jobs?.Scan(systemIds) == false)
         {
-            return;
+            ShowStatus("A scan is already running.");
         }
-
-        _scanning = true;
-        _overlay.SetStatus("Scanning your ROM folders…");
-        var library = _services.Library;
-        var token = _shutdown.Token;
-        _ = Task.Run(async () =>
-        {
-            string? status = null;
-            try
-            {
-                var added = 0;
-                if (systemIds is null)
-                {
-                    added = (await library.RescanAsync(null, null, token).ConfigureAwait(false)).Added;
-                }
-                else
-                {
-                    foreach (var id in systemIds)
-                    {
-                        added += (await library.RescanAsync(id, null, token).ConfigureAwait(false)).Added;
-                    }
-                }
-
-                var systems = await library.GetSystemsAsync(token).ConfigureAwait(false);
-                GD.Print($"Scan: {added} game(s) added.");
-                _queue.Post(() => OnRescanned(systems, null));
-                if (BakeAfterScans)
-                {
-                    await BakeAsync(token).ConfigureAwait(false);
-                }
-            }
-            catch (OperationCanceledException)
-            {
-            }
-            catch (Exception e)
-            {
-                status = $"The scan failed: {e.Message}";
-                _queue.Post(() => OnRescanned(null, status));
-            }
-        }, token);
     }
 
     /// <summary>Bake missing derivatives after each scan (off in benches, which measure a library as it is).</summary>
@@ -1054,11 +1048,19 @@ public sealed partial class Navigator : Node
 
     private void OnRescanned(IReadOnlyList<SystemSummary>? systems, string? error)
     {
-        _scanning = false;
-        _overlay.SetStatus(error);
+        if (error is not null)
+        {
+            ShowStatus(error);
+        }
+
         if (systems is null)
         {
             return;
+        }
+
+        if (BakeAfterScans)
+        {
+            BakeDerivatives();
         }
 
         _services.Systems = systems;
@@ -1068,6 +1070,22 @@ public sealed partial class Navigator : Node
         if (_screen == Screen.Systems)
         {
             _systemsGrid.Bind(_systems, focus);
+            OnFocusChanged();
+        }
+    }
+
+    /// <summary>
+    /// Main thread: the settings screen saved config (M7). The systems grid is built again with it (names, emulators,
+    /// folders in the details); ROM folder changes are rescanned by the settings screen, which refreshes it again.
+    /// </summary>
+    public void OnConfigChanged()
+    {
+        _cache.Clear();
+        var focus = _systemsGrid.FocusIndex;
+        _systems = new SystemsSource(BuildEntries(_services.Systems), _systemsGrid.Templates.Count);
+        if (_screen == Screen.Systems)
+        {
+            _systemsGrid.Bind(_systems, Math.Max(0, focus));
             OnFocusChanged();
         }
     }

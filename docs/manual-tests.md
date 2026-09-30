@@ -144,7 +144,7 @@ Use only the gamepad from here on.
 1. **Systems grid.** The launcher opens on the systems grid with a system focused (the first one with games). Its name and details are top and bottom left.
    - The D-pad and the left stick move the focus. Held, a move repeats after about a third of a second, then speeds up over the next second and a half.
    - LB and RB move four rows at a time.
-   - View rescans: "Scanning your ROM folders…" shows, then the counts update.
+   - View rescans: a "Scanning your ROM folders" card shows top right with its progress (M7), then the counts update.
 2. **Games grid.** Press A on Mega Drive.
    - The systems grid flies towards you and fades while the games come up from behind: clamshell cases with your ROMs' titles, and plain boxes (no art until M4).
    - The title top left follows the focus. After a moment, the details bottom left fill in (Played: Never, Region...).
@@ -229,12 +229,12 @@ This is the M4 acceptance's live scrape of a 50-game set, and the check of the b
 
 ## M6: themes with a controller
 
-This checks what captures can't: the Menu button switching themes on the real display, the look cross-fading as you enter and leave a system, and a model of your own. It uses the M3 set-up (`C:\OdysseyTest`) with the M5 Mega Drive ROMs.
+This checks what captures can't: switching themes on the real display, the look cross-fading as you enter and leave a system, and a model of your own. It uses the M3 set-up (`C:\OdysseyTest`) with the M5 Mega Drive ROMs.
 
 1. Copy the test theme into the user folder: `Copy-Item -Recurse tests\themes\slot-showcase C:\OdysseyTest\themes\`.
 2. Start the export full screen: `& .\artifacts\export\windows\OdysseyLauncher.exe --fullscreen ++ --user-dir=C:\OdysseyTest`, and use only the gamepad.
 3. **Looks.** Press A on Mega Drive: the background and lights cross-fade to Mega Drive's blue look over about a third of a second while the games come up. B cross-fades back.
-4. **Switching.** On the systems grid, press Menu: "Loading the theme 'slot-showcase'…", then "Theme: Slot Showcase". The cards become square tiles, the background turns plum and teal, and nothing restarts. Enter Mega Drive: the games are tall cases with a screenshot panel; games with no screenshot show a test card there. Menu again (on the systems grid) goes back to Memory Card.
+4. **Switching.** On the systems grid, press Menu, choose Theme, then Slot Showcase (from M7 the settings choose the theme; Menu used to cycle through them). The cards become square tiles, the background turns plum and teal, and nothing restarts. Close the settings and enter Mega Drive: the games are tall cases with a screenshot panel; games with no screenshot show a test card there. Choose Memory Card the same way to go back.
 5. **Your own model.** Quit, copy any `.glb` with a material named `cover` (for example `tests\themes\slot-showcase\models\templates\showcase_case.glb`) to `C:\OdysseyTest\models\games\megadrive\<a ROM's name without its extension>.glb`, start again and press View to rescan. Enter Mega Drive: that one game shows your model, the same height as its neighbours, with its cover on the `cover` material.
 
 ### Send back
@@ -252,7 +252,7 @@ This checks what the scripts can't: a model made in Blender (or downloaded) impo
 4. **A bad file.** Import any non-model file renamed to `.glb`: `Rejected: nothing was changed.`, and `& $cli --user-dir=C:\OdysseyTest models-log` shows why.
 5. **In the app.** Copy the sample theme: `Copy-Item -Recurse samples\themes\retro-tv C:\OdysseyTest\themes\`. Start the export full screen (`& .\artifacts\export\windows\OdysseyLauncher.exe --fullscreen ++ --user-dir=C:\OdysseyTest`) and use only the gamepad.
    - Enter Mega Drive: your two games show your models, fitted into their cells, with their art on any slot materials.
-   - Press Menu on the systems grid until the theme is Retro TV. The cards are consoles whose cartridges rise and settle (the idle clip). The focused console lifts its cartridge higher and wobbles (focused).
+   - Press Menu on the systems grid, choose Theme, then Retro TV, and close the settings. The cards are consoles whose cartridges rise and settle (the idle clip). The focused console lifts its cartridge higher and wobbles (focused).
    - Enter Mega Drive: every game is a television showing its screenshot (else its cover, else colour bars), with its logo (else its title) on the stand. The focused television's aerials sway. Press A: the television spins and its aerials fold before the emulator starts (at most 2 s).
 6. **Clearing removes the model.** `& $cli --user-dir=C:\OdysseyTest clear "megadrive/<the first ROM's file name>"`, then press View in the app: that game shows its template again, and its file in `models\games\megadrive\` is gone.
 
@@ -260,3 +260,21 @@ This checks what the scripts can't: a model made in Blender (or downloaded) impo
 
 - Anything that differed: a model the wrong size or facing the wrong way, art missing from a slot, a clip that doesn't play or snaps back instead of blending, a stutter when a model loads or a clip starts.
 - The model log (`& $cli --user-dir=C:\OdysseyTest models-log`), and the `inspect-model` output for any model that looked wrong.
+
+## M7 part 1: the settings screen
+
+This checks what the scripts can't: a real pad, the mouse and a physical keyboard on the Deck, a real network share, a live connection test, and "scrape all missing" with your credentials. It uses the M3 set-up (`C:\OdysseyTest`) with the M5 Mega Drive ROMs, and the export full screen: `& .\artifacts\export\windows\OdysseyLauncher.exe --fullscreen ++ --user-dir=C:\OdysseyTest`. Before you start, add a comment of your own to `C:\OdysseyTest\settings.toml` and `systems.toml` (a line starting with `#`), to check they survive.
+
+1. **Pad only.** On the systems grid press Menu. Go through every page with the D-pad (hold it: it repeats and speeds up), A to open, B to go back, Menu to close. On Scraping, left and right change the default provider in place; on Fallbacks, A turns one on or off and left and right move it.
+2. **A system's ROM folder.** Settings, ROM folders, Mega Drive, then its folder. In the picker: LB and RB page, LT and RT jump by letter, A opens a folder, B goes up (from a drive's root, to the places and drives), X uses the open folder. A "Scanning Mega Drive" card shows when you close the settings. Open `systems.toml`: Mega Drive has `rom_dirs`, and your comment is still there.
+3. **A network share.** In a picker, press Y and type `\\<your NAS>\<share>` with the pad (Symbols has `\`), then Menu: it opens. Then type a share that doesn't exist (or unplug the network): "Still opening …" after a couple of seconds, the app keeps moving, and B stops waiting. The places and drives list shows your mapped drives with their shares, and a disconnected one as disconnected.
+4. **Emulators.** Settings, Emulators, a RetroArch profile, then your `retroarch.exe`: it asks whether to change all the RetroArch profiles; choose All. `settings.toml` now has `retroarch` under `[variables]`, with your comment still there. Launch a Mega Drive game: it uses the new path.
+5. **Keyboard and mouse.** With a physical keyboard: Escape (or F1) on the systems grid opens the settings; the arrows move, Enter chooses, Escape goes back; in the on-screen keyboard, type straight in, Ctrl+V pastes, Enter is Done. With the mouse: click rows and buttons, scroll lists with the wheel, double-click a folder in the picker, and use each screen's Back or Cancel button.
+6. **Credentials.** Settings, Scraping, then each provider: enter your credentials (Paste helps with keys), then Test connection: "Connected", and for ScreenScraper your quota for today. They show as dots. `secrets.toml` holds them, and no other file does.
+7. **Scrape all missing.** Settings, Scrape all missing metadata: the question gives the count per system and says which providers will be used. Start it and close the settings: the card top right shows its progress while you browse. Cancel it with the card's Cancel button (mouse), or in the settings (the job's row, A).
+8. **Theme.** Settings, Theme, Retro TV: it switches at once. Quit and start again: still Retro TV.
+
+### Send back
+
+- Anything that didn't answer the pad, the mouse or the keyboard, any frame that froze, any message that was unclear, and any config file whose comments or layout changed beyond the value you set.
+- The log lines: `Select-String -Path "$env:APPDATA\Godot\app_userdata\Odyssey Launcher\logs\godot.log" -Pattern '^Settings|^Scan|^Scrape|^Theme|error|warning'`.

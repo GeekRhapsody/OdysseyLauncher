@@ -256,6 +256,25 @@ Moved or not done:
 - Input is validated before saving.
 - Changes apply without a restart where feasible.
 
+**Part 1 done on 2026-09-30: the shared UI components and the main settings screen.**
+
+The owner's brief for part 1:
+- shared components, as reusable scenes:
+  - an on-screen keyboard (Godot has none on Windows desktop)
+  - folder and file pickers wherever the app asks for a path: drives, mapped network drives and quick-access places behind the platform interface (with a Linux stub); the D-pad, confirm to enter, back to go up, the shoulders to page, jump-to-letter; typing a path (`\\server\share` too); filters per use, and a thumbnail for images; a virtualised list, listed off the main thread; inaccessible folders, disconnected drives and slow shares handled without freezing; the last location per use
+  - confirmation dialogs, and a progress display bound to the M4 events, cancellable and not blocking navigation
+- the main settings screen: the ROM root and per-system ROM folders, emulator profiles and their programs, the theme; the default provider, fallback order and credentials for ScreenScraper, SteamGridDB and IGDB (masked, stored in the user's config, with a connection test each); rescan, and "scrape all missing" saying how many games it will take on first
+- config written back to the TOML files, keeping the user's comments if Tomlyn's syntax tree allows it (or the trade-off explained first)
+- everything controller-navigable, with the mouse and keyboard working too; every screen and component checked with `--capture`, the pickers on a folder of thousands of files
+
+All of it is done ([perf/m7-settings.md](perf/m7-settings.md), [captures](perf/m7/captures.jpg), and the [log](#log)). Tomlyn 2.10.1's syntax tree round-trips byte for byte and can be edited in place, so comments are kept with no trade-off to decide. Against the M7 criteria so far:
+- **TOML writes preserve comments and formatting, and contain only changed values:** round-trip tests (`TomlEditorTests`, `ConfigWriterTests`), and checked in the app: a commented `settings.toml` kept every comment when the theme was saved, and a system's new folder went into `systems.toml` as one new table.
+- **Secrets are written only to `secrets.toml`:** tested, and checked in the app: a key typed on the on-screen keyboard is in `secrets.toml` and in no other file or log.
+- **Input is validated before saving:** `ConfigInput` checks folders, programs, credentials and the provider order; then the edited files are loaded as the app would load them, and an edit that brings a new error writes nothing.
+- **Changes apply without a restart:** the theme switches at once; changed ROM folders rescan what they affect; emulators apply at the next launch; new credentials and scraping settings give the next scrape a new service.
+
+Still to do: part 2, the item options panels (a game's emulator, title and metadata overrides, its model, manual matching). A real pad, the mouse and a physical keyboard on the Deck, a live connection test and a live "scrape all missing" are the owner's manual test ([manual-tests.md](manual-tests.md#m7-part-1-the-settings-screen)).
+
 ## Progress
 
 Update this at the end of every milestone: the status, the date, and the evidence (commit, bench JSON and captures).
@@ -269,7 +288,7 @@ Update this at the end of every milestone: the status, the date, and the evidenc
 | M4 Scraping and media pipeline | Done (the live 50-game scrape and the `systemesListe.php` check need the owner's credentials: [manual-tests.md](manual-tests.md#m4-a-live-scrape)) | 2026-09-28 | [perf/m4-scraping.md](perf/m4-scraping.md), bench JSON in [perf/m4/](perf/m4/), [real cover capture](perf/m4/real-cover-bc7.png); 321 tests, 62 of them new for scraping and derivatives; see the log below |
 | M5 3D navigation | Done (p99 and fullscreen hitches not met, the same without the launcher's work; handheld, 4K and PresentMon still to do) | 2026-09-28 | [perf/m5-navigation.md](perf/m5-navigation.md), bench JSON in [perf/m5/](perf/m5/), [captures](perf/m5/captures.jpg); 259 tests, including the model spec check; see the log below |
 | M6 Theming and custom models | Done (the working set is at the target with 300 per-game models; p99 and fullscreen hitches not met, as in M5; a Blender model on the real display is the owner's manual test) | 2026-09-30 | Part 1: [perf/m6-themes.md](perf/m6-themes.md), [perf/m6/](perf/m6/), [captures](perf/m6/captures.jpg). Part 2: [perf/m6-models.md](perf/m6-models.md), [perf/m6/part2/](perf/m6/part2/), [captures](perf/m6/part2/captures.jpg), [THEMING.md](THEMING.md); 427 tests; see the log below |
-| M7 Settings UI | Not started | | |
+| M7 Settings UI | Part 1 done (the shared components and the main settings screen); part 2 (the item options panels) next | Part 1: 2026-09-30 | Part 1: [perf/m7-settings.md](perf/m7-settings.md), bench JSON in [perf/m7/](perf/m7/), [captures](perf/m7/captures.jpg); 477 tests; see the log below |
 
 ### Log
 
@@ -450,3 +469,17 @@ Update this at the end of every milestone: the status, the date, and the evidenc
     - the runtime importer's textures having no mipmaps
     - the runtime glTF generator handing back meshes already on the GPU, so models with clips were first drawn without their slots
   - **Not done:** see M6 above (streaming per-game models, the rest of material remapping, the LRU cache and full-resolution art, ReadyToRun, the owner's manual test).
+- **2026-09-30: M7 part 1, the shared UI components and the main settings screen.**
+  - **What was added:**
+    - Core `Config`: `TomlEditor` (edits over Tomlyn's syntax tree: values replaced keeping their comments, keys added at the end of their table or in a new one, keys removed, dotted keys, comment-only files, line endings); `ConfigWriter` (only changed values, a default removed unless its line has a comment, validated by loading the edited files, written atomically, a byte order mark kept; credentials to `secrets.toml` only); `ConfigInput`.
+    - Core `Files`: `DirectoryListing`, `FileFilter`, `PathInput`, `LetterJump`, `NaturalComparer`, `PickerHistory`.
+    - Core `Platform`: `IFileLocations`, with `WindowsFileLocations` (drives, mapped shares, volume labels, known folders) and the `PortableFileLocations` stub.
+    - Core `Scraping`: `IScraper.TestConnectionAsync` for the three providers, `ScrapeService.TestConnectionAsync` and `CountMissingAsync`; `ProviderAccounts.SourceOf` (the file or an `ODYSSEY_*` variable) and `EnvironmentVariable`.
+    - Debug arguments `--open` and `--open-path`, and nav-script steps `menu`, `x`, `click`, `scroll` and `type` (the last three send real mouse and keyboard events).
+    - App `Ui`: `UiLayer`, `UiPanel`, `ListPanel`, `SettingRow`, `ChoicePanel`, `ConfirmDialog`, `OnScreenKeyboard` and `TextField`, `FilePicker` and `VirtualList`, `BackgroundJobs` and `JobsHud`, `UiStyle`, `UiContext`.
+    - App `Settings`: `SettingsController`, `LibraryJobs`, and the pages (`SettingsHome`, `RomFoldersPage`, `SystemPage`, `EmulatorsPage`, `ScrapingPage`, `FallbackPage`, `ProviderPage`).
+    - App elsewhere: `NavInput` with a keyboard and a gamepad action per command, plus Menu and X (Godot's `ui_*` navigation emptied); the navigator opens the settings, ignores input while they're open, and rescans through `LibraryJobs`; `AppServices.ApplyConfig` and `LaunchController.ApplyConfig`.
+  - **Verification:** `dotnet build`: 0 warnings. 477 tests pass (427 at M6 part 2). The 50 new ones cover the editor's round trips (comments, blank lines, line endings, dotted keys, inline tables, arrays of tables, quoting, comment-only files), only changed values, refusals (an unknown emulator, a syntax error), secrets written to `secrets.toml` alone and never quoted, a byte order mark, listing, filtering and sorting, 3,000 files, hidden entries, the reasons a folder can't be listed, typed paths, going up, letter jumps, the history, the drive listing, the connection tests over recorded fixtures (plus one for `ssinfraInfos.php`, written from ScreenScraper's API documentation as it hasn't been recorded), and the missing count. `verify.ps1` passes. Every screen and component was captured and reviewed ([perf/m7/captures.jpg](perf/m7/captures.jpg)), including the pickers on a folder of 5,000 images and 300 folders, the NAS share, and shares that are slow or unreachable; saves made in the app were checked in the files.
+  - **Results** ([perf/m7-settings.md](perf/m7-settings.md); export, Deck docked, 3,000 games, the same session as M6 part 2's commit): scroll 0 hitches and 0 frames over 2× in every run, 100% textured, 64 B on the main thread, working set 425–426 MB, all the same as before; start-up of our code 446 ms median (before: 517 ms).
+  - **Found and fixed:** a page showing through the page over it; the grid's overlay and the progress cards beside the settings panel; a new `secrets.toml` with its table above its header comment (Tomlyn keeps a comment-only file's text as the document's trailing trivia); a doubled blank line before a new table; an empty picker after B while its first folder was still opening; a progress card running off the screen.
+  - **Not done:** part 2 (above); the owner's manual test; the app doesn't resume a scrape batch left unfinished when it closed (`odyssey-scrape resume` does).

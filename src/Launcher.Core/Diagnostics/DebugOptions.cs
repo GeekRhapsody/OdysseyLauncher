@@ -47,6 +47,15 @@ public sealed record DebugOptions
     public const string QuitAfterLaunchArg = "--quit-after-launch";
     public const string ThemeArg = "--theme";
     public const string NoOverlayArg = "--no-overlay";
+    public const string OpenArg = "--open";
+    public const string OpenPathArg = "--open-path";
+
+    /// <summary>
+    /// What <c>--open</c> can show once the app is interactive (M7), for captures of each settings screen and shared
+    /// component: the settings screen, the on-screen keyboard, the three pickers, a confirmation, and a progress card.
+    /// </summary>
+    public static IReadOnlyList<string> OpenTargets { get; } =
+        ["settings", "keyboard", "folder-picker", "image-picker", "program-picker", "confirm", "progress"];
 
     public const int DefaultCaptureFrame = 60;
     public const int DefaultBenchFrames = 600;
@@ -64,18 +73,21 @@ public sealed record DebugOptions
     [
         CaptureArg, CaptureFrameArg, BenchArg, BenchFramesArg, BenchScenarioArg, BenchSystemArg, BenchScrollSecondsArg,
         NoTexturesArg, RenderScaleArg, UpscalerArg, UploadCapArg, StartSystemArg, StartIndexArg, NavScriptArg, LaunchArg,
-        UserDirArg, QuitAfterLaunchArg, ThemeArg, NoOverlayArg,
+        UserDirArg, QuitAfterLaunchArg, ThemeArg, NoOverlayArg, OpenArg, OpenPathArg,
     ];
 
     /// <summary>
-    /// The steps <c>--nav-script</c> takes: the navigation commands (as the controller sends them), <c>theme</c> (the
-    /// next theme, as T does), <c>rescan</c> (every system, from any screen, so a capture can show media changing),
-    /// and <c>wait</c>, which does nothing for a step.
+    /// The steps <c>--nav-script</c> takes: the navigation commands (as the controller sends them; <c>menu</c> is Menu,
+    /// <c>x</c> is X, <c>favourite</c> is Y), <c>theme</c> (the next theme, as T does), <c>rescan</c> (every system, from
+    /// any screen, so a capture can show media changing), and <c>wait</c>, which does nothing for a step. While a
+    /// settings screen is open (M7), the commands go to it. Three steps send real input events instead, through
+    /// Godot's input like the mouse and keyboard: <c>click</c> (the left button, on the focused control), <c>scroll</c>
+    /// (the wheel, down three notches, over the middle of the screen) and <c>type</c> (the keys "Ok 1").
     /// </summary>
     public static IReadOnlyList<string> NavScriptSteps { get; } =
     [
         "up", "down", "left", "right", "pageup", "pagedown", "letterprevious", "letternext", "first", "last",
-        "accept", "back", "favourite", "theme", "rescan", "wait",
+        "accept", "back", "favourite", "menu", "x", "theme", "rescan", "click", "scroll", "type", "wait",
     ];
 
     /// <summary>Frames between <c>--nav-script</c> steps: long enough for a transition to finish.</summary>
@@ -153,6 +165,12 @@ public sealed record DebugOptions
     /// </summary>
     public bool NoOverlay { get; init; }
 
+    /// <summary><c>--open</c>: a settings screen or component to show once interactive (<see cref="OpenTargets"/>), or null.</summary>
+    public string? Open { get; init; }
+
+    /// <summary><c>--open-path</c>: the folder a picker opened by <c>--open</c> starts in (absolute), or null.</summary>
+    public string? OpenPath { get; init; }
+
     public bool CaptureRequested => CapturePath is not null;
 
     public bool BenchRequested => BenchPath is not null;
@@ -218,6 +236,8 @@ public sealed record DebugOptions
                 QuitAfterLaunchArg => options with { QuitAfterLaunch = true },
                 ThemeArg => options with { Theme = ParseId(name, value, errors) },
                 NoOverlayArg => options with { NoOverlay = true },
+                OpenArg => options with { Open = ParseOpen(value, errors) },
+                OpenPathArg => options with { OpenPath = ParsePath(name, value, null, errors) },
                 _ => options,
             };
         }
@@ -229,6 +249,7 @@ public sealed record DebugOptions
         Requires(seen, BenchSystemArg, BenchScenarioArg, $"{BenchScenarioArg}=scroll", errors);
         Requires(seen, BenchScrollSecondsArg, BenchScenarioArg, $"{BenchScenarioArg}=scroll", errors);
         Requires(seen, StartIndexArg, StartSystemArg, $"{StartSystemArg}=<system>", errors);
+        Requires(seen, OpenPathArg, OpenArg, $"{OpenArg}=folder-picker", errors);
         if (options.BenchScenario != BenchScenario.Scroll)
         {
             foreach (var scrollOnly in (ReadOnlySpan<string>)[BenchSystemArg, BenchScrollSecondsArg])
@@ -282,6 +303,18 @@ public sealed record DebugOptions
         }
 
         return steps;
+    }
+
+    private static string? ParseOpen(string value, List<string> errors)
+    {
+        var target = value.ToLowerInvariant();
+        if (OpenTargets.Contains(target))
+        {
+            return target;
+        }
+
+        errors.Add($"{OpenArg} doesn't know '{value}'. It opens {string.Join(", ", OpenTargets)}.");
+        return null;
     }
 
     /// <summary><c>&lt;system&gt;/&lt;path relative to its ROM folder&gt;</c>; either slash separates.</summary>
@@ -388,6 +421,8 @@ public sealed record DebugOptions
         LaunchArg => $"{LaunchArg}=megadrive/Sonic the Hedgehog (USA, Europe).md",
         UserDirArg => $"{UserDirArg}=C:/OdysseyTest",
         ThemeArg => $"{ThemeArg}=slot-showcase",
+        OpenArg => $"{OpenArg}=settings",
+        OpenPathArg => $"{OpenPathArg}=C:/Games",
         _ => $"{BenchFramesArg}={DefaultBenchFrames}",
     };
 }

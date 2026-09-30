@@ -51,6 +51,13 @@ public sealed record ScrapeBatchResult(
     bool Paused,
     IReadOnlyList<ProviderNotice> Notices);
 
+/// <summary>The settings screen's "test connection" (M7), written for the user; never holds a credential.</summary>
+public sealed record ConnectionTestResult(string Provider, bool Succeeded, string Message);
+
+/// <summary>What "scrape all missing" would take on, counted before it starts (M7).</summary>
+/// <param name="Systems">Each system with games to scrape, in config order.</param>
+public sealed record MissingSummary(int Games, IReadOnlyList<(string SystemId, int Games)> Systems);
+
 /// <summary>What clearing a game removed.</summary>
 /// <param name="KeptSharedArt">User art files another game also uses (by stem): their rows went, the files stay.</param>
 public sealed record ClearResult(bool Found, int FilesDeleted, IReadOnlyList<string> KeptSharedArt);
@@ -217,6 +224,62 @@ public sealed class ScrapeService : IDisposable
                     : new ProviderStatus(id, scraper.DisplayName, ProviderState.Ready, null, null, order.Contains(id));
             })
             .ToList();
+    }
+
+    /// <summary>How long a connection test waits, retries included, before it says the provider didn't answer.</summary>
+    public static TimeSpan ConnectionTestTimeout { get; } = TimeSpan.FromSeconds(20);
+
+    /// <summary>
+    /// The settings screen's "test connection" (M7): one cheap request to <paramref name="providerId"/> with the
+    /// credentials this service was built with. Never throws for a refusal or a network problem: the result says what
+    /// happened. Refused credentials rest the provider, as they would during a batch, so build a new service once
+    /// they're changed.
+    /// </summary>
+    public async Task<ConnectionTestResult> TestConnectionAsync(string providerId, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(providerId);
+        if (!_scrapers.TryGetValue(providerId, out var scraper))
+        {
+            return new ConnectionTestResult(providerId, false, $"'{providerId}' isn't a provider.");
+        }
+
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _lifetime.Token);
+        timeout.CancelAfter(ConnectionTestTimeout);
+        try
+        {
+            var message = await scraper.TestConnectionAsync(timeout.Token).ConfigureAwait(false);
+            return new ConnectionTestResult(providerId, true, _redactor.Redact(message));
+        }
+        catch (ProviderException e)
+        {
+            return new ConnectionTestResult(providerId, false, _redactor.Redact(e.Message));
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return new ConnectionTestResult(providerId, false,
+                $"{scraper.DisplayName} didn't answer within {ConnectionTestTimeout.TotalSeconds:0} seconds. Check the internet connection, then try again.");
+        }
+    }
+
+    /// <summary>How many games <see cref="ScrapeAllMissingAsync"/> would scrape now, and in which systems.</summary>
+    public Task<MissingSummary> CountMissingAsync(CancellationToken cancellationToken)
+    {
+        var config = _library.Config;
+        return _library.ReadAsync(c =>
+        {
+            var games = ScrapeStore.MissingGames(c, config);
+            var systems = new List<(string, int)>();
+            foreach (var system in config.Systems)
+            {
+                var count = games.Count(g => g.SystemId == system.Id);
+                if (count > 0)
+                {
+                    systems.Add((system.Id, count));
+                }
+            }
+
+            return new MissingSummary(games.Count, systems);
+        }, cancellationToken);
     }
 
     /// <summary>Scrapes one game, ahead of any batch that's running.</summary>

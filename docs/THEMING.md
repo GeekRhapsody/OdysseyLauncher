@@ -26,7 +26,7 @@ Two themes come with the repo:
    - Windows: `%APPDATA%\OdysseyLauncher\themes\neon-arcade\`
    - portable install: `userdata\themes\neon-arcade\`, next to the executable
 2. In `theme.toml`, change `name`, and then the colours.
-3. Start the launcher and press **T** (keyboard) or **Menu** (gamepad) on the systems screen until your theme shows. Theme switches last until the launcher closes. To keep a theme, set it in `settings.toml`:
+3. Start the launcher, press **Menu** (gamepad) or **Escape** (keyboard) on the systems screen, and choose your theme under **Theme**: it's applied at once, and saved. (**T** on the keyboard switches to the next theme until the launcher closes, for a quick look.) Or set it in `settings.toml` yourself:
 
    ```toml
    [display]

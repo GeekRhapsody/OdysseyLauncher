@@ -163,6 +163,13 @@ public interface IScraper
     /// <summary>Fetches a game by the provider's id: a stored or manual match, so no search.</summary>
     Task<ProviderResult> FetchAsync(string providerGameId, ScrapeQuery query, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// The settings screen's "test connection" (M7): one cheap request with the current credentials, and a line about
+    /// the account for the user. Throws <see cref="ProviderException"/> when the credentials are missing or refused, or
+    /// the provider can't be reached.
+    /// </summary>
+    Task<string> TestConnectionAsync(CancellationToken cancellationToken);
+
     /// <summary>Title search, for choosing a manual match.</summary>
     Task<IReadOnlyList<ScrapeCandidate>> SearchAsync(string title, SystemConfig system, CancellationToken cancellationToken);
 

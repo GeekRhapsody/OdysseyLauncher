@@ -1,0 +1,6 @@
+{
+  "header": { "APIversion": "2.0", "dateTime": "2026-09-30 10:00:00", "commandRequested": "https://api.screenscraper.fr/api2/ssinfraInfos.php?devid={{DEVID}}&devpassword={{DEVPASSWORD}}&softname=odyssey-launcher&output=json", "success": "true", "error": "" },
+  "response": {
+    "serveurs": { "cpu1": "31", "cpu2": "22", "threadsmin": "70", "nbscrapeurs": "212", "apiacces": "10543", "closefornomember": "{{CLOSED}}", "closeforleecher": "0", "maxthreadfornonmember": "400", "threadfornonmember": "37", "maxthreadformember": "800", "threadformember": "401" }
+  }
+}

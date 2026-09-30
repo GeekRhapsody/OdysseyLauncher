@@ -5,6 +5,18 @@ namespace Launcher.Core.Scraping;
 /// <summary>What <see cref="ProviderAccounts.Load"/> read, and any problems with the file (never quoting a value).</summary>
 public sealed record AccountsLoadResult(ProviderAccounts Accounts, IReadOnlyList<Diagnostic> Diagnostics);
 
+/// <summary>Where a credential's value comes from, for the settings screen (which never shows the value).</summary>
+public enum CredentialSource
+{
+    None,
+
+    /// <summary><c>secrets.toml</c>.</summary>
+    File,
+
+    /// <summary>An <c>ODYSSEY_*</c> variable, which overrides the file.</summary>
+    Environment,
+}
+
 /// <summary>
 /// The scraping providers' credentials (ARCHITECTURE.md A5): <c>ConfigDir/secrets.toml</c>, overridden per value by
 /// <c>ODYSSEY_*</c> environment variables. They exist nowhere else: never in the repo, logs, saved responses or
@@ -40,8 +52,13 @@ public sealed class ProviderAccounts
     ];
 
     private readonly Dictionary<string, string> _values;
+    private readonly Dictionary<string, CredentialSource> _sources;
 
-    private ProviderAccounts(Dictionary<string, string> values) => _values = values;
+    private ProviderAccounts(Dictionary<string, string> values, Dictionary<string, CredentialSource>? sources = null)
+    {
+        _values = values;
+        _sources = sources ?? values.Keys.ToDictionary(k => k, _ => CredentialSource.File, StringComparer.Ordinal);
+    }
 
     /// <summary>No credentials at all.</summary>
     public static ProviderAccounts None { get; } = new(new Dictionary<string, string>(StringComparer.Ordinal));
@@ -62,6 +79,24 @@ public sealed class ProviderAccounts
 
     /// <summary>Every value set, for redaction.</summary>
     public IReadOnlyCollection<string> Values => _values.Values;
+
+    /// <summary>Where <c>section.key</c> (e.g. "igdb.client_id") is set, if anywhere.</summary>
+    public CredentialSource SourceOf(string section, string key) =>
+        _sources.TryGetValue(section + "." + key, out var source) ? source : CredentialSource.None;
+
+    /// <summary>The environment variable that overrides <c>section.key</c> in secrets.toml, or null for an unknown key.</summary>
+    public static string? EnvironmentVariable(string section, string key)
+    {
+        foreach (var entry in Entries)
+        {
+            if (entry.Section == section && entry.Key == key)
+            {
+                return entry.Env;
+            }
+        }
+
+        return null;
+    }
 
     /// <summary>For tests and tools: values from code, keyed "section.key" (e.g. "igdb.client_id").</summary>
     public static ProviderAccounts FromValues(IReadOnlyDictionary<string, string> values)
@@ -95,6 +130,7 @@ public sealed class ProviderAccounts
         ArgumentNullException.ThrowIfNull(environment);
         var diagnostics = new List<Diagnostic>();
         var values = new Dictionary<string, string>(StringComparer.Ordinal);
+        var sources = new Dictionary<string, CredentialSource>(StringComparer.Ordinal);
         var tree = text is null ? null : TomlTree.Parse(text, source, diagnostics);
 
         // A parser message can quote the text it choked on, which here may be a credential: keep only the position.
@@ -138,6 +174,7 @@ public sealed class ProviderAccounts
                         if (!string.IsNullOrWhiteSpace(value))
                         {
                             values[dotted] = value.Trim();
+                            sources[dotted] = CredentialSource.File;
                         }
                     }
                     else
@@ -154,10 +191,11 @@ public sealed class ProviderAccounts
             if (environment(env) is { } value && !string.IsNullOrWhiteSpace(value))
             {
                 values[section + "." + key] = value.Trim();
+                sources[section + "." + key] = CredentialSource.Environment;
             }
         }
 
-        return new AccountsLoadResult(new ProviderAccounts(values), diagnostics);
+        return new AccountsLoadResult(new ProviderAccounts(values, sources), diagnostics);
     }
 
     public override string ToString() => $"ProviderAccounts ({_values.Count} values set, redacted)";

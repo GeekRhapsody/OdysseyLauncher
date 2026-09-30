@@ -8,6 +8,37 @@ public class DebugOptionsTests
     private static readonly string BenchPath = Path.Combine(Path.GetTempPath(), "odyssey", "bench.json");
 
     [Fact]
+    public void Open_shows_a_settings_screen_or_component_and_a_picker_can_start_in_a_folder()
+    {
+        var folder = Path.Combine(Path.GetTempPath(), "odyssey", "pictures");
+        var result = DebugOptions.Parse(["--open=Image-Picker", $"--open-path={folder}", "--nav-script=down,menu,x"]);
+
+        Assert.True(result.IsValid, string.Join("; ", result.Errors));
+        Assert.Equal("image-picker", result.Options.Open);
+        Assert.Equal(folder, result.Options.OpenPath);
+        Assert.Equal(["down", "menu", "x"], result.Options.NavScript);
+    }
+
+    [Fact]
+    public void Open_arguments_are_checked()
+    {
+        var absolute = Path.Combine(Path.GetTempPath(), "odyssey");
+        (string[] Args, string Expected)[] cases =
+        [
+            (["--open=everything"], "doesn't know 'everything'"),
+            ([$"--open-path={absolute}"], "--open-path needs --open=folder-picker"),
+            (["--open=folder-picker", "--open-path=relative"], "needs an absolute path"),
+        ];
+
+        foreach (var (args, expected) in cases)
+        {
+            var result = DebugOptions.Parse(args);
+            Assert.False(result.IsValid);
+            Assert.Contains(result.Errors, e => e.Contains(expected, StringComparison.Ordinal));
+        }
+    }
+
+    [Fact]
     public void No_arguments_means_no_facilities()
     {
         var result = DebugOptions.Parse([]);

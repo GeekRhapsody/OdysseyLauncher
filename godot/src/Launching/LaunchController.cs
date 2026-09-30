@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Godot;
 using Launcher.App.Boot;
+using Launcher.Core.Config;
 using Launcher.Core.Diagnostics;
 using Launcher.Core.Launching;
 using Launcher.Core.Library;
@@ -166,6 +167,18 @@ public partial class LaunchController : Node
         _quitAfterLaunch = options.QuitAfterLaunch;
         var token = _shutdown.Token;
         _ = Task.Run(() => DebugLaunchAsync(options, token), token);
+    }
+
+    /// <summary>Main thread: config changed (M7's settings screen); the next launch uses it.</summary>
+    public void ApplyConfig(AppConfig config)
+    {
+        lock (_shutdown)
+        {
+            if (_service is not null)
+            {
+                _service.Config = config;
+            }
+        }
     }
 
     /// <summary>Main thread: launches a game the player picked.</summary>

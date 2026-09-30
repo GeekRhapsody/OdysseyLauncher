@@ -113,6 +113,19 @@ public sealed class SteamGridDbScraper : IScraper
         return new ProviderResult(Parse(response), null, response);
     }
 
+    public async Task<string> TestConnectionAsync(CancellationToken cancellationToken)
+    {
+        if (Unavailable is { } missing)
+        {
+            throw new ProviderException(Id, ProviderFailure.AuthFailed, missing);
+        }
+
+        var (_, kind) = await _http.SendAsync(Id, _gate, () => Get("search/autocomplete/sonic"), Classify, "connection test", cancellationToken).ConfigureAwait(false);
+        return kind == ReplyKind.Ok
+            ? "SteamGridDB accepted the API key."
+            : throw new ProviderException(Id, ProviderFailure.Rejected, "SteamGridDB didn't answer the test search as expected");
+    }
+
     public async Task<IReadOnlyList<ScrapeCandidate>> SearchAsync(string title, SystemConfig system, CancellationToken cancellationToken)
     {
         var candidates = new List<ScrapeCandidate>();

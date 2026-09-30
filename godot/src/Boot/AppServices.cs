@@ -40,8 +40,8 @@ public sealed class AppServices : IDisposable
         ThemePlan? theme, IReadOnlyList<Launcher.Core.Theming.ThemeSource> builtInThemes)
     {
         Paths = paths;
-        Config = config.Config;
-        Diagnostics = config.Diagnostics;
+        _config = config.Config;
+        _diagnostics = config.Diagnostics;
         Library = library;
         Systems = systems;
         Theme = theme;
@@ -50,9 +50,14 @@ public sealed class AppServices : IDisposable
 
     public PlatformPaths Paths { get; }
 
-    public AppConfig Config { get; }
+    private AppConfig _config;
+    private IReadOnlyList<Diagnostic> _diagnostics;
 
-    public IReadOnlyList<Diagnostic> Diagnostics { get; }
+    /// <summary>Config as it is now: the settings screen replaces it when it saves (M7). Any thread may read it.</summary>
+    public AppConfig Config => Volatile.Read(ref _config);
+
+    /// <summary>What loading config found (errors, warnings), for the settings screen's list of problems.</summary>
+    public IReadOnlyList<Diagnostic> Diagnostics => Volatile.Read(ref _diagnostics);
 
     public LibraryService Library { get; }
 
@@ -75,6 +80,18 @@ public sealed class AppServices : IDisposable
     public DerivativeService Derivatives => _derivatives ??= new DerivativeService(Library, Paths, PlatformServices.CreateImageDecoder());
 
     private DerivativeService? _derivatives;
+
+    /// <summary>
+    /// Main thread: config the settings screen saved (M7) takes effect without a restart. The library uses it for the
+    /// next query or scan; the launch controller reads it at the next launch.
+    /// </summary>
+    public void ApplyConfig(ConfigLoadResult result)
+    {
+        ArgumentNullException.ThrowIfNull(result);
+        Volatile.Write(ref _config, result.Config);
+        Volatile.Write(ref _diagnostics, result.Diagnostics);
+        Library.Config = result.Config;
+    }
 
     /// <summary>The root folder a media path is relative to.</summary>
     public string RootOf(MediaRoot root) => root == MediaRoot.Config ? Paths.ConfigDir : Paths.DataDir;

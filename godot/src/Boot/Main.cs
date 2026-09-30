@@ -12,8 +12,10 @@ using Launcher.App.Launching;
 using Launcher.App.Models;
 using Launcher.App.Navigation;
 using Launcher.App.Screens;
+using Launcher.App.Settings;
 using Launcher.App.Textures;
 using Launcher.App.Theming;
+using Launcher.App.Ui;
 using Launcher.Core;
 using Launcher.Core.Config;
 using Launcher.Core.Diagnostics;
@@ -64,6 +66,9 @@ public partial class Main : Node3D
     private Navigator? _navigator;
     private LaunchController? _launch;
     private ScrollBench? _scrollBench;
+    private UiLayer? _ui;
+    private LibraryJobs? _jobs;
+    private SettingsController? _settings;
     private Stage _stage = Stage.Loading;
     private int _warmUpFrame;
     private SubViewport? _glyphWarmUp;
@@ -136,6 +141,10 @@ public partial class Main : Node3D
         _overlay = new InfoOverlay { Visible = !_options.NoOverlay };
         AddChild(_overlay);
 
+        // The settings screens' layer (M7): hidden and idle until the settings open. Its contents are built on demand.
+        _ui = new UiLayer();
+        AddChild(_ui);
+
         // The games grid needs nothing from the theme or the library until it's given templates, so it's built now,
         // while the main thread would only wait for them: its title atlas and slot-state texture are its dearest parts.
         _gamesGrid = new ItemGrid(_streamer, default, CoverSlots, blockSize: 160, spines: true, systemCards: false)
@@ -156,6 +165,9 @@ public partial class Main : Node3D
         }
 
         _scrollBench?.Dispose();
+
+        // A scrape still running pauses (it stays queued) before the library closes.
+        _jobs?.Dispose();
         _loader.FreeScenes();
         _streamer?.Dispose();
         _services?.Dispose();
@@ -185,6 +197,8 @@ public partial class Main : Node3D
 
         _scrollBench?.Update(delta);
         StepNavScript();
+        _ui!.Update(delta);
+        _jobs?.Jobs.Tick(delta);
         _navigator?.Update(delta);
         var dt = (float)delta;
         _systemsGrid!.Tick(dt);
@@ -389,6 +403,9 @@ public partial class Main : Node3D
             case 0:
                 _gamesGrid!.EndWarmUp();
                 break;
+            case 1:
+                BuildSettings();
+                break;
             case 2:
                 _navigator!.Launcher = Launch();
                 break;
@@ -445,9 +462,15 @@ public partial class Main : Node3D
             "accept" => NavCommand.Accept,
             "back" => NavCommand.Back,
             "favourite" => NavCommand.Favourite,
+            "menu" => NavCommand.Menu,
+            "x" => NavCommand.Alternate,
             _ => NavCommand.None,
         };
-        if (command != NavCommand.None)
+        if (command != NavCommand.None && _ui!.IsOpen)
+        {
+            _ui.Run(command);
+        }
+        else if (command != NavCommand.None)
         {
             _navigator!.Run(command);
         }
@@ -459,8 +482,12 @@ public partial class Main : Node3D
         {
             _navigator!.Rescan(null);
         }
+        else if (step is "click" or "scroll" or "type")
+        {
+            SendInput(step);
+        }
 
-        GD.Print($"Nav script: {step} -> {_navigator!.Describe()} (frame {Engine.GetFramesDrawn()})");
+        GD.Print($"Nav script: {step} -> {(_ui!.Top is { } panel ? $"{panel.Name} '{panel.Heading}', focus {GetViewport().GuiGetFocusOwner()?.Name ?? "none"}" : _navigator!.Describe())} (frame {Engine.GetFramesDrawn()})");
     }
 
     private void AfterWarmUp()
@@ -488,6 +515,11 @@ public partial class Main : Node3D
             GD.PushWarning($"--start-system: '{start}' isn't in the systems grid.");
         }
 
+        if (_options.Open is { } open)
+        {
+            OpenForDebug(open);
+        }
+
         // A3: nothing is scanned at boot. Systems that have never been scanned are scanned now, in the background
         // (but not during a bench, which measures a library as it is).
         if (!_options.BenchRequested)
@@ -512,6 +544,139 @@ public partial class Main : Node3D
             {
                 _navigator.BakeDerivatives();
             }
+        }
+    }
+
+    /// <summary>
+    /// The settings screen and what it drives (M7), built in the warm-up after interactive: the job runner (rescans
+    /// and scrapes with progress, which the navigator's rescans use too), the progress cards, and the controller.
+    /// </summary>
+    private void BuildSettings()
+    {
+        var services = _services!;
+        var navigator = _navigator!;
+        _jobs = new LibraryJobs(services, _queue);
+        navigator.Jobs = _jobs;
+        navigator.InputSuspended = () => _ui!.IsOpen;
+        var hud = new JobsHud(_jobs.Jobs);
+        AddChild(hud);
+        var context = new UiContext(_ui!, _queue, PlatformServices.CreateFileLocations(services.Paths.HomeDir), services.Paths.HomeDir,
+            services.Paths.DataDir, () => services.Config.Settings.RomRoot, PlatformServices.CreateImageDecoder());
+        _settings = new SettingsController(services, context, _jobs) { Rescan = navigator.Rescan };
+        _settings.ConfigApplied += config =>
+        {
+            _launch?.ApplyConfig(config);
+            navigator.OnConfigChanged();
+        };
+        _settings.ThemeChosen += id =>
+        {
+            if (id != navigator.ThemeId)
+            {
+                navigator.SwitchTheme(id);
+            }
+        };
+        navigator.SettingsRequested += () =>
+        {
+            if (!_ui!.IsOpen)
+            {
+                _settings.Open();
+            }
+        };
+        _ui!.Blocked = () => _launch?.IsInputBlocked ?? false;
+
+        // The overlay's text is about the grid (its controls, the focused game), so it steps aside for the settings.
+        // The progress cards too: the settings screen lists the jobs itself, where a pad can cancel them.
+        _ui.Opened += () =>
+        {
+            _overlay!.Visible = false;
+            hud.Visible = false;
+        };
+        _ui.AllClosed += () =>
+        {
+            _overlay!.Visible = !_options.NoOverlay;
+            hud.Visible = true;
+        };
+    }
+
+    /// <summary>
+    /// The nav script's input steps: real events through <see cref="Input.ParseInputEvent"/>, as the mouse and
+    /// keyboard send them, so a capture checks the mouse and typing paths too.
+    /// </summary>
+    private void SendInput(string step)
+    {
+        switch (step)
+        {
+            case "click" when GetViewport().GuiGetFocusOwner() is { } control:
+                var at = control.GetGlobalRect().GetCenter();
+                Input.ParseInputEvent(new InputEventMouseMotion { Position = at, GlobalPosition = at });
+                foreach (var pressed in (ReadOnlySpan<bool>)[true, false])
+                {
+                    Input.ParseInputEvent(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = pressed, Position = at, GlobalPosition = at });
+                }
+
+                break;
+            case "scroll":
+                var middle = GetViewport().GetVisibleRect().GetCenter();
+                Input.ParseInputEvent(new InputEventMouseMotion { Position = middle, GlobalPosition = middle });
+                for (var notch = 0; notch < 3; notch++)
+                {
+                    Input.ParseInputEvent(new InputEventMouseButton { ButtonIndex = MouseButton.WheelDown, Pressed = true, Position = middle, GlobalPosition = middle, Factor = 1 });
+                    Input.ParseInputEvent(new InputEventMouseButton { ButtonIndex = MouseButton.WheelDown, Pressed = false, Position = middle, GlobalPosition = middle, Factor = 1 });
+                }
+
+                break;
+            case "type":
+                foreach (var c in "Ok 1")
+                {
+                    var key = c == ' ' ? Key.Space : c is >= '0' and <= '9' ? Key.Key0 + (c - '0') : Key.A + (char.ToUpperInvariant(c) - 'A');
+                    foreach (var pressed in (ReadOnlySpan<bool>)[true, false])
+                    {
+                        Input.ParseInputEvent(new InputEventKey { Keycode = key, PhysicalKeycode = key, Unicode = c, Pressed = pressed, ShiftPressed = char.IsUpper(c) });
+                    }
+                }
+
+                break;
+        }
+    }
+
+    /// <summary><c>--open</c>: shows a settings screen or component for a capture.</summary>
+    private void OpenForDebug(string target)
+    {
+        var settings = _settings!;
+        var context = settings.Ui;
+        var start = _options.OpenPath;
+        switch (target)
+        {
+            case "settings":
+                settings.Open();
+                break;
+            case "keyboard":
+                OnScreenKeyboard.Open(_ui!, new KeyboardRequest("Type a path", OperatingSystem.IsWindows() ? @"\\nas\roms\Mega Drive" : "/home/me/ROMs", text => GD.Print($"Keyboard: done, '{text}'."),
+                    Subtitle: @"A folder, or a network share (\\server\share)", Placeholder: @"D:\ROMs"));
+                break;
+            case "folder-picker":
+                FilePicker.Open(context, new PickerRequest("Choose a folder", PickerMode.Folder, "debug-folder", path => GD.Print($"Picker: chose {path}."), Start: start));
+                break;
+            case "image-picker":
+                FilePicker.Open(context, new PickerRequest("Choose an image", PickerMode.File, "debug-image", path => GD.Print($"Picker: chose {path}."),
+                    Filter: Launcher.Core.Files.FileFilter.Images, Start: start, Thumbnails: true));
+                break;
+            case "program-picker":
+                FilePicker.Open(context, new PickerRequest("Choose the emulator's program", PickerMode.File, "debug-program", path => GD.Print($"Picker: chose {path}."),
+                    Filter: Launcher.Core.Files.FileFilter.Executables, Start: start));
+                break;
+            case "confirm":
+                settings.Open();
+                ConfirmDialog.Ask(_ui!, "Remove this folder?", @"D:\ROMs\Mega Drive" + "\n\nMega Drive won't be scanned there any more, and its games from there leave the library (their favourites and play history are kept, for if you add it back).",
+                    "Remove it", "Keep it", yes => GD.Print($"Confirm: {(yes ? "yes" : "no")}."), destructive: true);
+                break;
+            case "progress":
+                // A job with made-up numbers, so the card and its row can be captured mid-run.
+                var job = _jobs!.Jobs.Start("demo", "Scraping missing metadata (--open=progress)", "games", () => GD.Print("Progress: cancel pressed."));
+                job.Report(412, 3000, 3);
+                job.SetNote("IGDB has no Twitch application credentials, so it's skipped.");
+                _jobs.Jobs.End(_jobs.Jobs.Start("demo", "Scanning your ROM folders", "systems", null), JobState.Finished, "Done: 12 new games, 0 removed.");
+                break;
         }
     }
 
