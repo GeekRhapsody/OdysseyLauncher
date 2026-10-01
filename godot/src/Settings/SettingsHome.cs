@@ -48,7 +48,7 @@ public sealed partial class SettingsHome : ListPanel
         _theme = AddRow("Theme", activated: ChooseTheme);
 
         AddSection("Scraping");
-        _scraping = AddRow("Providers and credentials", activated: () => Layer.Push(new ScrapingPage(_settings)));
+        _scraping = AddRow("Providers, media and credentials", activated: () => Layer.Push(new ScrapingPage(_settings)));
 
         AddSection("Library");
         _rescan = AddRow("Rescan the library", "Look for new, moved and removed games in every ROM folder", activated: Rescan);

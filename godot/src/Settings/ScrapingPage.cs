@@ -9,8 +9,8 @@ using Launcher.Core.Scraping;
 namespace Launcher.App.Settings;
 
 /// <summary>
-/// Scraping (M7): the provider asked first (left and right change it in place), the fallbacks and their order, and
-/// each provider's credentials. The page says which providers are ready, which have no credentials, and whether an
+/// Scraping (M7): the provider asked first (left and right change it in place), the fallbacks and their order, the
+/// media to download, and each provider's credentials. The page says which providers are ready, which have no credentials, and whether an
 /// <c>ODYSSEY_*</c> variable sets them.
 /// </summary>
 public sealed partial class ScrapingPage : ListPanel
@@ -41,7 +41,7 @@ public sealed partial class ScrapingPage : ListPanel
 
     public static string AboutOf(string provider) => provider switch
     {
-        ScraperIds.ScreenScraper => "Metadata and every kind of art, including backs, spines and box textures",
+        ScraperIds.ScreenScraper => "Metadata and every kind of media, videos included",
         ScraperIds.Igdb => "Metadata, covers, screenshots and artwork",
         ScraperIds.SteamGridDb => "Community covers, heroes and logos; no metadata",
         _ => string.Empty,
@@ -71,6 +71,9 @@ public sealed partial class ScrapingPage : ListPanel
         };
         AddRow("Fallbacks", scraping.Fallback.Count == 0 ? "None: only the default provider is asked" : string.Join(", then ", scraping.Fallback.Select(NameOf)),
             null, () => Layer.Push(new FallbackPage(_settings)));
+
+        AddSection("Media");
+        AddRow("Media to scrape", ScrapeMediaPage.Summary(scraping.Media), null, () => Layer.Push(new ScrapeMediaPage(_settings)));
 
         AddSection("Credentials");
         foreach (var id in Providers)

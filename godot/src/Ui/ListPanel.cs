@@ -88,7 +88,22 @@ public abstract partial class ListPanel : UiPanel
         CollectRows(Rows, rows);
         if (rows.Count > 0)
         {
-            rows[Math.Min(index, rows.Count - 1)].GrabFocus();
+            var row = rows[Math.Min(index, rows.Count - 1)];
+            row.GrabFocus();
+            ScrollToLater(row);
+        }
+    }
+
+    /// <summary>
+    /// Scrolls <paramref name="row"/> into view once it's laid out: rows added this frame have no place yet, so following
+    /// the focus at once would scroll a rebuilt page to its top, away from the row.
+    /// </summary>
+    private async void ScrollToLater(Control row)
+    {
+        await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+        if (IsInstanceValid(row) && row.IsInsideTree() && IsInstanceValid(_scroll))
+        {
+            _scroll.EnsureControlVisible(row);
         }
     }
 

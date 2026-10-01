@@ -205,7 +205,9 @@ public sealed class ScrapeBed : IAsyncDisposable
                 ? FakeHttpHandler.Json(Fill("ss_jeuinfos.json", r))
                 : FakeHttpHandler.Text("Erreur : Rom/Iso/Dossier non trouvée !  ", HttpStatusCode.NotFound));
         Http.On("GET", u => Is(u, "screenscraper.fr", "jeuRecherche.php"), _ => FakeHttpHandler.Json(Fill("ss_jeurecherche_empty.json")));
-        Http.On("GET", u => Is(u, "screenscraper.fr", "mediaJeu.php"), r => FakeHttpHandler.Bytes(Png(r.Query("media") ?? "x")));
+        Http.On("GET", u => Is(u, "screenscraper.fr", "mediaJeu.php"), r => (r.Query("media") ?? "x") is var media && media.StartsWith("video", StringComparison.Ordinal)
+            ? FakeHttpHandler.Bytes(Mp4(media), "video/mp4")
+            : FakeHttpHandler.Bytes(Png(media)));
 
         // Twitch and IGDB.
         Http.On("POST", u => u.Host == "id.twitch.tv", _ =>
@@ -233,6 +235,10 @@ public sealed class ScrapeBed : IAsyncDisposable
         var hash = (uint)seed.GetHashCode(StringComparison.Ordinal);
         return TestImages.RealPng(24, 32, (x, y) => ((byte)hash, (byte)(hash >> 8), (byte)(hash >> 16), 255));
     }
+
+    /// <summary>The start of an MP4 (an <c>ftyp</c> box) and some bytes that depend on <paramref name="seed"/>.</summary>
+    public static byte[] Mp4(string seed) =>
+        [0, 0, 0, 0x18, .. "ftypisom"u8, 0, 0, 2, 0, .. "isommp42"u8, .. System.Text.Encoding.UTF8.GetBytes(seed)];
 
     public async Task<GameDetails> Game(string system, string relPath) =>
         (await Library.GetGameAsync(new GameKey(system, relPath.ToLowerInvariant()), TestContext.Current.CancellationToken))!;

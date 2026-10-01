@@ -124,8 +124,8 @@ A material whose name is a media kind is a **media slot**. It shows that game's 
 | `cover` | the front cover | yes: a title card in the game's colour |
 | `back` | the back cover | yes: a darker panel with the title and a strip of the cover |
 | `spine` | the spine | yes: the cover's main colour, with the title |
-| `box_texture` | a whole box's unfolded art | no |
-| `label` | a disc or cartridge label | yes: a paper label with the title |
+| `box_texture` | a whole box's unfolded art (the user's own: it isn't scraped) | no |
+| `label` | a disc or cartridge label (ScreenScraper's support texture, when scraping is set to fetch it) | yes: a paper label with the title |
 | `screenshot` | a screenshot | no |
 | `logo` | the game's logo | no |
 | `hero` | a wide banner | no |

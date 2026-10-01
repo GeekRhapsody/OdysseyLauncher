@@ -35,16 +35,24 @@ public sealed class MediaStore(string dataDir)
         Path.Combine(DataDir, relativePath.Replace('/', Path.DirectorySeparatorChar));
 
     /// <summary>
-    /// Writes an image atomically, replacing the game's file of that kind in any other format.
+    /// Writes an image (or, for <see cref="MediaKinds.Video"/>, a video) atomically, replacing the game's file of that
+    /// kind in any other format. A video has no size: its width and height are 0.
     /// </summary>
-    /// <exception cref="InvalidDataException">The content isn't a PNG, JPEG or WebP image.</exception>
+    /// <exception cref="InvalidDataException">The content isn't a PNG, JPEG or WebP image, or for a video an MP4.</exception>
     public async Task<StoredMedia> SaveAsync(GameKey game, string kind, ReadOnlyMemory<byte> content, CancellationToken cancellationToken)
     {
-        var extension = ImageFormats.Sniff(content.Span)
-            ?? throw new InvalidDataException("the download isn't a PNG, JPEG or WebP image");
-        int width, height;
-        using (var probe = new MemoryStream(content.ToArray(), writable: false))
+        var video = kind == MediaKinds.Video;
+        int width = 0, height = 0;
+        string extension;
+        if (video)
         {
+            extension = VideoFormats.Sniff(content.Span) ?? throw new InvalidDataException("the download isn't an MP4 video");
+        }
+        else
+        {
+            extension = ImageFormats.Sniff(content.Span)
+                ?? throw new InvalidDataException("the download isn't a PNG, JPEG or WebP image");
+            using var probe = new MemoryStream(content.ToArray(), writable: false);
             if (!ImageHeaders.TryReadSize(probe, out width, out height))
             {
                 throw new InvalidDataException("the image's header can't be read");
@@ -71,7 +79,7 @@ public sealed class MediaStore(string dataDir)
             throw;
         }
 
-        DeleteOtherFormats(full, extension);
+        DeleteOtherFormats(full, extension, video ? VideoFormats.Extensions : ImageFormats.Extensions);
         var info = new FileInfo(full);
         return new StoredMedia(relative, info.Length, new DateTimeOffset(info.LastWriteTimeUtc).ToUnixTimeMilliseconds(), width, height);
     }
@@ -86,9 +94,9 @@ public sealed class MediaStore(string dataDir)
             return files;
         }
 
-        foreach (var kind in MediaKinds.Images)
+        void Add(string kind, IReadOnlyList<string> extensions)
         {
-            foreach (var extension in ImageFormats.Extensions)
+            foreach (var extension in extensions)
             {
                 var path = FullPath(RelativePathFor(game, kind, extension));
                 if (File.Exists(path))
@@ -98,13 +106,19 @@ public sealed class MediaStore(string dataDir)
             }
         }
 
+        foreach (var kind in MediaKinds.Images)
+        {
+            Add(kind, ImageFormats.Extensions);
+        }
+
+        Add(MediaKinds.Video, VideoFormats.Extensions);
         return files;
     }
 
-    private static void DeleteOtherFormats(string full, string keep)
+    private static void DeleteOtherFormats(string full, string keep, IReadOnlyList<string> extensions)
     {
         var stem = full[..^keep.Length];
-        foreach (var extension in ImageFormats.Extensions)
+        foreach (var extension in extensions)
         {
             if (extension != keep)
             {
@@ -140,4 +154,15 @@ public static class ImageFormats
 
         return null;
     }
+}
+
+/// <summary>Recognises the video formats scraping stores by their first bytes.</summary>
+public static class VideoFormats
+{
+    /// <summary>The extensions scraped videos are stored with.</summary>
+    public static IReadOnlyList<string> Extensions { get; } = [".mp4"];
+
+    /// <summary>".mp4" (an ISO base media file: an <c>ftyp</c> box first), or null for anything else.</summary>
+    public static string? Sniff(ReadOnlySpan<byte> data) =>
+        data.Length >= 12 && data[4..8].SequenceEqual("ftyp"u8) ? ".mp4" : null;
 }

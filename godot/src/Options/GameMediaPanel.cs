@@ -70,6 +70,7 @@ public sealed partial class GameMediaPanel : UiPanel
         MediaKinds.Screenshot => "Screenshot",
         MediaKinds.Logo => "Logo",
         MediaKinds.Hero => "Hero art",
+        MediaKinds.Video => "Video",
         _ => kind,
     };
 

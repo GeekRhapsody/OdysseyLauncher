@@ -32,9 +32,10 @@ provider = "screenscraper"
 fallback = ["igdb", "steamgriddb"]
 regions = ["eu", "wor", "us", "jp"]    # ScreenScraper region codes; first available wins
 languages = ["en"]
-# Media kinds to download: cover, back, spine, box_texture (front, spine and back in one image),
-# screenshot, logo, hero. Only ScreenScraper has back, spine and box_texture.
-media = ["cover", "box_texture"]
+# Media kinds to download: cover, back, spine, screenshot, logo (ScreenScraper's wheel), hero (fan art),
+# label (ScreenScraper's support texture: a disc's or cartridge's art) and video (an MP4, which nothing plays yet).
+# Only ScreenScraper has back, spine, label and video.
+media = ["cover", "back", "spine", "screenshot", "logo"]
 # ROMs up to this size are hashed (CRC32, MD5, SHA-1) once, for ScreenScraper lookups, which ask for a hash.
 # Bigger files (disc images) are looked up by name and size only. 0 hashes nothing.
 hash_limit_mb = 64

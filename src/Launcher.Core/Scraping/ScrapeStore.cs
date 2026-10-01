@@ -246,8 +246,8 @@ internal static class ScrapeStore
                 media.Parameters.AddWithValue("$id", gameId);
                 media.Parameters.AddWithValue("$kind", kind);
                 media.Parameters.AddWithValue("$path", stored.RelativePath);
-                media.Parameters.AddWithValue("$width", stored.Width);
-                media.Parameters.AddWithValue("$height", stored.Height);
+                media.Parameters.AddWithValue("$width", stored.Width > 0 ? stored.Width : DBNull.Value);    // a video has no size
+                media.Parameters.AddWithValue("$height", stored.Height > 0 ? stored.Height : DBNull.Value);
                 media.Parameters.AddWithValue("$source", source);
                 media.Parameters.AddWithValue("$size", stored.SizeBytes);
                 media.Parameters.AddWithValue("$mtime", stored.MtimeMs);

@@ -229,7 +229,10 @@ public sealed class ConfigLoader : IConfigLoader
             var media = SettingStrings(tree, defaults, "scraping", "media",
                 value => MediaKinds.Scrapable.Contains(value)
                     ? null
-                    : $"unknown media kind '{value}'{Suggest(value, MediaKinds.Scrapable)}. The kinds are {string.Join(", ", MediaKinds.Scrapable)}") ?? [MediaKinds.Cover];
+                    : $"unknown media kind '{value}'{Suggest(value, MediaKinds.Scrapable)}. The kinds are {string.Join(", ", MediaKinds.Scrapable)}",
+                value => value == MediaKinds.BoxTexture
+                    ? "box_texture isn't scraped any more, so it's left out (your own box textures still show)"
+                    : null) ?? [MediaKinds.Cover];
             var hashLimitMb = SettingInteger(tree, defaults, "scraping", "hash_limit_mb", 0, 65536) ?? DefaultHashLimitMb;
             _globalExcludes = SettingStrings(tree, defaults, "scanning", "exclude",
                 value => GlobPattern.Validate(value) is { } problem ? $"'{value}': {problem}" : null) ?? [];
@@ -321,8 +324,12 @@ public sealed class ConfigLoader : IConfigLoader
         }
 
         /// <param name="check">Returns an error message for a bad item, or null. Any bad item falls back to the default list.</param>
+        /// <param name="retired">
+        /// Says why a value that used to be valid is now left out (a warning), or null; the rest of the list is kept.
+        /// </param>
         private List<string>? SettingStrings(
-            TomlTableNode tree, TomlTableNode defaults, string section, string key, Func<string, string?>? check)
+            TomlTableNode tree, TomlTableNode defaults, string section, string key, Func<string, string?>? check,
+            Func<string, string?>? retired = null)
         {
             foreach (var source in (ReadOnlySpan<TomlTableNode>)[tree, defaults])
             {
@@ -335,6 +342,18 @@ public sealed class ConfigLoader : IConfigLoader
                 if (values is null)
                 {
                     continue;
+                }
+
+                if (retired is not null)
+                {
+                    for (var i = values.Count - 1; i >= 0; i--)
+                    {
+                        if (retired(values[i]) is { } why)
+                        {
+                            Warning(node, $"{section}.{key}", why);
+                            values.RemoveAt(i);
+                        }
+                    }
                 }
 
                 if (check is not null)

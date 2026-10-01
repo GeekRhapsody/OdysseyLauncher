@@ -17,7 +17,7 @@ public sealed class ScrapeServiceTests : IAsyncLifetime
 
     private static GameKey Key(string relPath) => new(relPath.Split('/')[0], relPath[(relPath.IndexOf('/') + 1)..].ToLowerInvariant());
 
-    public async ValueTask InitializeAsync() => _bed = await ScrapeBed.CreateAsync("media = [\"cover\", \"box_texture\", \"spine\"]");
+    public async ValueTask InitializeAsync() => _bed = await ScrapeBed.CreateAsync("media = [\"cover\", \"label\", \"spine\"]");
 
     public async ValueTask DisposeAsync()
     {
@@ -75,7 +75,7 @@ public sealed class ScrapeServiceTests : IAsyncLifetime
         Assert.Equal("hash", _bed.Query<string>("SELECT method FROM scraper_matches WHERE scraper = 'screenscraper'"));
         Assert.Contains(_bed.Http.Requests, r => r.Query("media") == "box-2D(eu)");
         Assert.DoesNotContain(_bed.Http.Requests, r => r.Query("media") == "box-2D(us)");
-        foreach (var kind in (string[])["cover", "box_texture", "spine"])
+        foreach (var kind in (string[])["cover", "label", "spine"])
         {
             var path = MediaStore.RelativePathFor(Key(Sonic), kind, ".png");
             Assert.True(File.Exists(Path.Combine(_bed.Paths.DataDir, path)), kind);
@@ -124,7 +124,7 @@ public sealed class ScrapeServiceTests : IAsyncLifetime
     [Fact]
     public async Task The_configured_provider_answers_first()
     {
-        _bed.Reconfigure("provider = \"igdb\"\nfallback = [\"screenscraper\"]\nmedia = [\"cover\", \"box_texture\"]");
+        _bed.Reconfigure("provider = \"igdb\"\nfallback = [\"screenscraper\"]\nmedia = [\"cover\", \"label\"]");
         _bed.Rom(Sonic);
         await _bed.ScanAsync();
         using var service = _bed.Service();
@@ -139,8 +139,51 @@ public sealed class ScrapeServiceTests : IAsyncLifetime
         Assert.Equal("igdb", metadata.Source);
         Assert.Equal("igdb", _bed.Query<string>("SELECT source FROM media WHERE kind = 'cover'"));
 
-        // ScreenScraper was still asked, for the box texture IGDB doesn't have.
-        Assert.Equal("screenscraper", _bed.Query<string>("SELECT source FROM media WHERE kind = 'box_texture'"));
+        // ScreenScraper was still asked, for the support texture IGDB doesn't have.
+        Assert.Equal("screenscraper", _bed.Query<string>("SELECT source FROM media WHERE kind = 'label'"));
+    }
+
+    [Fact]
+    public async Task ScreenScraper_supplies_every_scrapable_kind_videos_as_mp4s_and_no_box_texture()
+    {
+        _bed.Reconfigure("media = [\"cover\", \"back\", \"spine\", \"screenshot\", \"logo\", \"hero\", \"label\", \"video\"]");
+        _bed.Rom(Sonic);
+        await _bed.ScanAsync();
+        using var service = _bed.Service();
+
+        var result = await service.ScrapeGameAsync(Key(Sonic), Ct);
+
+        Assert.True((1, 0) == (result.Done, result.Failed), string.Join(" | ", _bed.Log.Lines));
+        foreach (var kind in MediaKinds.Scrapable)
+        {
+            Assert.Equal("screenscraper", _bed.Query<string>("SELECT source FROM media WHERE kind = $kind", ("$kind", kind)));
+        }
+
+        Assert.Equal(MediaKinds.Scrapable.Count, (int)_bed.Query<long>("SELECT COUNT(*) FROM media"));   // no box texture
+        Assert.DoesNotContain(_bed.Http.Requests, r => r.Query("media") is { } m && m.StartsWith("box-texture", StringComparison.Ordinal));
+        Assert.Equal(0, _bed.Http.Count("igdb"));                                    // nothing was left for the fallbacks
+        Assert.Equal(0, _bed.Http.Count("steamgriddb"));
+
+        // The preferred types: the HD wheel, the normalised video, the support texture for the label.
+        var asked = _bed.Http.Requests.Select(r => r.Query("media")).OfType<string>().ToList();
+        Assert.Contains("wheel-hd(wor)", asked);
+        Assert.DoesNotContain("wheel(wor)", asked);
+        Assert.Contains("video-normalized", asked);
+        Assert.DoesNotContain("video", asked);
+        Assert.Contains("support-texture(eu)", asked);
+        Assert.Contains("box-2D-back(eu)", asked);
+        Assert.Contains("fanart", asked);
+
+        // The video is an .mp4 with no size; it survives an offline rebuild and goes with a clear.
+        var video = Path.Combine(_bed.Paths.DataDir, MediaStore.RelativePathFor(Key(Sonic), MediaKinds.Video, ".mp4"));
+        Assert.True(File.Exists(video));
+        Assert.Equal(1L, _bed.Query<long>("SELECT COUNT(*) FROM media WHERE kind = 'video' AND width IS NULL AND height IS NULL"));
+        _bed.Http.Offline = true;
+        await _bed.Library.RebuildAsync(null, Ct);
+        Assert.Equal(1L, _bed.Query<long>("SELECT COUNT(*) FROM media WHERE kind = 'video' AND width IS NULL"));
+
+        await service.ClearGameAsync(Key(Sonic), Ct);
+        Assert.False(File.Exists(video));
     }
 
     [Fact]
@@ -576,7 +619,7 @@ public sealed class ScrapeServiceTests : IAsyncLifetime
         // The game's media, with where each came from.
         var game = await _bed.Game("megadrive", "Sonic the Hedgehog 3 (Europe).md");
         var media = await _bed.Library.GetGameMediaInfoAsync(game.GameId, Ct);
-        Assert.Equal(["box_texture", "cover", "spine"], media.Select(m => m.Kind));
+        Assert.Equal(["cover", "label", "spine"], media.Select(m => m.Kind));
         Assert.All(media, m => Assert.Equal("screenscraper", m.Source));
     }
 
@@ -784,7 +827,7 @@ public sealed class ScrapeServiceTests : IAsyncLifetime
     [Fact]
     public async Task Credentials_appear_in_no_log_saved_response_database_or_media_file()
     {
-        _bed.Reconfigure("media = [\"cover\", \"box_texture\", \"screenshot\", \"hero\", \"logo\"]");
+        _bed.Reconfigure("media = [\"cover\", \"label\", \"screenshot\", \"hero\", \"logo\", \"video\"]");
         var limited = 0;
         _bed.Http.On("GET", u => ScrapeBed.Is(u, "screenscraper.fr", "jeuInfos.php") && Interlocked.Increment(ref limited) == 1,
             _ => FakeHttpHandler.Json("{}", HttpStatusCode.TooManyRequests));

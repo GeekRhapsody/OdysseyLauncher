@@ -150,7 +150,7 @@ public sealed class TwitchAppToken
 
 /// <summary>
 /// IGDB API v4 (https://api-docs.igdb.com): metadata, front covers, screenshots and artworks (as the hero image). It
-/// has no back, spine or box texture, and no game logos. Games are found by a name search limited to the system's
+/// has no back, spine, label or video, and no game logos. Games are found by a name search limited to the system's
 /// IGDB platforms (<c>igdb_platforms</c> in systems.toml). Authenticates with the user's own Twitch application
 /// (<see cref="TwitchAppToken"/>). Limits: 4 requests a second and 8 open at once; this stays at 4 open.
 /// </summary>

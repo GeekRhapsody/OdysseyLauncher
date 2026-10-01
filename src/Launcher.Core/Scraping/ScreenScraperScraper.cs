@@ -34,17 +34,24 @@ public sealed partial class ScreenScraperScraper : IScraper
 {
     public const string BaseUrl = "https://api.screenscraper.fr/api2/";
 
-    /// <summary>ScreenScraper's media types for each of our kinds, most wanted first.</summary>
+    /// <summary>
+    /// ScreenScraper's media types for each of our kinds, most wanted first. Box textures (<c>box-texture</c>) aren't
+    /// scraped any more; the support texture (a disc's or cartridge's art) fills the label slot.
+    /// </summary>
     private static readonly Dictionary<string, string[]> MediaTypes = new(StringComparer.Ordinal)
     {
         [MediaKinds.Cover] = ["box-2D"],
         [MediaKinds.Back] = ["box-2D-back"],
         [MediaKinds.Spine] = ["box-2D-side"],
-        [MediaKinds.BoxTexture] = ["box-texture"],
         [MediaKinds.Screenshot] = ["ss", "sstitle"],
         [MediaKinds.Logo] = ["wheel-hd", "wheel"],
         [MediaKinds.Hero] = ["fanart"],
+        [MediaKinds.Label] = ["support-texture"],
+        [MediaKinds.Video] = ["video-normalized", "video"],
     };
+
+    /// <summary>How long a video's download may take: they're megabytes, and ScreenScraper's servers can be slow.</summary>
+    private static readonly TimeSpan VideoTimeout = TimeSpan.FromMinutes(5);
 
     private static readonly string[] FallbackRegions = ["wor", "us", "eu", "ss", "jp"];
 
@@ -301,7 +308,8 @@ public sealed partial class ScreenScraperScraper : IScraper
             throw new ProviderException(Id, ProviderFailure.Rejected, $"{media.Kind}: the media URL isn't on screenscraper.fr");
         }
 
-        var (reply, kind) = await _http.SendAsync(Id, Gate, () => Get(uri.AbsoluteUri), ClassifyMedia, media.Kind + " download", cancellationToken).ConfigureAwait(false);
+        var timeout = media.Kind == MediaKinds.Video ? VideoTimeout : (TimeSpan?)null;
+        var (reply, kind) = await _http.SendAsync(Id, Gate, () => Get(uri.AbsoluteUri), ClassifyMedia, media.Kind + " download", cancellationToken, timeout).ConfigureAwait(false);
         if (kind == ReplyKind.NotFound)
         {
             throw new ProviderException(Id, ProviderFailure.Rejected, $"{media.Kind}: ScreenScraper has no file for it");

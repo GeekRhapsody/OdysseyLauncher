@@ -339,3 +339,16 @@ This checks what the scripts can't: a real Steam game handed to Steam and follow
 
 - Anything that differed, especially the launcher coming back while the game still ran (or staying away after it ended), and the log lines: `Select-String -Path "$env:APPDATA\Godot\app_userdata\Odyssey Launcher\logs\godot.log" -Pattern '^Launch|error|warning'`.
 - If a game ended too early or too late: run `Get-ItemProperty HKCU:\Software\Valve\Steam | Select RunningAppID` and `Get-ItemProperty HKCU:\Software\Valve\Steam\Apps\<app id>` while the game runs and after it ends (the app id is the number in the `.url`).
+
+## Scraped media kinds
+
+This checks what the fixtures can't: that ScreenScraper really names its media as the scraper expects (`box-2D-back`, `box-2D-side`, `ss`, `wheel-hd`, `fanart`, `support-texture`, `video-normalized`), and the Media page on a real pad. It uses the M3 set-up (`C:\OdysseyTest`) with the M5 Mega Drive ROMs and your credentials from M7 part 1, and the export full screen: `& .\artifacts\export\windows\OdysseyLauncher.exe --fullscreen ++ --user-dir=C:\OdysseyTest`.
+
+1. **The Media page.** Settings, then Providers, media and credentials, then Media to scrape. Front cover, box back, box spine, screenshot and wheel say Yes; fan art, support texture and video say No. Turn on fan art, support texture and video (A, or right). `C:\OdysseyTest\settings.toml` now has a `media` line under `[scraping]` listing all eight, and your own comments are still there.
+2. **Scrape a game.** Close the settings, press X on a well-known game (Sonic the Hedgehog 2), then Scrape this game. Then Images: the back, spine, screenshot, logo, hero art and disc or cartridge label cards show ScreenScraper's art.
+3. **The files.** `Get-ChildItem C:\OdysseyTest\scraped\media\megadrive -Recurse -File | Select Directory, Name, Length`: a file in `back`, `spine`, `screenshot`, `logo`, `hero`, `label` and `video` (an `.mp4` of a few MB that plays in a video player), and none new in `box_texture`.
+4. **Off again.** Turn video off on the Media page and scrape another game: no `.mp4` for it.
+
+### Send back
+
+- Any kind that didn't arrive for a game ScreenScraper's website shows it for, and the warnings: `Select-String -Path "$env:APPDATA\Godot\app_userdata\Odyssey Launcher\logs\godot.log" -Pattern 'screenscraper.*(download|isn.t)'`.

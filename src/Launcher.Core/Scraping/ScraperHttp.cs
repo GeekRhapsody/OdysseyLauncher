@@ -60,15 +60,20 @@ public sealed class ScraperHttp(HttpClient client, TimeProvider clock, Delay del
 
     public Delay Delay { get; } = delay;
 
+    /// <summary>How long one attempt may take, from leaving the gate to the whole body read, unless the caller says otherwise.</summary>
+    public static readonly TimeSpan DefaultTimeout = TimeSpan.FromSeconds(30);
+
     /// <param name="request">Makes a fresh request for each attempt.</param>
     /// <param name="what">Names the request in messages ("lookup", "cover download").</param>
+    /// <param name="timeout">How long one attempt may take (default <see cref="DefaultTimeout"/>): longer for a video.</param>
     public async Task<(HttpReply Reply, ReplyKind Kind)> SendAsync(
         string provider,
         ProviderGate gate,
         Func<HttpRequestMessage> request,
         Func<HttpReply, Classification> classify,
         string what,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        TimeSpan? timeout = null)
     {
         for (var attempt = 1; ; attempt++)
         {
@@ -80,9 +85,12 @@ public sealed class ScraperHttp(HttpClient client, TimeProvider clock, Delay del
             {
                 using (await gate.EnterAsync(cancellationToken).ConfigureAwait(false))
                 {
+                    // Timed from here, so waiting for the gate doesn't count. Real time, as HttpClient.Timeout was.
+                    using var attemptTimeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                    attemptTimeout.CancelAfter(timeout ?? DefaultTimeout);
                     using var message = request();
-                    using var response = await Client.SendAsync(message, HttpCompletionOption.ResponseContentRead, cancellationToken).ConfigureAwait(false);
-                    var body = await response.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
+                    using var response = await Client.SendAsync(message, HttpCompletionOption.ResponseContentRead, attemptTimeout.Token).ConfigureAwait(false);
+                    var body = await response.Content.ReadAsByteArrayAsync(attemptTimeout.Token).ConfigureAwait(false);
                     reply = new HttpReply((int)response.StatusCode, body, RetryAfter(response), response.Content.Headers.ContentType?.MediaType);
 
                     // Decided while this request still holds its slot, so a pause or closure reaches every request
@@ -96,7 +104,7 @@ public sealed class ScraperHttp(HttpClient client, TimeProvider clock, Delay del
                 verdict = new Classification(ReplyKind.Transient, "network error: " + e.Message);
                 wait = Backoff(attempt);
             }
-            catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
             {
                 verdict = new Classification(ReplyKind.Transient, "the request timed out");
                 wait = Backoff(attempt);
@@ -201,13 +209,16 @@ public sealed class ScraperHttp(HttpClient client, TimeProvider clock, Delay del
     /// <summary>The default <see cref="Scraping.Delay"/>, on <paramref name="clock"/>.</summary>
     public static Delay RealDelay(TimeProvider clock) => (duration, token) => Task.Delay(duration, clock, token);
 
-    /// <summary>An HttpClient for the providers: a 30 s timeout, our user agent, gzip and Brotli.</summary>
+    /// <summary>
+    /// An HttpClient for the providers: our user agent, gzip and Brotli. No timeout of its own: <see cref="SendAsync"/>
+    /// times each attempt (30 s, or longer for a video).
+    /// </summary>
     public static HttpClient CreateClient(HttpMessageHandler? handler = null)
     {
         var client = handler is null
             ? new HttpClient(new SocketsHttpHandler { AutomaticDecompression = DecompressionMethods.All, PooledConnectionLifetime = TimeSpan.FromMinutes(5) })
             : new HttpClient(handler, disposeHandler: false);
-        client.Timeout = TimeSpan.FromSeconds(30);
+        client.Timeout = Timeout.InfiniteTimeSpan;
         client.DefaultRequestHeaders.UserAgent.ParseAdd("OdysseyLauncher/" + CoreInfo.Version.Split('+')[0]);
         return client;
     }

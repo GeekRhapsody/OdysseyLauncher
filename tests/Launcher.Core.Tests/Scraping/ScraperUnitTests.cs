@@ -188,8 +188,11 @@ public sealed class ScraperUnitTests
         Assert.Equal("Texte en français.", game.Description);
         Assert.Equal("Plateforme", game.Genre);
         Assert.Equal(0.8, game.Rating!.Value, 3);
-        var kinds = game.MediaOrEmpty.Select(m => m.Kind).ToList();
-        Assert.Equal(["cover", "spine", "box_texture", "screenshot"], kinds.Order().Select(k => k).OrderBy(k => Array.IndexOf(new[] { "cover", "spine", "box_texture", "screenshot" }, k)));
+        var kinds = game.MediaOrEmpty.Select(m => m.Kind).Order(StringComparer.Ordinal).ToList();
+        Assert.Equal(["back", "cover", "hero", "label", "logo", "screenshot", "spine", "video"], kinds);   // no box_texture
+        Assert.EndsWith("media=wheel-hd(wor)", game.MediaOrEmpty.Single(m => m.Kind == "logo").Url, StringComparison.Ordinal);
+        Assert.EndsWith("media=video-normalized", game.MediaOrEmpty.Single(m => m.Kind == "video").Url, StringComparison.Ordinal);
+        Assert.EndsWith("media=support-texture(eu)", game.MediaOrEmpty.Single(m => m.Kind == "label").Url, StringComparison.Ordinal);
         Assert.DoesNotContain(game.MediaOrEmpty, m => m.Url.Contains("mediaGroup", StringComparison.Ordinal));   // the publisher's logo isn't the game's
     }
 
@@ -309,7 +312,7 @@ public sealed class ScraperUnitTests
         var systems = new ConfigLoader().Load(new ConfigSources { HomeDir = "C:/h", ConfigDir = "C:/c", FileExists = null }).Config;
 
         Assert.Equal(["screenscraper", "igdb", "steamgriddb"], settings.ProviderOrder);
-        Assert.Equal(["cover", "box_texture"], settings.Media);
+        Assert.Equal(["cover", "back", "spine", "screenshot", "logo"], settings.Media);   // not fan art, support textures or videos
         Assert.Equal(64L * 1024 * 1024, settings.HashLimitBytes);
         Assert.Equal([18, 99], systems.FindSystem("nes")!.IgdbPlatforms);
         Assert.Equal([29], systems.FindSystem("megadrive")!.IgdbPlatforms);
@@ -327,18 +330,55 @@ public sealed class ScraperUnitTests
             Settings = new ConfigFile("settings.toml", """
                 [scraping]
                 provider = "screenscrapper"
-                media = ["cover", "box-texture"]
+                media = ["cover", "screnshot"]
                 hash_limit_mb = -1
                 """),
         });
 
         Assert.Equal(3, result.Diagnostics.Count(d => d.IsError));
         Assert.Contains(result.Diagnostics, d => d.Message.Contains("did you mean 'screenscraper'?", StringComparison.Ordinal));
-        Assert.Contains(result.Diagnostics, d => d.Message.Contains("did you mean 'box_texture'?", StringComparison.Ordinal));
+        Assert.Contains(result.Diagnostics, d => d.Message.Contains("did you mean 'screenshot'?", StringComparison.Ordinal));
         var settings = result.Config.Settings.Scraping;
         Assert.Equal("screenscraper", settings.Provider);
-        Assert.Equal(["cover", "box_texture"], settings.Media);
+        Assert.Equal(["cover", "back", "spine", "screenshot", "logo"], settings.Media);
         Assert.Equal(64L * 1024 * 1024, settings.HashLimitBytes);
+    }
+
+    [Fact]
+    public void A_box_texture_in_the_media_list_is_left_out_with_a_warning_and_the_rest_kept()
+    {
+        var result = new ConfigLoader().Load(new ConfigSources
+        {
+            HomeDir = "C:/h",
+            ConfigDir = "C:/c",
+            FileExists = null,
+            Settings = new ConfigFile("settings.toml", """
+                [scraping]
+                media = ["cover", "box_texture", "label", "video"]
+                """),
+        });
+
+        Assert.DoesNotContain(result.Diagnostics, d => d.IsError);
+        var warning = Assert.Single(result.Diagnostics, d => d.Key == "scraping.media");
+        Assert.Equal(Severity.Warning, warning.Severity);
+        Assert.Contains("box_texture isn't scraped any more", warning.Message, StringComparison.Ordinal);
+        Assert.Equal(["cover", "label", "video"], result.Config.Settings.Scraping.Media);
+    }
+
+    [Fact]
+    public async Task A_video_must_be_an_mp4_and_an_image_kind_must_be_an_image()
+    {
+        using var dir = new TempDir();
+        var store = new MediaStore(dir.Path);
+        var game = new GameKey("megadrive", "sonic.md");
+
+        var video = await store.SaveAsync(game, MediaKinds.Video, ScrapeBed.Mp4("clip"), TestContext.Current.CancellationToken);
+
+        Assert.Equal("scraped/media/megadrive/video/sonic.md.mp4", video.RelativePath);
+        Assert.Equal((0, 0), (video.Width, video.Height));
+        Assert.Contains(store.FullPath(video.RelativePath), store.FilesOf(game));
+        await Assert.ThrowsAsync<InvalidDataException>(() => store.SaveAsync(game, MediaKinds.Video, ScrapeBed.Png("x"), TestContext.Current.CancellationToken));
+        await Assert.ThrowsAsync<InvalidDataException>(() => store.SaveAsync(game, MediaKinds.Cover, ScrapeBed.Mp4("x"), TestContext.Current.CancellationToken));
     }
 
     [Fact]

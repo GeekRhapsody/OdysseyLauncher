@@ -179,7 +179,7 @@ public sealed partial class GameOptionsPanel : ListPanel
         var counts = users == 0 ? $"{scraped} scraped" : scraped == 0 ? $"{users} yours" : $"{users} yours, {scraped} scraped";
         _media.Detail = users + scraped == 0
             ? "None yet: scrape it, or choose your own"
-            : counts + " · " + string.Join(", ", MediaKinds.Images.Where(k => _mediaRows.Any(m => m.Kind == k)).Select(GameMediaPanel.SlotName));
+            : counts + " · " + string.Join(", ", MediaKinds.Images.Append(MediaKinds.Video).Where(k => _mediaRows.Any(m => m.Kind == k)).Select(GameMediaPanel.SlotName));
 
         var metadata = _game.Metadata;
         var filled = metadata is null ? 0 : new[] { metadata.Description, metadata.ReleaseDate, metadata.Developer, metadata.Publisher, metadata.Genre, metadata.Players }
