@@ -183,6 +183,70 @@ public sealed class ModelProcessingTests : IDisposable
         Assert.Equal(1, ModelInspector.Inspect(converted.Glb!, ModelKind.PerGame).Report.Textures);
     }
 
+    // A PS2 save icon as ps2iodb exports it: the OBJ is the first frame turned about Z (the PS2's y points down).
+    private const string IconObj = "v 0 0 0\nv -1 0 0\nv 0 -1 0\nvt 0 0\nvt 1 0\nvt 0 1\nf 1/1 2/2 3/3\n";
+
+    // Three frames over 20 frames at half speed: the second moves the first vertex, the third is the first again.
+    private const string IconAnim = """
+        { "version": 3, "frameLength": 20, "animSpeed": 0.5, "playOffset": 0, "frames": [
+          { "shapeId": 0, "keys": [{ "time": 0, "value": 1 }, { "time": 10, "value": 0 }], "vertexData": [0, 0, 0, 1, 0, 0, 0, 1, 0] },
+          { "shapeId": 1, "keys": [{ "time": 0, "value": 0 }, { "time": 10, "value": 1 }, { "time": 15, "value": 0 }], "vertexData": [0, 0, 2, 1, 0, 0, 0, 1, 0] },
+          { "shapeId": 2, "keys": [{ "time": 10, "value": 0 }, { "time": 15, "value": 1 }], "vertexData": [0, 0, 0, 1, 0, 0, 0, 1, 0] }
+        ] }
+        """;
+
+    [Fact]
+    public void A_ps2_icons_shape_animation_becomes_morph_targets_and_a_focused_clip()
+    {
+        var converted = ObjConverter.FromZip(new MemoryStream(Zip(("ICON.ICO.obj", Text(IconObj)), ("ICON.ICO.anim", Text(IconAnim)))), null, Scratch);
+
+        Assert.Empty(converted.Warnings);
+        var report = ModelInspector.Inspect(converted.Glb!, ModelKind.PerGame).Report;
+        Assert.True(report.Accepted, string.Join("; ", report.Errors));
+        Assert.Equal(["focused"], report.Clips);
+        Assert.Equal(1, report.MorphTargets);    // the third frame is the first's shape, so it needs no target
+
+        Assert.True(GlbFile.TryRead(converted.Glb, out var file, out _));
+        var json = file!.Json;
+        var target = (int)json["meshes"]![0]!["primitives"]![0]!["targets"]![0]!["POSITION"]!;
+        var offsets = Floats(file, target);
+        Assert.Equal([0f, 0, 2, 0, 0, 0, 0, 0, 0], offsets);    // z is kept when x and y are turned
+
+        var sampler = json["animations"]![0]!["samplers"]![0]!;
+        Assert.Equal("weights", (string)json["animations"]![0]!["channels"]![0]!["target"]!["path"]!);
+        Assert.Equal([0f, 1f / 3, 0.5f, 2f / 3], Floats(file, (int)sampler["input"]!));    // frames at 30 Hz (60 at half speed)
+        Assert.Equal([0f, 1, 0, 0], Floats(file, (int)sampler["output"]!));
+
+        static float[] Floats(GlbFile file, int accessor)
+        {
+            var view = (int)file.Json["accessors"]![accessor]!["bufferView"]!;
+            var bytes = ModelInspector.ViewBytes(file, view).ToArray();
+            return [.. Enumerable.Range(0, bytes.Length / 4).Select(i => BitConverter.ToSingle(bytes, i * 4))];
+        }
+    }
+
+    [Fact]
+    public void An_animation_that_doesnt_fit_the_obj_is_left_out_with_a_warning()
+    {
+        string[] anims =
+        [
+            IconAnim.Replace("\"time\": 10, \"value\": 0 }], \"vertexData\": [0, 0, 0", "\"time\": 10, \"value\": 0 }], \"vertexData\": [0, 0, 5", StringComparison.Ordinal),
+            IconAnim.Replace("[0, 0, 2, 1, 0, 0, 0, 1, 0]", "[0, 0, 2, 1, 0, 0]", StringComparison.Ordinal),
+            "{ not json",
+        ];
+        string[] reasons = ["doesn't start from the model's shape", "has 2 vertices a frame, but the model has 3", "couldn't be read"];
+
+        for (var i = 0; i < anims.Length; i++)
+        {
+            var converted = ObjConverter.FromZip(new MemoryStream(Zip(("ICON.ICO.obj", Text(IconObj)), ("ICON.ICO.anim", Text(anims[i])))), null, Scratch);
+
+            Assert.Contains(converted.Warnings, w => w.Contains(reasons[i], StringComparison.Ordinal) && w.EndsWith("so the model doesn't animate", StringComparison.Ordinal));
+            var report = ModelInspector.Inspect(converted.Glb!, ModelKind.PerGame).Report;
+            Assert.True(report.Accepted);
+            Assert.Empty(report.Clips);
+        }
+    }
+
     // ---- Cache ------------------------------------------------------------------------------------------
 
     [Fact]

@@ -16,7 +16,9 @@ public sealed record ConvertedModelFile(byte[]? Glb, IReadOnlyList<string> Error
 /// in it is extracted, so its paths can't write anywhere. OBJ's axes are glTF's (+Y up, the front facing +Z, as
 /// Blender exports them); faces are triangulated as fans; missing normals are computed (smoothed within an
 /// <c>s</c> group, flat otherwise); texture coordinates are flipped to glTF's top-left origin. Materials keep their
-/// names, so one named <c>cover</c> or <c>screenshot</c> is a media slot. Never throws for a bad file.
+/// names, so one named <c>cover</c> or <c>screenshot</c> is a media slot. A PS2 save icon's shape animation beside
+/// the OBJ (<c>ICON.ICO.anim</c> for <c>ICON.ICO.obj</c>, <see cref="ShapeAnimation"/>) becomes morph targets and a
+/// <c>focused</c> clip. Never throws for a bad file.
 /// </summary>
 public static class ObjConverter
 {
@@ -263,17 +265,27 @@ public static class ObjConverter
             gltfMaterials[m] = AddMaterial(builder, materials[m]);
         }
 
+        var animationName = Path.ChangeExtension(objName, ".anim");
+        var animation = open(animationName) is { } animationFile
+            ? ShapeAnimation.Read(animationFile, positions, Path.GetFileName(animationName), warnings)
+            : null;
+
         var primitives = new List<GltfPrimitive>();
         for (var m = 0; m < materials.Count; m++)
         {
-            if (BuildPrimitive(faces, m, positions, uvs, normals, gltfMaterials[m]) is { } primitive)
+            if (BuildPrimitive(faces, m, positions, uvs, normals, gltfMaterials[m], animation) is { } primitive)
             {
                 primitives.Add(primitive);
             }
         }
 
         var mesh = builder.AddMesh(Path.GetFileNameWithoutExtension(objName), primitives);
-        builder.AddNode(Path.GetFileNameWithoutExtension(objName), mesh);
+        var node = builder.AddNode(Path.GetFileNameWithoutExtension(objName), mesh);
+        if (animation is not null)
+        {
+            builder.AddAnimation(ModelClips.Names[(int)ModelClip.Focused], [new GltfChannel(node, "weights", animation.Times, animation.Weights)]);
+        }
+
         return new ConvertedModelFile(builder.ToGlb(), [], warnings);
 
         int MaterialFor(string name)
@@ -383,7 +395,7 @@ public static class ObjConverter
         }
     }
 
-    private static GltfPrimitive? BuildPrimitive(List<Face> faces, int material, List<Vector3> positions, List<Vector2> uvs, List<Vector3> normals, int gltfMaterial)
+    private static GltfPrimitive? BuildPrimitive(List<Face> faces, int material, List<Vector3> positions, List<Vector2> uvs, List<Vector3> normals, int gltfMaterial, ShapeAnimation? animation)
     {
         // Smooth normals per (position, smoothing group), for corners without their own.
         var smoothNormals = new Dictionary<(int Position, int Group), Vector3>();
@@ -409,6 +421,7 @@ public static class ObjConverter
         var outPositions = new List<Vector3>();
         var outNormals = new List<Vector3>();
         var outUvs = new List<Vector2>();
+        var sources = new List<int>();
         var indices = new List<int>();
         var hasUvs = false;
         for (var f = 0; f < faces.Count; f++)
@@ -433,6 +446,7 @@ public static class ObjConverter
                     vertex = outPositions.Count;
                     vertexOf[key] = vertex;
                     outPositions.Add(positions[corner.Position]);
+                    sources.Add(corner.Position);
                     var normal = corner.Normal >= 0 ? normals[corner.Normal]
                         : face.SmoothGroup != 0 ? smoothNormals[(corner.Position, face.SmoothGroup)]
                         : flat;
@@ -459,9 +473,28 @@ public static class ObjConverter
             }
         }
 
-        return indices.Count == 0
-            ? null
-            : new GltfPrimitive([.. outPositions], [.. outNormals], hasUvs ? [.. outUvs] : null, [.. indices], gltfMaterial);
+        if (indices.Count == 0)
+        {
+            return null;
+        }
+
+        // A morph target moves each vertex from the OBJ's position to the shape's (normals stay the OBJ's).
+        Vector3[][]? targets = null;
+        if (animation is not null)
+        {
+            targets = new Vector3[animation.Shapes.Count][];
+            for (var t = 0; t < targets.Length; t++)
+            {
+                var shape = animation.Shapes[t];
+                targets[t] = new Vector3[sources.Count];
+                for (var v = 0; v < sources.Count; v++)
+                {
+                    targets[t][v] = shape[sources[v]] - positions[sources[v]];
+                }
+            }
+        }
+
+        return new GltfPrimitive([.. outPositions], [.. outNormals], hasUvs ? [.. outUvs] : null, [.. indices], gltfMaterial, targets);
     }
 
     /// <summary>Newell's method, so a polygon that isn't quite flat still gets a sensible normal.</summary>

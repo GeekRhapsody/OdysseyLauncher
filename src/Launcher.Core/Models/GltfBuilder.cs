@@ -6,15 +6,16 @@ namespace Launcher.Core.Models;
 
 /// <summary>One primitive of a mesh: triangles, counter-clockwise seen from the front (glTF's winding).</summary>
 /// <param name="Uvs">TEXCOORD_0, with v = 0 at the top of the image (glTF's convention).</param>
-public sealed record GltfPrimitive(Vector3[] Positions, Vector3[]? Normals, Vector2[]? Uvs, int[] Indices, int Material);
+/// <param name="Targets">Morph targets: per target, each vertex's position offset. Every primitive of a mesh needs the same number.</param>
+public sealed record GltfPrimitive(Vector3[] Positions, Vector3[]? Normals, Vector2[]? Uvs, int[] Indices, int Material, Vector3[][]? Targets = null);
 
-/// <summary>A node's transform over time, for one channel of an animation clip.</summary>
-/// <param name="Path">"translation", "rotation" or "scale".</param>
-/// <param name="Values">3 floats a key for translation and scale, 4 (x, y, z, w) for rotation.</param>
+/// <summary>A node's transform or its mesh's morph target weights over time, for one channel of an animation clip.</summary>
+/// <param name="Path">"translation", "rotation", "scale" or "weights".</param>
+/// <param name="Values">3 floats a key for translation and scale, 4 (x, y, z, w) for rotation, one per morph target for weights.</param>
 public sealed record GltfChannel(int Node, string Path, float[] Times, float[] Values);
 
 /// <summary>
-/// Writes a glTF 2.0 binary from meshes, materials, embedded images, nodes and node animations: what the OBJ
+/// Writes a glTF 2.0 binary from meshes (with morph targets), materials, embedded images, nodes and animations: what the OBJ
 /// converter, the synthetic library's per-game models and the tests' fixture models need. Everything goes in one
 /// buffer; POSITION accessors carry min and max, as the spec requires.
 /// </summary>
@@ -99,6 +100,18 @@ public sealed class GltfBuilder
             }
 
             var entry = new JsonObject { ["attributes"] = attributes, ["indices"] = AddIndices(primitive.Indices, primitive.Positions.Length) };
+            if (primitive.Targets is { Length: > 0 } targets)
+            {
+                // A morph target's POSITION accessor needs its bounds too.
+                var targetList = new JsonArray();
+                foreach (var target in targets)
+                {
+                    targetList.Add(new JsonObject { ["POSITION"] = AddVec3(target, withBounds: true) });
+                }
+
+                entry["targets"] = targetList;
+            }
+
             if (primitive.Material >= 0)
             {
                 entry["material"] = primitive.Material;
@@ -151,7 +164,7 @@ public sealed class GltfBuilder
         return _nodes.Count - 1;
     }
 
-    /// <summary>A clip of linearly interpolated node transforms.</summary>
+    /// <summary>A clip of linearly interpolated node transforms and morph target weights.</summary>
     public void AddAnimation(string name, IReadOnlyList<GltfChannel> channels)
     {
         ArgumentNullException.ThrowIfNull(channels);
@@ -159,7 +172,12 @@ public sealed class GltfBuilder
         var list = new JsonArray();
         foreach (var channel in channels)
         {
-            var width = channel.Path == "rotation" ? 4 : 3;
+            var (width, type) = channel.Path switch
+            {
+                "rotation" => (4, "VEC4"),
+                "weights" => (1, "SCALAR"),    // the output is keys × targets scalars
+                _ => (3, "VEC3"),
+            };
             var times = new byte[channel.Times.Length * 4];
             for (var i = 0; i < channel.Times.Length; i++)
             {
@@ -175,7 +193,7 @@ public sealed class GltfBuilder
             var input = AddAccessor(AddView(times, null), 5126, channel.Times.Length, "SCALAR");
             ((JsonObject)_accessors[input]!)["min"] = new JsonArray(channel.Times.Min());
             ((JsonObject)_accessors[input]!)["max"] = new JsonArray(channel.Times.Max());
-            var output = AddAccessor(AddView(values, null), 5126, channel.Values.Length / width, width == 4 ? "VEC4" : "VEC3");
+            var output = AddAccessor(AddView(values, null), 5126, channel.Values.Length / width, type);
             samplers.Add(new JsonObject { ["input"] = input, ["output"] = output, ["interpolation"] = "LINEAR" });
             list.Add(new JsonObject { ["sampler"] = samplers.Count - 1, ["target"] = new JsonObject { ["node"] = channel.Node, ["path"] = channel.Path } });
         }
