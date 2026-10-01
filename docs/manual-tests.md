@@ -311,3 +311,16 @@ This checks what a script mustn't do: restart, shut down and sleep the PC from t
 
 - Anything that differed: a row that did nothing, a "Couldn't …" message (with its text), or the launcher still open after a restart or shutdown started.
 - After step 2, the log lines: `Select-String -Path "$env:APPDATA\Godot\app_userdata\Odyssey Launcher\logs\godot.log" -Pattern '^Power|error|warning'`. (The log is rewritten each run, so steps 4 and 5 leave nothing to send.)
+
+## The ES-DE catalogue and launching shortcuts
+
+This checks what the scripts can't: the grid and settings with the whole catalogue, and a real shortcut or script as a game. It uses the M3 set-up (`C:\OdysseyTest`) and the export.
+
+1. **Only what you have.** Start the launcher with your ROM folders: the systems grid shows the systems that have games (Favourites and Recently played first), not the other 150 or so. Settings, then Emulators, lists only the programs those systems use. In `C:\OdysseyTest\config\settings.toml` set `[display]` `hide_empty_systems = false`, restart: every system has a card, empty ones with "0 games".
+2. **ES-DE folders.** Put a ROM in a folder named `genesis` (and none in `megadrive`): the Mega Drive system finds it after a rescan (View, then F5, or Settings, Library).
+3. **A shortcut as a game.** Make `ports\Notepad.lnk` (a shortcut to notepad.exe) under your ROM root and rescan. Ports shows it; launch it: Notepad opens, the launcher minimises, and when you close Notepad the launcher comes back with focus. A script, `ports\Hello & World.bat` containing `@pause`, does the same (a console window; any key ends it), and nothing after the `&` runs as a separate command. A file with a `%` in its path says so and doesn't start.
+4. **A catalogue emulator.** Install one the catalogue lists (for example Stella under `C:\Emulators\Stella\64-bit\`, the folder ES-DE looks in), put an Atari 2600 ROM in `atari2600`, and launch it: Stella opens that game. Set another emulator on Atari 2600's page (X on its card) and launch again.
+
+### Send back
+
+- Any system or emulator that behaved differently from ES-DE, and the log lines: `Select-String -Path "$env:APPDATA\Godot\app_userdata\Odyssey Launcher\logs\godot.log" -Pattern '^Launch|doesn.t exist|error|warning'`.

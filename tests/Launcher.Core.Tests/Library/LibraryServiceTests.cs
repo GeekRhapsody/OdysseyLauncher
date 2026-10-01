@@ -81,7 +81,7 @@ public sealed class LibraryServiceTests : IAsyncLifetime
         Assert.Equal(5, summary.Added);
         Assert.Equal(["The Legend of Zelda - A Link to the Past", "Mega Man X", "Mega Man X2", "Super Mario World"], await Titles("snes"));
         var systems = await _library.GetSystemsAsync(Ct);
-        Assert.Equal(14, systems.Count);
+        Assert.Equal(_library.Config.Systems.Count, systems.Count);
         Assert.Equal(4, systems.Single(s => s.SystemId == "snes").GameCount);
         Assert.Equal(1, systems.Single(s => s.SystemId == "megadrive").GameCount);
         Assert.Equal(0, systems.Single(s => s.SystemId == "psx").GameCount);
@@ -237,8 +237,8 @@ public sealed class LibraryServiceTests : IAsyncLifetime
             ["systems.gb.rom_dirs", "systems.nes.rom_dirs", "systems.snes.rom_dirs", "systems.n64.rom_dirs"],
             parallel.Diagnostics.Take(4).Select(d => d.Key));
         Assert.Equal(160, parallel.Added);
-        // 0, then one report per finished system, each count once (all 14 built-in systems are enabled).
-        Assert.Equal(Enumerable.Range(0, 15), reports.Where(r => r.Phase == "scan").Select(r => r.Done).Order());
+        // 0, then one report per finished system, each count once (every built-in system is enabled).
+        Assert.Equal(Enumerable.Range(0, _library.Config.Systems.Count + 1), reports.Where(r => r.Phase == "scan").Select(r => r.Done).Order());
     }
 
     [Fact]

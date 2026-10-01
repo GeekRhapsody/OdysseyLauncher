@@ -23,7 +23,21 @@ public sealed class WindowsProcessRunner : IProcessRunner
     public IRunningProcess Start(LaunchPlan plan)
     {
         ArgumentNullException.ThrowIfNull(plan);
-        var commandLine = WindowsCommandLine.Build(plan.Executable, plan.Arguments);
+        if (plan.RunFile && !IsDirectlyRunnable(plan.Executable))
+        {
+            return StartThroughShell(plan);
+        }
+
+        string commandLine;
+        if (plan.RunFile && IsBatchFile(plan.Executable))
+        {
+            (plan, commandLine) = ForBatchFile(plan);
+        }
+        else
+        {
+            commandLine = WindowsCommandLine.Build(plan.Executable, plan.Arguments);
+        }
+
         if (commandLine.Length >= WindowsCommandLine.MaxLength)
         {
             throw new ProcessStartException(
@@ -62,6 +76,137 @@ public sealed class WindowsProcessRunner : IProcessRunner
             if (port != 0)
             {
                 CloseHandle(port);
+            }
+        }
+    }
+
+    private static bool HasExtension(string file, string extension) =>
+        Path.GetExtension(file).Equals(extension, StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsBatchFile(string file) => HasExtension(file, ".bat") || HasExtension(file, ".cmd");
+
+    /// <summary>
+    /// What <c>CreateProcess</c> runs itself: programs. Batch files are run through cmd.exe by <see cref="ForBatchFile"/>,
+    /// and everything else (shortcuts and other documents) by the shell.
+    /// </summary>
+    private static bool IsDirectlyRunnable(string file) =>
+        HasExtension(file, ".exe") || HasExtension(file, ".com") || IsBatchFile(file);
+
+    /// <summary>
+    /// A batch file runs as <c>cmd.exe /d /s /c ""path""</c>. Handing the file to <c>CreateProcess</c> instead lets
+    /// Windows start cmd.exe itself, and a path with an <c>&amp;</c> in it (<c>Sonic &amp; Knuckles.bat</c>) is then
+    /// split into commands. With <c>/s</c>, cmd strips only the outer pair of quotes, so the path inside stays one
+    /// quoted word, whatever it holds. A <c>%</c> is the one character that still means something inside quotes
+    /// (variable expansion), so a path with one is refused. A path can't hold a double quote.
+    /// </summary>
+    private static (LaunchPlan Plan, string CommandLine) ForBatchFile(LaunchPlan plan)
+    {
+        var file = plan.Executable;
+        if (file.Contains('%', StringComparison.Ordinal))
+        {
+            throw new ProcessStartException(
+                $"The script '{file}' has a % in its path, which cmd.exe would read as a variable. Rename the file or its folder.");
+        }
+
+        var cmd = Path.Combine(Environment.SystemDirectory, "cmd.exe");
+        return (plan with { Executable = cmd, Arguments = [] }, $"\"{cmd}\" /d /s /c \"\"{file}\"\"");
+    }
+
+    /// <summary>
+    /// A shortcut (<c>.lnk</c>), an internet shortcut or any other file the shell opens with its program: the shell
+    /// decides what runs, so the process it starts is put in the game's job once it exists. Anything it starts
+    /// before that (a few milliseconds) isn't followed. If the shell started no process of its own (a document
+    /// handed to a program already running), there's nothing to follow and the game counts as ended.
+    /// </summary>
+    private static IRunningProcess StartThroughShell(LaunchPlan plan)
+    {
+        var started = Stopwatch.GetTimestamp();
+        nint job = 0, port = 0;
+        try
+        {
+            job = CreateJobObject(0, 0);
+            if (job == 0)
+            {
+                throw Failure("create a job object for the game", Marshal.GetLastPInvokeError());
+            }
+
+            port = CreateIoCompletionPort(-1, 0, 0, 1);
+            if (port == 0)
+            {
+                throw Failure("create a completion port for the game's job", Marshal.GetLastPInvokeError());
+            }
+
+            Configure(job, port);
+            var process = ShellOpen(plan);
+            if (process == 0)
+            {
+                return new FinishedProcess(Stopwatch.GetElapsedTime(started));
+            }
+
+            var processId = (int)GetProcessId(process);
+            if (!AssignProcessToJobObject(job, process))
+            {
+                // Already gone, or in a job that won't nest: follow the process itself.
+                return new HandleProcess(process, processId, started);
+            }
+
+            var running = new RunningProcess(job, port, process, processId, started);
+            job = port = 0;
+            return running;
+        }
+        finally
+        {
+            if (job != 0)
+            {
+                CloseHandle(job);
+            }
+
+            if (port != 0)
+            {
+                CloseHandle(port);
+            }
+        }
+    }
+
+    /// <summary>ShellExecuteEx on the plan's file; the new process's handle, or 0 if the shell started none.</summary>
+    private static unsafe nint ShellOpen(LaunchPlan plan)
+    {
+        // The shell's extensions want COM on the calling thread. A thread already in another apartment is fine as it is.
+        var com = CoInitializeEx(0, CoinitApartmentThreaded | CoinitDisableOle1Dde);
+        try
+        {
+            fixed (char* file = plan.Executable)
+            fixed (char* directory = plan.WorkingDirectory)
+            {
+                var info = default(ShellExecuteInfo);
+                info.Size = sizeof(ShellExecuteInfo);
+                info.Mask = SeeMaskNoCloseProcess | SeeMaskNoAsync | SeeMaskFlagNoUi;
+                info.File = file;
+                info.Directory = directory;
+                info.Show = SwShowNormal;
+                if (!ShellExecuteEx(&info))
+                {
+                    var error = Marshal.GetLastPInvokeError();
+                    var exe = plan.Executable;
+                    throw new ProcessStartException(error switch
+                    {
+                        ErrorNoAssociation => $"Windows has no program set to open '{exe}'.",
+                        ErrorFileNotFound or ErrorPathNotFound => $"Windows can't find '{exe}', or the program its shortcut points to.",
+                        ErrorDirectory => $"The working folder '{plan.WorkingDirectory}' doesn't exist. Check working_dir in emulators.toml.",
+                        ErrorAccessDenied => $"Windows refused access to '{exe}'.",
+                        ErrorCancelled => $"Windows didn't run '{exe}': it was cancelled.",
+                        _ => $"Windows couldn't open '{exe}': {new Win32Exception(error).Message} (error {error}).",
+                    }, error);
+                }
+
+                return info.Process;
+            }
+        }
+        finally
+        {
+            if (com >= 0)
+            {
+                CoUninitialize();
             }
         }
     }
@@ -151,6 +296,95 @@ public sealed class WindowsProcessRunner : IProcessRunner
 
     private static ProcessStartException Failure(string what, int error) =>
         new($"Windows couldn't {what}: {new Win32Exception(error).Message} (error {error}).", error);
+
+    /// <summary>A shell launch that started no process of its own: there's nothing to follow.</summary>
+    private sealed class FinishedProcess(TimeSpan elapsed) : IRunningProcess
+    {
+        public int ProcessId => 0;
+
+        public Task<ProcessOutcome> Completion { get; } = Task.FromResult(new ProcessOutcome(0, elapsed, false));
+
+        public void Terminate()
+        {
+        }
+
+        public void Dispose()
+        {
+        }
+    }
+
+    /// <summary>Follows one process by its handle, for a shell launch that couldn't be put in a job.</summary>
+    private sealed class HandleProcess : IRunningProcess
+    {
+        private const uint PollMs = 500;
+
+        private readonly TaskCompletionSource<ProcessOutcome> _completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly object _gate = new();
+        private readonly long _startTimestamp;
+        private nint _process;
+        private bool _terminated;
+        private volatile bool _stopWaiting;
+
+        public HandleProcess(nint process, int processId, long startTimestamp)
+        {
+            _process = process;
+            _startTimestamp = startTimestamp;
+            ProcessId = processId;
+            new Thread(Wait) { IsBackground = true, Name = "Shell launch watcher" }.Start();
+        }
+
+        public int ProcessId { get; }
+
+        public Task<ProcessOutcome> Completion => _completion.Task;
+
+        public void Terminate()
+        {
+            lock (_gate)
+            {
+                if (_process != 0 && !_completion.Task.IsCompleted)
+                {
+                    _terminated = true;
+                    TerminateProcess(_process, 1);
+                }
+            }
+        }
+
+        /// <summary>Stops watching; the game isn't touched. If it's still running, <see cref="Completion"/> is cancelled.</summary>
+        public void Dispose() => _stopWaiting = true;
+
+        private void Wait()
+        {
+            var running = true;
+            while (running && !_stopWaiting)
+            {
+                running = WaitForSingleObject(_process, PollMs) == WaitTimeout;
+            }
+
+            var elapsed = Stopwatch.GetElapsedTime(_startTimestamp);
+            var exitCode = -1;
+            if (!running && GetExitCodeProcess(_process, out var code))
+            {
+                exitCode = unchecked((int)code);
+            }
+
+            bool terminated;
+            lock (_gate)
+            {
+                terminated = _terminated;
+                CloseHandle(_process);
+                _process = 0;
+            }
+
+            if (running)
+            {
+                _completion.TrySetCanceled();
+            }
+            else
+            {
+                _completion.TrySetResult(new ProcessOutcome(exitCode, elapsed, terminated));
+            }
+        }
+    }
 
     /// <summary>
     /// A dedicated thread waits on the job's completion port for "no active processes". Windows doesn't guarantee

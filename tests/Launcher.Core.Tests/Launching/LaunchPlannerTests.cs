@@ -130,9 +130,9 @@ public class LaunchPlannerTests
     [Fact]
     public void A_disabled_system_is_an_error()
     {
-        var game = Game() with { Key = new GameKey("atari2600", "x.a26") };
+        var game = Game() with { Key = new GameKey("no-such-system", "x.a26") };
 
-        Assert.Equal("The system 'atari2600' isn't enabled in systems.toml.", LaunchPlanner.Plan(Config(), game).Error);
+        Assert.Equal("The system 'no-such-system' isn't enabled in systems.toml.", LaunchPlanner.Plan(Config(), game).Error);
     }
 
     [Theory]

@@ -229,7 +229,7 @@ public sealed partial class SystemPage : ListPanel
         var choices = config.Emulators.Values
             .OrderBy(e => suggested.Contains(e.Id) ? 0 : 1)
             .ThenBy(e => e.Name, StringComparer.CurrentCultureIgnoreCase)
-            .Select(e => new Choice(e.Id, e.Name, (suggested.Contains(e.Id) ? "Suggested · " : string.Empty) + e.Executable))
+            .Select(e => new Choice(e.Id, e.Name, (suggested.Contains(e.Id) ? "Suggested · " : string.Empty) + e.ProgramText))
             .ToList();
         Layer.Push(new ChoicePanel($"Emulator for {system.Name}", "Games can still choose their own", choices, system.Emulator, choice =>
             _settings.Save(this, [new ConfigEdit(ConfigFileKind.Systems, ["systems", _systemId, "emulator"], choice.Id)], $"{system.Name} now launches with {choice.Title}.")));

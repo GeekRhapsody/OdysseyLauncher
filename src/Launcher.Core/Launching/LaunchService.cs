@@ -268,7 +268,7 @@ public sealed class LaunchService
             return $"The game's file is missing: '{game.RomPath}'. Reconnect the drive it's on, or rescan the system if it has moved.";
         }
 
-        if (!File.Exists(plan.Executable))
+        if (!plan.RunFile && !File.Exists(plan.Executable))
         {
             return $"{plan.EmulatorName} isn't installed at '{plan.Executable}'. Install it there, or fix the path in " +
                 "emulators.toml (or the variable it uses in settings.toml).";

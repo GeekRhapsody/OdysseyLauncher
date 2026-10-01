@@ -65,7 +65,9 @@ public static class ThemeLoader
     {
         ArgumentNullException.ThrowIfNull(source);
         var diagnostics = new List<Diagnostic>();
-        var root = TomlTree.Parse(source.Manifest.Text, source.Manifest.Source, diagnostics);
+        var root = source.Origin == ThemeOrigin.BuiltIn
+            ? TomlTree.ParseBuiltIn(source.Manifest.Text, source.Manifest.Source, diagnostics)
+            : TomlTree.Parse(source.Manifest.Text, source.Manifest.Source, diagnostics);
         if (root is null)
         {
             return new ThemeLoadResult(null, diagnostics);

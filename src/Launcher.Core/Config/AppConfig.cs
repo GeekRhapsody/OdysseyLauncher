@@ -35,7 +35,8 @@ public sealed record Settings(
 /// <param name="Exclude">Glob patterns applied to every system; already folded into each <see cref="SystemConfig.Exclude"/>.</param>
 public sealed record ScanningSettings(IReadOnlyList<string> Exclude);
 
-public sealed record DisplaySettings(string Theme, bool Fullscreen);
+/// <param name="HideEmptySystems">The systems grid leaves out systems with no games (like ES-DE), so the built-in catalogue only shows what the user has.</param>
+public sealed record DisplaySettings(string Theme, bool Fullscreen, bool HideEmptySystems = true);
 
 /// <summary><c>[scraping]</c>.</summary>
 /// <param name="Provider">The provider asked first for every game.</param>
@@ -105,13 +106,23 @@ public sealed record SystemConfig(
 /// Expanded absolute path of a RetroArch core (or any plug-in the emulator loads), which <c>{core}</c> expands to.
 /// Null when the profile has none, and then no template uses <c>{core}</c>.
 /// </param>
+/// <param name="RunFile">
+/// <c>run_file</c>: the profile runs the game's own file (a program, or a shortcut or script made for the game)
+/// instead of an emulator. <paramref name="Executable"/> is then empty, there are no arguments or core, and
+/// <paramref name="WorkingDir"/> defaults to the game's folder.
+/// </param>
 public sealed record EmulatorConfig(
     string Id,
     string Name,
     string Executable,
     IReadOnlyList<string> Args,
     string WorkingDir,
-    string? Core = null);
+    string? Core = null,
+    bool RunFile = false)
+{
+    /// <summary>What the settings screens show where a profile's program goes.</summary>
+    public string ProgramText => RunFile ? "Runs the game's own file" : Executable;
+}
 
 public sealed record ConfigLoadResult(AppConfig Config, IReadOnlyList<Diagnostic> Diagnostics)
 {

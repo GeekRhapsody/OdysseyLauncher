@@ -14,7 +14,7 @@ A fully 3D game launcher frontend (systems grid → games grid → emulator), st
 | `tests/Launcher.Core.Tests/` | xUnit v3 tests for Core. |
 | `tests/FakeEmulator/` | A console app the launch tests run as a stand-in emulator. It logs its arguments, sleeps, exits with a chosen code, and can act as a stub launcher (options in its `Program.cs`). |
 | `godot/` | The Godot project. `OdysseyLauncher.csproj` references Core. C# scripts live in `godot/src/`, in namespace `Launcher.App`. |
-| `src/Launcher.Core/Defaults/` | The built-in `settings.toml`, `systems.toml` and `emulators.toml`, embedded in Core. |
+| `src/Launcher.Core/Defaults/` | The built-in `settings.toml`, `systems.toml` and `emulators.toml`, embedded in Core: the original 14 systems, then ES-DE's catalogue (docs/ARCHITECTURE.md A5, "The ES-DE catalogue"). Keep them plain TOML (tables, bare keys, strings, numbers, booleans, single-line arrays): `TomlFast` reads them and `TomlFastTests` checks it builds Tomlyn's tree. |
 | `src/Launcher.Core/Data/Migrations/` | Numbered SQL migrations for `library.db` and `userdata.db`, embedded in Core. |
 | `tools/verify.ps1` | Runs every non-windowed check. |
 | `tools/launch-smoke.ps1` | Runs the app with `--launch` against the fake emulator, in an isolated user folder. |
@@ -24,7 +24,7 @@ A fully 3D game launcher frontend (systems grid → games grid → emulator), st
 | `tools/bench-summary.py` | One line per bench run (scroll, textures, memory) from `artifacts/bench/<folder>`. |
 | `tools/scrape-cli/` | `odyssey-scrape`: every scraping operation from the command line (`providers`, `game`, `system`, `missing`, `clear`, `show`, `resume`, `bake`, `scan`, `ss-systems`), for live tests with the owner's credentials, and the model commands (`import-model`, `remove-model`, `inspect-model`, `models-log`; no network). In the solution. |
 | `tests/Launcher.Core.Tests/Scraping/Fixtures/` | Recorded provider responses. Credentials appear as `{{DEVPASSWORD}}`-style placeholders, which the tests' fake HTTP handler fills with fake values. |
-| `godot/themes/memory-card/` | The built-in theme: `theme.toml` (looks, templates and each built-in system's colour, template and look) and its models. Every other theme falls back to it. |
+| `godot/themes/memory-card/` | The built-in theme: `theme.toml` (looks, templates and each built-in system's colour and template, and the look of the first 14) and its models. Every other theme falls back to it. |
 | `tests/themes/` | Themes for tests and captures (`slot-showcase`: a game template with three slots). Copy one into a user folder's `themes/` to use it. |
 | `samples/themes/retro-tv/` | The sample theme for theme authors (`docs/THEMING.md`): a CRT television game template (screenshot screen, logo plate, focused and launch clips) and a console system model (idle clip). A user theme: copy it into a user folder's `themes/`. |
 | `godot/src/Tools/`, `godot/scenes/tools/` | The `[Tool]` generator for the built-in models; its output is `godot/themes/memory-card/models/{templates,systems}/*.glb`, plus the test theme's `tests/themes/slot-showcase/models/` and the sample theme's `samples/themes/retro-tv/models/`. Excluded from exports. |

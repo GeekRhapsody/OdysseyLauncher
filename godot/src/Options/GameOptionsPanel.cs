@@ -216,7 +216,7 @@ public sealed partial class GameOptionsPanel : ListPanel
         choices.AddRange(config.Emulators.Values
             .OrderBy(p => suggested.Contains(p.Id) ? 0 : 1)
             .ThenBy(p => p.Name, StringComparer.CurrentCultureIgnoreCase)
-            .Select(p => new Choice(p.Id, p.Name, (suggested.Contains(p.Id) ? "Suggested · " : string.Empty) + p.Executable)));
+            .Select(p => new Choice(p.Id, p.Name, (suggested.Contains(p.Id) ? "Suggested · " : string.Empty) + p.ProgramText)));
         var key = _game.Key;
         Layer.Push(new ChoicePanel($"Emulator for {_game.Title}", "Only this game; the others keep the system's", choices, _game.EmulatorOverride ?? string.Empty, choice =>
             Run(library => library.SetEmulatorOverrideAsync(key, choice.Id.Length == 0 ? null : choice.Id, CancellationToken.None),

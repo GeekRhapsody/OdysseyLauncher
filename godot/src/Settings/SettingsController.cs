@@ -47,7 +47,8 @@ public sealed class SettingsController(AppServices services, UiContext ui, Libra
         return home;
     }
 
-    public ConfigWriter Writer() => new(Services.Paths.ConfigDir, Services.Paths.HomeDir);
+    public ConfigWriter Writer() =>
+        new(Services.Paths.ConfigDir, Services.Paths.HomeDir) { CheckInstallsFor = Services.SystemsWithGames() };
 
     /// <summary>
     /// Checks and saves <paramref name="edits"/> off the main thread, then applies them. <paramref name="check"/>

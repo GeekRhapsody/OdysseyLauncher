@@ -11,13 +11,19 @@ namespace Launcher.Core.Launching;
 /// OS's quoting; nothing here is quoted.
 /// </param>
 /// <param name="Core">The profile's expanded <c>core</c>, if it has one, so the launch can check that it exists.</param>
+/// <param name="RunFile">
+/// The profile runs the game's own file (A5 <c>run_file</c>): <paramref name="Executable"/> is the ROM, with no
+/// arguments. The process runner starts it the way Windows would open it (a program, a shortcut, or a script), and
+/// never through a command line that includes anything but its own path.
+/// </param>
 public sealed record LaunchPlan(
     string EmulatorId,
     string EmulatorName,
     string Executable,
     IReadOnlyList<string> Arguments,
     string WorkingDirectory,
-    string? Core);
+    string? Core,
+    bool RunFile = false);
 
 /// <summary>A plan, or the reason there isn't one.</summary>
 public sealed record LaunchPlanResult(LaunchPlan? Plan, string? Error)
@@ -76,8 +82,8 @@ public static class LaunchPlanner
             ["rom_file"] = Path.GetFileName(rom),
             ["rom_stem"] = Path.GetFileNameWithoutExtension(rom),
             ["system"] = systemId,
-            ["emulator"] = emulator.Executable,
-            ["emulator_dir"] = Path.GetDirectoryName(emulator.Executable) ?? emulator.Executable,
+            ["emulator"] = emulator.RunFile ? rom : emulator.Executable,
+            ["emulator_dir"] = Path.GetDirectoryName(emulator.RunFile ? rom : emulator.Executable) ?? rom,
         };
         if (emulator.Core is not null)
         {
@@ -103,7 +109,9 @@ public static class LaunchPlanner
         }
 
         return new LaunchPlanResult(
-            new LaunchPlan(emulator.Id, emulator.Name, emulator.Executable, arguments, workingDir!, emulator.Core),
+            new LaunchPlan(
+                emulator.Id, emulator.Name, emulator.RunFile ? rom : emulator.Executable, arguments, workingDir!, emulator.Core,
+                emulator.RunFile),
             null);
     }
 

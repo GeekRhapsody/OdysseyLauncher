@@ -20,6 +20,9 @@ emulators = "C:/Emulators"
 [display]
 theme = "memory-card"
 fullscreen = true
+# The systems grid leaves out systems with no games, so the long built-in list only shows what you have.
+# false shows every enabled system, empty or not.
+hide_empty_systems = true
 
 [scraping]
 # Every game is looked up with `provider` first; each `fallback` provider, in order, then fills in the fields

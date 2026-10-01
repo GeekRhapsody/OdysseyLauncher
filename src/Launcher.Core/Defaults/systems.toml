@@ -34,7 +34,7 @@ manufacturer = "Nintendo"
 year = 1989
 extensions = [".gb", ".sgb", ".zip", ".7z"]
 emulator = "retroarch-gambatte"
-alt_emulators = ["retroarch-mgba"]
+alt_emulators = ["retroarch-mgba", "retroarch-sameboy", "sameboy", "retroarch-gearboy", "gearboy", "retroarch-tgbdual", "retroarch-doublecherrygb", "retroarch-irogb", "retroarch-mesen-s", "mesen", "retroarch-mesen2", "retroarch-bsnes", "mgba", "retroarch-vbam", "vba-m", "retroarch-skyemu", "skyemu", "mednafen-gb", "ares-gb", "jgenesis", "emulicious"]
 screenscraper_id = 9
 igdb_platforms = [33]
 
@@ -44,7 +44,7 @@ manufacturer = "Nintendo"
 year = 1998
 extensions = [".gbc", ".cgb", ".zip", ".7z"]
 emulator = "retroarch-gambatte"
-alt_emulators = ["retroarch-mgba"]
+alt_emulators = ["retroarch-mgba", "retroarch-sameboy", "sameboy", "retroarch-gearboy", "gearboy", "retroarch-tgbdual", "retroarch-doublecherrygb", "retroarch-irogb", "retroarch-mesen-s", "mesen", "retroarch-mesen2", "retroarch-bsnes", "mgba", "retroarch-vbam", "vba-m", "retroarch-skyemu", "skyemu", "mednafen-gb", "ares-gbc", "jgenesis", "emulicious"]
 screenscraper_id = 10
 igdb_platforms = [22]
 
@@ -54,6 +54,7 @@ manufacturer = "Nintendo"
 year = 2001
 extensions = [".gba", ".zip", ".7z"]
 emulator = "retroarch-mgba"
+alt_emulators = ["mgba", "retroarch-vbam", "vba-m", "retroarch-vba-next", "retroarch-gpsp", "retroarch-noods", "noods", "retroarch-skyemu", "skyemu", "mednafen-gba", "ares-gba", "mesen", "retroarch-mesen2"]
 screenscraper_id = 12
 igdb_platforms = [24]
 
@@ -64,7 +65,7 @@ year = 1983
 aliases = ["famicom"]
 extensions = [".nes", ".unf", ".unif", ".zip", ".7z"]
 emulator = "retroarch-mesen"
-alt_emulators = ["retroarch-fceumm"]
+alt_emulators = ["retroarch-fceumm", "mesen", "retroarch-mesen2", "retroarch-nestopia", "retroarch-quicknes", "retroarch-rustynes", "punes", "mednafen-fds", "ares-nes", "ares-fds", "jgenesis"]
 screenscraper_id = 3
 igdb_platforms = [18, 99]
 
@@ -72,9 +73,10 @@ igdb_platforms = [18, 99]
 name = "Super Nintendo Entertainment System"
 manufacturer = "Nintendo"
 year = 1990
-aliases = ["sfc", "superfamicom"]
+aliases = ["sfc", "superfamicom", "snesna"]
 extensions = [".sfc", ".smc", ".swc", ".fig", ".bs", ".zip", ".7z"]
 emulator = "retroarch-snes9x"
+alt_emulators = ["retroarch-snes9x2010", "retroarch-snes9x2005-plus", "snes9x", "retroarch-bsnes", "retroarch-bsnes-hd-beta", "retroarch-bsnes-jg", "retroarch-bsnes-mercury-accuracy", "bsnes", "retroarch-beetle-supafaust", "retroarch-mesen-s", "mesen", "retroarch-mesen2", "mednafen-snes", "ares-satellaview", "jgenesis", "superzsnes"]
 screenscraper_id = 4
 igdb_platforms = [19, 58]
 
@@ -84,6 +86,7 @@ manufacturer = "Nintendo"
 year = 1996
 extensions = [".z64", ".n64", ".v64", ".zip", ".7z"]
 emulator = "retroarch-mupen64plus-next"
+alt_emulators = ["mupen64plus", "retroarch-parallel-n64", "parallel-launcher", "simple64", "rosalies-mupen-gui", "project64", "ares-n64", "gopher64"]
 screenscraper_id = 14
 igdb_platforms = [4]
 
@@ -94,7 +97,7 @@ year = 2001
 aliases = ["gamecube"]
 extensions = [".iso", ".gcm", ".gcz", ".rvz", ".ciso"]
 emulator = "dolphin"
-alt_emulators = ["retroarch-dolphin"]
+alt_emulators = ["retroarch-dolphin", "primehack", "triforce"]
 screenscraper_id = 13
 igdb_platforms = [21]
 
@@ -102,9 +105,10 @@ igdb_platforms = [21]
 name = "Master System"
 manufacturer = "Sega"
 year = 1986
-aliases = ["sms"]
+aliases = ["sms", "mark3"]
 extensions = [".sms", ".zip", ".7z"]
 emulator = "retroarch-genesis-plus-gx"
+alt_emulators = ["retroarch-genesis-plus-gx-wide", "retroarch-smsplus", "retroarch-gearsystem", "retroarch-picodrive", "retroarch-blastem", "blastem-mastersystem", "mednafen-mastersystem", "mesen", "retroarch-mesen2", "ares-mastersystem", "jgenesis", "emulicious"]
 screenscraper_id = 2
 igdb_platforms = [64]
 
@@ -112,9 +116,10 @@ igdb_platforms = [64]
 name = "Mega Drive"
 manufacturer = "Sega"
 year = 1988
-aliases = ["genesis", "md"]
+aliases = ["genesis", "md", "megadrivejp"]
 extensions = [".md", ".gen", ".smd", ".bin", ".zip", ".7z"]
 emulator = "retroarch-genesis-plus-gx"
+alt_emulators = ["retroarch-genesis-plus-gx-wide", "retroarch-picodrive", "retroarch-blastem", "blastem-megadrive", "retroarch-clownmdemu", "mednafen-megadrive", "ares-megadrive", "jgenesis"]
 screenscraper_id = 1
 igdb_platforms = [29]
 
@@ -122,8 +127,10 @@ igdb_platforms = [29]
 name = "Saturn"
 manufacturer = "Sega"
 year = 1994
+aliases = ["saturnjp"]
 extensions = [".cue", ".chd", ".ccd", ".m3u"]
 emulator = "retroarch-beetle-saturn"
+alt_emulators = ["retroarch-kronos", "kronos", "retroarch-yabasanshiro", "yabasanshiro-2", "retroarch-yabause", "ymir", "mednafen-saturn", "ssf"]
 screenscraper_id = 22
 igdb_platforms = [32]
 
@@ -134,6 +141,7 @@ year = 1998
 aliases = ["dc"]
 extensions = [".gdi", ".chd", ".cdi", ".cue", ".m3u"]
 emulator = "retroarch-flycast"
+alt_emulators = ["flycast", "flycast-dojo", "redream", "demul-dreamcast"]
 screenscraper_id = 23
 igdb_platforms = [23]
 
@@ -144,7 +152,7 @@ year = 1994
 aliases = ["ps1"]
 extensions = [".cue", ".chd", ".pbp", ".ccd", ".m3u"]
 emulator = "retroarch-beetle-psx-hw"
-alt_emulators = ["retroarch-swanstation"]
+alt_emulators = ["retroarch-swanstation", "retroarch-pcsx-rearmed", "duckstation", "ares-psx", "mednafen-psx"]
 screenscraper_id = 57
 igdb_platforms = [7]
 
@@ -154,6 +162,7 @@ manufacturer = "Sony"
 year = 2000
 extensions = [".iso", ".chd", ".cso", ".zso", ".gz", ".cue"]
 emulator = "pcsx2"
+alt_emulators = ["retroarch-pcsx2", "pcsx2-legacy", "play-disc"]
 screenscraper_id = 58
 igdb_platforms = [8]
 
@@ -166,3 +175,1144 @@ emulator = "retroarch-ppsspp"
 alt_emulators = ["ppsspp"]
 screenscraper_id = 61
 igdb_platforms = [38]
+
+# ---------------------------------------------------------------------------------------------
+# Every other ES-DE system
+#
+# Converted from ES-DE 3.5.0's es_systems.xml (ids, names, extensions and commands). Regional twins and duplicates
+# are aliases of one system (genesis and megadrivejp of megadrive, sfc and snesna of snes, ...), whose folder
+# names are tried as default ROM folders, so ES-DE's folders still work. The first ES-DE command is the default
+# emulator and the others are alternatives (ids in emulators.toml). A system with no ROMs has no card in the grid
+# ([display] hide_empty_systems). Left out: desktop, emulators, windows, steam, kodi and epic (not systems), the
+# placeholder-only systems (androidapps, androidgames, lutris, xboxone) and psvita (Vita3K needs a title id that
+# ES-DE reads from a .psvita file).
+#
+# screenscraper_id and igdb_platforms below this line were written from memory, NOT checked against ScreenScraper
+# or IGDB (the ones above were, 2026-09-28). A wrong id scrapes the wrong platform's games: run
+# `odyssey-scrape ss-systems` (it lists ScreenScraper's table against these ids) before scraping them. A system
+# without ids isn't looked up on that provider.
+# ---------------------------------------------------------------------------------------------
+
+[systems.3do]
+name = "3DO Interactive Multiplayer"
+extensions = [".chd", ".cue", ".iso", ".7z", ".zip"]
+emulator = "retroarch-opera"
+screenscraper_id = 29
+igdb_platforms = [50]
+
+[systems.adam]
+name = "Adam"
+manufacturer = "Coleco"
+extensions = [".1dd", ".bin", ".col", ".cqi", ".cqm", ".d77", ".d88", ".ddp", ".dfi", ".dsk", ".hfe", ".imd", ".mfi", ".mfm", ".rom", ".td0", ".wav", ".7z", ".zip"]
+emulator = "mame-adam"
+alt_emulators = ["mame-adam-tape", "mame-adam-cartridge", "mame-adam-software-list", "colem-adam"]
+
+[systems.ags]
+name = "Adventure Game Studio Game Engine"
+extensions = [".bat", ".lnk"]
+emulator = "run-file"
+
+[systems.amiga]
+name = "Amiga"
+manufacturer = "Commodore"
+aliases = ["amiga600", "amiga1200"]
+extensions = [".adf", ".adz", ".ccd", ".chd", ".cue", ".dms", ".fdi", ".hdf", ".hdz", ".ipf", ".iso", ".lha", ".m3u", ".mds", ".nrg", ".rp9", ".uae", ".7z", ".zip"]
+emulator = "retroarch-puae"
+alt_emulators = ["retroarch-puae2021", "fs-uae-amiga", "retroarch-amiberry", "amiberry-amiga"]
+screenscraper_id = 64
+igdb_platforms = [16]
+
+[systems.amigacd32]
+name = "Commodore Amiga CD32"
+manufacturer = "Commodore"
+extensions = [".adf", ".adz", ".ccd", ".chd", ".cue", ".dms", ".fdi", ".hdf", ".hdz", ".ipf", ".iso", ".lha", ".m3u", ".mds", ".nrg", ".rp9", ".uae", ".7z", ".zip"]
+emulator = "retroarch-puae"
+alt_emulators = ["retroarch-puae2021", "fs-uae-amigacd32", "retroarch-amiberry", "amiberry-amigacd32"]
+screenscraper_id = 130
+igdb_platforms = [114]
+
+[systems.amstradcpc]
+name = "Amstrad CPC"
+manufacturer = "Amstrad"
+extensions = [".cdt", ".cpr", ".dsk", ".kcr", ".m3u", ".sna", ".tap", ".tar", ".voc", ".7z", ".zip"]
+emulator = "retroarch-cap32"
+alt_emulators = ["retroarch-crocods", "cpcemu", "ace-dl", "mame-amstradcpc"]
+screenscraper_id = 65
+igdb_platforms = [25]
+
+[systems.android]
+name = "Google Android"
+extensions = [".lnk"]
+emulator = "run-file"
+
+[systems.apple2]
+name = "Apple II"
+manufacturer = "Apple"
+extensions = [".do", ".dsk", ".nib", ".po", ".7z", ".zip"]
+emulator = "retroarch-applewin"
+alt_emulators = ["applewin", "mednafen-apple2", "retroarch-mame-apple2", "mame-apple2", "izapple2"]
+screenscraper_id = 86
+igdb_platforms = [75]
+
+[systems.apple2gs]
+name = "Apple IIGS"
+manufacturer = "Apple"
+extensions = [".2mg", ".7z", ".zip"]
+emulator = "retroarch-mame-apple2gs"
+alt_emulators = ["retroarch-mame-apple2gs-2", "mame-apple2gs", "mame-apple2gs-software-list", "kegs"]
+screenscraper_id = 217
+
+[systems.arcade]
+name = "Arcade"
+extensions = [".acgame", ".arcadedef", ".bat", ".cmd", ".gam", ".lindbergh", ".lnk", ".neo", ".7z", ".zip"]
+emulator = "retroarch-mame"
+alt_emulators = ["retroarch-mame2010", "retroarch-mame2003-plus", "retroarch-mame2003", "retroarch-mame2000", "retroarch-hbmame", "mame-arcade", "groovymame-arcade", "retroarch-fbneo", "finalburn-neo", "retroarch-fbalpha2012", "retroarch-geolith", "retroarch-flycast", "flycast", "flycast-dojo", "retroarch-kronos", "retroarch-dice", "m2emulator", "retroarch-supermodel", "supermodel", "supermodel-dojo", "pcsx2x6", "play-arcade", "mfme", "arcadeduck", "run-file"]
+screenscraper_id = 75
+igdb_platforms = [52]
+
+[systems.arcadia]
+name = "Emerson Arcadia 2001"
+manufacturer = "Emerson"
+extensions = [".bin", ".tvc", ".7z", ".zip"]
+emulator = "retroarch-amiarcadia"
+alt_emulators = ["retroarch-mame-arcadia", "mame-arcadia", "winarcadia"]
+
+[systems.archimedes]
+name = "Archimedes"
+manufacturer = "Acorn"
+extensions = [".1dd", ".360", ".adf", ".adl", ".adm", ".ads", ".apd", ".bbc", ".chd", ".cqi", ".cqm", ".d77", ".d88", ".dfi", ".dsd", ".dsk", ".hfe", ".ima", ".imd", ".img", ".ipf", ".jfd", ".mfi", ".mfm", ".msa", ".ssd", ".st", ".td0", ".ufi", ".7z", ".zip"]
+emulator = "mame-archimedes"
+alt_emulators = ["mame-archimedes-model-a3000", "mame-archimedes-model-a310", "mame-archimedes-model-a540"]
+
+[systems.arduboy]
+name = "Arduboy Miniature Game System"
+extensions = [".arduboy", ".hex", ".7z", ".zip"]
+emulator = "retroarch-arduous"
+alt_emulators = ["retroarch-ardens"]
+
+[systems.astrocde]
+name = "Bally Astrocade"
+manufacturer = "Bally"
+extensions = [".7z", ".zip"]
+emulator = "retroarch-mame-astrocde"
+alt_emulators = ["mame-astrocde"]
+screenscraper_id = 44
+
+[systems.atari2600]
+name = "Atari 2600"
+manufacturer = "Atari"
+extensions = [".a26", ".bin", ".7z", ".zip"]
+emulator = "retroarch-stella"
+alt_emulators = ["retroarch-stella2014", "retroarch-stella2023", "stella", "retroarch-tia", "gopher2600", "ares-atari2600"]
+screenscraper_id = 26
+igdb_platforms = [59]
+
+[systems.atari5200]
+name = "Atari 5200"
+manufacturer = "Atari"
+extensions = [".a52", ".atr", ".atx", ".bin", ".car", ".cas", ".cdm", ".com", ".rom", ".xex", ".xfd", ".7z", ".zip"]
+emulator = "retroarch-a5200"
+alt_emulators = ["retroarch-atari800", "atari800", "altirra"]
+screenscraper_id = 40
+igdb_platforms = [66]
+
+[systems.atari7800]
+name = "Atari 7800 ProSystem"
+manufacturer = "Atari"
+extensions = [".a78", ".bin", ".7z", ".zip"]
+emulator = "retroarch-prosystem"
+alt_emulators = ["retroarch-mame-atari7800", "mame-atari7800", "a7800"]
+screenscraper_id = 41
+igdb_platforms = [60]
+
+[systems.atari800]
+name = "Atari 800"
+manufacturer = "Atari"
+extensions = [".a52", ".atr", ".atx", ".bin", ".car", ".cas", ".cdm", ".com", ".rom", ".xex", ".xfd", ".7z", ".zip"]
+emulator = "retroarch-atari800"
+alt_emulators = ["atari800", "altirra"]
+screenscraper_id = 43
+igdb_platforms = [65]
+
+[systems.atarijaguar]
+name = "Atari Jaguar"
+manufacturer = "Atari"
+extensions = [".abs", ".bigpimg", ".cdi", ".cof", ".cue", ".j64", ".jag", ".prg", ".rom", ".7z", ".zip"]
+emulator = "retroarch-virtualjaguar"
+alt_emulators = ["bigpemu", "mame-atarijaguar"]
+screenscraper_id = 27
+igdb_platforms = [62]
+
+[systems.atarijaguarcd]
+name = "Atari Jaguar CD"
+manufacturer = "Atari"
+extensions = [".abs", ".bigpimg", ".cdi", ".cof", ".cue", ".j64", ".jag", ".prg", ".rom"]
+emulator = "retroarch-virtualjaguar"
+alt_emulators = ["bigpemu"]
+screenscraper_id = 171
+
+[systems.atarilynx]
+name = "Atari Lynx"
+manufacturer = "Atari"
+extensions = [".lnx", ".lyx", ".o", ".7z", ".zip"]
+emulator = "retroarch-handy"
+alt_emulators = ["retroarch-beetle-lynx", "mednafen-atarilynx", "retroarch-gearlynx", "retroarch-holani"]
+screenscraper_id = 28
+igdb_platforms = [61]
+
+[systems.atarist]
+name = "Atari ST"
+manufacturer = "Atari"
+extensions = [".st", ".msa", ".stx", ".dim", ".ipf", ".m3u", ".7z", ".zip"]
+emulator = "retroarch-hatari"
+alt_emulators = ["retroarch-hatari2014", "hatari"]
+screenscraper_id = 42
+igdb_platforms = [63]
+
+[systems.atarixe]
+name = "Atari XE"
+manufacturer = "Atari"
+extensions = [".a52", ".atr", ".atx", ".bin", ".car", ".cas", ".cdm", ".com", ".rom", ".xex", ".xfd", ".7z", ".zip"]
+emulator = "retroarch-atari800"
+alt_emulators = ["atari800", "altirra"]
+
+[systems.atomiswave]
+name = "Atomiswave"
+manufacturer = "Sammy Corporation"
+extensions = [".bin", ".dat", ".elf", ".lst", ".7z", ".zip"]
+emulator = "retroarch-flycast"
+alt_emulators = ["flycast", "flycast-dojo", "demul-atomiswave"]
+screenscraper_id = 53
+
+[systems.bbcmicro]
+name = "Acorn Computers BBC Micro"
+manufacturer = "Acorn"
+extensions = [".dsd", ".img", ".ssd", ".7z", ".zip"]
+emulator = "mame-bbcmicro"
+alt_emulators = ["retroarch-b2", "beebem"]
+screenscraper_id = 37
+igdb_platforms = [69]
+
+[systems.c64]
+name = "Commodore 64"
+manufacturer = "Commodore"
+extensions = [".bin", ".cmd", ".crt", ".d2m", ".d4m", ".d64", ".d6z", ".d71", ".d7z", ".d80", ".d81", ".d82", ".d8z", ".g41", ".g4z", ".g64", ".g6z", ".gz", ".lnx", ".m3u", ".nbz", ".nib", ".p00", ".prg", ".t64", ".tap", ".vfl", ".vsf", ".x64", ".x6z", ".7z", ".zip"]
+emulator = "retroarch-vice-x64sc"
+alt_emulators = ["vice-x64sc", "retroarch-vice-x64", "retroarch-vice-xscpu64", "retroarch-vice-x128", "retroarch-frodo"]
+screenscraper_id = 66
+igdb_platforms = [15]
+
+[systems.cdimono1]
+name = "CD-i"
+manufacturer = "Philips"
+extensions = [".chd", ".cue", ".iso"]
+emulator = "retroarch-same-cdi"
+alt_emulators = ["retroarch-cdi2015", "mame-cdimono1"]
+screenscraper_id = 133
+igdb_platforms = [117]
+
+[systems.cdtv]
+name = "Commodore CDTV"
+manufacturer = "Commodore"
+extensions = [".adf", ".adz", ".ccd", ".chd", ".cue", ".dms", ".fdi", ".hdf", ".hdz", ".ipf", ".iso", ".lha", ".m3u", ".mds", ".nrg", ".rp9", ".uae", ".7z", ".zip"]
+emulator = "retroarch-puae"
+alt_emulators = ["retroarch-puae2021", "fs-uae-cdtv", "retroarch-amiberry", "amiberry-cdtv"]
+
+[systems.chailove]
+name = "ChaiLove Game Engine"
+extensions = [".chai", ".chailove", ".7z", ".zip"]
+emulator = "retroarch-chailove"
+
+[systems.channelf]
+name = "Channel F"
+manufacturer = "Fairchild"
+extensions = [".bin", ".chf", ".7z", ".zip"]
+emulator = "retroarch-freechaf"
+alt_emulators = ["retroarch-mame-channelf", "mame-channelf"]
+screenscraper_id = 80
+igdb_platforms = [127]
+
+[systems.coco]
+name = "Tandy Color Computer"
+manufacturer = "Tandy"
+extensions = [".cas", ".ccc", ".dsk", ".rom"]
+emulator = "xroar-coco"
+alt_emulators = ["xroar-coco-coco-2-pal", "mame-coco", "mame-coco-tape"]
+
+[systems.colecovision]
+name = "ColecoVision"
+manufacturer = "Coleco"
+extensions = [".bin", ".cas", ".col", ".cv", ".dsk", ".m3u", ".mx1", ".mx2", ".myv", ".ri", ".rom", ".sc", ".sg", ".7z", ".zip"]
+emulator = "retroarch-bluemsx"
+alt_emulators = ["retroarch-gearcoleco", "retroarch-jollycv", "retroarch-blastem", "blastem-colecovision", "openmsx-colecovision", "ares-colecovision", "mesen", "colem-colecovision"]
+screenscraper_id = 48
+igdb_platforms = [29]
+
+[systems.consolearcade]
+name = "Console Arcade Systems"
+extensions = [".acgame", ".arcadedef", ".bat", ".iso", ".lnk", ".ps3", ".xbe", ".7z", ".zip"]
+emulator = "retroarch-mame"
+alt_emulators = ["mame-consolearcade", "retroarch-flycast", "flycast", "flycast-dojo", "retroarch-kronos", "mednafen-saturn", "pcsx2x6", "play-arcade", "play-disc", "run-file", "rpcs3", "retroarch-dolphin", "dolphin", "triforce", "xemu", "cxbx-reloaded", "arcadeduck"]
+
+[systems.cps]
+name = "Capcom Play System"
+extensions = [".7z", ".zip"]
+emulator = "retroarch-mame"
+alt_emulators = ["retroarch-mame2010", "retroarch-mame2003-plus", "retroarch-mame2003", "retroarch-mame2000", "mame-cps", "retroarch-fbneo", "finalburn-neo", "retroarch-fbalpha2012", "retroarch-fbalpha2012-cps1", "retroarch-fbalpha2012-cps2", "retroarch-fbalpha2012-cps3"]
+
+[systems.cps1]
+name = "Capcom Play System I"
+extensions = [".7z", ".zip"]
+emulator = "retroarch-mame"
+alt_emulators = ["retroarch-mame2010", "retroarch-mame2003-plus", "retroarch-mame2003", "retroarch-mame2000", "mame-cps1", "retroarch-fbneo", "finalburn-neo", "retroarch-fbalpha2012", "retroarch-fbalpha2012-cps1"]
+
+[systems.cps2]
+name = "Capcom Play System II"
+extensions = [".7z", ".zip"]
+emulator = "retroarch-mame"
+alt_emulators = ["retroarch-mame2010", "retroarch-mame2003-plus", "retroarch-mame2003", "retroarch-mame2000", "mame-cps2", "retroarch-fbneo", "finalburn-neo", "retroarch-fbalpha2012", "retroarch-fbalpha2012-cps2"]
+
+[systems.cps3]
+name = "Capcom Play System III"
+extensions = [".7z", ".zip"]
+emulator = "retroarch-mame"
+alt_emulators = ["retroarch-mame2010", "retroarch-mame2003-plus", "retroarch-mame2003", "retroarch-mame2000", "mame-cps3", "retroarch-fbneo", "finalburn-neo", "retroarch-fbalpha2012", "retroarch-fbalpha2012-cps3"]
+
+[systems.crvision]
+name = "CreatiVision"
+manufacturer = "VTech"
+extensions = [".bin", ".rom", ".7z", ".zip"]
+emulator = "retroarch-jollycv"
+alt_emulators = ["retroarch-mame-crvision", "mame-crvision"]
+
+[systems.daphne]
+name = "Daphne / LaserDisc"
+aliases = ["laserdisc"]
+extensions = [".daphne", ".dirksimple", ".mmi", ".ogv", ".singe", ".7z", ".zip"]
+emulator = "hypseus-singe-daphne"
+alt_emulators = ["hypseus-singe-daphne-singe", "hypseus-singe-daphne-singe-zlua", "retroarch-mame", "mame-daphne", "retroarch-dirksimple", "ares-daphne", "mame-daphne-2"]
+
+[systems.doom]
+name = "Doom"
+extensions = [".bat", ".ipk3", ".iwad", ".lnk", ".pk3", ".pk4", ".pwad", ".wad"]
+emulator = "retroarch-prboom"
+alt_emulators = ["prboom-plus", "retroarch-boom3", "retroarch-boom3-xp", "run-file"]
+
+[systems.dos]
+name = "DOS"
+extensions = [".bat", ".com", ".conf", ".cue", ".dosz", ".exe", ".img", ".iso", ".7z", ".zip"]
+emulator = "retroarch-dosbox-pure"
+alt_emulators = ["dosbox-pure-unleashed", "retroarch-dosbox-core", "retroarch-dosbox-svn", "dosbox-x-dos", "dosbox-staging", "dreamm", "retroarch-virtualxt"]
+screenscraper_id = 135
+igdb_platforms = [13]
+
+[systems.dragon32]
+name = "Dragon Data Dragon 32"
+manufacturer = "Dragon Data"
+extensions = [".cas", ".ccc", ".dsk", ".rom", ".7z", ".zip"]
+emulator = "mame-dragon32"
+alt_emulators = ["mame-dragon32-dragon-32-cartridge", "mame-dragon32-dragon-64-tape", "mame-dragon32-dragon-64-cartridge", "xroar-dragon32", "xroar-dragon32-dragon-64"]
+
+[systems.easyrpg]
+name = "EasyRPG Game Engine"
+extensions = [".easyrpg", ".zip"]
+emulator = "retroarch-easyrpg"
+alt_emulators = ["easyrpg"]
+
+[systems.electron]
+name = "Electron"
+manufacturer = "Acorn"
+extensions = [".1dd", ".adf", ".adl", ".adm", ".ads", ".bbc", ".bin", ".cqi", ".cqm", ".csw", ".d77", ".d88", ".dfi", ".dsd", ".dsk", ".hfe", ".imd", ".img", ".mfi", ".mfm", ".rom", ".ssd", ".td0", ".uef", ".wav", ".7z", ".zip"]
+emulator = "mame-electron"
+alt_emulators = ["mame-electron-diskette-dfs", "mame-electron-diskette-adfs"]
+
+[systems.fbneo]
+name = "FinalBurn Neo"
+aliases = ["fba"]
+extensions = [".7z", ".zip", ".iso"]
+emulator = "retroarch-fbneo"
+alt_emulators = ["finalburn-neo", "retroarch-fbalpha2012", "retroarch-fbalpha2012-neogeo", "retroarch-fbalpha2012-cps1", "retroarch-fbalpha2012-cps2", "retroarch-fbalpha2012-cps3"]
+screenscraper_id = 75
+igdb_platforms = [52]
+
+[systems.fds]
+name = "Famicom Disk System"
+manufacturer = "Nintendo"
+extensions = [".nes", ".fds", ".unf", ".unif", ".7z", ".zip"]
+emulator = "retroarch-mesen"
+alt_emulators = ["mesen", "retroarch-mesen2", "retroarch-nestopia", "retroarch-fceumm", "retroarch-rustynes", "mednafen-fds", "ares-fds"]
+screenscraper_id = 106
+igdb_platforms = [51]
+
+[systems.flash]
+name = "Adobe Flash"
+extensions = [".ruf", ".swf"]
+emulator = "ruffle"
+alt_emulators = ["arcadeflashweb"]
+
+[systems.fm7]
+name = "Fujitsu FM-7"
+manufacturer = "Fujitsu"
+extensions = [".1dd", ".cqi", ".cqm", ".d77", ".d88", ".dfi", ".dsk", ".hfe", ".imd", ".mfi", ".mfm", ".t77", ".td0", ".wav", ".7z", ".zip"]
+emulator = "mame-fm7"
+alt_emulators = ["mame-fm7-fm-7-tape", "mame-fm7-fm-7-software-list", "mame-fm7-fm77av-diskette", "mame-fm7-fm77av-tape", "mame-fm7-fm77av-software-list"]
+
+[systems.fmtowns]
+name = "Fujitsu FM Towns"
+manufacturer = "Fujitsu"
+extensions = [".cdr", ".chd", ".cue", ".gdi", ".iso"]
+emulator = "retroarch-mame-fmtowns"
+alt_emulators = ["mame-fmtowns", "tsugaru"]
+
+[systems.fpinball]
+name = "Future Pinball"
+extensions = [".fpt"]
+emulator = "future-pinball"
+alt_emulators = ["future-pinball-fploader"]
+
+[systems.gamate]
+name = "Gamate"
+manufacturer = "Bit Corporation"
+extensions = [".bin", ".7z", ".zip"]
+emulator = "retroarch-mame-gamate"
+alt_emulators = ["mame-gamate"]
+
+[systems.gameandwatch]
+name = "Game and Watch"
+manufacturer = "Nintendo"
+extensions = [".mgw", ".7z", ".zip"]
+emulator = "retroarch-mame"
+alt_emulators = ["mame-gameandwatch", "mame-gameandwatch-2", "retroarch-gw"]
+igdb_platforms = [307]
+
+[systems.gamecom]
+name = "Game.com"
+manufacturer = "Tiger Electronics"
+extensions = [".tgc", ".7z", ".zip"]
+emulator = "retroarch-mame-gamecom"
+alt_emulators = ["mame-gamecom"]
+screenscraper_id = 121
+
+[systems.gamegear]
+name = "Game Gear"
+manufacturer = "Sega"
+extensions = [".68k", ".bms", ".chd", ".col", ".cue", ".gen", ".gg", ".iso", ".m3u", ".md", ".mdx", ".rom", ".sg", ".sgd", ".smd", ".sms", ".7z", ".zip"]
+emulator = "retroarch-genesis-plus-gx"
+alt_emulators = ["retroarch-genesis-plus-gx-wide", "retroarch-gearsystem", "retroarch-smsplus", "retroarch-picodrive", "retroarch-blastem", "blastem-gamegear", "mednafen-gamegear", "mesen", "retroarch-mesen2", "ares-gamegear", "jgenesis", "emulicious"]
+screenscraper_id = 21
+igdb_platforms = [35]
+
+[systems.gmaster]
+name = "Hartung Game Master"
+manufacturer = "Hartung"
+extensions = [".bin", ".7z", ".zip"]
+emulator = "retroarch-mame-gmaster"
+alt_emulators = ["mame-gmaster"]
+screenscraper_id = 103
+
+[systems.gx4000]
+name = "Amstrad GX4000"
+manufacturer = "Amstrad"
+extensions = [".bin", ".cdt", ".cpr", ".dsk", ".kcr", ".m3u", ".sna", ".tap", ".tar", ".voc", ".7z", ".zip"]
+emulator = "retroarch-cap32"
+alt_emulators = ["retroarch-crocods", "mame-gx4000"]
+
+[systems.intellivision]
+name = "Intellivision"
+manufacturer = "Mattel"
+extensions = [".bin", ".int", ".rom", ".7z", ".zip"]
+emulator = "retroarch-freeintv"
+alt_emulators = ["retroarch-mame-intellivision", "mame-intellivision"]
+screenscraper_id = 115
+igdb_platforms = [30]
+
+[systems.j2me]
+name = "Java 2 Micro Edition (J2ME)"
+extensions = [".jar", ".7z", ".zip"]
+emulator = "retroarch-squirreljme"
+alt_emulators = ["kemulator"]
+
+[systems.lcdgames]
+name = "LCD Handheld Games"
+extensions = [".mgw", ".7z", ".zip"]
+emulator = "retroarch-mame"
+alt_emulators = ["mame-lcdgames", "mame-lcdgames-2", "retroarch-gw"]
+
+[systems.lowresnx]
+name = "LowRes NX Fantasy Console"
+extensions = [".nx"]
+emulator = "retroarch-lowresnx"
+
+[systems.lutro]
+name = "Lutro Game Engine"
+extensions = [".lua", ".lutro", ".7z", ".zip"]
+emulator = "retroarch-lutro"
+
+[systems.macintosh]
+name = "Apple Macintosh"
+manufacturer = "Apple"
+extensions = [".dsk", ".game", ".img"]
+emulator = "mame-macintosh"
+alt_emulators = ["mame-macintosh-mac-se-boot-disk", "mame-macintosh-mac-plus-bootable", "mame-macintosh-mac-plus-boot-disk", "basiliskii", "sheepshaver", "retroarch-minivmac"]
+screenscraper_id = 146
+igdb_platforms = [14]
+
+[systems.mame]
+name = "MAME"
+aliases = ["mame-advmame"]
+extensions = [".acgame", ".arcadedef", ".bat", ".cmd", ".gam", ".lindbergh", ".lnk", ".neo", ".7z", ".zip"]
+emulator = "retroarch-mame"
+alt_emulators = ["retroarch-mame2010", "retroarch-mame2003-plus", "retroarch-mame2003", "retroarch-mame2000", "retroarch-hbmame", "mame-mame", "groovymame-mame", "retroarch-fbneo", "finalburn-neo", "retroarch-fbalpha2012", "retroarch-geolith", "retroarch-flycast", "flycast", "flycast-dojo", "retroarch-kronos", "retroarch-dice", "m2emulator", "retroarch-supermodel", "supermodel", "supermodel-dojo", "pcsx2x6", "play-arcade", "mfme", "arcadeduck", "run-file", "advancemame"]
+screenscraper_id = 75
+igdb_platforms = [52]
+
+[systems.megaduck]
+name = "Mega Duck"
+manufacturer = "Creatronic"
+extensions = [".bin", ".7z", ".zip"]
+emulator = "retroarch-sameduck"
+alt_emulators = ["retroarch-mame-megaduck", "mame-megaduck"]
+
+[systems.mess]
+name = "Multi Emulator Super System"
+extensions = [".chd", ".7z", ".zip"]
+emulator = "retroarch-mess2015"
+
+[systems.model2]
+name = "Model 2"
+manufacturer = "Sega"
+extensions = [".7z", ".zip"]
+emulator = "retroarch-mame"
+alt_emulators = ["mame-model2", "m2emulator"]
+
+[systems.model3]
+name = "Model 3"
+manufacturer = "Sega"
+extensions = [".7z", ".zip"]
+emulator = "retroarch-supermodel"
+alt_emulators = ["supermodel", "supermodel-dojo", "retroarch-mame", "mame-model3"]
+
+[systems.moto]
+name = "Thomson MO/TO Series"
+manufacturer = "Thomson"
+extensions = [".fd", ".k7", ".m5", ".m7", ".rom", ".sap", ".7z", ".zip"]
+emulator = "retroarch-theodore"
+
+[systems.msx]
+name = "MSX"
+extensions = [".cas", ".col", ".di1", ".di2", ".dmk", ".dsk", ".fd1", ".fd2", ".m3u", ".mx1", ".mx2", ".ogv", ".ri", ".rom", ".sc", ".sg", ".wav", ".xsa", ".7z", ".zip"]
+emulator = "retroarch-bluemsx"
+alt_emulators = ["retroarch-fmsx", "openmsx-msx", "openmsx-no-machine", "ares-msx", "emulicious"]
+screenscraper_id = 113
+igdb_platforms = [27]
+
+[systems.msx1]
+name = "MSX1"
+extensions = [".cas", ".col", ".di1", ".di2", ".dmk", ".dsk", ".fd1", ".fd2", ".m3u", ".mx1", ".mx2", ".ogv", ".ri", ".rom", ".sc", ".sg", ".wav", ".xsa", ".7z", ".zip"]
+emulator = "retroarch-bluemsx"
+alt_emulators = ["retroarch-fmsx", "openmsx-msx", "openmsx-no-machine", "ares-msx", "emulicious"]
+
+[systems.msx2]
+name = "MSX2"
+extensions = [".cas", ".col", ".di1", ".di2", ".dmk", ".dsk", ".fd1", ".fd2", ".m3u", ".mx1", ".mx2", ".ogv", ".ri", ".rom", ".sc", ".sg", ".wav", ".xsa", ".7z", ".zip"]
+emulator = "retroarch-bluemsx"
+alt_emulators = ["retroarch-fmsx", "openmsx-msx2", "openmsx-no-machine", "ares-msx2", "emulicious"]
+screenscraper_id = 116
+igdb_platforms = [53]
+
+[systems.msxturbor]
+name = "MSX Turbo R"
+extensions = [".cas", ".col", ".di1", ".di2", ".dmk", ".dsk", ".fd1", ".fd2", ".m3u", ".mx1", ".mx2", ".ogv", ".ri", ".rom", ".sc", ".sg", ".wav", ".xsa", ".7z", ".zip"]
+emulator = "retroarch-bluemsx"
+alt_emulators = ["openmsx-msxturbor", "openmsx-no-machine"]
+
+[systems.mugen]
+name = "M.U.G.E.N Game Engine"
+extensions = [".lnk"]
+emulator = "run-file"
+
+[systems.multivision]
+name = "Multivision"
+manufacturer = "Othello"
+extensions = [".bin", ".gg", ".rom", ".sg", ".sms", ".7z", ".zip"]
+emulator = "retroarch-gearsystem"
+alt_emulators = ["mesen"]
+
+[systems.n3ds]
+name = "Nintendo 3DS"
+manufacturer = "Nintendo"
+extensions = [".3ds", ".3dsx", ".app", ".axf", ".cci", ".cxi", ".elf", ".lnk", ".z3dsx", ".zcci", ".zcxi", ".7z", ".zip"]
+emulator = "retroarch-azahar"
+alt_emulators = ["azahar", "run-file", "azaharplus", "retroarch-citra", "retroarch-citra2018", "citra", "mandarine", "lime3ds", "panda3ds"]
+screenscraper_id = 17
+igdb_platforms = [37]
+
+[systems.n64dd]
+name = "64DD"
+manufacturer = "Nintendo"
+extensions = [".bin", ".d64", ".n64", ".ndd", ".u1", ".v64", ".z64", ".7z", ".zip"]
+emulator = "retroarch-parallel-n64"
+alt_emulators = ["retroarch-mupen64plus-next", "rosalies-mupen-gui", "ares-n64dd"]
+screenscraper_id = 122
+
+[systems.naomi]
+name = "NAOMI"
+manufacturer = "Sega"
+extensions = [".bin", ".dat", ".elf", ".lst", ".7z", ".zip"]
+emulator = "retroarch-flycast"
+alt_emulators = ["flycast", "flycast-dojo", "demul-naomi"]
+screenscraper_id = 56
+
+[systems.naomi2]
+name = "NAOMI 2"
+manufacturer = "Sega"
+extensions = [".bin", ".dat", ".elf", ".lst", ".7z", ".zip"]
+emulator = "retroarch-flycast"
+alt_emulators = ["flycast", "flycast-dojo", "demul-naomi"]
+
+[systems.naomigd]
+name = "NAOMI GD-ROM"
+manufacturer = "Sega"
+extensions = [".bin", ".dat", ".elf", ".lst", ".7z", ".zip"]
+emulator = "retroarch-flycast"
+alt_emulators = ["flycast", "flycast-dojo"]
+
+[systems.nds]
+name = "Nintendo DS"
+manufacturer = "Nintendo"
+extensions = [".app", ".bin", ".dsi", ".ids", ".nds", ".7z", ".zip"]
+emulator = "retroarch-melondsds"
+alt_emulators = ["retroarch-melonds", "melonds", "retroarch-desmume", "retroarch-desmume2015", "retroarch-noods", "noods", "retroarch-skyemu", "skyemu"]
+screenscraper_id = 15
+igdb_platforms = [20]
+
+[systems.neogeo]
+name = "Neo Geo"
+manufacturer = "SNK"
+extensions = [".neo", ".7z", ".zip"]
+emulator = "retroarch-fbneo"
+alt_emulators = ["finalburn-neo", "retroarch-geolith", "retroarch-mame", "mame-neogeo"]
+screenscraper_id = 142
+igdb_platforms = [79, 80]
+
+[systems.neogeocd]
+name = "Neo Geo CD"
+manufacturer = "SNK"
+aliases = ["neogeocdjp"]
+extensions = [".chd", ".cue"]
+emulator = "retroarch-neocd"
+alt_emulators = ["retroarch-fbneo-neogeocd", "finalburn-neo-neogeocd", "retroarch-geolith", "mame-neogeocd", "mame-neogeocd-2"]
+screenscraper_id = 70
+igdb_platforms = [136]
+
+[systems.ngage]
+name = "N-Gage"
+manufacturer = "Nokia"
+extensions = [".ngage", ".zip"]
+emulator = "eka2l1-ngage"
+alt_emulators = ["eka2l1-installed"]
+igdb_platforms = [42]
+
+[systems.ngp]
+name = "Neo Geo Pocket"
+manufacturer = "SNK"
+extensions = [".ngc", ".ngp", ".ngpc", ".npc", ".7z", ".zip"]
+emulator = "retroarch-beetle-ngp"
+alt_emulators = ["retroarch-race", "mednafen-ngp", "ares-ngp"]
+screenscraper_id = 25
+igdb_platforms = [119]
+
+[systems.ngpc]
+name = "Neo Geo Pocket Color"
+manufacturer = "SNK"
+extensions = [".ngc", ".ngp", ".ngpc", ".npc", ".7z", ".zip"]
+emulator = "retroarch-beetle-ngp"
+alt_emulators = ["retroarch-race", "mednafen-ngp", "ares-ngpc"]
+screenscraper_id = 82
+igdb_platforms = [120]
+
+[systems.odyssey2]
+name = "Odyssey 2 / Videopac"
+manufacturer = "Magnavox"
+aliases = ["videopac"]
+extensions = [".bin", ".7z", ".zip"]
+emulator = "retroarch-o2em"
+alt_emulators = ["retroarch-mame-odyssey2", "mame-odyssey2", "retroarch-mame-odyssey2-2", "mame-odyssey2-2"]
+screenscraper_id = 104
+igdb_platforms = [133]
+
+[systems.openbor]
+name = "OpenBOR Game Engine"
+extensions = [".exe", ".lnk"]
+emulator = "run-file"
+
+[systems.oric]
+name = "Tangerine Computer Systems Oric"
+manufacturer = "Tangerine Computer Systems"
+extensions = [".dsk", ".ort", ".tap", ".wav"]
+emulator = "mame-oric"
+alt_emulators = ["oricutron"]
+
+[systems.palm]
+name = "Palm OS"
+extensions = [".img", ".pqa", ".prc", ".7z", ".zip"]
+emulator = "retroarch-mu"
+
+[systems.pc]
+name = "IBM PC"
+manufacturer = "IBM"
+extensions = [".bat", ".com", ".conf", ".cue", ".dosz", ".exe", ".img", ".iso", ".7z", ".zip"]
+emulator = "retroarch-dosbox-pure"
+alt_emulators = ["dosbox-pure-unleashed", "retroarch-dosbox-core", "retroarch-dosbox-svn", "dosbox-x-dos", "dosbox-staging", "dreamm", "retroarch-virtualxt"]
+
+[systems.pc88]
+name = "PC-8800 Series"
+manufacturer = "NEC"
+extensions = [".88d", ".cmt", ".d88", ".m3u", ".t88", ".u88"]
+emulator = "retroarch-quasi88"
+alt_emulators = ["quasi88"]
+screenscraper_id = 147
+igdb_platforms = [125]
+
+[systems.pc98]
+name = "PC-9800 Series"
+manufacturer = "NEC"
+extensions = [".2hd", ".88d", ".98d", ".d88", ".d98", ".cmd", ".dup", ".fdd", ".fdi", ".hdd", ".hdi", ".hdm", ".hdn", ".m3u", ".nhd", ".tfd", ".thd", ".xdf", ".7z", ".zip"]
+emulator = "retroarch-np2kai"
+alt_emulators = ["retroarch-nekop2"]
+screenscraper_id = 149
+igdb_platforms = [149]
+
+[systems.pcarcade]
+name = "PC Arcade Systems"
+extensions = [".bat", ".lindbergh", ".lnk"]
+emulator = "run-file"
+
+[systems.pcengine]
+name = "PC Engine / TurboGrafx-16"
+manufacturer = "NEC"
+aliases = ["tg16"]
+extensions = [".ccd", ".chd", ".cue", ".img", ".iso", ".m3u", ".pce", ".rom", ".sgx", ".toc", ".7z", ".zip"]
+emulator = "retroarch-beetle-pce"
+alt_emulators = ["retroarch-beetle-pce-fast", "retroarch-beetle-supergrafx", "retroarch-geargrafx", "geargrafx", "mednafen-pcengine", "mesen", "retroarch-mesen2", "ares-pcengine"]
+screenscraper_id = 31
+igdb_platforms = [86]
+
+[systems.pcenginecd]
+name = "PC Engine CD / TurboGrafx-CD"
+manufacturer = "NEC"
+aliases = ["tg-cd"]
+extensions = [".ccd", ".chd", ".cue", ".img", ".iso", ".m3u", ".pce", ".sgx", ".toc", ".7z", ".zip"]
+emulator = "retroarch-beetle-pce"
+alt_emulators = ["retroarch-beetle-pce-fast", "retroarch-beetle-supergrafx", "retroarch-geargrafx", "geargrafx", "mednafen-pcengine", "mesen", "retroarch-mesen2", "ares-pcenginecd"]
+screenscraper_id = 114
+igdb_platforms = [150]
+
+[systems.pcfx]
+name = "PC-FX"
+manufacturer = "NEC"
+extensions = [".ccd", ".chd", ".cue", ".m3u", ".toc", ".7z", ".zip"]
+emulator = "retroarch-beetle-pcfx"
+alt_emulators = ["mednafen-pcfx"]
+screenscraper_id = 72
+igdb_platforms = [274]
+
+[systems.pico8]
+name = "PICO-8 Fantasy Console"
+extensions = [".p8", ".png"]
+emulator = "pico-8-pico8"
+alt_emulators = ["pico-8-pico8-splore", "retroarch-retro8"]
+
+[systems.plus4]
+name = "Commodore Plus/4"
+manufacturer = "Commodore"
+extensions = [".bin", ".cmd", ".crt", ".d2m", ".d4m", ".d64", ".d6z", ".d71", ".d7z", ".d80", ".d81", ".d82", ".d8z", ".g41", ".g4z", ".g64", ".g6z", ".gz", ".lnx", ".m3u", ".nbz", ".nib", ".p00", ".prg", ".t64", ".tap", ".vfl", ".vsf", ".x64", ".x6z", ".7z", ".zip"]
+emulator = "retroarch-vice-xplus4"
+alt_emulators = ["vice-xplus4"]
+screenscraper_id = 99
+
+[systems.pokemini]
+name = "Pokémon Mini"
+manufacturer = "Nintendo"
+extensions = [".min", ".7z", ".zip"]
+emulator = "retroarch-pokemini"
+igdb_platforms = [166]
+
+[systems.ports]
+name = "Ports"
+extensions = [".bat", ".exe", ".game", ".lnk", ".phd", ".psx"]
+emulator = "run-file"
+alt_emulators = ["retroarch-ecwolf", "retroarch-cannonball", "retroarch-craft", "retroarch-mrboom", "retroarch-nxengine", "retroarch-doukutsu-rs", "retroarch-openlara", "retroarch-superbroswar"]
+
+[systems.ps3]
+name = "PlayStation 3"
+manufacturer = "Sony"
+extensions = [".iso", ".lnk", ".ps3", ".ps3dir"]
+emulator = "rpcs3"
+alt_emulators = ["run-file"]
+screenscraper_id = 59
+igdb_platforms = [9]
+
+[systems.ps4]
+name = "PlayStation 4"
+manufacturer = "Sony"
+extensions = [".bin", ".lnk", ".ps4"]
+emulator = "shadps4"
+alt_emulators = ["shadps4-gui", "run-file"]
+screenscraper_id = 60
+igdb_platforms = [48]
+
+[systems.pv1000]
+name = "PV-1000"
+manufacturer = "Casio"
+extensions = [".bin", ".7z", ".zip"]
+emulator = "retroarch-mame-pv1000"
+alt_emulators = ["mame-pv1000"]
+
+[systems.quake]
+name = "Quake"
+extensions = [".bat", ".lnk", ".pak", ".pk3"]
+emulator = "retroarch-tyrquake"
+alt_emulators = ["retroarch-vitaquake2", "retroarch-vitaquake2-rogue", "retroarch-vitaquake2-xatrix", "retroarch-vitaquake2-zaero", "retroarch-vitaquake3", "run-file"]
+
+[systems.samcoupe]
+name = "SAM Coupé"
+manufacturer = "MGT"
+extensions = [".dsk", ".mgt", ".sad", ".sbt", ".7z", ".zip"]
+emulator = "simcoupe"
+
+[systems.satellaview]
+name = "Satellaview"
+manufacturer = "Nintendo"
+extensions = [".bml", ".bs", ".fig", ".sfc", ".smc", ".swc", ".st", ".7z", ".zip"]
+emulator = "retroarch-snes9x"
+alt_emulators = ["retroarch-snes9x2010", "retroarch-snes9x2005-plus", "snes9x", "retroarch-bsnes", "retroarch-bsnes-hd-beta", "retroarch-bsnes-jg", "retroarch-bsnes-mercury-accuracy", "bsnes", "retroarch-mesen-s", "mesen", "retroarch-mesen2", "ares-satellaview"]
+screenscraper_id = 107
+igdb_platforms = [306]
+
+[systems.scummvm]
+name = "ScummVM"
+extensions = [".scummvm", ".svm"]
+emulator = "retroarch-scummvm"
+alt_emulators = ["scummvm", "dreamm"]
+screenscraper_id = 123
+
+[systems.scv]
+name = "Epoch Super Cassette Vision"
+manufacturer = "Epoch"
+extensions = [".0", ".bin", ".7z", ".zip"]
+emulator = "retroarch-mame-scv"
+alt_emulators = ["mame-scv"]
+
+[systems.sega32x]
+name = "32X"
+manufacturer = "Sega"
+aliases = ["sega32xjp", "sega32xna"]
+extensions = [".32x", ".68k", ".chd", ".cue", ".gen", ".iso", ".m3u", ".md", ".smd", ".sms", ".7z", ".zip"]
+emulator = "retroarch-picodrive"
+alt_emulators = ["retroarch-blastem", "blastem-sega32x", "ares-sega32x"]
+screenscraper_id = 19
+igdb_platforms = [30]
+
+[systems.segacd]
+name = "Sega CD / Mega-CD"
+manufacturer = "Sega"
+aliases = ["megacd", "megacdjp"]
+extensions = [".68k", ".bms", ".chd", ".cue", ".gen", ".gg", ".iso", ".m3u", ".md", ".mdx", ".sg", ".sgd", ".smd", ".sms", ".7z", ".zip"]
+emulator = "retroarch-genesis-plus-gx"
+alt_emulators = ["retroarch-genesis-plus-gx-wide", "retroarch-picodrive", "retroarch-blastem", "blastem-colecovision", "retroarch-clownmdemu", "ares-segacd", "jgenesis"]
+screenscraper_id = 20
+igdb_platforms = [78]
+
+[systems.sg-1000]
+name = "SG-1000"
+manufacturer = "Sega"
+extensions = [".68k", ".bms", ".chd", ".cue", ".gen", ".gg", ".iso", ".m3u", ".md", ".mdx", ".ri", ".rom", ".sg", ".sgd", ".smd", ".sms", ".7z", ".zip"]
+emulator = "retroarch-genesis-plus-gx"
+alt_emulators = ["retroarch-genesis-plus-gx-wide", "retroarch-gearsystem", "retroarch-blastem", "blastem-sg-1000", "retroarch-bluemsx", "mesen", "ares-sg-1000"]
+screenscraper_id = 109
+igdb_platforms = [84]
+
+[systems.sgb]
+name = "Super Game Boy"
+manufacturer = "Nintendo"
+extensions = [".gb", ".gbc", ".sgb", ".7z", ".zip"]
+emulator = "retroarch-mesen-s"
+alt_emulators = ["mesen-sgb", "retroarch-mesen2", "retroarch-sameboy", "retroarch-mgba", "mgba"]
+
+[systems.solarus]
+name = "Solarus Game Engine"
+extensions = [".solarus"]
+emulator = "solarus"
+
+[systems.spectravideo]
+name = "Spectravideo"
+extensions = [".cas", ".col", ".dsk", ".m3u", ".mx1", ".mx2", ".ri", ".rom", ".sc", ".sg", ".7z", ".zip"]
+emulator = "retroarch-bluemsx"
+
+[systems.stv]
+name = "Titan Video Game System"
+manufacturer = "Sega"
+extensions = [".7z", ".zip"]
+emulator = "retroarch-kronos"
+alt_emulators = ["retroarch-mame", "mame-stv", "mednafen-saturn"]
+
+[systems.sufami]
+name = "SuFami Turbo"
+manufacturer = "Bandai"
+extensions = [".bml", ".bs", ".fig", ".sfc", ".smc", ".st", ".7z", ".zip"]
+emulator = "retroarch-snes9x"
+alt_emulators = ["retroarch-snes9x2010", "retroarch-snes9x2005-plus", "snes9x", "retroarch-bsnes", "retroarch-bsnes-hd-beta", "retroarch-bsnes-jg", "retroarch-bsnes-mercury-accuracy", "bsnes", "ares-satellaview"]
+screenscraper_id = 108
+
+[systems.supergrafx]
+name = "SuperGrafx"
+manufacturer = "NEC"
+extensions = [".ccd", ".chd", ".cue", ".pce", ".rom", ".sgx", ".7z", ".zip"]
+emulator = "retroarch-beetle-supergrafx"
+alt_emulators = ["retroarch-beetle-pce", "retroarch-geargrafx", "geargrafx", "mednafen-pcengine", "mesen", "retroarch-mesen2", "ares-supergrafx"]
+screenscraper_id = 105
+igdb_platforms = [128]
+
+[systems.supervision]
+name = "Watara Supervision"
+manufacturer = "Watara"
+extensions = [".bin", ".sv", ".7z", ".zip"]
+emulator = "retroarch-potator"
+alt_emulators = ["retroarch-mame-supervision", "mame-supervision"]
+
+[systems.supracan]
+name = "Super A'Can"
+manufacturer = "Funtech"
+extensions = [".bin", ".7z", ".zip"]
+emulator = "retroarch-mame-supracan"
+alt_emulators = ["mame-supracan"]
+
+[systems.switch]
+name = "Switch"
+manufacturer = "Nintendo"
+extensions = [".lnk", ".nca", ".nro", ".nso", ".nsp", ".xci"]
+emulator = "eden"
+alt_emulators = ["ryujinx", "run-file"]
+screenscraper_id = 225
+igdb_platforms = [130]
+
+[systems.symbian]
+name = "Symbian"
+extensions = [".sis", ".sisx", ".symbian"]
+emulator = "eka2l1-installed"
+alt_emulators = ["eka2l1-symbian", "eka2l1-symbian-nokia-n97"]
+
+[systems.tanodragon]
+name = "Tano Dragon"
+extensions = [".cas", ".ccc", ".dsk", ".rom", ".7z", ".zip"]
+emulator = "mame-tanodragon"
+alt_emulators = ["mame-tanodragon-cartridge", "xroar-tanodragon"]
+
+[systems.ti99]
+name = "Texas Instruments TI-99"
+manufacturer = "Texas Instruments"
+extensions = [".rpk", ".7z", ".zip"]
+emulator = "mame-ti99"
+alt_emulators = ["mame-ti99-legacy"]
+
+[systems.tic80]
+name = "TIC-80 Fantasy Computer"
+extensions = [".png", ".tic"]
+emulator = "retroarch-tic80"
+alt_emulators = ["tic-80"]
+
+[systems.to8]
+name = "Thomson TO8"
+manufacturer = "Thomson"
+extensions = [".fd", ".k7", ".m5", ".m7", ".rom", ".sap", ".7z", ".zip"]
+emulator = "retroarch-theodore"
+
+[systems.triforce]
+name = "Namco-Sega-Nintendo Triforce"
+extensions = [".ciso", ".dff", ".dol", ".elf", ".gcm", ".gcz", ".iso", ".json", ".m3u", ".rvz", ".tgc", ".wad", ".wbfs", ".wia", ".7z", ".zip"]
+emulator = "retroarch-dolphin"
+alt_emulators = ["dolphin", "triforce"]
+
+[systems.trs-80]
+name = "Tandy TRS-80"
+manufacturer = "Tandy"
+extensions = [".cmd", ".dsk"]
+emulator = "sdl2trs-trs-80"
+alt_emulators = ["sdl2trs-trs-80-bootable-diskette", "sdl2trs-trs-80-cmd-file"]
+
+[systems.type-x]
+name = "Type X"
+manufacturer = "Taito"
+extensions = [".bat", ".lnk"]
+emulator = "run-file"
+
+[systems.uzebox]
+name = "Uzebox Open Source Console"
+extensions = [".uze", ".7z", ".zip"]
+emulator = "retroarch-uzem"
+
+[systems.vectrex]
+name = "Vectrex"
+manufacturer = "GCE"
+extensions = [".bin", ".gam", ".vc", ".vec", ".7z", ".zip"]
+emulator = "retroarch-vecx"
+alt_emulators = ["retroarch-mame-vectrex", "mame-vectrex"]
+screenscraper_id = 102
+igdb_platforms = [70]
+
+[systems.vic20]
+name = "Commodore VIC-20"
+manufacturer = "Commodore"
+extensions = [".a0", ".b0", ".bin", ".cmd", ".crt", ".d2m", ".d4m", ".d64", ".d6z", ".d71", ".d7z", ".d80", ".d81", ".d82", ".d8z", ".g41", ".g4z", ".g64", ".g6z", ".gz", ".lnx", ".m3u", ".nbz", ".nib", ".p00", ".prg", ".rom", ".t64", ".tap", ".vfl", ".vsf", ".x64", ".x6z", ".7z", ".zip"]
+emulator = "retroarch-vice-xvic"
+alt_emulators = ["vice-xvic"]
+screenscraper_id = 73
+igdb_platforms = [71]
+
+[systems.vircon32]
+name = "Vircon32 Virtual Console"
+extensions = [".v32", ".7z", ".zip"]
+emulator = "retroarch-vircon32"
+alt_emulators = ["vircon32"]
+
+[systems.virtualboy]
+name = "Virtual Boy"
+manufacturer = "Nintendo"
+extensions = [".bin", ".vb", ".vboy", ".7z", ".zip"]
+emulator = "retroarch-beetle-vb"
+alt_emulators = ["mednafen-virtualboy"]
+screenscraper_id = 11
+igdb_platforms = [87]
+
+[systems.vpinball]
+name = "Visual Pinball"
+extensions = [".vpt", ".vpx"]
+emulator = "visual-pinball"
+
+[systems.vsmile]
+name = "V.Smile"
+manufacturer = "VTech"
+extensions = [".bin", ".7z", ".zip"]
+emulator = "retroarch-mame-vsmile"
+alt_emulators = ["mame-vsmile", "veesem"]
+screenscraper_id = 120
+
+[systems.wasm4]
+name = "WASM-4 Fantasy Console"
+extensions = [".wasm", ".7z", ".zip"]
+emulator = "retroarch-wasm4"
+
+[systems.wii]
+name = "Wii"
+manufacturer = "Nintendo"
+extensions = [".ciso", ".dff", ".dol", ".elf", ".gcm", ".gcz", ".iso", ".json", ".m3u", ".rvz", ".tgc", ".wad", ".wbfs", ".wia", ".7z", ".zip"]
+emulator = "retroarch-dolphin"
+alt_emulators = ["dolphin", "primehack"]
+screenscraper_id = 16
+igdb_platforms = [5]
+
+[systems.wiiu]
+name = "Wii U"
+manufacturer = "Nintendo"
+extensions = [".elf", ".rpx", ".tmd", ".wua", ".wud", ".wuhb", ".wux"]
+emulator = "cemu"
+alt_emulators = ["retroarch-cemu"]
+screenscraper_id = 18
+igdb_platforms = [41]
+
+[systems.windows3x]
+name = "Windows 3.x"
+manufacturer = "Microsoft"
+extensions = [".bat", ".dosz", ".lnk", ".7z", ".zip"]
+emulator = "dosbox-x-windows3x"
+alt_emulators = ["retroarch-dosbox-pure", "dosbox-pure-unleashed", "run-file"]
+
+[systems.windows9x]
+name = "Windows 9x"
+manufacturer = "Microsoft"
+extensions = [".bat", ".dosz", ".lnk", ".7z", ".zip"]
+emulator = "dosbox-x-windows3x"
+alt_emulators = ["retroarch-dosbox-pure", "dosbox-pure-unleashed", "run-file"]
+
+[systems.wonderswan]
+name = "WonderSwan"
+manufacturer = "Bandai"
+extensions = [".pc2", ".ws", ".7z", ".zip"]
+emulator = "retroarch-beetle-wswan"
+alt_emulators = ["mednafen-wonderswan", "ares-wonderswan", "ares-wonderswan-benesse-pocket-challenge-v2", "mesen", "retroarch-mesen2"]
+screenscraper_id = 45
+igdb_platforms = [57]
+
+[systems.wonderswancolor]
+name = "WonderSwan Color"
+manufacturer = "Bandai"
+extensions = [".pc2", ".ws", ".wsc", ".7z", ".zip"]
+emulator = "retroarch-beetle-wswan"
+alt_emulators = ["mednafen-wonderswan", "ares-wonderswancolor", "mesen", "retroarch-mesen2"]
+screenscraper_id = 46
+igdb_platforms = [123]
+
+[systems.x1]
+name = "Sharp X1"
+manufacturer = "Sharp"
+extensions = [".2d", ".2hd", ".88d", ".cmd", ".d88", ".dup", ".dx1", ".hdm", ".tap", ".tfd", ".xdf", ".7z", ".zip"]
+emulator = "retroarch-x1"
+alt_emulators = ["mame-x1", "mame-x1-tape"]
+
+[systems.x68000]
+name = "Sharp X68000"
+manufacturer = "Sharp"
+extensions = [".2hd", ".88d", ".cmd", ".d88", ".dim", ".dup", ".hdf", ".hdm", ".img", ".m3u", ".xdf", ".7z", ".zip"]
+emulator = "retroarch-px68k"
+alt_emulators = ["mame-x68000", "xm6pro68k", "xm6typeg"]
+screenscraper_id = 79
+igdb_platforms = [121]
+
+[systems.xbox]
+name = "Xbox"
+manufacturer = "Microsoft"
+extensions = [".iso", ".lnk", ".xbe", ".xiso"]
+emulator = "xemu"
+alt_emulators = ["cxbx-reloaded", "run-file"]
+screenscraper_id = 32
+igdb_platforms = [11]
+
+[systems.xbox360]
+name = "Xbox 360"
+manufacturer = "Microsoft"
+extensions = [".iso", ".lnk", ".xex", ".zar"]
+emulator = "xenia"
+alt_emulators = ["xenia-edge", "run-file"]
+screenscraper_id = 33
+igdb_platforms = [12]
+
+[systems.zmachine]
+name = "Infocom Z-machine"
+extensions = [".dat", ".z1", ".z2", ".z3", ".z4", ".z5", ".z6", ".z7", ".z8", ".zlb", ".zblorb"]
+emulator = "retroarch-mojozork"
+alt_emulators = ["gargoyle"]
+
+[systems.zx81]
+name = "Sinclair ZX81"
+manufacturer = "Sinclair"
+extensions = [".p", ".tzx", ".7z", ".zip"]
+emulator = "retroarch-81"
+screenscraper_id = 77
+igdb_platforms = [373]
+
+[systems.zxnext]
+name = "Sinclair ZX Spectrum Next"
+manufacturer = "Sinclair"
+extensions = [".nex", ".sna"]
+emulator = "cspect"
+alt_emulators = ["zesarux"]
+
+[systems.zxspectrum]
+name = "Sinclair ZX Spectrum"
+manufacturer = "Sinclair"
+extensions = [".dsk", ".gz", ".img", ".mgt", ".rzx", ".scl", ".sh", ".sna", ".szx", ".tap", ".trd", ".tzx", ".udi", ".z80", ".7z", ".zip"]
+emulator = "retroarch-fuse"
+alt_emulators = ["fuse"]
+screenscraper_id = 76
+igdb_platforms = [26]

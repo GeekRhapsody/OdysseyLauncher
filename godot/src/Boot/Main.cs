@@ -287,8 +287,18 @@ public partial class Main : Node3D
         _gamesGrid.SetTemplates(theme.GameTemplates);
         var templatesMs = clock.Elapsed.TotalMilliseconds;
 
-        // Every system fits in the pool, with room for the columns to change; the virtual systems are 2 more.
-        var systemSlots = Math.Clamp(services.Systems.Count + 2 + ItemGrid.MaxColumns, 24, MaxSystemSlots);
+        // Every shown system fits in the pool (empty ones aren't shown unless the setting says so), with room for the
+        // columns to change; the virtual systems are 2 more.
+        var shownSystems = 0;
+        foreach (var system in services.Systems)
+        {
+            if (system.GameCount > 0 || !services.Config.Settings.Display.HideEmptySystems)
+            {
+                shownSystems++;
+            }
+        }
+
+        var systemSlots = Math.Clamp(shownSystems + 2 + ItemGrid.MaxColumns, 24, MaxSystemSlots);
         _systemsGrid = new ItemGrid(null, _look.Colours, systemSlots, blockSize: 192, spines: false, systemCards: true)
         {
             RowsVisible = SystemRowsVisible,
@@ -325,7 +335,7 @@ public partial class Main : Node3D
             games += system.GameCount;
         }
 
-        DebugHooks.Library = new BenchLibrary(services.Systems.Count + 2, games, null, 0);
+        DebugHooks.Library = new BenchLibrary(shownSystems + 2, games, null, 0);
         GCSettings.LatencyMode = GCLatencyMode.SustainedLowLatency;
     }
 
@@ -539,6 +549,7 @@ public partial class Main : Node3D
             // Covers with no derivative (the user's own art, or art from an earlier version) are baked after the
             // scans, or now if there are none (M4).
             _navigator!.BakeAfterScans = true;
+            _ = services.CheckInstallsAsync();
             if (unscanned.Count > 0)
             {
                 _navigator.Rescan(unscanned.Count == services.Systems.Count ? null : unscanned);

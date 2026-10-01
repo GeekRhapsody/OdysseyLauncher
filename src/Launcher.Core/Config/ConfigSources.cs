@@ -40,6 +40,12 @@ public sealed record ConfigSources
     /// </summary>
     public Func<string, bool>? FileExists { get; init; } = File.Exists;
 
+    /// <summary>
+    /// Which systems the install check covers, by id; null covers every enabled system. The app passes the systems
+    /// that have games, so the long built-in list doesn't warn about every emulator the user never installed.
+    /// </summary>
+    public Func<string, bool>? CheckInstallsFor { get; init; }
+
     /// <summary>Reads the user's files from <paramref name="configDir"/>. Does file I/O: never call it on the main thread.</summary>
     public static ConfigSources FromDirectory(string configDir, string homeDir)
     {

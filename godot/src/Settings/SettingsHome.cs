@@ -85,7 +85,7 @@ public sealed partial class SettingsHome : ListPanel
         _roms.Detail = custom == 0
             ? $"{config.Settings.RomRoot}, a folder per system"
             : $"{config.Settings.RomRoot}; {custom} system{(custom == 1 ? " has" : "s have")} its own";
-        _emulators.Detail = $"{config.Emulators.Count} profiles; which each system uses";
+        _emulators.Detail = $"{config.Emulators.Count} profiles; the programs your systems use";
         var active = services.Theme?.Active;
         _theme.Detail = active is null ? config.Settings.Display.Theme : $"{active.Name} ({active.Id})";
         var scraping = config.Settings.Scraping;

@@ -54,6 +54,9 @@ public sealed class ConfigWriter(string configDir, string homeDir)
     /// <summary>For the reloaded config's install checks; null skips them (tests).</summary>
     public Func<string, bool>? FileExists { get; init; } = File.Exists;
 
+    /// <summary>Which systems the reloaded config's install checks cover (<see cref="ConfigSources.CheckInstallsFor"/>); null covers all.</summary>
+    public Func<string, bool>? CheckInstallsFor { get; init; }
+
     /// <summary>Reads <c>ODYSSEY_*</c> variables for the reloaded credentials.</summary>
     public Func<string, string?> Environment { get; init; } = System.Environment.GetEnvironmentVariable;
 
@@ -82,7 +85,7 @@ public sealed class ConfigWriter(string configDir, string homeDir)
 
     /// <summary>Loads config from the user's files, as the app does at boot.</summary>
     public ConfigLoadResult Load() =>
-        new ConfigLoader().Load(ConfigSources.FromDirectory(ConfigDir, homeDir) with { FileExists = FileExists });
+        new ConfigLoader().Load(ConfigSources.FromDirectory(ConfigDir, homeDir) with { FileExists = FileExists, CheckInstallsFor = CheckInstallsFor });
 
     /// <summary>Applies <paramref name="edits"/> and writes the files they change, or nothing if any edit is refused.</summary>
     public ConfigSaveResult Save(IReadOnlyList<ConfigEdit> edits)
@@ -242,6 +245,7 @@ public sealed class ConfigWriter(string configDir, string homeDir)
             Systems = File(ConfigFileKind.Systems),
             Emulators = File(ConfigFileKind.Emulators),
             FileExists = FileExists,
+            CheckInstallsFor = CheckInstallsFor,
         };
     }
 

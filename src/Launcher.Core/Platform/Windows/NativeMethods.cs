@@ -14,6 +14,8 @@ internal static unsafe partial class NativeMethods
     public const int ErrorElevationRequired = 740;
     public const int ErrorInsufficientBuffer = 122;
     public const int WaitTimeout = 258;
+    public const int ErrorNoAssociation = 1155;
+    public const int ErrorCancelled = 1223;
 
     public const uint ExtendedStartupInfoPresent = 0x0008_0000;
     public const uint CreateUnicodeEnvironment = 0x0000_0400;
@@ -28,6 +30,12 @@ internal static unsafe partial class NativeMethods
 
     public const uint Infinite = 0xFFFF_FFFF;
     public const uint AsfwAny = 0xFFFF_FFFF;
+    public const uint SeeMaskNoCloseProcess = 0x0000_0040;
+    public const uint SeeMaskNoAsync = 0x0000_0100;
+    public const uint SeeMaskFlagNoUi = 0x0000_0400;
+    public const int SwShowNormal = 1;
+    public const uint CoinitApartmentThreaded = 0x2;
+    public const uint CoinitDisableOle1Dde = 0x4;
     public const int SwRestore = 9;
     public const int SwShowMinNoActive = 7;
     public const uint InputKeyboard = 1;
@@ -83,6 +91,27 @@ internal static unsafe partial class NativeMethods
         public nint Thread;
         public int ProcessId;
         public int ThreadId;
+    }
+
+    /// <summary><c>SHELLEXECUTEINFOW</c>: the strings are pointers the caller pins.</summary>
+    [StructLayout(LayoutKind.Sequential)]
+    public struct ShellExecuteInfo
+    {
+        public int Size;
+        public uint Mask;
+        public nint Window;
+        public char* Verb;
+        public char* File;
+        public char* Parameters;
+        public char* Directory;
+        public int Show;
+        public nint InstanceApp;
+        public nint IdList;
+        public char* Class;
+        public nint ClassKey;
+        public uint HotKey;
+        public nint IconOrMonitor;
+        public nint Process;
     }
 
     [StructLayout(LayoutKind.Sequential)]
@@ -237,6 +266,17 @@ internal static unsafe partial class NativeMethods
     public static partial bool TerminateJobObject(nint job, uint exitCode);
 
     [LibraryImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool AssignProcessToJobObject(nint job, nint process);
+
+    [LibraryImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool TerminateProcess(nint process, uint exitCode);
+
+    [LibraryImport("kernel32.dll", SetLastError = true)]
+    public static partial uint GetProcessId(nint process);
+
+    [LibraryImport("kernel32.dll", SetLastError = true)]
     public static partial nint CreateIoCompletionPort(nint fileHandle, nint existingPort, nuint completionKey, uint threads);
 
     [LibraryImport("kernel32.dll", SetLastError = true)]
@@ -293,6 +333,18 @@ internal static unsafe partial class NativeMethods
 
     [LibraryImport("kernel32.dll")]
     public static partial nint GetCurrentProcess();
+
+    // ---- shell32 and ole32 -----------------------------------------------------------------------
+
+    [LibraryImport("shell32.dll", EntryPoint = "ShellExecuteExW", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool ShellExecuteEx(ShellExecuteInfo* info);
+
+    [LibraryImport("ole32.dll")]
+    public static partial int CoInitializeEx(nint reserved, uint coInit);
+
+    [LibraryImport("ole32.dll")]
+    public static partial void CoUninitialize();
 
     // ---- user32 ----------------------------------------------------------------------------------
 

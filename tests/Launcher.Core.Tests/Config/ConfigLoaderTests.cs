@@ -7,9 +7,16 @@ public class ConfigLoaderTests
     private static readonly string Home = Path.Combine(Path.GetTempPath(), "odyssey-home");
     private static readonly string ConfigDir = Path.Combine(Home, "config");
 
+    /// <summary>The systems that were built in before the ES-DE catalogue was added, which the install-check tests count on.</summary>
+    private static readonly HashSet<string> FirstFourteen = new(
+        ["gb", "gbc", "gba", "nes", "snes", "n64", "gc", "mastersystem", "megadrive", "saturn", "dreamcast", "psx", "ps2", "psp"],
+        StringComparer.Ordinal);
+
     /// <param name="fileExists">The install check's view of the disk. By default every file exists.</param>
+    /// <param name="checkFor">Which systems the install check covers. By default all of them.</param>
     private static ConfigLoadResult Load(
-        string? settings = null, string? systems = null, string? emulators = null, Func<string, bool>? fileExists = null) =>
+        string? settings = null, string? systems = null, string? emulators = null, Func<string, bool>? fileExists = null,
+        Func<string, bool>? checkFor = null) =>
         new ConfigLoader().Load(new ConfigSources
         {
             HomeDir = Home,
@@ -18,6 +25,7 @@ public class ConfigLoaderTests
             Systems = systems is null ? null : new ConfigFile("user/systems.toml", systems),
             Emulators = emulators is null ? null : new ConfigFile("user/emulators.toml", emulators),
             FileExists = fileExists ?? (_ => true),
+            CheckInstallsFor = checkFor,
         });
 
     private static Diagnostic Single(ConfigLoadResult result, Severity severity) =>
@@ -40,17 +48,18 @@ public class ConfigLoaderTests
     {
         var systems = Load().Config.Systems;
 
+        // The first fourteen are the original built-ins, in this order, and the ES-DE catalogue follows them.
         string[] required = ["gb", "gbc", "gba", "nes", "snes", "n64", "gc", "mastersystem", "megadrive", "saturn", "dreamcast", "psx", "ps2", "psp"];
-        Assert.Equal(required, systems.Select(s => s.Id));
+        Assert.Equal(required, systems.Take(required.Length).Select(s => s.Id));
         Assert.All(systems, system =>
         {
             Assert.NotEmpty(system.Extensions);
             Assert.All(system.Extensions, ext => Assert.StartsWith(".", ext, StringComparison.Ordinal));
-            Assert.NotNull(system.ScreenScraperId);
 
             // The theme decides each system's box (M6); game_model is only the user's choice.
             Assert.Null(system.GameModel);
         });
+        Assert.All(systems.Take(required.Length), system => Assert.NotNull(system.ScreenScraperId));
 
         // Checked against ScreenScraper's own system pages (see Defaults/systems.toml).
         var ids = systems.ToDictionary(s => s.Id, s => s.ScreenScraperId);
@@ -105,7 +114,10 @@ public class ConfigLoaderTests
         var megadrive = result.Config.FindSystem("megadrive")!;
         Assert.Equal(RomDirSource.Default, megadrive.RomDirSource);
         Assert.Equal(
-            [Path.GetFullPath("D:/Games/ROMs/megadrive"), Path.GetFullPath("D:/Games/ROMs/genesis"), Path.GetFullPath("D:/Games/ROMs/md")],
+            [
+                Path.GetFullPath("D:/Games/ROMs/megadrive"), Path.GetFullPath("D:/Games/ROMs/genesis"), Path.GetFullPath("D:/Games/ROMs/md"),
+                Path.GetFullPath("D:/Games/ROMs/megadrivejp"),
+            ],
             megadrive.RomDirs);
     }
 
@@ -228,18 +240,18 @@ public class ConfigLoaderTests
     public void A_complete_new_system_is_added_after_the_built_in_ones()
     {
         var result = Load(systems: """
-            [systems.gamegear]
-            name = "Game Gear"
+            [systems.pocketgame]
+            name = "Pocket Game"
             extensions = [".GG", ".zip"]
             emulator = "retroarch-genesis-plus-gx"
             """);
 
         Assert.Empty(result.Diagnostics);
-        var gamegear = result.Config.Systems[^1];
-        Assert.Equal("gamegear", gamegear.Id);
-        Assert.Equal([".gg", ".zip"], gamegear.Extensions);
-        Assert.Null(gamegear.GameModel);
-        Assert.True(gamegear.Recursive);
+        var pocketgame = result.Config.Systems[^1];
+        Assert.Equal("pocketgame", pocketgame.Id);
+        Assert.Equal([".gg", ".zip"], pocketgame.Extensions);
+        Assert.Null(pocketgame.GameModel);
+        Assert.True(pocketgame.Recursive);
     }
 
     // ---- Each class of error -------------------------------------------------------------------
@@ -312,16 +324,16 @@ public class ConfigLoaderTests
     {
         var result = Load(systems: """
 
-            [systems.gamegear]
-            name = "Game Gear"
+            [systems.pocketgame]
+            name = "Pocket Game"
             """);
 
         var error = Single(result, Severity.Error);
         Assert.Equal(2, error.Line);
-        Assert.Equal("systems.gamegear", error.Key);
+        Assert.Equal("systems.pocketgame", error.Key);
         Assert.Contains("missing: extensions, emulator", error.Message, StringComparison.Ordinal);
-        Assert.Null(result.Config.FindSystem("gamegear"));
-        Assert.Contains(result.Diagnostics, d => d.Severity == Severity.Info && d.Key == "systems.gamegear");
+        Assert.Null(result.Config.FindSystem("pocketgame"));
+        Assert.Contains(result.Diagnostics, d => d.Severity == Severity.Info && d.Key == "systems.pocketgame");
     }
 
     [Fact]
@@ -339,7 +351,7 @@ public class ConfigLoaderTests
         Assert.Equal("systems.megadrive.emulator", error.Key);
         Assert.Contains("unknown emulator 'blastemm'", error.Message, StringComparison.Ordinal);
         Assert.Null(result.Config.FindSystem("megadrive"));
-        Assert.Equal(13, result.Config.Systems.Count);
+        Assert.Equal(Load().Config.Systems.Count - 1, result.Config.Systems.Count);
     }
 
     [Fact]
@@ -347,7 +359,7 @@ public class ConfigLoaderTests
     {
         var result = Load(systems: """
             [systems.psx]
-            alt_emulators = ["duckstation"]
+            alt_emulators = ["no-such-emulator"]
             """);
 
         var warning = Single(result, Severity.Warning);
@@ -374,7 +386,7 @@ public class ConfigLoaderTests
         Assert.Contains("has errors (see emulators.retroarch-mgba)", gba.Message, StringComparison.Ordinal);
         Assert.Equal("built-in/systems.toml", gba.Source);
         Assert.Null(result.Config.FindSystem("gba"));
-        Assert.Empty(result.Config.FindSystem("gb")!.AltEmulators);
+        Assert.DoesNotContain("retroarch-mgba", result.Config.FindSystem("gb")!.AltEmulators);
     }
 
     [Theory]
@@ -504,7 +516,7 @@ public class ConfigLoaderTests
     {
         var retroarch = Path.GetFullPath("C:/RetroArch-Win64/retroarch.exe");
 
-        var result = Load(fileExists: path => path != retroarch);
+        var result = Load(fileExists: path => path != retroarch, checkFor: FirstFourteen.Contains);
 
         var gpgx = Assert.Single(result.Diagnostics, d => d.Key == "emulators.retroarch-genesis-plus-gx.executable");
         Assert.Equal(Severity.Warning, gpgx.Severity);
@@ -515,19 +527,23 @@ public class ConfigLoaderTests
             "launch games (it's their emulator). Install it there, or fix the path here or in the [variables] it uses in settings.toml",
             gpgx.Message);
 
-        // gb and gbc use gambatte and list mgba as an alternative; gba uses mgba.
+        // gb and gbc list mgba as an alternative, which isn't reported (the catalogue lists many); gba uses it.
         var mgba = Assert.Single(result.Diagnostics, d => d.Key == "emulators.retroarch-mgba.executable");
-        Assert.Contains("Game Boy Advance (gba) can't launch games (it's their emulator); and Game Boy (gb) and Game Boy Color (gbc) can't use it as an alternative", mgba.Message, StringComparison.Ordinal);
+        Assert.Contains("Game Boy Advance (gba) can't launch games (it's their emulator)", mgba.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("alternative", mgba.Message, StringComparison.Ordinal);
 
-        // Every system that uses RetroArch is still there, and nothing else is reported.
-        Assert.Equal(14, result.Config.Systems.Count);
-        Assert.Equal(13, result.Diagnostics.Count);
+        // Every system that uses RetroArch is still there, and each profile is reported once, as a warning.
+        Assert.Equal(Load().Config.Systems.Count, result.Config.Systems.Count);
         Assert.All(result.Diagnostics, d => Assert.Equal(Severity.Warning, d.Severity));
+        Assert.Equal(result.Diagnostics.Count, result.Diagnostics.Select(d => d.Key).Distinct().Count());
 
         // With nothing installed, each profile reports its executable only, not its core as well.
-        var nothing = Load(fileExists: _ => false);
-        Assert.Equal(16, nothing.Diagnostics.Count);
+        var nothing = Load(fileExists: _ => false, checkFor: FirstFourteen.Contains);
         Assert.All(nothing.Diagnostics, d => Assert.EndsWith(".executable", d.Key, StringComparison.Ordinal));
+
+        // The check covers only the systems it's asked for: none of the others is named.
+        Assert.DoesNotContain(nothing.Diagnostics, d => d.Message.Contains("(atari2600)", StringComparison.Ordinal));
+        Assert.Contains(Load(fileExists: _ => false).Diagnostics, d => d.Message.Contains("(atari2600)", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -535,7 +551,7 @@ public class ConfigLoaderTests
     {
         var core = Path.GetFullPath("C:/RetroArch-Win64/cores/snes9x_libretro.dll");
 
-        var result = Load(fileExists: path => path != core);
+        var result = Load(fileExists: path => path != core, checkFor: FirstFourteen.Contains);
 
         var warning = Single(result, Severity.Warning);
         Assert.Equal("emulators.retroarch-snes9x.core", warning.Key);
@@ -548,9 +564,9 @@ public class ConfigLoaderTests
         var checkedPaths = new List<string>();
         var result = Load(
             emulators: """
-                [emulators.blastem]
-                name = "BlastEm"
-                executable = "C:/Emulators/BlastEm/blastem.exe"
+                [emulators.unused-emulator]
+                name = "Unused"
+                executable = "C:/Emulators/Unused/unused.exe"
                 """,
             fileExists: path =>
             {
@@ -558,10 +574,10 @@ public class ConfigLoaderTests
                 return false;
             });
 
-        Assert.DoesNotContain(result.Diagnostics, d => d.Key.StartsWith("emulators.blastem", StringComparison.Ordinal));
-        Assert.DoesNotContain(Path.GetFullPath("C:/Emulators/BlastEm/blastem.exe"), checkedPaths);
+        Assert.DoesNotContain(result.Diagnostics, d => d.Key.StartsWith("emulators.unused-emulator", StringComparison.Ordinal));
+        Assert.DoesNotContain(Path.GetFullPath("C:/Emulators/Unused/unused.exe"), checkedPaths);
 
-        // Each path is checked once, although 13 profiles share retroarch.exe.
+        // Each path is checked once, although many profiles share retroarch.exe.
         Assert.Single(checkedPaths, p => p.EndsWith("retroarch.exe", StringComparison.Ordinal));
 
         var unchecked_ = new ConfigLoader().Load(new ConfigSources { HomeDir = Home, ConfigDir = ConfigDir, FileExists = null });
@@ -655,6 +671,102 @@ public class ConfigLoaderTests
 
         var error = Single(result, Severity.Error);
         Assert.Contains("isn't a file extension", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Empty_systems_are_hidden_unless_the_setting_says_otherwise()
+    {
+        Assert.True(Load().Config.Settings.Display.HideEmptySystems);
+
+        var shown = Load(settings: """
+            [display]
+            hide_empty_systems = false
+            """);
+        Assert.Empty(shown.Diagnostics);
+        Assert.False(shown.Config.Settings.Display.HideEmptySystems);
+
+        var bad = Load(settings: """
+            [display]
+            hide_empty_systems = "no"
+            """);
+        Assert.Single(bad.Diagnostics, d => d.IsError && d.Key == "display.hide_empty_systems");
+        Assert.True(bad.Config.Settings.Display.HideEmptySystems);
+    }
+
+    // ---- The built-in catalogue (every ES-DE system) ---------------------------------------------
+
+    [Fact]
+    public void The_catalogue_folds_regional_twins_into_aliases_so_ES_DE_folders_still_work()
+    {
+        var config = Load(settings: """
+            [paths]
+            rom_root = "D:/ROMs"
+            """).Config;
+
+        // genesis, megadrivejp, sfc, snesna, famicom and so on aren't systems of their own.
+        foreach (var twin in (string[])["genesis", "megadrivejp", "sfc", "snesna", "famicom", "saturnjp", "megacd", "sega32xjp", "tg16", "tg-cd", "videopac", "fba"])
+        {
+            Assert.Null(config.FindSystem(twin));
+        }
+
+        Assert.Contains(Path.GetFullPath("D:/ROMs/megacd"), config.FindSystem("segacd")!.RomDirs);
+        Assert.Contains(Path.GetFullPath("D:/ROMs/tg16"), config.FindSystem("pcengine")!.RomDirs);
+        Assert.Contains(Path.GetFullPath("D:/ROMs/snesna"), config.FindSystem("snes")!.RomDirs);
+
+        // What isn't a game system, or has nothing to launch, was left out.
+        foreach (var skipped in (string[])["desktop", "emulators", "windows", "steam", "kodi", "epic", "androidapps", "androidgames", "lutris", "xboxone", "psvita"])
+        {
+            Assert.Null(config.FindSystem(skipped));
+        }
+    }
+
+    [Fact]
+    public void Every_catalogue_system_has_a_launchable_default_and_every_alternative_exists()
+    {
+        var config = Load().Config;
+
+        Assert.True(config.Systems.Count > 150);
+        foreach (var system in config.Systems)
+        {
+            Assert.True(config.Emulators.ContainsKey(system.Emulator), $"{system.Id}: {system.Emulator}");
+            Assert.All(system.AltEmulators, alt => Assert.True(config.Emulators.ContainsKey(alt), $"{system.Id}: {alt}"));
+            Assert.Equal(system.AltEmulators.Count, system.AltEmulators.Distinct().Count());
+            Assert.DoesNotContain(system.Emulator, system.AltEmulators);
+        }
+
+        Assert.Equal(config.Systems.Count, config.Systems.Select(s => s.Id).Distinct().Count());
+        Assert.Equal("retroarch-opera", config.FindSystem("3do")!.Emulator);
+        Assert.Equal("stella", config.FindSystem("atari2600")!.AltEmulators.Intersect(["stella"]).Single());
+    }
+
+    [Fact]
+    public void Catalogue_emulators_sit_under_the_emulators_variable_with_ES_DEs_folder_names()
+    {
+        var emulators = Load().Config.Emulators;
+
+        Assert.Equal("C:/Emulators/Mesen/Mesen.exe", emulators["mesen"].Executable.Replace('\\', '/'));
+        Assert.Equal(["--fullscreen", "{rom}"], emulators["mesen"].Args);
+        Assert.Equal("C:/RetroArch-Win64/cores/opera_libretro.dll", emulators["retroarch-opera"].Core!.Replace('\\', '/'));
+        Assert.Equal(["-L", "{core}", "--fullscreen", "{rom}"], emulators["retroarch-opera"].Args);
+
+        // %GAMEDIR%\;%ROMPATH%\adam became {rom_dir};{rom_root}/adam, and ES-DE's work-in-the-game's-folder flag a working_dir.
+        Assert.Equal("{rom_dir};D:/ROMs/adam".Replace("D:/ROMs", Path.GetFullPath(Path.Combine(Home, "ROMs")).Replace('\\', '/')),
+            emulators["mame-adam"].Args[1].Replace('\\', '/'));
+        Assert.Equal("{rom_dir}", emulators["dosbox-staging"].WorkingDir);
+
+        // Profiles that run the game's own file have no program.
+        Assert.True(emulators["run-file"].RunFile);
+    }
+
+    [Fact]
+    public void Disc_systems_in_the_catalogue_leave_out_bin_too()
+    {
+        var systems = Load().Config.Systems;
+
+        foreach (var id in (string[])["3do", "pcenginecd", "neogeocd", "segacd", "amigacd32", "cdimono1"])
+        {
+            Assert.DoesNotContain(".bin", systems.Single(s => s.Id == id).Extensions);
+        }
     }
 
     [Fact]

@@ -22,12 +22,15 @@ public sealed class ScanBenchmarkTests : IDisposable
 
     // Budgets, in ms, for `dotnet test` (Debug build, .NET 10 runtime). Measured on 2026-09-28 (Debug, then
     // ExportRelease on .NET 8.0.31): full scan 314 / 275, unchanged rescan 72 / 71, 1% changed 75 / 56,
-    // GetGamesAsync for 10,000 games 21 / 19, warm config load 2.6 / 2.1.
+    // GetGamesAsync for 10,000 games 21 / 19, warm config load 2.6 / 2.1. The config load then grew with the
+    // built-in catalogue (every ES-DE system: 164 systems and 473 emulator profiles): measured on 2026-10-01 at
+    // about 12 ms (Debug) and 9 ms (ExportRelease) warm, with the built-in files read by TomlFast (Tomlyn took
+    // about 50 ms for them) and no install check (it runs after interactive).
     public const double FullScanBudgetMs = 1000;
     public const double UnchangedRescanBudgetMs = 200;
     public const double ChangedRescanBudgetMs = 250;
     public const double GetGames10kBudgetMs = 45;
-    public const double ConfigLoadBudgetMs = 10;
+    public const double ConfigLoadBudgetMs = 20;
 
     private readonly TempDir _dir = new();
 
@@ -192,7 +195,9 @@ public sealed class ScanBenchmarkTests : IDisposable
     public void Loading_the_default_config_meets_its_budget()
     {
         var loader = new ConfigLoader();
-        var sources = new ConfigSources { HomeDir = _dir.Path, ConfigDir = _dir.Path };
+
+        // As at boot: the install checks run after interactive (AppServices.CheckInstallsAsync), so they aren't timed.
+        var sources = new ConfigSources { HomeDir = _dir.Path, ConfigDir = _dir.Path, FileExists = null };
         var first = Stopwatch.StartNew();
         loader.Load(sources);
         var firstMs = first.Elapsed.TotalMilliseconds;
@@ -204,10 +209,7 @@ public sealed class ScanBenchmarkTests : IDisposable
             var result = loader.Load(sources);
             times.Add(stopwatch.Elapsed.TotalMilliseconds);
 
-            // The timing includes the install check, as boot does. The default paths needn't exist on this machine.
-            Assert.All(result.Diagnostics, d => Assert.True(
-                d.Severity == Severity.Warning && (d.Key.EndsWith(".executable", StringComparison.Ordinal) || d.Key.EndsWith(".core", StringComparison.Ordinal)),
-                d.ToString()));
+            Assert.Empty(result.Diagnostics);
         }
 
         Report(string.Create(CultureInfo.InvariantCulture,

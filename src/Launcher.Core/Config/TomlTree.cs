@@ -112,6 +112,13 @@ internal sealed class TomlTableNode(SourcePos pos) : TomlNode(pos)
 internal static class TomlTree
 {
     /// <summary>
+    /// <see cref="Parse"/> for text the app ships (the built-in defaults): the plain-TOML fast path first (about
+    /// 50 times quicker, same tree), and Tomlyn if the text needs more than it handles.
+    /// </summary>
+    public static TomlTableNode? ParseBuiltIn(string text, string source, List<Diagnostic> diagnostics) =>
+        TomlFast.TryParse(text, source) ?? Parse(text, source, diagnostics);
+
+    /// <summary>
     /// Parses <paramref name="text"/>. On any syntax or TOML semantic error (such as a duplicate key)
     /// the result is null and every problem is added to <paramref name="diagnostics"/>, so the caller
     /// ignores the whole file (ARCHITECTURE.md A5).

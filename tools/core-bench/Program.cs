@@ -110,6 +110,7 @@ static AppConfig LoadConfig(string romRoot) => new ConfigLoader().Load(new Confi
     HomeDir = romRoot,
     ConfigDir = romRoot,
     Settings = new ConfigFile("settings.toml", $"[paths]\nrom_root = '{romRoot}'\n"),
+    FileExists = null, // as at boot: the install checks run after interactive (AppServices.CheckInstallsAsync)
 }).Config;
 
 static void Print(string line) => Console.WriteLine(line);

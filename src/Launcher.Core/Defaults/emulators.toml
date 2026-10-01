@@ -12,6 +12,17 @@
 #
 # The RetroArch core file names and the pcsx2-qt.exe name were checked against a RetroBat install on
 # 2026-09-28. The command-line flags follow each emulator's documentation.
+#
+# From "Every ES-DE system" below, the profiles are converted from ES-DE 3.5.0's es_systems.xml and
+# es_find_rules.xml (Windows, portable): each emulator sits where ES-DE looks for it under {emulators}
+# (Emulators/<folder>/<program>), and each command's arguments carry over with ES-DE's tokens replaced
+# (%ROM% {rom}, %GAMEDIR% {rom_dir}, %BASENAME% {rom_stem}, %ROMPATH% {rom_root}, %EMUDIR% {emulator_dir},
+# %STARTDIR% working_dir). ES-DE's %INJECT% files (extra arguments read from a file next to the ROM) aren't
+# supported, so they're dropped where the command works without them, and the command is left out where it
+# needs them (PS3 and PS4 game serials, Vita3K, 3dSen, Linux Loader). RetroArch profiles pass --fullscreen
+# like the ones above. Only the programs a system's games use are checked for installs, and the settings
+# screen lists only the profiles of systems that have games. `pcsx2x6` assumes pcsx2-qt.exe (ES-DE matches
+# pcsx2x6*.exe, which config can't).
 
 format = 1
 
@@ -107,3 +118,2601 @@ args = ["-batch", "-fullscreen", "--", "{rom}"]
 name = "PPSSPP"
 executable = "{emulators}/PPSSPP/PPSSPPWindows64.exe"
 args = ["--fullscreen", "{rom}"]
+
+# ---------------------------------------------------------------------------------------------
+# Every ES-DE system
+# ---------------------------------------------------------------------------------------------
+
+# RetroArch cores
+[emulators.retroarch-opera]
+name = "RetroArch: Opera"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/opera_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-puae]
+name = "RetroArch: PUAE"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/puae_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-puae2021]
+name = "RetroArch: PUAE 2021"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/puae2021_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-amiberry]
+name = "RetroArch: Amiberry"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/amiberry_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-cap32]
+name = "RetroArch: Caprice32"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/cap32_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-crocods]
+name = "RetroArch: CrocoDS"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/crocods_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-applewin]
+name = "RetroArch: AppleWin"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/applewin_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-mame-apple2]
+name = "RetroArch: MAME - Current"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/mame_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "apple2e -rompath \"{rom_dir};{rom_root}/apple2\" -gameio joy -flop1 \"{rom_dir}/{rom_file}\""]
+
+[emulators.retroarch-mame-apple2gs]
+name = "RetroArch: MAME - Current"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/mame_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "apple2gs -rompath \"{rom_dir};{rom_root}/apple2gs\" -gameio joy -flop3 \"{rom_dir}/{rom_file}\""]
+
+[emulators.retroarch-mame-apple2gs-2]
+name = "RetroArch: MAME - Current [Software list]"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/mame_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "apple2gs -rompath \"{rom_dir};{rom_root}/apple2gs\" -gameio joy {rom_stem}"]
+
+[emulators.retroarch-mame]
+name = "RetroArch: MAME - Current"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/mame_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-mame2010]
+name = "RetroArch: MAME 2010"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/mame2010_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-mame2003-plus]
+name = "RetroArch: MAME 2003-Plus"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/mame2003_plus_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-mame2003]
+name = "RetroArch: MAME 2003"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/mame2003_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-mame2000]
+name = "RetroArch: MAME 2000"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/mame2000_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-hbmame]
+name = "RetroArch: HBMAME"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/hbmame_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-fbneo]
+name = "RetroArch: FinalBurn Neo"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/fbneo_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-fbalpha2012]
+name = "RetroArch: FB Alpha 2012"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/fbalpha2012_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-geolith]
+name = "RetroArch: Geolith"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/geolith_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-kronos]
+name = "RetroArch: Kronos"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/kronos_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-dice]
+name = "RetroArch: DICE"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/dice_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-supermodel]
+name = "RetroArch: Supermodel"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/supermodel_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-amiarcadia]
+name = "RetroArch: AmiArcadia"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/amiarcadia_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-mame-arcadia]
+name = "RetroArch: MAME - Current"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/mame_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "arcadia -rompath \"{rom_dir};{rom_root}/arcadia\" -cart \"{rom}\""]
+
+[emulators.retroarch-arduous]
+name = "RetroArch: Arduous"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/arduous_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-ardens]
+name = "RetroArch: Ardens"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/ardens_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-mame-astrocde]
+name = "RetroArch: MAME - Current"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/mame_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "astrocde -rompath \"{rom_dir};{rom_root}/astrocde\" -cart \"{rom}\""]
+
+[emulators.retroarch-stella]
+name = "RetroArch: Stella"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/stella_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-stella2014]
+name = "RetroArch: Stella 2014"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/stella2014_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-stella2023]
+name = "RetroArch: Stella 2023"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/stella2023_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-tia]
+name = "RetroArch: Tia"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/tia_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-a5200]
+name = "RetroArch: a5200"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/a5200_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-atari800]
+name = "RetroArch: Atari800"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/atari800_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-prosystem]
+name = "RetroArch: ProSystem"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/prosystem_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-mame-atari7800]
+name = "RetroArch: MAME - Current"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/mame_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "a7800 -rompath \"{rom_dir};{rom_root}/atari7800\" -cart \"{rom}\""]
+
+[emulators.retroarch-virtualjaguar]
+name = "RetroArch: Virtual Jaguar"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/virtualjaguar_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-handy]
+name = "RetroArch: Handy"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/handy_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-beetle-lynx]
+name = "RetroArch: Beetle Lynx"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/mednafen_lynx_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-gearlynx]
+name = "RetroArch: Gearlynx"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/gearlynx_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-holani]
+name = "RetroArch: Holani"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/holani_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-hatari]
+name = "RetroArch: Hatari"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/hatari_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-hatari2014]
+name = "RetroArch: Hatari 2014"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/hatari2014_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-b2]
+name = "RetroArch: b2"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/b2_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-vice-x64sc]
+name = "RetroArch: VICE x64sc Accurate"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/vice_x64sc_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-vice-x64]
+name = "RetroArch: VICE x64 Fast"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/vice_x64_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-vice-xscpu64]
+name = "RetroArch: VICE x64 SuperCPU"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/vice_xscpu64_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-vice-x128]
+name = "RetroArch: VICE x128"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/vice_x128_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-frodo]
+name = "RetroArch: Frodo"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/frodo_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-same-cdi]
+name = "RetroArch: SAME CDi"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/same_cdi_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-cdi2015]
+name = "RetroArch: CDi 2015"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/cdi2015_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-chailove]
+name = "RetroArch: ChaiLove"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/chailove_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-freechaf]
+name = "RetroArch: FreeChaF"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/freechaf_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-mame-channelf]
+name = "RetroArch: MAME - Current"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/mame_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "channelf -rompath \"{rom_dir};{rom_root}/channelf\" -cart \"{rom}\""]
+
+[emulators.retroarch-bluemsx]
+name = "RetroArch: blueMSX"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/bluemsx_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-gearcoleco]
+name = "RetroArch: Gearcoleco"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/gearcoleco_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-jollycv]
+name = "RetroArch: JollyCV"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/jollycv_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-blastem]
+name = "RetroArch: BlastEm"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/blastem_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-fbalpha2012-cps1]
+name = "RetroArch: FB Alpha 2012 CPS-1"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/fbalpha2012_cps1_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-fbalpha2012-cps2]
+name = "RetroArch: FB Alpha 2012 CPS-2"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/fbalpha2012_cps2_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-fbalpha2012-cps3]
+name = "RetroArch: FB Alpha 2012 CPS-3"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/fbalpha2012_cps3_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-mame-crvision]
+name = "RetroArch: MAME - Current"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/mame_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "crvision -rompath \"{rom_dir};{rom_root}/crvision\" -cart \"{rom}\""]
+
+[emulators.retroarch-dirksimple]
+name = "RetroArch: DirkSimple"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/dirksimple_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-prboom]
+name = "RetroArch: PrBoom"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/prboom_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-boom3]
+name = "RetroArch: Boom 3"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/boom3_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-boom3-xp]
+name = "RetroArch: Boom 3 xp"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/boom3_xp_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-dosbox-pure]
+name = "RetroArch: DOSBox-Pure"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/dosbox_pure_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-dosbox-core]
+name = "RetroArch: DOSBox-Core"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/dosbox_core_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-dosbox-svn]
+name = "RetroArch: DOSBox-SVN"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/dosbox_svn_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-virtualxt]
+name = "RetroArch: VirtualXT"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/virtualxt_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-easyrpg]
+name = "RetroArch: EasyRPG"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/easyrpg_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-fbalpha2012-neogeo]
+name = "RetroArch: FB Alpha 2012 Neo Geo"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/fbalpha2012_neogeo_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-mesen2]
+name = "RetroArch: MesenCE"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/mesen2_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-nestopia]
+name = "RetroArch: Nestopia UE"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/nestopia_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-rustynes]
+name = "RetroArch: RustyNES"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/rustynes_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-mame-fmtowns]
+name = "RetroArch: MAME - Current"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/mame_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "fmtownshr -rompath \"{rom_dir};{rom_root}/fmtowns\" -cdrom \"{rom_dir}/{rom_file}\""]
+
+[emulators.retroarch-mame-gamate]
+name = "RetroArch: MAME - Current"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/mame_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "gamate -rompath \"{rom_dir};{rom_root}/gamate\" -cart \"{rom}\""]
+
+[emulators.retroarch-gw]
+name = "RetroArch: Handheld Electronic (GW)"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/gw_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-mame-gamecom]
+name = "RetroArch: MAME - Current"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/mame_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "gamecom -rompath \"{rom_dir};{rom_root}/gamecom\" -cartridge1 \"{rom}\""]
+
+[emulators.retroarch-genesis-plus-gx-wide]
+name = "RetroArch: Genesis Plus GX Wide"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/genesis_plus_gx_wide_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-gearsystem]
+name = "RetroArch: Gearsystem"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/gearsystem_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-smsplus]
+name = "RetroArch: SMS Plus GX"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/smsplus_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-picodrive]
+name = "RetroArch: PicoDrive"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/picodrive_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-sameboy]
+name = "RetroArch: SameBoy"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/sameboy_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-gearboy]
+name = "RetroArch: Gearboy"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/gearboy_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-tgbdual]
+name = "RetroArch: TGB Dual"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/tgbdual_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-doublecherrygb]
+name = "RetroArch: DoubleCherryGB"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/DoubleCherryGB_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-irogb]
+name = "RetroArch: IroGB"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/irogb_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-mesen-s]
+name = "RetroArch: Mesen-S"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/mesen-s_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-bsnes]
+name = "RetroArch: bsnes"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/bsnes_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-vbam]
+name = "RetroArch: VBA-M"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/vbam_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-skyemu]
+name = "RetroArch: SkyEmu"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/skyemu_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-vba-next]
+name = "RetroArch: VBA Next"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/vba_next_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-gpsp]
+name = "RetroArch: gpSP"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/gpsp_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-noods]
+name = "RetroArch: NooDS"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/noods_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-mame-gmaster]
+name = "RetroArch: MAME - Current"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/mame_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "gmaster -rompath \"{rom_dir};{rom_root}/gmaster\" -cart \"{rom}\""]
+
+[emulators.retroarch-freeintv]
+name = "RetroArch: FreeIntv"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/freeintv_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-mame-intellivision]
+name = "RetroArch: MAME - Current"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/mame_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "intv -rompath \"{rom_dir};{rom_root}/intellivision\" -cart \"{rom}\""]
+
+[emulators.retroarch-squirreljme]
+name = "RetroArch: SquirrelJME"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/squirreljme_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-lowresnx]
+name = "RetroArch: LowRes NX"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/lowresnx_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-lutro]
+name = "RetroArch: Lutro"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/lutro_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-minivmac]
+name = "RetroArch: Mini vMac"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/minivmac_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-clownmdemu]
+name = "RetroArch: ClownMDEmu"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/clownmdemu_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-sameduck]
+name = "RetroArch: SameDuck"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/sameduck_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-mame-megaduck]
+name = "RetroArch: MAME - Current"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/mame_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "megaduck -rompath \"{rom_dir};{rom_root}/megaduck\" -cart \"{rom}\""]
+
+[emulators.retroarch-mess2015]
+name = "RetroArch: MESS 2015"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/mess2015_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-theodore]
+name = "RetroArch: Theodore"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/theodore_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-fmsx]
+name = "RetroArch: fMSX"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/fmsx_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-azahar]
+name = "RetroArch: Azahar"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/azahar_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-citra]
+name = "RetroArch: Citra"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/citra_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-citra2018]
+name = "RetroArch: Citra 2018"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/citra2018_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-parallel-n64]
+name = "RetroArch: ParaLLEl N64"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/parallel_n64_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-melondsds]
+name = "RetroArch: melonDS DS"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/melondsds_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-melonds]
+name = "RetroArch: melonDS"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/melonds_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-desmume]
+name = "RetroArch: DeSmuME"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/desmume_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-desmume2015]
+name = "RetroArch: DeSmuME 2015"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/desmume2015_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-neocd]
+name = "RetroArch: NeoCD"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/neocd_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-fbneo-neogeocd]
+name = "RetroArch: FinalBurn Neo"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/fbneo_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "--subsystem", "neocd", "{rom}"]
+
+[emulators.retroarch-quicknes]
+name = "RetroArch: QuickNES"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/quicknes_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-beetle-ngp]
+name = "RetroArch: Beetle NeoPop"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/mednafen_ngp_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-race]
+name = "RetroArch: RACE"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/race_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-o2em]
+name = "RetroArch: O2EM"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/o2em_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-mame-odyssey2]
+name = "RetroArch: MAME - Current"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/mame_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "odyssey2 -rompath \"{rom_dir};{rom_root}/odyssey2\" -cart \"{rom}\""]
+
+[emulators.retroarch-mame-odyssey2-2]
+name = "RetroArch: MAME - Current"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/mame_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "videopac -rompath \"{rom_dir};{rom_root}/videopac\" -cart \"{rom}\""]
+
+[emulators.retroarch-mu]
+name = "RetroArch: Mu"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/mu_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-quasi88]
+name = "RetroArch: QUASI88"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/quasi88_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-np2kai]
+name = "RetroArch: Neko Project II Kai"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/np2kai_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-nekop2]
+name = "RetroArch: Neko Project II"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/nekop2_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-beetle-pce]
+name = "RetroArch: Beetle PCE"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/mednafen_pce_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-beetle-pce-fast]
+name = "RetroArch: Beetle PCE FAST"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/mednafen_pce_fast_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-beetle-supergrafx]
+name = "RetroArch: Beetle SuperGrafx"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/mednafen_supergrafx_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-geargrafx]
+name = "RetroArch: Geargrafx"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/geargrafx_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-beetle-pcfx]
+name = "RetroArch: Beetle PC-FX"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/mednafen_pcfx_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-retro8]
+name = "RetroArch: Retro8"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/retro8_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-vice-xplus4]
+name = "RetroArch: VICE xplus4"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/vice_xplus4_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-pokemini]
+name = "RetroArch: PokeMini"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/pokemini_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-ecwolf]
+name = "RetroArch: ECWolf (Wolfenstein 3D)"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/ecwolf_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-cannonball]
+name = "RetroArch: CannonBall (OutRun)"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/cannonball_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-craft]
+name = "RetroArch: Craft (Minecraft)"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/craft_libretro.dll"
+args = ["-L", "{core}", "--fullscreen"]
+
+[emulators.retroarch-mrboom]
+name = "RetroArch: Mr.Boom (Bomberman)"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/mrboom_libretro.dll"
+args = ["-L", "{core}", "--fullscreen"]
+
+[emulators.retroarch-nxengine]
+name = "RetroArch: NXEngine (Cave Story)"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/nxengine_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-doukutsu-rs]
+name = "RetroArch: drs (Cave Story)"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/doukutsu_rs_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-openlara]
+name = "RetroArch: OpenLara (Tomb Raider)"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/openlara_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-superbroswar]
+name = "RetroArch: Super Bros War"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/superbroswar_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-pcee2]
+name = "RetroArch: PCEE2"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/pcee2_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-pcsx2]
+name = "RetroArch: LRPS2"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/pcsx2_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-beetle-psx]
+name = "RetroArch: Beetle PSX"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/mednafen_psx_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-pcsx-rearmed]
+name = "RetroArch: PCSX ReARMed"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/pcsx_rearmed_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-mame-pv1000]
+name = "RetroArch: MAME - Current"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/mame_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "pv1000 -rompath \"{rom_dir};{rom_root}/pv1000\" -cart \"{rom}\""]
+
+[emulators.retroarch-tyrquake]
+name = "RetroArch: TyrQuake"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/tyrquake_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-vitaquake2]
+name = "RetroArch: vitaQuake 2"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/vitaquake2_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-vitaquake2-rogue]
+name = "RetroArch: vitaQuake 2 [Rogue]"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/vitaquake2-rogue_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-vitaquake2-xatrix]
+name = "RetroArch: vitaQuake 2 [Xatrix]"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/vitaquake2-xatrix_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-vitaquake2-zaero]
+name = "RetroArch: vitaQuake 2 [Zaero]"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/vitaquake2-zaero_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-vitaquake3]
+name = "RetroArch: vitaQuake 3"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/vitaquake3_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-snes9x2010]
+name = "RetroArch: Snes9x 2010"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/snes9x2010_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-snes9x2005-plus]
+name = "RetroArch: Snes9x 2005 Plus"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/snes9x2005_plus_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-bsnes-hd-beta]
+name = "RetroArch: bsnes-hd"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/bsnes_hd_beta_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-bsnes-jg]
+name = "RetroArch: bsnes-jg"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/bsnes-jg_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-bsnes-mercury-accuracy]
+name = "RetroArch: bsnes-mercury Accuracy"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/bsnes_mercury_accuracy_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-yabasanshiro]
+name = "RetroArch: YabaSanshiro"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/yabasanshiro_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-yabause]
+name = "RetroArch: Yabause"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/yabause_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-scummvm]
+name = "RetroArch: ScummVM"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/scummvm_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-mame-scv]
+name = "RetroArch: MAME - Current"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/mame_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "scv -rompath \"{rom_dir};{rom_root}/scv\" -cart \"{rom}\""]
+
+[emulators.retroarch-beetle-supafaust]
+name = "RetroArch: Beetle Supafaust"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/mednafen_supafaust_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-potator]
+name = "RetroArch: Potator"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/potator_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-mame-supervision]
+name = "RetroArch: MAME - Current"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/mame_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "svision -rompath \"{rom_dir};{rom_root}/supervision\" -cart \"{rom}\""]
+
+[emulators.retroarch-mame-supracan]
+name = "RetroArch: MAME - Current"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/mame_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "supracan -rompath \"{rom_dir};{rom_root}/supracan\" -cart \"{rom}\""]
+
+[emulators.retroarch-tic80]
+name = "RetroArch: TIC-80"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/tic80_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-uzem]
+name = "RetroArch: Uzem"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/uzem_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-vecx]
+name = "RetroArch: vecx"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/vecx_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-mame-vectrex]
+name = "RetroArch: MAME - Current"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/mame_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "vectrex -rompath \"{rom_dir};{rom_root}/vectrex\" -cart \"{rom}\""]
+
+[emulators.retroarch-vice-xvic]
+name = "RetroArch: VICE xvic"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/vice_xvic_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-vircon32]
+name = "RetroArch: Vircon32"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/vircon32_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-beetle-vb]
+name = "RetroArch: Beetle VB"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/mednafen_vb_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-mame-vsmile]
+name = "RetroArch: MAME - Current"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/mame_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "vsmile -rompath \"{rom_dir};{rom_root}/vsmile\" -cart \"{rom}\""]
+
+[emulators.retroarch-wasm4]
+name = "RetroArch: WASM-4"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/wasm4_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-cemu]
+name = "RetroArch: Cemu"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/cemu_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-beetle-wswan]
+name = "RetroArch: Beetle Cygne"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/mednafen_wswan_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-x1]
+name = "RetroArch: X Millennium"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/x1_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-px68k]
+name = "RetroArch: PX68k"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/px68k_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-mojozork]
+name = "RetroArch: MojoZork"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/mojozork_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-81]
+name = "RetroArch: EightyOne"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/81_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+[emulators.retroarch-fuse]
+name = "RetroArch: Fuse"
+executable = "{retroarch}/retroarch.exe"
+core = "{retroarch}/cores/fuse_libretro.dll"
+args = ["-L", "{core}", "--fullscreen", "{rom}"]
+
+# Arcade emulator MAME
+[emulators.mame-adam]
+name = "MAME [Diskette] · Adam"
+executable = "{emulators}/mame/mame.exe"
+args = ["-rompath", "{rom_dir};{rom_root}/adam", "adam", "-flop1", "{rom}"]
+
+[emulators.mame-adam-tape]
+name = "MAME [Tape] · Adam"
+executable = "{emulators}/mame/mame.exe"
+args = ["-rompath", "{rom_dir};{rom_root}/adam", "adam", "-cass1", "{rom}"]
+
+[emulators.mame-adam-cartridge]
+name = "MAME [Cartridge] · Adam"
+executable = "{emulators}/mame/mame.exe"
+args = ["-rompath", "{rom_dir};{rom_root}/adam", "adam", "-cart1", "{rom}"]
+
+[emulators.mame-adam-software-list]
+name = "MAME [Software list] · Adam"
+executable = "{emulators}/mame/mame.exe"
+args = ["-rompath", "{rom_dir};{rom_root}/adam", "adam", "{rom_stem}"]
+
+[emulators.mame-amstradcpc]
+name = "MAME · Amstrad CPC"
+executable = "{emulators}/mame/mame.exe"
+args = ["-rompath", "{rom_dir};{rom_root}/amstradcpc", "cpc6128", "-flop1", "{rom}"]
+
+[emulators.mame-apple2]
+name = "MAME · Apple II"
+executable = "{emulators}/mame/mame.exe"
+args = ["-rompath", "{rom_dir};{rom_root}/apple2", "apple2e", "-gameio", "joy", "-flop1", "{rom}"]
+
+[emulators.mame-apple2gs]
+name = "MAME · Apple IIGS"
+executable = "{emulators}/mame/mame.exe"
+args = ["-rompath", "{rom_dir};{rom_root}/apple2gs", "apple2gs", "-gameio", "joy", "-flop3", "{rom}"]
+
+[emulators.mame-apple2gs-software-list]
+name = "MAME [Software list] · Apple IIGS"
+executable = "{emulators}/mame/mame.exe"
+args = ["-rompath", "{rom_dir};{rom_root}/apple2gs", "apple2gs", "-gameio", "joy", "{rom_stem}"]
+
+[emulators.mame-arcade]
+name = "MAME · Arcade"
+executable = "{emulators}/mame/mame.exe"
+args = ["-rompath", "{rom_dir};{rom_root}/arcade", "{rom_stem}"]
+
+[emulators.mame-arcadia]
+name = "MAME · Emerson Arcadia 2001"
+executable = "{emulators}/mame/mame.exe"
+args = ["-rompath", "{rom_dir};{rom_root}/arcadia", "arcadia", "-cart", "{rom}"]
+
+[emulators.mame-archimedes]
+name = "MAME [Model A440/1] · Archimedes"
+executable = "{emulators}/mame/mame.exe"
+args = ["-rompath", "{rom_dir};{rom_root}/archimedes", "aa4401", "-flop1", "{rom}"]
+
+[emulators.mame-archimedes-model-a3000]
+name = "MAME [Model A3000] · Archimedes"
+executable = "{emulators}/mame/mame.exe"
+args = ["-rompath", "{rom_dir};{rom_root}/archimedes", "aa3000", "-flop1", "{rom}"]
+
+[emulators.mame-archimedes-model-a310]
+name = "MAME [Model A310] · Archimedes"
+executable = "{emulators}/mame/mame.exe"
+args = ["-rompath", "{rom_dir};{rom_root}/archimedes", "aa310", "-flop1", "{rom}"]
+
+[emulators.mame-archimedes-model-a540]
+name = "MAME [Model A540] · Archimedes"
+executable = "{emulators}/mame/mame.exe"
+args = ["-rompath", "{rom_dir};{rom_root}/archimedes", "aa540", "-flop1", "{rom}"]
+
+[emulators.mame-astrocde]
+name = "MAME · Bally Astrocade"
+executable = "{emulators}/mame/mame.exe"
+args = ["-rompath", "{rom_dir};{rom_root}/astrocde", "astrocde", "-cart", "{rom_stem}"]
+
+[emulators.mame-atari7800]
+name = "MAME · Atari 7800 ProSystem"
+executable = "{emulators}/mame/mame.exe"
+args = ["-rompath", "{rom_dir};{rom_root}/atari7800", "a7800", "-cart", "{rom}"]
+
+[emulators.mame-atarijaguar]
+name = "MAME · Atari Jaguar"
+executable = "{emulators}/mame/mame.exe"
+args = ["-rompath", "{rom_dir};{rom_root}/atarijaguar", "jaguar", "-cart", "{rom}"]
+
+[emulators.mame-bbcmicro]
+name = "MAME · Acorn Computers BBC Micro"
+executable = "{emulators}/mame/mame.exe"
+args = ["-rompath", "{rom_dir};{rom_root}/bbcmicro", "bbcb", "-autoboot_delay", "2", "-autoboot_command", "*cat\\n\\n*exec !boot\\n", "-analogue", "acornjoy", "-flop1", "{rom}"]
+
+[emulators.mame-cdimono1]
+name = "MAME · CD-i"
+executable = "{emulators}/mame/mame.exe"
+args = ["-rompath", "{rom_dir};{rom_root}/cdimono1", "cdimono1", "-cdrom", "{rom}"]
+
+[emulators.mame-channelf]
+name = "MAME · Channel F"
+executable = "{emulators}/mame/mame.exe"
+args = ["-rompath", "{rom_dir};{rom_root}/channelf", "channelf", "-cart", "{rom}"]
+
+[emulators.mame-coco]
+name = "MAME [Cartridge] · Tandy Color Computer"
+executable = "{emulators}/mame/mame.exe"
+args = ["-rompath", "{rom_dir};{rom_root}/coco", "coco", "-cart", "{rom}"]
+
+[emulators.mame-coco-tape]
+name = "MAME [Tape] · Tandy Color Computer"
+executable = "{emulators}/mame/mame.exe"
+args = ["-rompath", "{rom_dir};{rom_root}/coco", "coco", "-autoboot_delay", "2", "-autoboot_command", "cloadm:exec\\n", "-cass", "{rom}"]
+
+[emulators.mame-consolearcade]
+name = "MAME · Console Arcade Systems"
+executable = "{emulators}/mame/mame.exe"
+args = ["-rompath", "{rom_dir};{rom_root}/consolearcade", "{rom_stem}"]
+
+[emulators.mame-cps]
+name = "MAME · Capcom Play System"
+executable = "{emulators}/mame/mame.exe"
+args = ["-rompath", "{rom_dir};{rom_root}/cps", "{rom_stem}"]
+
+[emulators.mame-cps1]
+name = "MAME · Capcom Play System I"
+executable = "{emulators}/mame/mame.exe"
+args = ["-rompath", "{rom_dir};{rom_root}/cps1", "{rom_stem}"]
+
+[emulators.mame-cps2]
+name = "MAME · Capcom Play System II"
+executable = "{emulators}/mame/mame.exe"
+args = ["-rompath", "{rom_dir};{rom_root}/cps2", "{rom_stem}"]
+
+[emulators.mame-cps3]
+name = "MAME · Capcom Play System III"
+executable = "{emulators}/mame/mame.exe"
+args = ["-rompath", "{rom_dir};{rom_root}/cps3", "{rom_stem}"]
+
+[emulators.mame-crvision]
+name = "MAME · CreatiVision"
+executable = "{emulators}/mame/mame.exe"
+args = ["-rompath", "{rom_dir};{rom_root}/crvision", "crvision", "-cart", "{rom}"]
+
+[emulators.mame-daphne]
+name = "MAME · Daphne / LaserDisc"
+executable = "{emulators}/mame/mame.exe"
+args = ["-rompath", "{rom_dir};{rom_root}/daphne", "{rom_stem}"]
+
+[emulators.mame-daphne-2]
+name = "MAME · Daphne / LaserDisc"
+executable = "{emulators}/mame/mame.exe"
+args = ["-rompath", "{rom_dir};{rom_root}/laserdisc", "{rom_stem}"]
+
+[emulators.mame-dragon32]
+name = "MAME Dragon 32 [Tape] · Dragon Data Dragon 32"
+executable = "{emulators}/mame/mame.exe"
+args = ["-rompath", "{rom_dir};{rom_root}/dragon32", "dragon32", "-autoboot_delay", "4", "-autoboot_command", "cloadm\"\"\\n", "-cass", "{rom}"]
+
+[emulators.mame-dragon32-dragon-32-cartridge]
+name = "MAME Dragon 32 [Cartridge] · Dragon Data Dragon 32"
+executable = "{emulators}/mame/mame.exe"
+args = ["-rompath", "{rom_dir};{rom_root}/dragon32", "dragon32", "-cart", "{rom}"]
+
+[emulators.mame-dragon32-dragon-64-tape]
+name = "MAME Dragon 64 [Tape] · Dragon Data Dragon 32"
+executable = "{emulators}/mame/mame.exe"
+args = ["-rompath", "{rom_dir};{rom_root}/dragon32", "dragon64", "-autoboot_delay", "4", "-autoboot_command", "cloadm\"\"\\n", "-cass", "{rom}"]
+
+[emulators.mame-dragon32-dragon-64-cartridge]
+name = "MAME Dragon 64 [Cartridge] · Dragon Data Dragon 32"
+executable = "{emulators}/mame/mame.exe"
+args = ["-rompath", "{rom_dir};{rom_root}/dragon32", "dragon64", "-cart", "{rom}"]
+
+[emulators.mame-electron]
+name = "MAME [Tape] · Electron"
+executable = "{emulators}/mame/mame.exe"
+args = ["-rompath", "{rom_dir};{rom_root}/electron", "electron64", "-autoboot_delay", "2", "-autoboot_command", "*T.\\nCH.\"\"\\n", "-cass1", "{rom}"]
+
+[emulators.mame-electron-diskette-dfs]
+name = "MAME [Diskette DFS] · Electron"
+executable = "{emulators}/mame/mame.exe"
+args = ["-rompath", "{rom_dir};{rom_root}/electron", "electron64", "-exp", "plus1", "-cart1", "seds", "-autoboot_delay", "2", "-autoboot_command", "*CAT\\n\\n\\n\\n\\n\\n*EXEC !BOOT\\n", "-flop1", "{rom}"]
+
+[emulators.mame-electron-diskette-adfs]
+name = "MAME [Diskette ADFS] · Electron"
+executable = "{emulators}/mame/mame.exe"
+args = ["-rompath", "{rom_dir};{rom_root}/electron", "electron64", "-exp", "plus3", "-exp:plus3:fdc:1", "35dd", "-autoboot_delay", "2", "-autoboot_command", "*CAT\\n\\n\\n\\n\\n\\n*RUN !BOOT\\n", "-flop1", "{rom}"]
+
+[emulators.mame-fm7]
+name = "MAME [FM-7 Diskette] · Fujitsu FM-7"
+executable = "{emulators}/mame/mame.exe"
+args = ["-rompath", "{rom_dir};{rom_root}/fm7", "fm7", "-flop1", "{rom}"]
+
+[emulators.mame-fm7-fm-7-tape]
+name = "MAME [FM-7 Tape] · Fujitsu FM-7"
+executable = "{emulators}/mame/mame.exe"
+args = ["-rompath", "{rom_dir};{rom_root}/fm7", "fm7", "-autoboot_delay", "5", "-autoboot_command", "load\\n\\n\\nrun\\n", "-cass1", "{rom}"]
+
+[emulators.mame-fm7-fm-7-software-list]
+name = "MAME [FM-7 Software list] · Fujitsu FM-7"
+executable = "{emulators}/mame/mame.exe"
+args = ["-rompath", "{rom_dir};{rom_root}/fm7", "fm7", "{rom_stem}"]
+
+[emulators.mame-fm7-fm77av-diskette]
+name = "MAME [FM77AV Diskette] · Fujitsu FM-7"
+executable = "{emulators}/mame/mame.exe"
+args = ["-rompath", "{rom_dir};{rom_root}/fm7", "fm77av", "-flop1", "{rom}"]
+
+[emulators.mame-fm7-fm77av-tape]
+name = "MAME [FM77AV Tape] · Fujitsu FM-7"
+executable = "{emulators}/mame/mame.exe"
+args = ["-rompath", "{rom_dir};{rom_root}/fm7", "fm77av", "-autoboot_delay", "5", "-autoboot_command", "load\\n\\n\\nrun\\n", "-cass1", "{rom}"]
+
+[emulators.mame-fm7-fm77av-software-list]
+name = "MAME [FM77AV Software list] · Fujitsu FM-7"
+executable = "{emulators}/mame/mame.exe"
+args = ["-rompath", "{rom_dir};{rom_root}/fm7", "fm77av", "{rom_stem}"]
+
+[emulators.mame-fmtowns]
+name = "MAME · Fujitsu FM Towns"
+executable = "{emulators}/mame/mame.exe"
+args = ["-rompath", "{rom_dir};{rom_root}/fmtowns", "fmtownshr", "-cdrom", "{rom}"]
+
+[emulators.mame-gamate]
+name = "MAME · Gamate"
+executable = "{emulators}/mame/mame.exe"
+args = ["-rompath", "{rom_dir};{rom_root}/gamate", "gamate", "-cart", "{rom}"]
+
+[emulators.mame-gameandwatch]
+name = "MAME Local Artwork · Game and Watch"
+executable = "{emulators}/mame/mame.exe"
+args = ["-artpath", "{rom_root}/gameandwatch/artwork", "-rompath", "{rom_dir};{rom_root}/gameandwatch", "{rom_stem}"]
+
+[emulators.mame-gameandwatch-2]
+name = "MAME · Game and Watch"
+executable = "{emulators}/mame/mame.exe"
+args = ["-rompath", "{rom_dir};{rom_root}/gameandwatch", "{rom_stem}"]
+
+[emulators.mame-gamecom]
+name = "MAME · Game.com"
+executable = "{emulators}/mame/mame.exe"
+args = ["-rompath", "{rom_dir};{rom_root}/gamecom", "gamecom", "-cartridge1", "{rom}"]
+
+[emulators.mame-gmaster]
+name = "MAME · Hartung Game Master"
+executable = "{emulators}/mame/mame.exe"
+args = ["-rompath", "{rom_dir};{rom_root}/gmaster", "gmaster", "-cart", "{rom}"]
+
+[emulators.mame-gx4000]
+name = "MAME · Amstrad GX4000"
+executable = "{emulators}/mame/mame.exe"
+args = ["-rompath", "{rom_dir};{rom_root}/gx4000", "gx4000", "-cart", "{rom}"]
+
+[emulators.mame-intellivision]
+name = "MAME · Intellivision"
+executable = "{emulators}/mame/mame.exe"
+args = ["-rompath", "{rom_dir};{rom_root}/intellivision", "intv", "-cart", "{rom}"]
+
+[emulators.mame-lcdgames]
+name = "MAME Local Artwork · LCD Handheld Games"
+executable = "{emulators}/mame/mame.exe"
+args = ["-artpath", "{rom_root}/lcdgames/artwork", "-rompath", "{rom_dir};{rom_root}/lcdgames", "{rom_stem}"]
+
+[emulators.mame-lcdgames-2]
+name = "MAME · LCD Handheld Games"
+executable = "{emulators}/mame/mame.exe"
+args = ["-rompath", "{rom_dir};{rom_root}/lcdgames", "{rom_stem}"]
+
+[emulators.mame-macintosh]
+name = "MAME Mac SE Bootable · Apple Macintosh"
+executable = "{emulators}/mame/mame.exe"
+args = ["-rompath", "{rom_dir};{rom_root}/macintosh", "macse", "-flop1", "{rom}"]
+
+[emulators.mame-macintosh-mac-se-boot-disk]
+name = "MAME Mac SE Boot Disk · Apple Macintosh"
+executable = "{emulators}/mame/mame.exe"
+args = ["-rompath", "{rom_dir};{rom_root}/macintosh", "macse", "-flop1", "{rom_dir}/boot.dsk", "-flop2", "{rom}"]
+
+[emulators.mame-macintosh-mac-plus-bootable]
+name = "MAME Mac Plus Bootable · Apple Macintosh"
+executable = "{emulators}/mame/mame.exe"
+args = ["-rompath", "{rom_dir};{rom_root}/macintosh", "macplus", "-flop1", "{rom}"]
+
+[emulators.mame-macintosh-mac-plus-boot-disk]
+name = "MAME Mac Plus Boot Disk · Apple Macintosh"
+executable = "{emulators}/mame/mame.exe"
+args = ["-rompath", "{rom_dir};{rom_root}/macintosh", "macplus", "-flop1", "{rom_dir}/boot.dsk", "-flop2", "{rom}"]
+
+[emulators.mame-mame]
+name = "MAME · MAME"
+executable = "{emulators}/mame/mame.exe"
+args = ["-rompath", "{rom_dir};{rom_root}/mame", "{rom_stem}"]
+
+[emulators.mame-megaduck]
+name = "MAME · Mega Duck"
+executable = "{emulators}/mame/mame.exe"
+args = ["-rompath", "{rom_dir};{rom_root}/megaduck", "megaduck", "-cart", "{rom}"]
+
+[emulators.mame-model2]
+name = "MAME · Model 2"
+executable = "{emulators}/mame/mame.exe"
+args = ["-rompath", "{rom_dir};{rom_root}/model2", "{rom_stem}"]
+
+[emulators.mame-model3]
+name = "MAME · Model 3"
+executable = "{emulators}/mame/mame.exe"
+args = ["-rompath", "{rom_dir};{rom_root}/model3", "{rom_stem}"]
+
+[emulators.mame-neogeo]
+name = "MAME · Neo Geo"
+executable = "{emulators}/mame/mame.exe"
+args = ["-rompath", "{rom_dir};{rom_root}/neogeo", "{rom_stem}"]
+
+[emulators.mame-neogeocd]
+name = "MAME · Neo Geo CD"
+executable = "{emulators}/mame/mame.exe"
+args = ["-rompath", "{rom_dir};{rom_root}/neogeocd", "neocdz", "-cdrm", "{rom}"]
+
+[emulators.mame-neogeocd-2]
+name = "MAME · Neo Geo CD"
+executable = "{emulators}/mame/mame.exe"
+args = ["-rompath", "{rom_dir};{rom_root}/neogeocdjp", "neocdz", "-cdrm", "{rom}"]
+
+[emulators.mame-odyssey2]
+name = "MAME · Odyssey 2 / Videopac"
+executable = "{emulators}/mame/mame.exe"
+args = ["-rompath", "{rom_dir};{rom_root}/odyssey2", "odyssey2", "-cart", "{rom}"]
+
+[emulators.mame-odyssey2-2]
+name = "MAME · Odyssey 2 / Videopac"
+executable = "{emulators}/mame/mame.exe"
+args = ["-rompath", "{rom_dir};{rom_root}/videopac", "videopac", "-cart", "{rom}"]
+
+[emulators.mame-oric]
+name = "MAME · Tangerine Computer Systems Oric"
+executable = "{emulators}/mame/mame.exe"
+args = ["-rompath", "{rom_dir};{rom_root}/oric", "oric1", "-autoboot_delay", "4", "-autoboot_command", "cload\"\"\\n", "-cass", "{rom}"]
+
+[emulators.mame-pv1000]
+name = "MAME · PV-1000"
+executable = "{emulators}/mame/mame.exe"
+args = ["-rompath", "{rom_dir};{rom_root}/pv1000", "pv1000", "-cart", "{rom}"]
+
+[emulators.mame-scv]
+name = "MAME · Epoch Super Cassette Vision"
+executable = "{emulators}/mame/mame.exe"
+args = ["-rompath", "{rom_dir};{rom_root}/scv", "scv", "-cart", "{rom}"]
+
+[emulators.mame-stv]
+name = "MAME · Titan Video Game System"
+executable = "{emulators}/mame/mame.exe"
+args = ["-rompath", "{rom_dir};{rom_root}/stv", "{rom_stem}"]
+
+[emulators.mame-supervision]
+name = "MAME · Watara Supervision"
+executable = "{emulators}/mame/mame.exe"
+args = ["-rompath", "{rom_dir};{rom_root}/supervision", "svision", "-cart", "{rom}"]
+
+[emulators.mame-supracan]
+name = "MAME · Super A'Can"
+executable = "{emulators}/mame/mame.exe"
+args = ["-rompath", "{rom_dir};{rom_root}/supracan", "supracan", "-cart", "{rom}"]
+
+[emulators.mame-tanodragon]
+name = "MAME [Tape] · Tano Dragon"
+executable = "{emulators}/mame/mame.exe"
+args = ["-rompath", "{rom_dir};{rom_root}/dragon32", "tanodr64", "-autoboot_delay", "4", "-autoboot_command", "cloadm\"\"\\n", "-cass", "{rom}"]
+
+[emulators.mame-tanodragon-cartridge]
+name = "MAME [Cartridge] · Tano Dragon"
+executable = "{emulators}/mame/mame.exe"
+args = ["-rompath", "{rom_dir};{rom_root}/dragon32", "tanodr64", "-cart", "{rom}"]
+
+[emulators.mame-ti99]
+name = "MAME · Texas Instruments TI-99"
+executable = "{emulators}/mame/mame.exe"
+args = ["-rompath", "{rom_dir};{rom_root}/ti99", "ti99_4a", "-ioport", "peb", "-ioport:peb:slot3", "speechadapter", "-cart", "{rom_stem}"]
+
+[emulators.mame-ti99-legacy]
+name = "MAME Legacy · Texas Instruments TI-99"
+executable = "{emulators}/mame/mame.exe"
+args = ["-rompath", "{rom_dir};{rom_root}/ti99", "ti99_4a", "-ioport", "peb", "-ioport:peb:slot3", "speech", "-cart", "{rom_stem}"]
+
+[emulators.mame-vectrex]
+name = "MAME · Vectrex"
+executable = "{emulators}/mame/mame.exe"
+args = ["-rompath", "{rom_dir};{rom_root}/vectrex", "vectrex", "-cart", "{rom}"]
+
+[emulators.mame-vsmile]
+name = "MAME · V.Smile"
+executable = "{emulators}/mame/mame.exe"
+args = ["-rompath", "{rom_dir};{rom_root}/vsmile", "vsmile", "-cart", "{rom}"]
+
+[emulators.mame-x1]
+name = "MAME [Diskette] · Sharp X1"
+executable = "{emulators}/mame/mame.exe"
+args = ["-rompath", "{rom_dir};{rom_root}/x1", "x1", "-flop1", "{rom}"]
+
+[emulators.mame-x1-tape]
+name = "MAME [Tape] · Sharp X1"
+executable = "{emulators}/mame/mame.exe"
+args = ["-rompath", "{rom_dir};{rom_root}/x1", "x1", "-cass1", "{rom}"]
+
+[emulators.mame-x68000]
+name = "MAME · Sharp X68000"
+executable = "{emulators}/mame/mame.exe"
+args = ["-rompath", "{rom_dir};{rom_root}/x68000", "x68000", "-flop1", "{rom}"]
+
+# Coleco ColecoVision and Adam emulator ColEm
+[emulators.colem-adam]
+name = "ColEm · Adam"
+executable = "{emulators}/ColEm/ColEm.exe"
+args = ["-adam", "{rom}"]
+
+[emulators.colem-colecovision]
+name = "ColEm · ColecoVision"
+executable = "{emulators}/ColEm/ColEm.exe"
+args = ["-cv", "{rom}"]
+
+# Games that are their own program, shortcut or script
+[emulators.run-file]
+name = "Run the game's own file (shortcut, script or program)"
+run_file = true
+
+# Commodore Amiga emulator FS-UAE
+[emulators.fs-uae-amiga]
+name = "FS-UAE · Amiga"
+executable = "{emulators}/FS-UAE-Launcher/Windows/x86-64/fs-uae-launcher.exe"
+args = ["{rom}"]
+
+[emulators.fs-uae-amigacd32]
+name = "FS-UAE · Commodore Amiga CD32"
+executable = "{emulators}/FS-UAE-Launcher/Windows/x86-64/fs-uae-launcher.exe"
+args = ["--config:amiga-model=CD32", "{rom}"]
+
+[emulators.fs-uae-cdtv]
+name = "FS-UAE · Commodore CDTV"
+executable = "{emulators}/FS-UAE-Launcher/Windows/x86-64/fs-uae-launcher.exe"
+args = ["--config:amiga-model=CDTV", "{rom}"]
+
+# Commodore Amiga emulator Amiberry
+[emulators.amiberry-amiga]
+name = "Amiberry · Amiga"
+executable = "{emulators}/amiberry/Amiberry.exe"
+args = ["{rom}"]
+
+[emulators.amiberry-amigacd32]
+name = "Amiberry · Commodore Amiga CD32"
+executable = "{emulators}/amiberry/Amiberry.exe"
+args = ["--model", "CD32", "--autoload", "{rom}"]
+
+[emulators.amiberry-cdtv]
+name = "Amiberry · Commodore CDTV"
+executable = "{emulators}/amiberry/Amiberry.exe"
+args = ["--model", "CDTV", "--autoload", "{rom}"]
+
+# Amstrad CPC emulator CPCemu
+[emulators.cpcemu]
+name = "CPCemu"
+executable = "{emulators}/cpcemu/cpcemu.exe"
+args = ["{rom}"]
+
+# Amstrad CPC emulator ACE-DL
+[emulators.ace-dl]
+name = "ACE-DL"
+executable = "{emulators}/AceDL/AceDL.exe"
+args = ["{rom}"]
+
+# Apple II emulator AppleWin
+[emulators.applewin]
+name = "AppleWin"
+executable = "{emulators}/AppleWin/AppleWin.exe"
+args = ["-f", "-d1", "{rom}"]
+
+# Multi-system emulator Mednafen
+[emulators.mednafen-apple2]
+name = "Mednafen · Apple II"
+executable = "{emulators}/mednafen/mednafen.exe"
+args = ["-force_module", "apple2", "{rom}"]
+
+[emulators.mednafen-atarilynx]
+name = "Mednafen · Atari Lynx"
+executable = "{emulators}/mednafen/mednafen.exe"
+args = ["-force_module", "lynx", "{rom}"]
+
+[emulators.mednafen-saturn]
+name = "Mednafen · Console Arcade Systems"
+executable = "{emulators}/mednafen/mednafen.exe"
+args = ["-force_module", "ss", "{rom}"]
+
+[emulators.mednafen-fds]
+name = "Mednafen · Famicom Disk System"
+executable = "{emulators}/mednafen/mednafen.exe"
+args = ["-force_module", "nes", "{rom}"]
+
+[emulators.mednafen-gamegear]
+name = "Mednafen · Game Gear"
+executable = "{emulators}/mednafen/mednafen.exe"
+args = ["-force_module", "gg", "{rom}"]
+
+[emulators.mednafen-gb]
+name = "Mednafen · Game Boy"
+executable = "{emulators}/mednafen/mednafen.exe"
+args = ["-force_module", "gb", "{rom}"]
+
+[emulators.mednafen-gba]
+name = "Mednafen · Game Boy Advance"
+executable = "{emulators}/mednafen/mednafen.exe"
+args = ["-force_module", "gba", "{rom}"]
+
+[emulators.mednafen-mastersystem]
+name = "Mednafen · Master System"
+executable = "{emulators}/mednafen/mednafen.exe"
+args = ["-force_module", "sms", "{rom}"]
+
+[emulators.mednafen-megadrive]
+name = "Mednafen · Mega Drive"
+executable = "{emulators}/mednafen/mednafen.exe"
+args = ["-force_module", "md", "{rom}"]
+
+[emulators.mednafen-ngp]
+name = "Mednafen · Neo Geo Pocket"
+executable = "{emulators}/mednafen/mednafen.exe"
+args = ["-force_module", "ngp", "{rom}"]
+
+[emulators.mednafen-pcengine]
+name = "Mednafen · PC Engine / TurboGrafx-16"
+executable = "{emulators}/mednafen/mednafen.exe"
+args = ["-force_module", "pce", "{rom}"]
+
+[emulators.mednafen-pcfx]
+name = "Mednafen · PC-FX"
+executable = "{emulators}/mednafen/mednafen.exe"
+args = ["-force_module", "pcfx", "{rom}"]
+
+[emulators.mednafen-psx]
+name = "Mednafen · PlayStation"
+executable = "{emulators}/mednafen/mednafen.exe"
+args = ["-force_module", "psx", "{rom}"]
+
+[emulators.mednafen-snes]
+name = "Mednafen · SNES (Super Nintendo)"
+executable = "{emulators}/mednafen/mednafen.exe"
+args = ["-force_module", "snes", "{rom}"]
+
+[emulators.mednafen-virtualboy]
+name = "Mednafen · Virtual Boy"
+executable = "{emulators}/mednafen/mednafen.exe"
+args = ["-force_module", "vb", "{rom}"]
+
+[emulators.mednafen-wonderswan]
+name = "Mednafen · WonderSwan"
+executable = "{emulators}/mednafen/mednafen.exe"
+args = ["-force_module", "wswan", "{rom}"]
+
+# Apple II emulator izapple2
+[emulators.izapple2]
+name = "izapple2"
+executable = "{emulators}/izapple2/izapple2sdl_windows_amd64.exe"
+args = ["{rom}"]
+
+# Apple IIGS emulator KEGS
+[emulators.kegs]
+name = "KEGS"
+executable = "{emulators}/kegs/kegswin.exe"
+args = ["-s7d1", "{rom}"]
+
+# Arcade emulator GroovyMAME
+[emulators.groovymame-arcade]
+name = "GroovyMAME · Arcade"
+executable = "{emulators}/groovymame/mame.exe"
+args = ["-rompath", "{rom_dir};{rom_root}/arcade", "{rom_stem}"]
+
+[emulators.groovymame-mame]
+name = "GroovyMAME · MAME"
+executable = "{emulators}/groovymame/mame.exe"
+args = ["-rompath", "{rom_dir};{rom_root}/mame", "{rom_stem}"]
+
+# Arcade emulator FinalBurn Neo
+[emulators.finalburn-neo]
+name = "FinalBurn Neo"
+executable = "{emulators}/fbneo/fbneo64.exe"
+args = ["{rom_stem}"]
+
+[emulators.finalburn-neo-neogeocd]
+name = "FinalBurn Neo · Neo Geo CD"
+executable = "{emulators}/fbneo/fbneo64.exe"
+args = ["neocdz", "-cd", "{rom}"]
+
+# Sega Dreamcast emulator Flycast
+[emulators.flycast]
+name = "Flycast"
+executable = "{emulators}/flycast/flycast.exe"
+args = ["{rom}"]
+
+# Sega Dreamcast emulator Flycast Dojo
+[emulators.flycast-dojo]
+name = "Flycast Dojo"
+executable = "{emulators}/flycast-dojo/flycast.exe"
+args = ["{rom}"]
+
+# Sega Model 2 Emulator
+[emulators.m2emulator]
+name = "Model 2 Emulator"
+executable = "{emulators}/m2emulator/EMULATOR.EXE"
+args = ["{rom_stem}"]
+
+# Sega Model 3 emulator Supermodel
+[emulators.supermodel]
+name = "Supermodel"
+executable = "{emulators}/Supermodel/Supermodel.exe"
+args = ["{rom}"]
+
+# Sega Model 3 emulator Supermodel Dojo
+[emulators.supermodel-dojo]
+name = "Supermodel Dojo"
+executable = "{emulators}/Supermodel-Dojo/supermodel.exe"
+args = ["{rom}"]
+
+# Namco System 246 and 256 emulator PCSX2x6
+[emulators.pcsx2x6]
+name = "PCSX2x6"
+executable = "{emulators}/PCSX2x6/pcsx2-qt.exe"
+args = ["-batch", "{rom}"]
+
+# Sony PlayStation 2 emulator Play!
+[emulators.play-arcade]
+name = "Play! Arcade · Arcade"
+executable = "{emulators}/Play/Play.exe"
+args = ["--fullscreen", "--arcade", "{rom_dir}/{rom_stem}"]
+
+[emulators.play-disc]
+name = "Play! Disc · Console Arcade Systems"
+executable = "{emulators}/Play/Play.exe"
+args = ["--fullscreen", "--disc", "{rom}"]
+
+# Fruit machine emulator MFME
+[emulators.mfme]
+name = "MFME"
+executable = "{emulators}/MFME/MFME.exe"
+args = ["{rom}"]
+
+# Arcade emulator ArcadeDuck (PlayStation hardware)
+[emulators.arcadeduck]
+name = "ArcadeDuck"
+executable = "{emulators}/ArcadeDuck/ArcadeDuck.exe"
+args = ["{rom}"]
+
+# Emerson Arcadia 2001 emulator WinArcadia
+[emulators.winarcadia]
+name = "WinArcadia"
+executable = "{emulators}/WinArcadia/WinArcadia.exe"
+args = ["{rom}"]
+
+# Atari 2600 emulator Stella
+[emulators.stella]
+name = "Stella"
+executable = "{emulators}/Stella/64-bit/Stella.exe"
+args = ["{rom}"]
+
+# Atari 2600 emulator Gopher2600
+[emulators.gopher2600]
+name = "Gopher2600"
+executable = "{emulators}/gopher2600/gopher2600_windows_amd64.exe"
+args = ["{rom}"]
+
+# Multi-system emulator ares
+[emulators.ares-atari2600]
+name = "ares · Atari 2600"
+executable = "{emulators}/ares/ares.exe"
+args = ["--fullscreen", "--system", "Atari 2600", "{rom}"]
+
+[emulators.ares-colecovision]
+name = "ares · ColecoVision"
+executable = "{emulators}/ares/ares.exe"
+args = ["--fullscreen", "--system", "ColecoVision", "{rom}"]
+
+[emulators.ares-daphne]
+name = "ares [Mega LD] · Daphne / LaserDisc"
+executable = "{emulators}/ares/ares.exe"
+args = ["--fullscreen", "--system", "Mega LD", "{rom}"]
+
+[emulators.ares-fds]
+name = "ares FDS · Famicom Disk System"
+executable = "{emulators}/ares/ares.exe"
+args = ["--fullscreen", "--system", "Famicom Disk System", "{rom}"]
+
+[emulators.ares-gamegear]
+name = "ares · Game Gear"
+executable = "{emulators}/ares/ares.exe"
+args = ["--fullscreen", "--system", "Game Gear", "{rom}"]
+
+[emulators.ares-gb]
+name = "ares · Game Boy"
+executable = "{emulators}/ares/ares.exe"
+args = ["--fullscreen", "--system", "Game Boy", "{rom}"]
+
+[emulators.ares-gba]
+name = "ares · Game Boy Advance"
+executable = "{emulators}/ares/ares.exe"
+args = ["--fullscreen", "--system", "Game Boy Advance", "{rom}"]
+
+[emulators.ares-gbc]
+name = "ares · Game Boy Color"
+executable = "{emulators}/ares/ares.exe"
+args = ["--fullscreen", "--system", "Game Boy Color", "{rom}"]
+
+[emulators.ares-mastersystem]
+name = "ares · Master System"
+executable = "{emulators}/ares/ares.exe"
+args = ["--fullscreen", "--system", "Master System", "{rom}"]
+
+[emulators.ares-megadrive]
+name = "ares · Mega Drive"
+executable = "{emulators}/ares/ares.exe"
+args = ["--fullscreen", "--system", "Mega Drive", "{rom}"]
+
+[emulators.ares-msx]
+name = "ares · MSX"
+executable = "{emulators}/ares/ares.exe"
+args = ["--fullscreen", "--system", "MSX", "{rom}"]
+
+[emulators.ares-msx2]
+name = "ares · MSX2"
+executable = "{emulators}/ares/ares.exe"
+args = ["--fullscreen", "--system", "MSX2", "{rom}"]
+
+[emulators.ares-n64]
+name = "ares · 64"
+executable = "{emulators}/ares/ares.exe"
+args = ["--fullscreen", "--system", "Nintendo 64", "{rom}"]
+
+[emulators.ares-n64dd]
+name = "ares · 64DD"
+executable = "{emulators}/ares/ares.exe"
+args = ["--fullscreen", "--system", "Nintendo 64DD", "{rom}"]
+
+[emulators.ares-nes]
+name = "ares · Entertainment System"
+executable = "{emulators}/ares/ares.exe"
+args = ["--fullscreen", "--system", "Famicom", "{rom}"]
+
+[emulators.ares-ngp]
+name = "ares · Neo Geo Pocket"
+executable = "{emulators}/ares/ares.exe"
+args = ["--fullscreen", "--system", "Neo Geo Pocket", "{rom}"]
+
+[emulators.ares-ngpc]
+name = "ares · Neo Geo Pocket Color"
+executable = "{emulators}/ares/ares.exe"
+args = ["--fullscreen", "--system", "Neo Geo Pocket Color", "{rom}"]
+
+[emulators.ares-pcengine]
+name = "ares · PC Engine / TurboGrafx-16"
+executable = "{emulators}/ares/ares.exe"
+args = ["--fullscreen", "--system", "PC Engine", "{rom}"]
+
+[emulators.ares-pcenginecd]
+name = "ares · PC Engine CD / TurboGrafx-CD"
+executable = "{emulators}/ares/ares.exe"
+args = ["--fullscreen", "--system", "PC Engine CD", "{rom}"]
+
+[emulators.ares-psx]
+name = "ares · PlayStation"
+executable = "{emulators}/ares/ares.exe"
+args = ["--fullscreen", "--system", "PlayStation", "{rom}"]
+
+[emulators.ares-satellaview]
+name = "ares · Satellaview"
+executable = "{emulators}/ares/ares.exe"
+args = ["--fullscreen", "--system", "Super Famicom", "{rom}"]
+
+[emulators.ares-sega32x]
+name = "ares · 32X"
+executable = "{emulators}/ares/ares.exe"
+args = ["--fullscreen", "--system", "Mega 32X", "{rom}"]
+
+[emulators.ares-segacd]
+name = "ares · Sega CD / Mega-CD"
+executable = "{emulators}/ares/ares.exe"
+args = ["--fullscreen", "--system", "Mega CD", "{rom}"]
+
+[emulators.ares-sg-1000]
+name = "ares · SG-1000"
+executable = "{emulators}/ares/ares.exe"
+args = ["--fullscreen", "--system", "SG-1000", "{rom}"]
+
+[emulators.ares-supergrafx]
+name = "ares · SuperGrafx"
+executable = "{emulators}/ares/ares.exe"
+args = ["--fullscreen", "--system", "SuperGrafx", "{rom}"]
+
+[emulators.ares-wonderswan]
+name = "ares · WonderSwan"
+executable = "{emulators}/ares/ares.exe"
+args = ["--fullscreen", "--system", "WonderSwan", "{rom}"]
+
+[emulators.ares-wonderswan-benesse-pocket-challenge-v2]
+name = "ares [Benesse Pocket Challenge V2] · WonderSwan"
+executable = "{emulators}/ares/ares.exe"
+args = ["--fullscreen", "--system", "Pocket Challenge V2", "{rom}"]
+
+[emulators.ares-wonderswancolor]
+name = "ares · WonderSwan Color"
+executable = "{emulators}/ares/ares.exe"
+args = ["--fullscreen", "--system", "WonderSwan Color", "{rom}"]
+
+# Atari 8-bit computer emulator Atari800
+[emulators.atari800]
+name = "Atari800"
+executable = "{emulators}/atari800/atari800.exe"
+args = ["{rom}"]
+
+# Atari 8-bit computer emulator Altirra
+[emulators.altirra]
+name = "Altirra"
+executable = "{emulators}/Altirra/Altirra64.exe"
+args = ["{rom}"]
+
+# Atari 7800 emulator A7800
+[emulators.a7800]
+name = "A7800"
+executable = "{emulators}/a7800/a7800.exe"
+args = ["-rompath", "{rom_dir};{rom_root}/atari7800", "a7800", "-cart1", "{rom}"]
+
+# Atari Jaguar emulator BigPEmu
+[emulators.bigpemu]
+name = "BigPEmu"
+executable = "{emulators}/BigPEmu/BigPEmu.exe"
+args = ["{rom}"]
+
+# Atari ST/STE/TT/Falcon emulator Hatari
+[emulators.hatari]
+name = "Hatari"
+executable = "{emulators}/hatari/hatari.exe"
+args = ["{rom}"]
+
+# Sega Dreamcast emulator Demul
+[emulators.demul-atomiswave]
+name = "Demul · Atomiswave"
+executable = "{emulators}/demul/demul.exe"
+args = ["-run=awave", "-rom={rom_stem}"]
+
+[emulators.demul-dreamcast]
+name = "Demul · Dreamcast"
+executable = "{emulators}/demul/demul.exe"
+args = ["-run=dc", "-image={rom}"]
+
+[emulators.demul-naomi]
+name = "Demul · NAOMI"
+executable = "{emulators}/demul/demul.exe"
+args = ["-run=naomi", "-rom={rom_stem}"]
+
+# Acorn Computers BBC Micro emulator BeebEm
+[emulators.beebem]
+name = "BeebEm"
+executable = "{emulators}/BeebEm/BeebEm.exe"
+args = ["-FullScreen", "{rom}"]
+
+# Commodore 8-bit computer emulator VICE (x64sc accurate)
+[emulators.vice-x64sc]
+name = "VICE x64sc Accurate"
+executable = "{emulators}/VICE/x64sc.exe"
+args = ["{rom}"]
+
+# Dragon and Tandy 8-bit computer emulator XRoar
+[emulators.xroar-coco]
+name = "XRoar CoCo 2 NTSC · Tandy Color Computer"
+executable = "{emulators}/xroar/xroar.exe"
+args = ["-fs", "-default-machine", "coco2bus", "{rom}"]
+
+[emulators.xroar-coco-coco-2-pal]
+name = "XRoar CoCo 2 PAL · Tandy Color Computer"
+executable = "{emulators}/xroar/xroar.exe"
+args = ["-fs", "-default-machine", "coco2b", "{rom}"]
+
+[emulators.xroar-dragon32]
+name = "XRoar Dragon 32 · Dragon Data Dragon 32"
+executable = "{emulators}/xroar/xroar.exe"
+args = ["-fs", "-default-machine", "dragon32", "{rom}"]
+
+[emulators.xroar-dragon32-dragon-64]
+name = "XRoar Dragon 64 · Dragon Data Dragon 32"
+executable = "{emulators}/xroar/xroar.exe"
+args = ["-fs", "-default-machine", "dragon64", "{rom}"]
+
+[emulators.xroar-tanodragon]
+name = "XRoar · Tano Dragon"
+executable = "{emulators}/xroar/xroar.exe"
+args = ["-fs", "-default-machine", "tano", "{rom}"]
+
+# Sega Mega Drive/Genesis emulator BlastEm
+[emulators.blastem-colecovision]
+name = "BlastEm · ColecoVision"
+executable = "{emulators}/blastem/blastem.exe"
+args = ["{rom}"]
+
+[emulators.blastem-gamegear]
+name = "BlastEm · Game Gear"
+executable = "{emulators}/blastem/blastem.exe"
+args = ["-m", "gg", "{rom}"]
+
+[emulators.blastem-mastersystem]
+name = "BlastEm · Master System"
+executable = "{emulators}/blastem/blastem.exe"
+args = ["-m", "sms", "{rom}"]
+
+[emulators.blastem-megadrive]
+name = "BlastEm · Mega Drive"
+executable = "{emulators}/blastem/blastem.exe"
+args = ["-m", "gen", "{rom}"]
+
+[emulators.blastem-sega32x]
+name = "BlastEm · 32X"
+executable = "{emulators}/blastem/blastem.exe"
+args = ["-m", "32x", "{rom}"]
+
+[emulators.blastem-sg-1000]
+name = "BlastEm · SG-1000"
+executable = "{emulators}/blastem/blastem.exe"
+args = ["-m", "sg", "{rom}"]
+
+# MSX home computer emulator openMSX
+[emulators.openmsx-colecovision]
+name = "openMSX · ColecoVision"
+executable = "{emulators}/openMSX/openmsx.exe"
+args = ["-machine", "ColecoVision_SGM", "-cart", "{rom}"]
+
+[emulators.openmsx-msx]
+name = "openMSX · MSX"
+executable = "{emulators}/openMSX/openmsx.exe"
+args = ["-machine", "National_CF-3300", "{rom}"]
+
+[emulators.openmsx-no-machine]
+name = "openMSX No Machine · MSX"
+executable = "{emulators}/openMSX/openmsx.exe"
+args = ["{rom}"]
+
+[emulators.openmsx-msx2]
+name = "openMSX · MSX2"
+executable = "{emulators}/openMSX/openmsx.exe"
+args = ["-machine", "Panasonic_FS-A1WSX", "{rom}"]
+
+[emulators.openmsx-msxturbor]
+name = "openMSX · MSX Turbo R"
+executable = "{emulators}/openMSX/openmsx.exe"
+args = ["-machine", "Panasonic_FS-A1GT", "{rom}"]
+
+# Multi-system emulator Mesen
+[emulators.mesen]
+name = "Mesen"
+executable = "{emulators}/Mesen/Mesen.exe"
+args = ["--fullscreen", "{rom}"]
+
+[emulators.mesen-sgb]
+name = "Mesen · Super Game Boy"
+executable = "{emulators}/Mesen/Mesen.exe"
+args = ["--fullscreen", "--gameBoy.useSgb2=true", "{rom}"]
+
+# Sony PlayStation 3 emulator RPCS3
+[emulators.rpcs3]
+name = "RPCS3 ISO"
+executable = "{emulators}/RPCS3/rpcs3.exe"
+args = ["--no-gui", "{rom}"]
+
+# Triforce, fork of Nintendo GameCube and Wii emulator Dolphin
+[emulators.triforce]
+name = "Triforce"
+executable = "{emulators}/Triforce/DolphinWX.exe"
+args = ["-b", "-e", "{rom}"]
+
+# Microsoft Xbox emulator xemu
+[emulators.xemu]
+name = "xemu"
+executable = "{emulators}/xemu/xemu.exe"
+args = ["-dvd_path", "{rom}"]
+
+# Microsoft Xbox emulator Cxbx-Reloaded
+[emulators.cxbx-reloaded]
+name = "Cxbx-Reloaded"
+executable = "{emulators}/Cxbx-Reloaded/cxbx.exe"
+args = ["{rom}"]
+
+# Hypseus Singe, fork of arcade LaserDisc emulator Daphne
+[emulators.hypseus-singe-daphne]
+name = "Hypseus [Daphne] · Daphne / LaserDisc"
+executable = "{emulators}/Hypseus Singe/hypseus.exe"
+args = ["{rom_stem}", "vldp", "-framefile", "{rom_dir}/{rom_stem}.txt"]
+
+[emulators.hypseus-singe-daphne-singe]
+name = "Hypseus [Singe] · Daphne / LaserDisc"
+executable = "{emulators}/Hypseus Singe/hypseus.exe"
+args = ["singe", "vldp", "-framefile", "{rom_dir}/{rom_stem}.txt", "-script", "{rom_dir}/{rom_stem}.singe"]
+
+[emulators.hypseus-singe-daphne-singe-zlua]
+name = "Hypseus [Singe ZLUA] · Daphne / LaserDisc"
+executable = "{emulators}/Hypseus Singe/hypseus.exe"
+args = ["singe", "vldp", "-zlua", "{rom_dir}/{rom_stem}.zip", "-framefile", "{rom_dir}/{rom_stem}.txt"]
+
+# Doom engine source port PrBoom+
+[emulators.prboom-plus]
+name = "PrBoom+"
+executable = "{emulators}/prboom-plus/prboom-plus.exe"
+args = ["-iwad", "{rom}"]
+
+# DOS emulator DOSBox Pure Unleashed
+[emulators.dosbox-pure-unleashed]
+name = "DOSBox Pure Unleashed"
+executable = "{emulators}/DOSBoxPure/DOSBoxPure.exe"
+args = ["{rom}"]
+working_dir = "{rom_dir}"
+
+# DOS emulator DOSBox-X
+[emulators.dosbox-x-dos]
+name = "DOSBox-X · DOS"
+executable = "{emulators}/DOSBox-X/dosbox-x.exe"
+args = ["{rom}"]
+working_dir = "{rom_dir}"
+
+[emulators.dosbox-x-windows3x]
+name = "DOSBox-X · Windows 3.x"
+executable = "{emulators}/DOSBox-X/dosbox-x.exe"
+args = ["-defaultdir", "{rom_dir}", "{rom}"]
+working_dir = "{rom_dir}"
+
+# DOS emulator DOSBox Staging
+[emulators.dosbox-staging]
+name = "DOSBox Staging"
+executable = "{emulators}/dosbox-staging/dosbox.exe"
+args = ["{rom}"]
+working_dir = "{rom_dir}"
+
+# LucasArts game engine DREAMM
+[emulators.dreamm]
+name = "DREAMM"
+executable = "{emulators}/dreamm/dreamm.exe"
+args = ["."]
+working_dir = "{rom_dir}"
+
+# Sega Dreamcast emulator Redream
+[emulators.redream]
+name = "Redream"
+executable = "{emulators}/redream/redream.exe"
+args = ["{rom}"]
+
+# EasyRPG game engine
+[emulators.easyrpg]
+name = "EasyRPG Player"
+executable = "{emulators}/EasyRPG/Player.exe"
+args = ["--project-path", "{rom}"]
+
+# Adobe Flash player Ruffle
+[emulators.ruffle]
+name = "Ruffle"
+executable = "{emulators}/ruffle/ruffle.exe"
+args = ["--fullscreen", "{rom}"]
+
+# Adobe Flash player ArcadeFlashWeb
+[emulators.arcadeflashweb]
+name = "ArcadeFlashWeb"
+executable = "{emulators}/ArcadeFlashWeb/ArcadeFlashWeb.exe"
+args = ["-fullscreen", "-source:{rom}"]
+
+# Fujitsu FM Towns emulator Tsugaru
+[emulators.tsugaru]
+name = "Tsugaru"
+executable = "{emulators}/tsugaru/Tsugaru_CUI.exe"
+args = ["{emulator_dir}/roms", "-HOSTSHORTCUT", "ESC", "0", "0", "FORCEQUIT", "-FULLSCREEN", "-CD", "{rom}"]
+
+# Pinball simulator Future Pinball
+[emulators.future-pinball]
+name = "Future Pinball"
+executable = "{emulators}/Future Pinball/Future Pinball.exe"
+args = ["/Exit", "/Play", "/Open", "{rom}"]
+
+# Pinball simulator Future Pinball (FPLoader)
+[emulators.future-pinball-fploader]
+name = "Future Pinball FPLoader"
+executable = "{emulators}/Future Pinball/BAM/FPLoader.exe"
+args = ["/Exit", "/Play", "/Open", "{rom}"]
+
+# Multi-system emulator jgenesis
+[emulators.jgenesis]
+name = "jgenesis"
+executable = "{emulators}/jgenesis/jgenesis-cli.exe"
+args = ["--file-path", "{rom}"]
+
+# Multi-system emulator Emulicious
+[emulators.emulicious]
+name = "Emulicious"
+executable = "{emulators}/Emulicious/Emulicious.exe"
+args = ["{rom}"]
+
+# Nintendo Game Boy and Game Boy Color emulator SameBoy
+[emulators.sameboy]
+name = "SameBoy"
+executable = "{emulators}/sameboy/sameboy.exe"
+args = ["-f", "{rom}"]
+
+# Nintendo Game Boy and Game Boy Color emulator Gearboy
+[emulators.gearboy]
+name = "Gearboy"
+executable = "{emulators}/Gearboy/Gearboy.exe"
+args = ["{rom}"]
+
+# Nintendo Game Boy Advance emulator mGBA
+[emulators.mgba]
+name = "mGBA"
+executable = "{emulators}/mGBA/mGBA.exe"
+args = ["-f", "{rom}"]
+
+# Nintendo Game Boy Advance emulator VBA-M
+[emulators.vba-m]
+name = "VBA-M"
+executable = "{emulators}/VBA-M/visualboyadvance-m.exe"
+args = ["/f", "{rom}"]
+
+# Nintendo Game Boy, Game Boy Color, Game Boy Advance and DS emulator SkyEmu
+[emulators.skyemu]
+name = "SkyEmu"
+executable = "{emulators}/SkyEmu/SkyEmu.exe"
+args = ["{rom}"]
+
+# Nintendo DS and Game Boy Advance emulator NooDS
+[emulators.noods]
+name = "NooDS"
+executable = "{emulators}/noods/noods.exe"
+args = ["{rom}"]
+
+# PrimeHack, fork of Nintendo GameCube and Wii emulator Dolphin
+[emulators.primehack]
+name = "PrimeHack"
+executable = "{emulators}/PrimeHack/Dolphin.exe"
+args = ["-b", "-e", "{rom}"]
+
+# Java 2 Micro Edition emulator KEmulator
+[emulators.kemulator]
+name = "KEmulator"
+executable = "{emulators}/KEmulator/KEmulator.exe"
+args = ["{rom}"]
+
+# Macintosh 68k emulator Basilisk II
+[emulators.basiliskii]
+name = "Basilisk II"
+executable = "{emulators}/BasiliskII/BasiliskII.exe"
+args = ["--nogui", "true"]
+
+# Apple Macintosh PowerPC emulator SheepShaver
+[emulators.sheepshaver]
+name = "SheepShaver"
+executable = "{emulators}/SheepShaver/SheepShaver.exe"
+args = []
+
+# Arcade emulator AdvanceMAME
+[emulators.advancemame]
+name = "AdvanceMAME"
+executable = "{emulators}/AdvanceMAME/advmame.exe"
+args = ["{rom_stem}"]
+
+# Nintendo 3DS emulator Azahar
+[emulators.azahar]
+name = "Azahar"
+executable = "{emulators}/azahar/azahar.exe"
+args = ["{rom}"]
+
+# Nintendo 3DS emulator AzaharPlus
+[emulators.azaharplus]
+name = "AzaharPlus"
+executable = "{emulators}/azaharplus/azaharplus.exe"
+args = ["{rom}"]
+
+# Nintendo 3DS emulator Citra
+[emulators.citra]
+name = "Citra"
+executable = "{emulators}/Citra/nightly-mingw/citra-qt.exe"
+args = ["{rom}"]
+
+# Nintendo 3DS emulator Mandarine
+[emulators.mandarine]
+name = "Mandarine"
+executable = "{emulators}/mandarine/mandarine-qt.exe"
+args = ["{rom}"]
+
+# Nintendo 3DS emulator Lime3DS
+[emulators.lime3ds]
+name = "Lime3DS"
+executable = "{emulators}/lime3ds/lime3ds.exe"
+args = ["{rom}"]
+
+# Nintendo 3DS emulator Panda3DS
+[emulators.panda3ds]
+name = "Panda3DS"
+executable = "{emulators}/Panda3DS/Alber.exe"
+args = ["{rom}"]
+
+# Nintendo 64 emulator Mupen64Plus
+[emulators.mupen64plus]
+name = "Mupen64Plus"
+executable = "{emulators}/mupen64plus/mupen64plus-ui-console.exe"
+args = ["--fullscreen", "{rom}"]
+
+# Nintendo 64 emulator Parallel Launcher
+[emulators.parallel-launcher]
+name = "Parallel Launcher"
+executable = "{emulators}/parallel-launcher/parallel-launcher.exe"
+args = ["{rom}"]
+
+# Nintendo 64 emulator simple64
+[emulators.simple64]
+name = "simple64"
+executable = "{emulators}/simple64/simple64-gui.exe"
+args = ["--nogui", "{rom}"]
+
+# Nintendo 64 emulator Rosalie's Mupen GUI
+[emulators.rosalies-mupen-gui]
+name = "Rosalie's Mupen GUI"
+executable = "{emulators}/RMG/RMG.exe"
+args = ["--nogui", "-q", "{rom}"]
+
+# Nintendo 64 emulator Project64
+[emulators.project64]
+name = "Project64"
+executable = "{emulators}/Project64/Project64.exe"
+args = ["{rom}"]
+
+# Nintendo 64 emulator Gopher64
+[emulators.gopher64]
+name = "Gopher64"
+executable = "{emulators}/gopher64/gopher64-windows-x86_64.exe"
+args = ["-f", "{rom}"]
+
+# Nintendo DS and DSi emulator melonDS
+[emulators.melonds]
+name = "melonDS"
+executable = "{emulators}/melonDS/melonDS.exe"
+args = ["-f", "{rom}"]
+
+# Nintendo NES and Famicom emulator puNES
+[emulators.punes]
+name = "puNES"
+executable = "{emulators}/punes/punes64.exe"
+args = ["-u", "yes", "{rom}"]
+
+# Symbian and Nokia N-Gage emulator EKA2L1
+[emulators.eka2l1-ngage]
+name = "EKA2L1 [Mounted] · N-Gage"
+executable = "{emulators}/EKA2L1/eka2l1_qt.exe"
+args = ["--fullscreen", "--device", "RH-29", "--mount", "{rom}", "--run", "{rom_stem}"]
+
+[emulators.eka2l1-installed]
+name = "EKA2L1 [Installed] · N-Gage"
+executable = "{emulators}/EKA2L1/eka2l1_qt.exe"
+args = ["--fullscreen", "--device", "RH-29", "--run", "{rom_stem}"]
+
+[emulators.eka2l1-symbian]
+name = "EKA2L1 [Nokia N70] · Symbian"
+executable = "{emulators}/EKA2L1/eka2l1_qt.exe"
+args = ["--fullscreen", "--device", "RM-84", "--run", "{rom_stem}"]
+
+[emulators.eka2l1-symbian-nokia-n97]
+name = "EKA2L1 [Nokia N97] · Symbian"
+executable = "{emulators}/EKA2L1/eka2l1_qt.exe"
+args = ["--fullscreen", "--device", "RM-507", "--run", "{rom_stem}"]
+
+# Tangerine Computer Systems emulator Oricutron
+[emulators.oricutron]
+name = "Oricutron"
+executable = "{emulators}/Oricutron/oricutron.exe"
+args = ["{rom}"]
+
+# NEC PC-8800 series emulator QUASI88
+[emulators.quasi88]
+name = "QUASI88"
+executable = "{emulators}/quasi88/QUASI88.exe"
+args = ["-romdir", "{emulator_dir}/ROM", "{rom}"]
+
+# NEC PC Engine/TurboGrafx-16 and SuperGrafx emulator Geargrafx
+[emulators.geargrafx]
+name = "Geargrafx"
+executable = "{emulators}/Geargrafx/Geargrafx.exe"
+args = ["{rom}"]
+
+# PICO-8 Fantasy Console (game engine)
+[emulators.pico-8-pico8]
+name = "PICO-8 · PICO-8 Fantasy Console"
+executable = "{emulators}/PICO-8/pico8.exe"
+args = ["-root_path", "{rom_dir}", "-run", "{rom}"]
+
+[emulators.pico-8-pico8-splore]
+name = "PICO-8 Splore · PICO-8 Fantasy Console"
+executable = "{emulators}/PICO-8/pico8.exe"
+args = ["-root_path", "{rom_dir}", "-splore"]
+
+# Commodore 8-bit computer emulator VICE (xplus4)
+[emulators.vice-xplus4]
+name = "VICE xplus4"
+executable = "{emulators}/VICE/xplus4.exe"
+args = ["{rom}"]
+
+# Sony PlayStation 2 emulator PCSX2 (legacy)
+[emulators.pcsx2-legacy]
+name = "PCSX2 Legacy"
+executable = "{emulators}/PCSX2/pcsx2.exe"
+args = ["--nogui", "{rom}"]
+
+# Sony PlayStation 4 emulator shadPS4
+[emulators.shadps4]
+name = "shadPS4 eboot.bin"
+executable = "{emulators}/shadPS4/shadPS4.exe"
+args = ["{rom}"]
+
+# Sony PlayStation 4 emulator shadPS4 (GUI)
+[emulators.shadps4-gui]
+name = "shadPS4 [GUI] eboot.bin"
+executable = "{emulators}/shadPS4QtLauncher/shadPS4QtLauncher.exe"
+args = ["-d", "-g", "{rom}"]
+
+# Sony PlayStation 1 emulator DuckStation
+[emulators.duckstation]
+name = "DuckStation"
+executable = "{emulators}/duckstation/duckstation-qt-x64-ReleaseLTCG.exe"
+args = ["-batch", "{rom}"]
+
+# SAM Coupé emulator SimCoupé
+[emulators.simcoupe]
+name = "SimCoupé"
+executable = "{emulators}/SimCoupe/SimCoupe.exe"
+args = ["{rom}"]
+
+# Super Nintendo emulator Snes9x
+[emulators.snes9x]
+name = "Snes9x"
+executable = "{emulators}/snes9x/snes9x-x64.exe"
+args = ["{rom}"]
+
+# Super Nintendo/Super Famicom emulator bsnes
+[emulators.bsnes]
+name = "bsnes"
+executable = "{emulators}/bsnes/bsnes.exe"
+args = ["--fullscreen", "{rom}"]
+
+# Sega Saturn emulator Kronos
+[emulators.kronos]
+name = "Kronos"
+executable = "{emulators}/kronos/kronos.exe"
+args = ["{rom}"]
+
+# Sega Saturn emulator Yaba Sanshiro 2
+[emulators.yabasanshiro-2]
+name = "Yaba Sanshiro 2"
+executable = "{emulators}/yabasanshiro/yabasanshiro.exe"
+args = ["-a", "-i", "{rom}"]
+
+# Sega Saturn emulator Ymir
+[emulators.ymir]
+name = "Ymir"
+executable = "{emulators}/ymir/ymir-sdl3.exe"
+args = ["{rom}"]
+
+# Sega Saturn emulator SSF
+[emulators.ssf]
+name = "SSF"
+executable = "{emulators}/SSF/SSF.exe"
+args = ["{rom}"]
+
+# ScummVM game engine
+[emulators.scummvm]
+name = "ScummVM"
+executable = "{emulators}/scummvm/scummvm.exe"
+args = ["{rom_stem}"]
+working_dir = "{rom_dir}"
+
+# Super Nintendo/Super Famicom emulator SUPER ZSNES
+[emulators.superzsnes]
+name = "SUPER ZSNES"
+executable = "{emulators}/SUPERZSNES/SUPERZSNES.exe"
+args = ["{rom}"]
+
+# Solarus game engine
+[emulators.solarus]
+name = "Solarus"
+executable = "{emulators}/solarus/solarus-run.exe"
+args = ["{rom}"]
+
+# Nintendo Switch emulator Eden
+[emulators.eden]
+name = "Eden"
+executable = "{emulators}/eden/eden.exe"
+args = ["-f", "-g", "{rom}"]
+
+# Nintendo Switch emulator Ryujinx
+[emulators.ryujinx]
+name = "Ryujinx"
+executable = "{emulators}/ryujinx/Ryujinx.exe"
+args = ["{rom}"]
+
+# TIC-80 Fantasy Computer (game engine)
+[emulators.tic-80]
+name = "TIC-80"
+executable = "{emulators}/tic80/tic80.exe"
+args = ["{rom}", "--fullscreen"]
+
+# Tandy TRS-80 emulator sdl2trs
+[emulators.sdl2trs-trs-80]
+name = "sdl2trs DOS Diskette · Tandy TRS-80"
+executable = "{emulators}/sdl2trs/sdl2trs64.exe"
+args = ["-rom", "{rom_root}/trs-80/level2.rom", "-disk0", "{rom_root}/trs-80/boot.dsk", "-disk1", "{rom}"]
+
+[emulators.sdl2trs-trs-80-bootable-diskette]
+name = "sdl2trs Bootable Diskette · Tandy TRS-80"
+executable = "{emulators}/sdl2trs/sdl2trs64.exe"
+args = ["-rom", "{rom_root}/trs-80/level2.rom", "-disk0", "{rom}"]
+
+[emulators.sdl2trs-trs-80-cmd-file]
+name = "sdl2trs CMD File · Tandy TRS-80"
+executable = "{emulators}/sdl2trs/sdl2trs64.exe"
+args = ["-rom", "{rom_root}/trs-80/level2.rom", "{rom}"]
+
+# Commodore 8-bit computer emulator VICE (xvic)
+[emulators.vice-xvic]
+name = "VICE xvic"
+executable = "{emulators}/VICE/xvic.exe"
+args = ["{rom}"]
+
+# Vircon32 Virtual Console
+[emulators.vircon32]
+name = "Vircon32"
+executable = "{emulators}/Vircon32/Emulator/Vircon32.exe"
+args = ["{rom}"]
+
+# Pinball simulator Visual Pinball
+[emulators.visual-pinball]
+name = "Visual Pinball"
+executable = "{emulators}/VPinballX/VPinballX_BGFX64.exe"
+args = ["-minimized", "-play", "{rom}"]
+
+# VTech V.Smile emulator veesem
+[emulators.veesem]
+name = "veesem"
+executable = "{emulators}/veesem/veesem.exe"
+args = ["{rom}"]
+
+# Nintendo Wii U emulator Cemu
+[emulators.cemu]
+name = "Cemu"
+executable = "{emulators}/cemu/Cemu.exe"
+args = ["-f", "-g", "{rom}"]
+
+# Sharp X68000 emulator XM6 Pro-68k
+[emulators.xm6pro68k]
+name = "XM6 Pro-68k"
+executable = "{emulators}/XM6 Pro-68k/XM6.exe"
+args = ["{rom}"]
+
+# Sharp X68000 emulator XM6 TypeG
+[emulators.xm6typeg]
+name = "XM6 TypeG"
+executable = "{emulators}/xm6_typeg/xm6g.exe"
+args = ["{rom}"]
+
+# Microsoft Xbox 360 emulator xenia
+[emulators.xenia]
+name = "xenia"
+executable = "{emulators}/xenia/xenia.exe"
+args = ["{rom}"]
+
+# Microsoft Xbox 360 emulator Xenia Edge
+[emulators.xenia-edge]
+name = "Xenia Edge"
+executable = "{emulators}/xenia_edge/xenia_edge.exe"
+args = ["{rom}"]
+
+# Interactive fiction player Gargoyle
+[emulators.gargoyle]
+name = "Gargoyle"
+executable = "{emulators}/gargoyle/gargoyle.exe"
+args = ["{rom}"]
+
+# Sinclair ZX Spectrum Next emulator #CSpect
+[emulators.cspect]
+name = "#CSpect"
+executable = "{emulators}/CSpect/CSpect.exe"
+args = ["-fullscreen", "-s28", "-vsync", "-60", "-analytics", "-tv", "-zxnext", "-mmc=.\\", "{rom}"]
+working_dir = "{rom_dir}"
+
+# Sinclair ZX Spectrum emulator ZEsarUX
+[emulators.zesarux]
+name = "ZEsarUX"
+executable = "{emulators}/ZEsarUX/zesarux.exe"
+args = ["--machine", "tbblue", "--realvideo", "--enabletimexvideo", "--tbblue-fast-boot-mode", "--enable-esxdos-handler", "--esxdos-root-dir", "{rom_dir}", "{rom}"]
+
+# Sinclair ZX Spectrum emulator Fuse
+[emulators.fuse]
+name = "Fuse"
+executable = "{emulators}/Fuse/fuse.exe"
+args = ["{rom}"]

@@ -104,7 +104,18 @@ var spikeCover = 0;
 var covers = 0;
 var games = 0;
 var models = 0;
-foreach (var system in loaded.Config.Systems)
+// The 14 systems built in before the ES-DE catalogue, and the six above: the library is 20 systems, whatever the
+// built-in list grows to (the rest are empty, and the grid leaves them out).
+var generated = new HashSet<string>(
+    ["gb", "gbc", "gba", "nes", "snes", "n64", "gc", "mastersystem", "megadrive", "saturn", "dreamcast", "psx", "ps2", "psp"],
+    StringComparer.Ordinal);
+foreach (var (id, _, _) in extra)
+{
+    generated.Add(id);
+}
+
+var generatedSystems = loaded.Config.Systems.Where(s => generated.Contains(s.Id)).ToList();
+foreach (var system in generatedSystems)
 {
     var count = system.Id == "ps2" ? options.Games : options.Others ?? random.Next(30, 401);
     var extension = system.Extensions.FirstOrDefault(e => e is not ".zip" and not ".7z" and not ".m3u" and not ".cue") ?? system.Extensions[0];
@@ -148,7 +159,7 @@ foreach (var system in loaded.Config.Systems)
     }
 }
 
-Console.WriteLine($"Wrote {loaded.Config.Systems.Count} systems, {games:N0} games, {covers:N0} covers and {models:N0} per-game models in {stopwatch.Elapsed.TotalSeconds:0.0} s.");
+Console.WriteLine($"Wrote {generatedSystems.Count} systems, {games:N0} games, {covers:N0} covers and {models:N0} per-game models in {stopwatch.Elapsed.TotalSeconds:0.0} s.");
 
 stopwatch.Restart();
 using (var library = await LibraryService.OpenAsync(loaded.Config, root, null, default))

@@ -25,7 +25,7 @@ public sealed partial class EmulatorsPage : ListPanel
         : base("Emulators")
     {
         _settings = settings;
-        Subtitle = "Profiles from emulators.toml; each system chooses one on its own page";
+        Subtitle = "Profiles used by systems that have games; each system chooses one on its own page";
         Build();
         SetHints("A  Choose the program     B  Back");
         _settings.ConfigApplied += Rebuild;
@@ -44,9 +44,27 @@ public sealed partial class EmulatorsPage : ListPanel
     private void Build()
     {
         var config = _settings.Services.Config;
+
+        // The built-in catalogue has hundreds of profiles, so with empty systems hidden only the profiles that
+        // systems with games use are listed (every profile can still be chosen on a system's own page).
+        var hideEmpty = config.Settings.Display.HideEmptySystems;
+        var withGames = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var summary in _settings.Services.Systems)
+        {
+            if (summary.GameCount > 0)
+            {
+                withGames.Add(summary.SystemId);
+            }
+        }
+
         var used = new Dictionary<string, List<string>>(StringComparer.Ordinal);
         foreach (var system in config.Systems)
         {
+            if (hideEmpty && !withGames.Contains(system.Id))
+            {
+                continue;
+            }
+
             foreach (var id in system.AltEmulators.Prepend(system.Emulator))
             {
                 if (!used.TryGetValue(id, out var names))
@@ -61,12 +79,14 @@ public sealed partial class EmulatorsPage : ListPanel
             }
         }
 
+        // A profile that runs the game's own file (a shortcut or program) has no program to choose.
         var profiles = config.Emulators.Values
+            .Where(e => !e.RunFile && (!hideEmpty || used.ContainsKey(e.Id)))
             .OrderBy(e => used.ContainsKey(e.Id) ? 0 : 1)
             .ThenBy(e => e.Name, StringComparer.CurrentCultureIgnoreCase)
             .ToList();
         var inUse = true;
-        AddSection("Used by your systems");
+        AddSection(hideEmpty && profiles.Count == 0 ? "No system has games yet" : "Used by your systems");
         foreach (var profile in profiles)
         {
             if (inUse && !used.ContainsKey(profile.Id))

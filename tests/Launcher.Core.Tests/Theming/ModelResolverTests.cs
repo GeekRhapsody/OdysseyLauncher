@@ -76,7 +76,7 @@ public sealed class ModelResolverTests
         Assert.Equal("ThemeDefault:wide.glb > BuiltInSystem:clamshell.glb > BuiltInDefault:dvd_case.glb", Describe(resolver.GameTemplates("megadrive")));
 
         // A system neither theme knows (a user-defined one) falls through to the defaults.
-        Assert.Equal("ThemeDefault:wide.glb > BuiltInDefault:dvd_case.glb", Describe(resolver.GameTemplates("segacd")));
+        Assert.Equal("ThemeDefault:wide.glb > BuiltInDefault:dvd_case.glb", Describe(resolver.GameTemplates("madeupsystem")));
     }
 
     [Fact]
@@ -141,7 +141,7 @@ public sealed class ModelResolverTests
 
         Assert.Equal("#102030", resolver.ColourOf("ps2").ToString());
         Assert.Equal("#1F3E8C", resolver.ColourOf("megadrive").ToString());
-        Assert.Null(resolver.ColourOf("segacd"));
+        Assert.Null(resolver.ColourOf("madeupsystem"));
         Assert.Same(active.Look, resolver.LookFor("megadrive"));
         Assert.Equal(ThemeFixtures.BuiltIn.Look.Background, resolver.LookFor(null).Background);
     }

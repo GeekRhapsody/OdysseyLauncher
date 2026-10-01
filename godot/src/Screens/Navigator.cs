@@ -1231,6 +1231,7 @@ public sealed partial class Navigator : Node
         }
 
         _services.Systems = systems;
+        _ = _services.CheckInstallsAsync();
         _cache.Clear();
         var focus = _systemsGrid.FocusIndex;
         _systems = new SystemsSource(BuildEntries(systems), _systemsGrid.Templates.Count);
@@ -1375,8 +1376,14 @@ public sealed partial class Navigator : Node
             new(FavouritesId, "Favourites", "The games you've marked", Palette.Favourites, null, null, VirtualKind.Favourites, virtualCard),
             new(RecentlyPlayedId, "Recently played", "Newest first", Palette.RecentlyPlayed, null, null, VirtualKind.RecentlyPlayed, virtualCard),
         };
+        var hideEmpty = _services.Config.Settings.Display.HideEmptySystems;
         foreach (var summary in summaries)
         {
+            if (hideEmpty && summary.GameCount == 0)
+            {
+                continue;
+            }
+
             if (_services.Config.FindSystem(summary.SystemId) is { } system)
             {
                 entries.Add(new SystemEntry(system.Id, system.Name, DetailsFormatter.SystemSubtitle(system, summary.GameCount),

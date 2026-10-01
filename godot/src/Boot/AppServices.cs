@@ -52,6 +52,7 @@ public sealed class AppServices : IDisposable
 
     private AppConfig _config;
     private IReadOnlyList<Diagnostic> _diagnostics;
+    private int _configVersion;
 
     /// <summary>Config as it is now: the settings screen replaces it when it saves (M7). Any thread may read it.</summary>
     public AppConfig Config => Volatile.Read(ref _config);
@@ -88,10 +89,52 @@ public sealed class AppServices : IDisposable
     public void ApplyConfig(ConfigLoadResult result)
     {
         ArgumentNullException.ThrowIfNull(result);
+        Interlocked.Increment(ref _configVersion);
         Volatile.Write(ref _config, result.Config);
         Volatile.Write(ref _diagnostics, result.Diagnostics);
         Library.Config = result.Config;
     }
+
+    /// <summary>
+    /// A predicate for <see cref="ConfigSources.CheckInstallsFor"/>: true for the systems that had games when this was
+    /// called. The built-in catalogue is long, so only those systems warn about a missing emulator.
+    /// </summary>
+    public Func<string, bool> SystemsWithGames()
+    {
+        var withGames = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var system in Systems)
+        {
+            if (system.GameCount > 0)
+            {
+                withGames.Add(system.SystemId);
+            }
+        }
+
+        return withGames.Contains;
+    }
+
+    /// <summary>
+    /// Thread pool: loads config again with the install checks, for the systems that have games, and replaces the
+    /// problems the settings screen lists. Boot skips the checks (they're file I/O for every emulator of every system),
+    /// and this runs after <c>interactive</c>. A save in the meantime has its own result, which is kept.
+    /// </summary>
+    public Task CheckInstallsAsync() => Task.Run(() =>
+    {
+        var version = Volatile.Read(ref _configVersion);
+        var loaded = new ConfigLoader().Load(
+            ConfigSources.FromDirectory(Paths.ConfigDir, Paths.HomeDir) with { CheckInstallsFor = SystemsWithGames() });
+        if (version == Volatile.Read(ref _configVersion))
+        {
+            Volatile.Write(ref _diagnostics, loaded.Diagnostics);
+            foreach (var diagnostic in loaded.Diagnostics)
+            {
+                if (diagnostic.Message.Contains("doesn't exist, so", StringComparison.Ordinal))
+                {
+                    GD.Print(diagnostic.ToString());
+                }
+            }
+        }
+    });
 
     /// <summary>The root folder a media path is relative to.</summary>
     public string RootOf(MediaRoot root) => root == MediaRoot.Config ? Paths.ConfigDir : Paths.DataDir;
@@ -120,7 +163,8 @@ public sealed class AppServices : IDisposable
 
         var home = System.Environment.GetFolderPath(System.Environment.SpecialFolder.UserProfile);
         var paths = options.UserDir is { } userDir ? PlatformPaths.InOneFolder(userDir, home) : PlatformPaths.Detect(executableDir);
-        var config = new ConfigLoader().Load(ConfigSources.FromDirectory(paths.ConfigDir, paths.HomeDir));
+        // The install checks need to know which systems have games, so they run after the library is open (CheckInstallsAsync).
+        var config = new ConfigLoader().Load(ConfigSources.FromDirectory(paths.ConfigDir, paths.HomeDir) with { FileExists = null });
         var configMs = stopwatch.Elapsed.TotalMilliseconds;
         DebugHooks.Timeline.Mark(BootMarks.ConfigLoaded);
 
