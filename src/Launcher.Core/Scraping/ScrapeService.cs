@@ -63,6 +63,28 @@ public sealed record MissingSummary(int Games, IReadOnlyList<(string SystemId, i
 /// <param name="Missing">Those never successfully scraped, or without a front cover.</param>
 public sealed record SystemScrapeCount(int Games, int Missing);
 
+/// <summary>One search hit for a manual match.</summary>
+/// <param name="Similarity">How close its name is to the search, 0 to 1 (<see cref="TitleMatcher.Similarity"/>).</param>
+public sealed record MatchCandidate(string ProviderGameId, string Name, string? Year, double Similarity);
+
+/// <summary>One provider's answer to a manual match search.</summary>
+/// <param name="InOrder">Whether config's provider and fallback list names it; one that doesn't is still used for the game if the user chooses one of its results.</param>
+/// <param name="Candidates">The closest name first; empty when nothing was found or it wasn't searched.</param>
+/// <param name="Problem">Why it wasn't searched (no credentials, no id for the system, resting) or why the search failed, written for the user; null when it was searched.</param>
+/// <param name="Current">The game's match on this provider now: the user's own, else the one found automatically; null when it has none.</param>
+public sealed record ProviderMatches(
+    string Provider,
+    string DisplayName,
+    bool InOrder,
+    IReadOnlyList<MatchCandidate> Candidates,
+    string? Problem,
+    string? Current,
+    bool CurrentIsManual);
+
+/// <summary>Every provider's results for a manual match, in config order, then the providers config doesn't name.</summary>
+/// <param name="Term">The name searched for.</param>
+public sealed record MatchSearch(GameKey Game, string Term, IReadOnlyList<ProviderMatches> Providers);
+
 /// <summary>What clearing a game removed.</summary>
 /// <param name="KeptSharedArt">User art files another game also uses (by stem): their rows went, the files stay.</param>
 public sealed record ClearResult(bool Found, int FilesDeleted, IReadOnlyList<string> KeptSharedArt);
@@ -146,6 +168,12 @@ public sealed class ScrapeServiceOptions
 /// </summary>
 public sealed class ScrapeService : IDisposable
 {
+    /// <summary>
+    /// The batch kind of a game scraped with the match the user chose (<see cref="ScrapeGameWithMatchAsync"/>): a game's
+    /// scrape that runs even when no configured provider can, as the chosen one may be outside the configured order.
+    /// </summary>
+    public const string ManualKind = "manual";
+
     private readonly ScrapeServiceOptions _options;
     private readonly LibraryService _library;
     private readonly Dictionary<string, IScraper> _scrapers;
@@ -310,6 +338,113 @@ public sealed class ScrapeService : IDisposable
     public Task<ScrapeBatchResult> ScrapeGameAsync(GameKey game, CancellationToken cancellationToken) =>
         RunBatchAsync("game", $"{game.SystemId}/{game.PathKey}", 0, _ => [game], cancellationToken);
 
+    /// <summary>
+    /// Manual matching (the game options' "scrape this game"): searches every provider at once for
+    /// <paramref name="term"/> (null: the user's title for the game, else its file name's, without a disc number), so
+    /// the user can choose the right game. Each provider's results come with its current match. A provider
+    /// that can't be searched (no credentials, no id for the system, resting) or whose search fails says why in its
+    /// <see cref="ProviderMatches.Problem"/>; this never throws for a provider problem. Null when the game isn't in
+    /// the library.
+    /// </summary>
+    public async Task<MatchSearch?> SearchMatchesAsync(GameKey game, string? term, CancellationToken cancellationToken)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        var context = await _library.ReadAsync(c => ScrapeStore.LoadContext(c, game), cancellationToken).ConfigureAwait(false);
+        if (context is null || _library.Config.FindSystem(game.SystemId) is not { } system)
+        {
+            return null;
+        }
+
+        var search = term?.Trim() ?? TitleMatcher.SearchTerm(context.TitleOverride ?? context.FileTitle);
+        var order = _library.Config.Settings.Scraping.ProviderOrder;
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _lifetime.Token);
+        var searches = order.Concat(ConfigLoader.Scrapers).Concat(_scrapers.Keys).Distinct(StringComparer.Ordinal)
+            .Where(_scrapers.ContainsKey)
+            .Select(id => SearchProviderAsync(_scrapers[id], order.Contains(id), context, system, search, linked.Token))
+            .ToList();
+        var providers = await Task.WhenAll(searches).ConfigureAwait(false);
+        return new MatchSearch(game, search, providers);
+    }
+
+    /// <summary>
+    /// Scrapes one game with the provider's game the user chose (a search result), ahead of any batch. The choice is
+    /// saved as a manual match in userdata.db first, so it survives a rebuild and wins in every later scrape. A game's
+    /// manual matches are asked first, the latest choice first, each fetched by its id; the other providers then fill
+    /// in what they lack, as in any scrape. What the chosen provider had brought in before, and this scrape didn't
+    /// bring again, goes (<see cref="ScrapeStore.SaveReplacing"/>), so a corrected match leaves nothing of the wrong
+    /// game behind.
+    /// </summary>
+    public async Task<ScrapeBatchResult> ScrapeGameWithMatchAsync(GameKey game, string provider, string providerGameId, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(provider);
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (!_scrapers.ContainsKey(provider))
+        {
+            throw new ArgumentException($"'{provider}' isn't a provider.", nameof(provider));
+        }
+
+        if (string.IsNullOrWhiteSpace(providerGameId))
+        {
+            throw new ArgumentException("A provider's game id can't be empty.", nameof(providerGameId));
+        }
+
+        var now = _clock.GetUtcNow().ToUnixTimeMilliseconds();
+        await _library.WriteAsync(c =>
+        {
+            ScrapeStore.SaveManualMatch(c, game, provider, providerGameId, now);
+            return true;
+        }, cancellationToken).ConfigureAwait(false);
+        return await RunBatchAsync(ManualKind, $"{game.SystemId}/{game.PathKey}", 0, _ => [game], cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<ProviderMatches> SearchProviderAsync(IScraper scraper, bool inOrder, GameContext context, SystemConfig system, string term, CancellationToken cancellationToken)
+    {
+        var id = scraper.Id;
+        var (current, manual) = context.ManualMatches.TryGetValue(id, out var own) ? (own, true)
+            : context.StoredMatches.TryGetValue(id, out var stored) ? (stored.Id, false)
+            : ((string?)null, false);
+        ProviderMatches Answer(IReadOnlyList<MatchCandidate> candidates, string? problem) =>
+            new(id, scraper.DisplayName, inOrder, candidates, problem, current, manual);
+
+        if (scraper.Unavailable is { } missing)
+        {
+            return Answer([], missing);
+        }
+
+        if (scraper.Unsupported(system) is { } unsupported)
+        {
+            return Answer([], unsupported);
+        }
+
+        if (IsResting(id, out var resting))
+        {
+            return Answer([], resting.Message);
+        }
+
+        if (term.Length == 0)
+        {
+            return Answer([], "Type a name to search for");
+        }
+
+        try
+        {
+            var hits = await scraper.SearchAsync(term, system, cancellationToken).ConfigureAwait(false);
+            var candidates = hits
+                .DistinctBy(h => h.ProviderGameId, StringComparer.Ordinal)
+                .Select((h, index) => (Candidate: new MatchCandidate(h.ProviderGameId, h.Name, h.Year, TitleMatcher.Similarity(term, h.Name)), Index: index))
+                .OrderByDescending(c => c.Candidate.Similarity)
+                .ThenBy(c => c.Index)
+                .Select(c => c.Candidate)
+                .ToList();
+            return Answer(candidates, null);
+        }
+        catch (ProviderException e)
+        {
+            Rest(e);
+            return Answer([], _redactor.Redact(e.Message));
+        }
+    }
+
     /// <summary>Scrapes every game of a system, in grid order. Matched games are fetched by id, not searched again.</summary>
     public Task<ScrapeBatchResult> ScrapeSystemAsync(string systemId, CancellationToken cancellationToken)
     {
@@ -465,7 +600,9 @@ public sealed class ScrapeService : IDisposable
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         var notices = SkippedNotices();
-        if (!_library.Config.Settings.Scraping.ProviderOrder.Any(id => _scrapers.TryGetValue(id, out var s) && s.Unavailable is null))
+
+        // A game with a chosen match is scraped even if no configured provider can be: the chosen one may be outside the order.
+        if (kind != ManualKind && !_library.Config.Settings.Scraping.ProviderOrder.Any(id => _scrapers.TryGetValue(id, out var s) && s.Unavailable is null))
         {
             // Nothing could be scraped: say why instead of failing every game.
             foreach (var notice in notices)
@@ -618,7 +755,7 @@ public sealed class ScrapeService : IDisposable
         ScrapeGameResult result;
         try
         {
-            result = await ScrapeOneAsync(job.Game, job.BatchId, token).ConfigureAwait(false);
+            result = await ScrapeOneAsync(job.Game, token).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested)
         {
@@ -828,9 +965,8 @@ public sealed class ScrapeService : IDisposable
 
     // ---- One game ----------------------------------------------------------------------------------
 
-    private async Task<ScrapeGameResult> ScrapeOneAsync(GameKey key, long batchId, CancellationToken cancellationToken)
+    private async Task<ScrapeGameResult> ScrapeOneAsync(GameKey key, CancellationToken cancellationToken)
     {
-        _ = batchId;
         var config = _library.Config;
         var settings = config.Settings.Scraping;
         var context = await _library.ReadAsync(c => ScrapeStore.LoadContext(c, key), cancellationToken).ConfigureAwait(false);
@@ -840,7 +976,8 @@ public sealed class ScrapeService : IDisposable
             return new ScrapeGameResult(key, "skipped", [], [], [new ProviderLog("-", "skipped", "not in the library")]);
         }
 
-        var order = settings.ProviderOrder.Where(_scrapers.ContainsKey).ToList();
+        // The game's manual matches first, the latest choice first (the user chose those games), then the configured order.
+        var order = context.ManualOrder.Concat(settings.ProviderOrder).Distinct(StringComparer.Ordinal).Where(_scrapers.ContainsKey).ToList();
         var hashes = await HashAsync(context, system, order, settings, cancellationToken).ConfigureAwait(false);
 
         var userKinds = context.Media.Where(m => m.Value.Source == "user").Select(m => m.Key).ToHashSet(StringComparer.Ordinal);
@@ -855,10 +992,14 @@ public sealed class ScrapeService : IDisposable
         var responses = new Dictionary<string, (string Status, string? Response)>(StringComparer.Ordinal);
         var failed = false;
         var tried = false;
+
+        // Providers whose manual match answered: what they'd brought in before is replaced (ScrapeStore.SaveReplacing).
+        var replaced = new HashSet<string>(StringComparer.Ordinal);
         for (var i = 0; i < order.Count; i++)
         {
             var id = order[i];
             var scraper = _scrapers[id];
+            context.ManualMatches.TryGetValue(id, out var manualMatch);
             if (scraper.Unavailable is not null || scraper.Unsupported(system) is not null)
             {
                 continue;
@@ -882,9 +1023,9 @@ public sealed class ScrapeService : IDisposable
             {
                 ProviderResult result;
                 string? method;
-                if (context.ManualMatches.TryGetValue(id, out var manual))
+                if (manualMatch is not null)
                 {
-                    result = await scraper.FetchAsync(manual, providerQuery, cancellationToken).ConfigureAwait(false);
+                    result = await scraper.FetchAsync(manualMatch, providerQuery, cancellationToken).ConfigureAwait(false);
                     method = MatchMethods.Manual;
                 }
                 else if (context.StoredMatches.TryGetValue(id, out var stored))
@@ -917,6 +1058,11 @@ public sealed class ScrapeService : IDisposable
                     responses[id] = ("not_found", null);
                     log.Add(new ProviderLog(id, "not_found", null));
                 }
+
+                if (manualMatch is not null)
+                {
+                    replaced.Add(id);
+                }
             }
             catch (ProviderException e)
             {
@@ -934,8 +1080,12 @@ public sealed class ScrapeService : IDisposable
         // Media: each kind from the first provider whose download works.
         var saved = new List<(string Kind, string Source, StoredMedia Media)>();
         var savedBy = new Dictionary<string, List<SavedMedia>>(StringComparer.Ordinal);
+
+        // Kinds offered but not downloaded: the replaced providers keep what the game had of them.
+        var notDownloaded = new HashSet<string>(StringComparer.Ordinal);
         foreach (var (kind, candidates) in merge.MediaCandidates())
         {
+            notDownloaded.Add(kind);
             foreach (var (provider, media) in candidates)
             {
                 if (IsResting(provider, out _))
@@ -961,6 +1111,7 @@ public sealed class ScrapeService : IDisposable
                         await Derivatives.BakeAsync(MediaRoot.Data, stored.RelativePath, stored.SizeBytes, stored.MtimeMs, cancellationToken).ConfigureAwait(false);
                     }
 
+                    notDownloaded.Remove(kind);
                     break;
                 }
                 catch (ProviderException e)
@@ -990,8 +1141,41 @@ public sealed class ScrapeService : IDisposable
         }, cancellationToken).ConfigureAwait(false);
 
         var write = new ScrapeWrite(found.Count > 0 ? merge.Metadata() : null, matches, saved, log, status, found, now);
-        await _library.WriteAsync(c => ScrapeStore.Save(c, key, write), cancellationToken).ConfigureAwait(false);
-        if (saved.Count > 0)
+        var changed = saved.Count > 0;
+        if (replaced.Count > 0)
+        {
+            var removed = await _library.WriteAsync(c => ScrapeStore.SaveReplacing(c, key, write, replaced, notDownloaded), cancellationToken).ConfigureAwait(false);
+            if (removed is { Count: > 0 })
+            {
+                changed = true;
+                await Task.Run(() =>
+                {
+                    static void Delete(string file)
+                    {
+                        if (File.Exists(file))
+                        {
+                            File.Delete(file);
+                        }
+                    }
+
+                    foreach (var (path, size, mtime) in removed)
+                    {
+                        if (size is { } s && mtime is { } m)
+                        {
+                            Delete(Derivatives.PathFor(MediaRoot.Data, path, s, m));
+                        }
+
+                        Delete(Path.Combine(_library.DataDir, path.Replace('/', Path.DirectorySeparatorChar)));
+                    }
+                }, CancellationToken.None).ConfigureAwait(false);
+            }
+        }
+        else
+        {
+            await _library.WriteAsync(c => ScrapeStore.Save(c, key, write), cancellationToken).ConfigureAwait(false);
+        }
+
+        if (changed)
         {
             _library.RaiseMediaChanged([key]);
         }

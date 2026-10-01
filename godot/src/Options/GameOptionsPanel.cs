@@ -193,7 +193,7 @@ public sealed partial class GameOptionsPanel : ListPanel
             null => "Never scraped",
             { Status: "ok" } s => $"Found by {string.Join(" and ", s.Providers.Select(ScrapingPage.NameOf))}, {DetailsFormatter.Relative(s.ScrapedAt, DateTimeOffset.Now)}",
             { Status: "partial" } s => $"Found by {string.Join(" and ", s.Providers.Select(ScrapingPage.NameOf))}, but a provider failed, {DetailsFormatter.Relative(s.ScrapedAt, DateTimeOffset.Now)}",
-            { Status: "not_found" } s => $"Not found, {DetailsFormatter.Relative(s.ScrapedAt, DateTimeOffset.Now)}: edit its title to the game's name, then scrape it again",
+            { Status: "not_found" } s => $"Not found, {DetailsFormatter.Relative(s.ScrapedAt, DateTimeOffset.Now)}: scrape it again and choose its game, searching for another name if need be",
             { } s => $"Failed {DetailsFormatter.Relative(s.ScrapedAt, DateTimeOffset.Now)}: a provider couldn't be reached",
         };
         _scrape.Value = _scraping ? "Running" : null;
@@ -335,14 +335,26 @@ public sealed partial class GameOptionsPanel : ListPanel
 
     // ---- Scraping ------------------------------------------------------------------------------------
 
+    /// <summary>Matching is manual here: the match panel searches every provider, and the user chooses the game.</summary>
     private void Scrape()
     {
         if (_scraping)
         {
+            ShowStatus("It's being scraped already.", UiStyle.Dim, 4);
             return;
         }
 
-        if (!_options.Jobs.ScrapeGame(_game.Key, _game.Title, Scraped))
+        Layer.Push(new GameMatchPanel(_options, _game, ScrapeWith));
+    }
+
+    private void ScrapeWith(string provider, string providerGameId)
+    {
+        if (!IsInstanceValid(this) || _scraping)
+        {
+            return;
+        }
+
+        if (!_options.Jobs.ScrapeGame(_game.Key, _game.Title, Scraped, (provider, providerGameId)))
         {
             ShowStatus("It's being scraped already.", UiStyle.Dim, 4);
             return;

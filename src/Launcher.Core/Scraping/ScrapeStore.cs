@@ -11,6 +11,7 @@ namespace Launcher.Core.Scraping;
 /// <param name="StoredMatches">Automatic matches in library.db: provider → (id, method).</param>
 /// <param name="ManualMatches">Manual matches in userdata.db, which win: provider → id.</param>
 /// <param name="Media">Current media rows: kind → (source, path, size, mtime).</param>
+/// <param name="TitleOverride">The user's title for the game (userdata.db), or null.</param>
 public sealed record GameContext(
     GameKey Key,
     long GameId,
@@ -22,7 +23,12 @@ public sealed record GameContext(
     RomHashes? Hashes,
     IReadOnlyDictionary<string, (string Id, string Method)> StoredMatches,
     IReadOnlyDictionary<string, string> ManualMatches,
-    IReadOnlyDictionary<string, (string Source, string Path, long? SizeBytes, long? MtimeMs)> Media);
+    IReadOnlyDictionary<string, (string Source, string Path, long? SizeBytes, long? MtimeMs)> Media,
+    string? TitleOverride = null)
+{
+    /// <summary>The providers with a manual match, the most recently chosen first: they're asked first, in this order.</summary>
+    public IReadOnlyList<string> ManualOrder { get; init; } = [];
+}
 
 /// <summary>A provider's outcome, for <c>scrape_log</c>.</summary>
 /// <param name="Status">'ok', 'not_found' or 'error'.</param>
@@ -94,18 +100,8 @@ internal static class ScrapeStore
             }
         }
 
-        var manual = new Dictionary<string, string>(StringComparer.Ordinal);
-        using (var command = connection.CreateCommand())
-        {
-            command.CommandText = "SELECT scraper, scraper_game_id FROM user.manual_matches WHERE system_id = $system AND path_key = $key";
-            command.Parameters.AddWithValue("$system", key.SystemId);
-            command.Parameters.AddWithValue("$key", key.PathKey);
-            using var reader = command.ExecuteReader();
-            while (reader.Read())
-            {
-                manual[reader.GetString(0)] = reader.GetString(1);
-            }
-        }
+        var manualOrder = ManualMatches(connection, key);
+        var manual = manualOrder.ToDictionary(m => m.Provider, m => m.Id, StringComparer.Ordinal);
 
         var media = new Dictionary<string, (string, string, long?, long?)>(StringComparer.Ordinal);
         using (var command = connection.CreateCommand())
@@ -120,9 +116,84 @@ internal static class ScrapeStore
             }
         }
 
+        string? titleOverride;
+        using (var command = connection.CreateCommand())
+        {
+            command.CommandText = "SELECT title FROM user.game_overrides WHERE system_id = $system AND path_key = $key";
+            command.Parameters.AddWithValue("$system", key.SystemId);
+            command.Parameters.AddWithValue("$key", key.PathKey);
+            titleOverride = command.ExecuteScalar() as string;
+        }
+
         var fileTitle = TitleParser.Parse(LibraryStore.FileStemOf(relPath)).Title;
         var romPath = Path.GetFullPath(Path.Combine(romDir, relPath.Replace('/', Path.DirectorySeparatorChar)));
-        return new GameContext(key, gameId, relPath, romPath, size, fileTitle, disc, hashes, stored, manual, media);
+        return new GameContext(key, gameId, relPath, romPath, size, fileTitle, disc, hashes, stored, manual, media, titleOverride)
+        {
+            ManualOrder = manualOrder.Select(m => m.Provider).ToList(),
+        };
+    }
+
+    /// <summary>
+    /// Every game's providers with a manual match (userdata.db, which is small), the most recently chosen first, for a
+    /// restore to merge in the order a live scrape asks them. Needs <c>userdata.db</c> attached as <c>user</c>.
+    /// </summary>
+    public static Dictionary<GameKey, IReadOnlyList<string>> ManualOrders(SqliteConnection connection)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT system_id, path_key, scraper FROM user.manual_matches ORDER BY system_id, path_key, matched_at DESC, scraper";
+        using var reader = command.ExecuteReader();
+        var orders = new Dictionary<GameKey, IReadOnlyList<string>>();
+        while (reader.Read())
+        {
+            var key = new GameKey(reader.GetString(0), reader.GetString(1));
+            if (!orders.TryGetValue(key, out var list))
+            {
+                orders[key] = list = new List<string>();
+            }
+
+            ((List<string>)list).Add(reader.GetString(2));
+        }
+
+        return orders;
+    }
+
+    /// <summary>A game's manual matches (userdata.db), the most recently chosen first.</summary>
+    public static List<(string Provider, string Id)> ManualMatches(SqliteConnection connection, GameKey key)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT scraper, scraper_game_id FROM user.manual_matches WHERE system_id = $system AND path_key = $key
+            ORDER BY matched_at DESC, scraper
+            """;
+        command.Parameters.AddWithValue("$system", key.SystemId);
+        command.Parameters.AddWithValue("$key", key.PathKey);
+        using var reader = command.ExecuteReader();
+        var matches = new List<(string, string)>();
+        while (reader.Read())
+        {
+            matches.Add((reader.GetString(0), reader.GetString(1)));
+        }
+
+        return matches;
+    }
+
+    /// <summary>
+    /// Saves the user's choice of a provider's game (userdata.db, keyed by identity, so it survives a rebuild), as
+    /// the most recent: choosing a match again puts it first again.
+    /// </summary>
+    public static void SaveManualMatch(SqliteConnection connection, GameKey key, string provider, string providerGameId, long now)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            INSERT INTO user.manual_matches (system_id, path_key, scraper, scraper_game_id, matched_at) VALUES ($system, $key, $scraper, $id, $now)
+            ON CONFLICT (system_id, path_key, scraper) DO UPDATE SET scraper_game_id = excluded.scraper_game_id, matched_at = excluded.matched_at
+            """;
+        command.Parameters.AddWithValue("$system", key.SystemId);
+        command.Parameters.AddWithValue("$key", key.PathKey);
+        command.Parameters.AddWithValue("$scraper", provider);
+        command.Parameters.AddWithValue("$id", providerGameId);
+        command.Parameters.AddWithValue("$now", now);
+        command.ExecuteNonQuery();
     }
 
     public static void SaveHashes(SqliteConnection connection, GameKey key, long sizeBytes, RomHashes hashes)
@@ -294,6 +365,121 @@ internal static class ScrapeStore
                 transaction.Dispose();
             }
         }
+    }
+
+    /// <summary>
+    /// <see cref="Save"/>, then everything the <paramref name="replaced"/> providers had supplied that this scrape
+    /// didn't supply again goes, in the same transaction: the providers whose manual match answered, so a match the
+    /// user corrected leaves nothing of the wrong game behind. Goes: their matches and log rows not just written, their
+    /// scraped media rows of kinds not just saved (except <paramref name="keepKinds"/>, whose downloads failed), and
+    /// the metadata row when nothing was found and only they had supplied it (the title goes back to the file name's).
+    /// Returns the media rows removed, for their files, or null when the game isn't in the library.
+    /// </summary>
+    public static List<(string Path, long? SizeBytes, long? MtimeMs)>? SaveReplacing(
+        SqliteConnection connection, GameKey key, ScrapeWrite write, IReadOnlySet<string> replaced, IReadOnlySet<string> keepKinds)
+    {
+        using var transaction = connection.BeginTransaction();
+        if (!Save(connection, transaction, key, write))
+        {
+            return null;
+        }
+
+        SqliteCommand Command(string sql)
+        {
+            var command = connection.CreateCommand();
+            command.Transaction = transaction;
+            command.CommandText = sql;
+            command.Parameters.AddWithValue("$system", key.SystemId);
+            command.Parameters.AddWithValue("$key", key.PathKey);
+            return command;
+        }
+
+        long gameId;
+        string relPath;
+        using (var find = Command("SELECT game_id, rel_path FROM games WHERE system_id = $system AND path_key = $key"))
+        using (var reader = find.ExecuteReader())
+        {
+            reader.Read();
+            gameId = reader.GetInt64(0);
+            relPath = reader.GetString(1);
+        }
+
+        var removed = new List<(string, long?, long?)>();
+        var savedKinds = write.Media.Select(m => m.Kind).ToHashSet(StringComparer.Ordinal);
+        var logged = write.Log.Select(l => l.Provider).ToHashSet(StringComparer.Ordinal);
+        foreach (var provider in replaced)
+        {
+            if (!write.Matches.ContainsKey(provider))
+            {
+                using var match = Command("DELETE FROM scraper_matches WHERE game_id = $id AND scraper = $scraper");
+                match.Parameters.AddWithValue("$id", gameId);
+                match.Parameters.AddWithValue("$scraper", provider);
+                match.ExecuteNonQuery();
+            }
+
+            if (!logged.Contains(provider))
+            {
+                using var log = Command("DELETE FROM scrape_log WHERE game_id = $id AND scraper = $scraper");
+                log.Parameters.AddWithValue("$id", gameId);
+                log.Parameters.AddWithValue("$scraper", provider);
+                log.ExecuteNonQuery();
+            }
+
+            var kinds = new List<(string Kind, string Path, long? Size, long? Mtime)>();
+            using (var select = Command("SELECT kind, path, size_bytes, mtime_ms FROM media WHERE game_id = $id AND source = $scraper"))
+            {
+                select.Parameters.AddWithValue("$id", gameId);
+                select.Parameters.AddWithValue("$scraper", provider);
+                using var reader = select.ExecuteReader();
+                while (reader.Read())
+                {
+                    kinds.Add((reader.GetString(0), reader.GetString(1), reader.IsDBNull(2) ? null : reader.GetInt64(2), reader.IsDBNull(3) ? null : reader.GetInt64(3)));
+                }
+            }
+
+            foreach (var (kind, path, size, mtime) in kinds)
+            {
+                if (savedKinds.Contains(kind) || keepKinds.Contains(kind))
+                {
+                    continue;
+                }
+
+                using var delete = Command("DELETE FROM media WHERE game_id = $id AND kind = $kind");
+                delete.Parameters.AddWithValue("$id", gameId);
+                delete.Parameters.AddWithValue("$kind", kind);
+                delete.ExecuteNonQuery();
+                removed.Add((path, size, mtime));
+            }
+        }
+
+        if (write.Metadata is null or { IsEmpty: true })
+        {
+            string? sources;
+            using (var source = Command("SELECT source FROM metadata WHERE game_id = $id"))
+            {
+                source.Parameters.AddWithValue("$id", gameId);
+                sources = source.ExecuteScalar() as string;
+            }
+
+            if (sources is not null && sources.Split(',', StringSplitOptions.RemoveEmptyEntries).All(replaced.Contains))
+            {
+                using (var delete = Command("DELETE FROM metadata WHERE game_id = $id"))
+                {
+                    delete.Parameters.AddWithValue("$id", gameId);
+                    delete.ExecuteNonQuery();
+                }
+
+                var title = TitleParser.Parse(LibraryStore.FileStemOf(relPath));
+                using var titles = Command("UPDATE games SET title = $title, sort_title = $sort WHERE game_id = $id");
+                titles.Parameters.AddWithValue("$title", title.Title);
+                titles.Parameters.AddWithValue("$sort", title.SortTitle);
+                titles.Parameters.AddWithValue("$id", gameId);
+                titles.ExecuteNonQuery();
+            }
+        }
+
+        transaction.Commit();
+        return removed;
     }
 
     /// <summary>What <see cref="Clear"/> removed from the DB, so the caller can delete the files.</summary>

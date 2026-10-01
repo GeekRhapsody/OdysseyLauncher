@@ -725,7 +725,50 @@ public partial class Main : Node3D
                 job.SetNote("IGDB has no Twitch application credentials, so it's skipped.");
                 _jobs.Jobs.End(_jobs.Jobs.Start("demo", "Scanning your ROM folders", "systems", null), JobState.Finished, "Done: 12 new games, 0 removed.");
                 break;
+            case "match":
+                OpenMatchForDebug();
+                break;
         }
+    }
+
+    /// <summary>
+    /// <c>--open=match</c>: the game options and the match panel over made-up results, for the game at
+    /// <c>--start-index</c> of <c>--start-system</c> (read off the main thread). Nothing is searched or scraped.
+    /// </summary>
+    private void OpenMatchForDebug()
+    {
+        var library = _services!.Library;
+        var options = _settings!.Options!;
+        var queue = _settings.Ui.Queue;
+        var system = _options.StartSystem;
+        var index = _options.StartIndex ?? 0;
+        _ = Task.Run(async () =>
+        {
+            Launcher.Core.Library.GameDetails? game = null;
+            if (system is not null)
+            {
+                var list = await library.GetGamesAsync(system, CancellationToken.None).ConfigureAwait(false);
+                if (list.Games.Count > 0)
+                {
+                    game = await library.GetGameAsync(list.Games[Math.Clamp(index, 0, list.Games.Count - 1)].GameId, CancellationToken.None).ConfigureAwait(false);
+                }
+            }
+
+            queue.Post(() =>
+            {
+                if (game is null)
+                {
+                    GD.PushWarning("--open=match needs --start-system with games in it.");
+                    return;
+                }
+
+                // The match panel a frame later, as when the options' row opens it.
+                _ui!.Push(new GameOptionsPanel(options, game));
+                GetTree().CreateTimer(0).Timeout += () => _ui.Push(new GameMatchPanel(options, game,
+                    (provider, id) => GD.Print($"Match: would scrape with {provider} {id}."),
+                    GameMatchPanel.MadeUpResults(game, options.SystemName(game.Key.SystemId))));
+            });
+        });
     }
 
     /// <summary>

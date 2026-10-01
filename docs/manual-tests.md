@@ -285,7 +285,7 @@ This checks what the scripts can't: a real pad, the mouse and a physical keyboar
 This checks what the scripts can't: a real pad on the options panels, and a live "scrape this game" and "scrape this system" with your credentials. It uses the M3 set-up (`C:\OdysseyTest`) with the M5 Mega Drive ROMs and your credentials from M7 part 1, and the export full screen: `& .\artifacts\export\windows\OdysseyLauncher.exe --fullscreen ++ --user-dir=C:\OdysseyTest`. Keep two or three images of your own (PNG or JPEG) and a `.glb` somewhere handy.
 
 1. **A game's options.** Enter Mega Drive, focus a game and press X. Move with the D-pad, A to choose, B to go back. With a physical keyboard, O opens them too.
-2. **Scrape this game.** Choose it: the panel says "Scraping …", then which provider found it. Press B: the game's box shows its scraped cover at once, and the details (bottom left) its metadata.
+2. **Scrape this game.** Choose it: every provider's results are listed (see [Manual matching](#manual-matching)); press A on the right one. The panel says "Scraping …", then which provider found it. Press B: the game's box shows its scraped cover at once, and the details (bottom left) its metadata.
 3. **Your own images.** Images: a card per slot shows the scraped art and where it came from. Choose the front cover, pick one of your images in the picker (it shows a preview), then do the same for the back. Close the options: the box shows your cover straight away. Reopen Images, focus your cover and press Y, then Remove it: the scraped cover comes back.
 4. **Metadata.** Edit the title and metadata, then Title: type a new title on the on-screen keyboard and press Menu. The grid shows the new title when you close the options (and the game moves if it now sorts elsewhere). Try Released with nonsense: it's refused with the formats it takes. Focus a field you changed and press Y: it's the scraped value again.
 5. **Emulator and model.** Emulator: choose another profile; launch the game: it uses that one. Model: choose your `.glb`; the box becomes your model. Y on Model removes it.
@@ -367,3 +367,20 @@ This checks what the fixtures can't: Steam's live store answering searches, its 
 
 - Games matched to the wrong Steam game, and games not found with their file names (a game Steam no longer sells isn't found: that's expected).
 - The `steam:` warnings: `Select-String -Path "$env:APPDATA\Godot\app_userdata\Odyssey Launcher\logs\godot.log" -Pattern 'steam:'`, or the CLI's output.
+
+## Manual matching
+
+This checks what the fixtures can't: each provider's live search results, and scraping with the games you chose. It uses the M3 set-up (`C:\OdysseyTest`) with the M5 Mega Drive ROMs, your credentials from M7 part 1, and the export full screen: `& .\artifacts\export\windows\OdysseyLauncher.exe --fullscreen ++ --user-dir=C:\OdysseyTest`. A game whose file name isn't the game's name helps (rename a copy of a ROM to `Zz Mystery.md`, then rescan with F5).
+
+1. **The search.** Focus a Mega Drive game, press X, then Scrape this game. "Search for" shows its title, and after a moment each provider has a section of results, the closest name first, with the year, the id and how close the name is. A game scraped before has its match marked "In use". Providers without credentials, and the Steam store, are under "Couldn't be searched", saying why.
+2. **Another name.** On `Zz Mystery`, nothing matches. Press X, type the game's real name, Done: every provider is searched again.
+3. **Choose.** Press A on the right result: the options say "Scraping …", then which providers found it. Close the options: the box shows the art of the game you chose, and the details its metadata.
+4. **Another provider's game.** Scrape this game again and press A on an IGDB result: its cover and description now show (ScreenScraper's fill in only what IGDB lacks, such as the spine). Do it once more with the ScreenScraper result: ScreenScraper's are back.
+5. **Correcting a match.** On a game matched to the wrong game, choose the right one. The wrong game's images (a back or spine the right one lacks too) are gone, not left behind.
+6. **It sticks.** Scrape Mega Drive from its options (X on the system): the games you matched keep the games you chose. Clear metadata on one, then Scrape this game: nothing is marked "In use" (your choice went with the clear).
+
+### Send back
+
+- Games whose right result wasn't listed, with the name searched for, and any provider whose results looked wrong (wrong system, wrong names).
+- Anything that took long or didn't answer the pad, and any message that was unclear.
+- The log lines: `Select-String -Path "$env:APPDATA\Godot\app_userdata\Odyssey Launcher\logs\godot.log" -Pattern '^Match|^Scrape|error|warning'`.

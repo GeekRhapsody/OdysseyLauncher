@@ -14,7 +14,12 @@ namespace Launcher.Core.Scraping;
 internal static class ScrapedRestore
 {
     /// <summary>Returns how many games got scraped data back.</summary>
-    public static int Apply(SqliteConnection connection, string dataDir, AppConfig config, IReadOnlyList<GameKey> added)
+    /// <param name="manualOrders">
+    /// Each game's providers with a manual match, the latest choice first (<see cref="ScrapeStore.ManualOrders"/>):
+    /// they merge first, as a live scrape asks them.
+    /// </param>
+    public static int Apply(SqliteConnection connection, string dataDir, AppConfig config, IReadOnlyList<GameKey> added,
+        IReadOnlyDictionary<GameKey, IReadOnlyList<string>> manualOrders)
     {
         var root = Path.Combine(dataDir, MediaStore.ScrapedFolder, ScrapedResponses.Folder);
         if (added.Count == 0 || !Directory.Exists(root))
@@ -56,7 +61,10 @@ internal static class ScrapedRestore
             var log = new List<ProviderLog>();
             var found = new List<string>();
             long at = 0;
-            foreach (var provider in providers)
+
+            // The game's manual matches first, the latest choice first, as a live scrape asks them.
+            var order = manualOrders.TryGetValue(key, out var manual) ? manual.Concat(providers).Distinct(StringComparer.Ordinal) : providers;
+            foreach (var provider in order)
             {
                 if (!folders.Contains((provider, key.SystemId)) || ScrapedResponses.Load(dataDir, provider, key) is not { } saved)
                 {

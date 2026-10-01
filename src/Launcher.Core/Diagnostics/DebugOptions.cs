@@ -52,11 +52,12 @@ public sealed record DebugOptions
 
     /// <summary>
     /// What <c>--open</c> can show once the app is interactive (M7), for captures of each settings screen and shared
-    /// component: the settings screen, the on-screen keyboard, the three pickers, a confirmation, a progress card, and
-    /// the power menu.
+    /// component: the settings screen, the on-screen keyboard, the three pickers, a confirmation, a progress card, the
+    /// power menu, and the match panel over made-up results (for <see cref="StartSystem"/>'s game at
+    /// <see cref="StartIndex"/>).
     /// </summary>
     public static IReadOnlyList<string> OpenTargets { get; } =
-        ["settings", "keyboard", "folder-picker", "image-picker", "program-picker", "confirm", "progress", "power"];
+        ["settings", "keyboard", "folder-picker", "image-picker", "program-picker", "confirm", "progress", "power", "match"];
 
     public const int DefaultCaptureFrame = 60;
     public const int DefaultBenchFrames = 600;

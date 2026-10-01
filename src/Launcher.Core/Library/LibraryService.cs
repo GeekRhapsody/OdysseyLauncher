@@ -296,7 +296,7 @@ public sealed class LibraryService : ILibrary, IPlayHistory, IDisposable
                     var written = LibraryStore.Apply(c, scans.Roms, scans.Media, keepOnly, now, added, mediaChanged);
 
                     // Games that are new to the library get their scraped data back from scraped/responses/ (M4).
-                    ScrapedRestore.Apply(c, DataDir, config, added);
+                    ScrapedRestore.Apply(c, DataDir, config, added, added.Count == 0 ? new Dictionary<GameKey, IReadOnlyList<string>>() : ScrapeStore.ManualOrders(c));
                     return written;
                 }, cancellationToken).ConfigureAwait(false);
             if (mediaChanged.Count > 0)
@@ -354,6 +354,9 @@ public sealed class LibraryService : ILibrary, IPlayHistory, IDisposable
             var stopwatch = Stopwatch.StartNew();
             var rebuildPath = _libraryPath + ".rebuild";
             var configDir = ConfigDir;
+
+            // The new file has no userdata.db attached: the manual matches (for the restore's merge order) are read first.
+            var manualOrders = await _readers.RunAsync(ScrapeStore.ManualOrders, cancellationToken).ConfigureAwait(false);
             var (scans, summaries) = await Task.Run(() =>
             {
                 // Offline and from scratch: no playlist or header cache, nothing from the current library.
@@ -366,7 +369,7 @@ public sealed class LibraryService : ILibrary, IPlayHistory, IDisposable
                     connection, scanned.Roms, scanned.Media, null, _clock.GetUtcNow().ToUnixTimeMilliseconds(), added);
 
                 // Scraped metadata, matches and media links come back from scraped/responses/, offline (M4).
-                ScrapedRestore.Apply(connection, DataDir, config, added);
+                ScrapedRestore.Apply(connection, DataDir, config, added, manualOrders);
 
                 // Leave a single self-contained file behind, with no -wal to carry over.
                 MigrationRunner.Execute(connection, "PRAGMA journal_mode = DELETE");

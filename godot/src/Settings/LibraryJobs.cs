@@ -152,10 +152,21 @@ public sealed class LibraryJobs : IDisposable
         RunBatch("system", $"Scraping {SystemName(systemId)}", (scraper, token) => scraper.ScrapeSystemAsync(systemId, token));
 
     /// <summary>
-    /// Scrapes one game in the background (the game options panel, M7), ahead of any batch. Main thread; false if that
-    /// game is being scraped already. <paramref name="done"/> gets the outcome, on the main thread.
+    /// Manual matching: every provider's results for <paramref name="term"/> (null: the game's own title), with each
+    /// one's current match. Thread pool (builds the service on first use).
     /// </summary>
-    public bool ScrapeGame(GameKey game, string title, Action<string>? done = null)
+    public async Task<MatchSearch?> SearchMatchesAsync(GameKey game, string? term, CancellationToken cancellationToken)
+    {
+        using var cancel = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _shutdown.Token);
+        return await Scraper().SearchMatchesAsync(game, term, cancel.Token).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Scrapes one game in the background (the game options panel, M7), ahead of any batch. Main thread; false if that
+    /// game is being scraped already. <paramref name="done"/> gets the outcome, on the main thread. With
+    /// <paramref name="match"/> (the match panel's choice: a provider and its game's id), that game comes first.
+    /// </summary>
+    public bool ScrapeGame(GameKey game, string title, Action<string>? done = null, (string Provider, string Id)? match = null)
     {
         var jobTitle = $"Scraping {title}";
         foreach (var running in Jobs.Jobs)
@@ -177,7 +188,9 @@ public sealed class LibraryJobs : IDisposable
             scraper.ProviderNotice += Noticed;
             try
             {
-                var result = await scraper.ScrapeGameAsync(game, cancel.Token).ConfigureAwait(false);
+                var result = match is { } chosen
+                    ? await scraper.ScrapeGameWithMatchAsync(game, chosen.Provider, chosen.Id, cancel.Token).ConfigureAwait(false)
+                    : await scraper.ScrapeGameAsync(game, cancel.Token).ConfigureAwait(false);
                 var details = await library.GetGameAsync(game, CancellationToken.None).ConfigureAwait(false);
                 string outcome;
                 JobState state;
@@ -195,6 +208,7 @@ public sealed class LibraryJobs : IDisposable
                     outcome = details?.Scrape switch
                     {
                         { Status: "ok" or "partial" } s => $"Found by {string.Join(" and ", s.Providers.Select(ScrapingPage.NameOf))}{(s.Status == "partial" ? ", though a provider failed" : string.Empty)}.",
+                        { Status: "not_found" } when match is not null => "The game you chose wasn't there any more. Search again.",
                         { Status: "not_found" } => "No provider found it. Edit its title to match the game's name, then scrape it again.",
                         _ => "Scraping failed: a provider couldn't be reached.",
                     };
