@@ -1050,6 +1050,16 @@ name = "Spectravideo"
 extensions = [".cas", ".col", ".dsk", ".m3u", ".mx1", ".mx2", ".ri", ".rom", ".sc", ".sg", ".7z", ".zip"]
 emulator = "retroarch-bluemsx"
 
+# Steam games: the .url shortcuts Steam makes (on the desktop, or Manage > Add desktop shortcut). A Steam shortcut is
+# handed to Steam and followed through the Steam client until the game ends; .lnk and batch files run as themselves.
+[systems.steam]
+name = "Steam"
+manufacturer = "Valve"
+extensions = [".bat", ".cmd", ".lnk", ".url"]
+emulator = "run-file"
+screenscraper_id = 138
+igdb_platforms = [6]
+
 [systems.stv]
 name = "Titan Video Game System"
 manufacturer = "Sega"
@@ -1220,6 +1230,16 @@ emulator = "cemu"
 alt_emulators = ["retroarch-cemu"]
 screenscraper_id = 18
 igdb_platforms = [41]
+
+# Windows games: shortcuts (.lnk) to their programs, batch files, and internet shortcuts (a Steam game's is followed
+# through Steam). Programs (.exe) aren't listed, so a game's own folder doesn't show its uninstaller and tools.
+[systems.windows]
+name = "Windows"
+manufacturer = "Microsoft"
+extensions = [".bat", ".cmd", ".lnk", ".url"]
+emulator = "run-file"
+screenscraper_id = 138
+igdb_platforms = [6]
 
 [systems.windows3x]
 name = "Windows 3.x"

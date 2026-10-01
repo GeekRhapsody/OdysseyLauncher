@@ -870,6 +870,10 @@ game_template = "dvd_case"
 colour = "#825C9E"
 game_template = "cartridge_box"
 
+[systems.steam]                       # Steam
+colour = "#5C649E"
+game_template = "dvd_case"
+
 [systems.stv]                       # Titan Video Game System
 colour = "#5C719E"
 game_template = "dvd_case"
@@ -964,6 +968,10 @@ game_template = "dvd_case"
 
 [systems.wiiu]                       # Wii U
 colour = "#9E5C65"
+game_template = "dvd_case"
+
+[systems.windows]                       # Windows
+colour = "#629E5C"
 game_template = "dvd_case"
 
 [systems.windows3x]                       # Windows 3.x

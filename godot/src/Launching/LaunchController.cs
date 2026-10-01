@@ -254,7 +254,8 @@ public partial class LaunchController : Node
                 return _service;
             }
 
-            var service = new LaunchService(_services.Config, PlatformServices.CreateProcessRunner(), _services.Library);
+            var service = new LaunchService(
+                _services.Config, PlatformServices.CreateProcessRunner(), _services.Library, steam: PlatformServices.CreateSteamClient());
             service.Starting += (_, e) =>
             {
                 GD.Print($"Launch: {e.Game.Title} with {e.Plan.EmulatorName}: {CommandLine(e.Plan)}");

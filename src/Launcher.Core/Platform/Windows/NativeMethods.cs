@@ -29,6 +29,7 @@ internal static unsafe partial class NativeMethods
     public const uint JobObjectMsgActiveProcessZero = 4;
 
     public const uint Infinite = 0xFFFF_FFFF;
+    public const uint Synchronize = 0x0010_0000;
     public const uint AsfwAny = 0xFFFF_FFFF;
     public const uint SeeMaskNoCloseProcess = 0x0000_0040;
     public const uint SeeMaskNoAsync = 0x0000_0100;
@@ -320,6 +321,9 @@ internal static unsafe partial class NativeMethods
 
     [LibraryImport("kernel32.dll", SetLastError = true)]
     public static partial uint WaitForSingleObject(nint handle, uint milliseconds);
+
+    [LibraryImport("kernel32.dll", SetLastError = true)]
+    public static partial nint OpenProcess(uint desiredAccess, [MarshalAs(UnmanagedType.Bool)] bool inheritHandle, uint processId);
 
     [LibraryImport("kernel32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]

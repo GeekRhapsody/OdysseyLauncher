@@ -29,6 +29,9 @@ public enum LaunchFailure
 
     /// <summary>It started, then exited with a non-zero code within <see cref="LaunchService.QuickExitThreshold"/>.</summary>
     QuickExit,
+
+    /// <summary>The program that runs it (Steam) never started it.</summary>
+    NotStarted,
 }
 
 /// <summary>The result of one <see cref="LaunchService.LaunchAsync"/>.</summary>
@@ -95,21 +98,29 @@ public sealed class LaunchFailedEventArgs(GameDetails game, LaunchOutcome outcom
 /// started), or after them (the emulator exited with an error straight away).</item>
 /// </list>
 /// </para>
+/// <para>
+/// A <c>run_file</c> game whose file is a Steam game's shortcut (<see cref="SteamShortcut"/>) is handed to Steam,
+/// and followed through the Steam client's state (<see cref="SteamGame"/>) rather than the process that opened it.
+/// </para>
 /// </summary>
 public sealed class LaunchService
 {
     private readonly IProcessRunner _runner;
     private readonly IPlayHistory _history;
     private readonly TimeProvider _clock;
+    private readonly ISteamClient? _steam;
     private AppConfig _config;
     private int _running;
 
-    public LaunchService(AppConfig config, IProcessRunner runner, IPlayHistory history, TimeProvider? clock = null)
+    /// <param name="steam">The Steam client, for Steam shortcuts; null runs them as any other shortcut, unfollowed.</param>
+    public LaunchService(
+        AppConfig config, IProcessRunner runner, IPlayHistory history, TimeProvider? clock = null, ISteamClient? steam = null)
     {
         _config = config ?? throw new ArgumentNullException(nameof(config));
         _runner = runner ?? throw new ArgumentNullException(nameof(runner));
         _history = history ?? throw new ArgumentNullException(nameof(history));
         _clock = clock ?? TimeProvider.System;
+        _steam = steam;
     }
 
     public event EventHandler<LaunchStartingEventArgs>? Starting;
@@ -132,6 +143,15 @@ public sealed class LaunchService
     /// return non-zero after a normal session too, so it's kept short.
     /// </summary>
     public TimeSpan QuickExitThreshold { get; set; } = TimeSpan.FromSeconds(5);
+
+    /// <summary>How often a Steam game's state is read.</summary>
+    public TimeSpan SteamPollInterval { get; set; } = TimeSpan.FromSeconds(1);
+
+    /// <summary>
+    /// A Steam game not seen running this long after its launch (not counting time Steam spends updating it) never
+    /// started. Long enough for Steam to open and sync the game's saves first.
+    /// </summary>
+    public TimeSpan SteamStartTimeout { get; set; } = TimeSpan.FromMinutes(2);
 
     public bool IsRunning => Volatile.Read(ref _running) != 0;
 
@@ -193,12 +213,32 @@ public sealed class LaunchService
             return Fail(game, plan, LaunchFailure.MissingFile, missing);
         }
 
+        var steamApp = plan.RunFile && _steam is not null ? SteamShortcut.ReadAppId(plan.Executable) : null;
+        if (steamApp is not null)
+        {
+            if (_steam!.ClientPath is null)
+            {
+                return Fail(game, plan, LaunchFailure.MissingFile,
+                    $"'{game.RomPath}' is a Steam game's shortcut, and Steam isn't installed for this Windows user. " +
+                    "Install Steam and sign in, then launch the game again.");
+            }
+
+            plan = plan with { EmulatorName = "Steam", Detached = true };
+        }
+
         Starting?.Invoke(this, new LaunchStartingEventArgs(game, plan));
         var startedAt = _clock.GetUtcNow();
+        var startTimestamp = _clock.GetTimestamp();
         IRunningProcess process;
         try
         {
             process = _runner.Start(plan);
+            if (steamApp is { } appId)
+            {
+                // What opened the shortcut handed the game to Steam and isn't the game: follow Steam instead.
+                process.Dispose();
+                process = new SteamGame(_steam!, appId, startTimestamp, _clock, SteamPollInterval, SteamStartTimeout);
+            }
         }
         catch (ProcessStartException e)
         {
@@ -232,18 +272,24 @@ public sealed class LaunchService
             }
 
             var quickExit = result.ExitCode != 0 && !result.Terminated && result.Elapsed < QuickExitThreshold;
+            var notStarted = result.NotStarted is not null && !result.Terminated;
             if (sessionId is { } id)
             {
                 try
                 {
                     await _history.EndSessionAsync(
-                        new PlaySessionEnd(id, game.Key, startedAt, result.Elapsed, result.ExitCode, CountAsPlay: !quickExit),
+                        new PlaySessionEnd(id, game.Key, startedAt, result.Elapsed, result.ExitCode, CountAsPlay: !quickExit && !notStarted),
                         CancellationToken.None).ConfigureAwait(false);
                 }
                 catch (Exception e) when (e is not OperationCanceledException)
                 {
                     historyError = $"The play session couldn't be recorded: {e.Message}";
                 }
+            }
+
+            if (notStarted)
+            {
+                return Fail(game, plan, LaunchFailure.NotStarted, result.NotStarted!, result.ExitCode, result.Elapsed, historyError);
             }
 
             if (quickExit)

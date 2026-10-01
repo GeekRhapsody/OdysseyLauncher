@@ -23,6 +23,11 @@ public sealed class WindowsProcessRunner : IProcessRunner
     public IRunningProcess Start(LaunchPlan plan)
     {
         ArgumentNullException.ThrowIfNull(plan);
+        if (plan.Detached)
+        {
+            return StartDetached(plan);
+        }
+
         if (plan.RunFile && !IsDirectlyRunnable(plan.Executable))
         {
             return StartThroughShell(plan);
@@ -166,6 +171,22 @@ public sealed class WindowsProcessRunner : IProcessRunner
                 CloseHandle(port);
             }
         }
+    }
+
+    /// <summary>
+    /// A file that hands the game to a program already running (a Steam shortcut): the shell opens it, and whatever
+    /// that starts isn't put in a job or followed. A Steam client the shortcut starts must outlive the game.
+    /// </summary>
+    private static FinishedProcess StartDetached(LaunchPlan plan)
+    {
+        var started = Stopwatch.GetTimestamp();
+        var process = ShellOpen(plan);
+        if (process != 0)
+        {
+            CloseHandle(process);
+        }
+
+        return new FinishedProcess(Stopwatch.GetElapsedTime(started));
     }
 
     /// <summary>ShellExecuteEx on the plan's file; the new process's handle, or 0 if the shell started none.</summary>

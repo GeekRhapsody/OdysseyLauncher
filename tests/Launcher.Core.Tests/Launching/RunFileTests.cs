@@ -184,6 +184,31 @@ public sealed class RunFileTests : IDisposable
     }
 
     [Fact]
+    public async Task A_detached_file_is_opened_by_the_shell_and_what_it_starts_isnt_followed()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "Shortcuts are Windows-only.");
+        var folder = _dir.Combine("ROMs", "steam");
+        Directory.CreateDirectory(folder);
+        var shortcut = Path.Combine(folder, "Hands over.lnk");
+        var marker = Path.Combine(folder, "ran.txt");
+        MakeShortcut(shortcut, Path.Combine(Environment.SystemDirectory, "cmd.exe"), $"/c ping -n 4 127.0.0.1 >NUL & echo ran> \"{marker}\" & exit 5");
+
+        var outcome = await RunToEnd(new LaunchPlan("run-file", "Steam", shortcut, [], folder, null, RunFile: true, Detached: true));
+
+        // Ended at once with nothing followed, while what the shell started runs on (about 3 s).
+        Assert.Equal(new ProcessOutcome(0, outcome.Elapsed, false), outcome);
+        Assert.True(outcome.Elapsed < TimeSpan.FromSeconds(2), $"took {outcome.Elapsed}");
+        Assert.False(File.Exists(marker));
+        var deadline = Stopwatch.StartNew();
+        while (!File.Exists(marker) && deadline.Elapsed < TimeSpan.FromSeconds(20))
+        {
+            await Task.Delay(100, TestContext.Current.CancellationToken);
+        }
+
+        Assert.True(File.Exists(marker), "the shortcut's program ran");
+    }
+
+    [Fact]
     public void A_file_the_shell_cannot_open_is_a_readable_start_failure()
     {
         Assert.SkipUnless(OperatingSystem.IsWindows(), "Windows error mapping.");

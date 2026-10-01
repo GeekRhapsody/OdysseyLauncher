@@ -16,6 +16,11 @@ namespace Launcher.Core.Launching;
 /// arguments. The process runner starts it the way Windows would open it (a program, a shortcut, or a script), and
 /// never through a command line that includes anything but its own path.
 /// </param>
+/// <param name="Detached">
+/// A <paramref name="RunFile"/> plan whose file hands the game to another program that runs it (a Steam shortcut):
+/// the runner opens the file as the shell would, and doesn't follow what that starts. The launch service follows
+/// the game another way (<see cref="SteamGame"/>).
+/// </param>
 public sealed record LaunchPlan(
     string EmulatorId,
     string EmulatorName,
@@ -23,7 +28,8 @@ public sealed record LaunchPlan(
     IReadOnlyList<string> Arguments,
     string WorkingDirectory,
     string? Core,
-    bool RunFile = false);
+    bool RunFile = false,
+    bool Detached = false);
 
 /// <summary>A plan, or the reason there isn't one.</summary>
 public sealed record LaunchPlanResult(LaunchPlan? Plan, string? Error)

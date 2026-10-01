@@ -324,3 +324,18 @@ This checks what the scripts can't: the grid and settings with the whole catalog
 ### Send back
 
 - Any system or emulator that behaved differently from ES-DE, and the log lines: `Select-String -Path "$env:APPDATA\Godot\app_userdata\Odyssey Launcher\logs\godot.log" -Pattern '^Launch|doesn.t exist|error|warning'`.
+
+## Windows and Steam games
+
+This checks what the scripts can't: a real Steam game handed to Steam and followed until you quit it, with the focus coming back. It uses the M3 set-up (`C:\OdysseyTest`) and the export full screen: `& .\artifacts\export\windows\OdysseyLauncher.exe --fullscreen ++ --user-dir=C:\OdysseyTest`. Steam must be installed and signed in, with at least one game installed.
+
+1. **Shortcuts.** In Steam, right-click an installed game, then Manage, Add desktop shortcut. Move the `.url` from your desktop into `steam\` under your ROM root. Put a shortcut to a program (for example Notepad) in `windows\`. Rescan (F5): Steam and Windows have cards, each game titled by its file's name.
+2. **A Steam game.** Launch the Steam game: Steam starts it (it may sync saves first), the launcher minimises, and the game takes the foreground. Play for a minute, then quit the game from its own menu: within a few seconds the launcher comes back with focus, and the game's details show one play with about the time you played.
+3. **Steam closed.** Exit Steam completely (Steam, then Exit), and launch the game again: Steam opens, signs in and starts the game, and the launcher stays minimised until you quit it, then comes back. Steam stays open.
+4. **Never started.** Launch a game Steam has uninstalled (make a shortcut first, then uninstall it in Steam): Steam offers to install it. Close that dialog: about 2 minutes later the launcher comes back and says Steam didn't start the game and that it isn't installed. It isn't counted as a play.
+5. **Windows.** Launch the Notepad shortcut from Windows: Notepad opens, and the launcher comes back with focus when you close it.
+
+### Send back
+
+- Anything that differed, especially the launcher coming back while the game still ran (or staying away after it ended), and the log lines: `Select-String -Path "$env:APPDATA\Godot\app_userdata\Odyssey Launcher\logs\godot.log" -Pattern '^Launch|error|warning'`.
+- If a game ended too early or too late: run `Get-ItemProperty HKCU:\Software\Valve\Steam | Select RunningAppID` and `Get-ItemProperty HKCU:\Software\Valve\Steam\Apps\<app id>` while the game runs and after it ends (the app id is the number in the `.url`).

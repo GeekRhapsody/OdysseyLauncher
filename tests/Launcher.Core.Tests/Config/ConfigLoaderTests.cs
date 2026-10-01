@@ -713,8 +713,9 @@ public class ConfigLoaderTests
         Assert.Contains(Path.GetFullPath("D:/ROMs/tg16"), config.FindSystem("pcengine")!.RomDirs);
         Assert.Contains(Path.GetFullPath("D:/ROMs/snesna"), config.FindSystem("snes")!.RomDirs);
 
-        // What isn't a game system, or has nothing to launch, was left out.
-        foreach (var skipped in (string[])["desktop", "emulators", "windows", "steam", "kodi", "epic", "androidapps", "androidgames", "lutris", "xboxone", "psvita"])
+        // What isn't a game system, or has nothing to launch, was left out. Windows and Steam games came back later,
+        // with their own launching (SteamGameTests).
+        foreach (var skipped in (string[])["desktop", "emulators", "kodi", "epic", "androidapps", "androidgames", "lutris", "xboxone", "psvita"])
         {
             Assert.Null(config.FindSystem(skipped));
         }

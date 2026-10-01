@@ -32,7 +32,11 @@ public interface IRunningProcess : IDisposable
 /// <param name="ExitCode">The exit code of the process the runner started.</param>
 /// <param name="Elapsed">From the start until the last process ended, on a monotonic clock.</param>
 /// <param name="Terminated">True if <see cref="IRunningProcess.Terminate"/> ended it.</param>
-public readonly record struct ProcessOutcome(int ExitCode, TimeSpan Elapsed, bool Terminated);
+/// <param name="NotStarted">
+/// Set when the game was never seen running (a Steam game Steam didn't start): why, written for the user. The
+/// launch is then a failure, and not a play.
+/// </param>
+public readonly record struct ProcessOutcome(int ExitCode, TimeSpan Elapsed, bool Terminated, string? NotStarted = null);
 
 /// <summary>The OS couldn't start the emulator. <see cref="Exception.Message"/> is written for the user.</summary>
 public sealed class ProcessStartException : Exception

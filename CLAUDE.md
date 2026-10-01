@@ -14,7 +14,7 @@ A fully 3D game launcher frontend (systems grid → games grid → emulator), st
 | `tests/Launcher.Core.Tests/` | xUnit v3 tests for Core. |
 | `tests/FakeEmulator/` | A console app the launch tests run as a stand-in emulator. It logs its arguments, sleeps, exits with a chosen code, and can act as a stub launcher (options in its `Program.cs`). |
 | `godot/` | The Godot project. `OdysseyLauncher.csproj` references Core. C# scripts live in `godot/src/`, in namespace `Launcher.App`. |
-| `src/Launcher.Core/Defaults/` | The built-in `settings.toml`, `systems.toml` and `emulators.toml`, embedded in Core: the original 14 systems, then ES-DE's catalogue (docs/ARCHITECTURE.md A5, "The ES-DE catalogue"). Keep them plain TOML (tables, bare keys, strings, numbers, booleans, single-line arrays): `TomlFast` reads them and `TomlFastTests` checks it builds Tomlyn's tree. |
+| `src/Launcher.Core/Defaults/` | The built-in `settings.toml`, `systems.toml` and `emulators.toml`, embedded in Core: the original 14 systems, then ES-DE's catalogue (docs/ARCHITECTURE.md A5, "The ES-DE catalogue"), with Windows and Steam ("Windows and Steam games"). Keep them plain TOML (tables, bare keys, strings, numbers, booleans, single-line arrays): `TomlFast` reads them and `TomlFastTests` checks it builds Tomlyn's tree. |
 | `src/Launcher.Core/Data/Migrations/` | Numbered SQL migrations for `library.db` and `userdata.db`, embedded in Core. |
 | `tools/verify.ps1` | Runs every non-windowed check. |
 | `tools/launch-smoke.ps1` | Runs the app with `--launch` against the fake emulator, in an isolated user folder. |

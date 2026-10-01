@@ -29,12 +29,34 @@ public sealed class PortableProcessRunner : IProcessRunner
         {
             var started = Stopwatch.GetTimestamp();
             process.Start();
+            if (plan.Detached)
+            {
+                // Something else runs the game: what was started isn't followed.
+                process.Dispose();
+                return new FinishedProcess(Stopwatch.GetElapsedTime(started));
+            }
+
             return new RunningProcess(process, started);
         }
         catch (Win32Exception e)
         {
             process.Dispose();
             throw new ProcessStartException($"The OS couldn't start '{plan.Executable}': {e.Message} (error {e.NativeErrorCode}).", e.NativeErrorCode);
+        }
+    }
+
+    private sealed class FinishedProcess(TimeSpan elapsed) : IRunningProcess
+    {
+        public int ProcessId => 0;
+
+        public Task<ProcessOutcome> Completion { get; } = Task.FromResult(new ProcessOutcome(0, elapsed, false));
+
+        public void Terminate()
+        {
+        }
+
+        public void Dispose()
+        {
         }
     }
 
