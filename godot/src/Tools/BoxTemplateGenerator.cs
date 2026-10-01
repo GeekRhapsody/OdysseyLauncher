@@ -52,6 +52,12 @@ public partial class BoxTemplateGenerator : Node
         new("gameboy_box", 125, 125, 18.2f, SpineRadius: 0.5f, OpeningRadius: 0.5f, Bevel: 0.4f,
             CaseColour: new Color("#C4C6C8"), CaseRoughness: 0.85f, ArtRoughness: 0.7f, PrintedOpeningSide: true),
 
+        // DOS: a PC big box, printed on both sides. Big boxes came in every size, so the theme gives it shape = "media"
+        // (A6) and each game's box takes its cover's proportions and its spine's depth; 190 x 240 x 50 is only the shape
+        // of a box with no art. Small corners and bevels, so the box can shrink a long way before they meet.
+        new("big_box", 190, 240, 50, SpineRadius: 0.8f, OpeningRadius: 0.8f, Bevel: 0.6f,
+            CaseColour: new Color("#CFC8B8"), CaseRoughness: 0.85f, ArtRoughness: 0.7f, PrintedOpeningSide: true),
+
         // Mega Drive (and Master System): the European plastic clamshell, 136 x 190 x 24, with a thick rim.
         new("clamshell", 136, 190, 24, SpineRadius: 3, OpeningRadius: 6, Bevel: 2.5f,
             CaseColour: new Color("#0E0E10"), CaseRoughness: 0.45f, ArtRoughness: 0.3f),
@@ -125,6 +131,21 @@ public partial class BoxTemplateGenerator : Node
         return ok;
     }
 
+    /// <summary>
+    /// Gives a model inside the project the "keep file" import (A6 Locations): the app reads a built-in theme's
+    /// <c>.glb</c> from the PCK as a file, and Godot's default import for a new one is a scene, which the export would
+    /// pack instead, leaving the theme without the model.
+    /// </summary>
+    private static void KeepFile(string glbPath)
+    {
+        var import = glbPath + ".import";
+        if (!System.IO.File.Exists(import) || !System.IO.File.ReadAllText(import).Contains("importer=\"keep\"", StringComparison.Ordinal))
+        {
+            System.IO.File.WriteAllText(import, "[remap]\n\nimporter=\"keep\"\n");
+            GD.Print($"Box templates: {import}: set to keep the file");
+        }
+    }
+
     /// <summary>A node tree with meshes and an <see cref="AnimationPlayer"/>, exported with its clips.</summary>
     private static bool ExportScene(Node3D root, int triangles, string path)
     {
@@ -173,6 +194,11 @@ public partial class BoxTemplateGenerator : Node
             {
                 GD.PrintErr($"Box templates: couldn't export {path}: {error}");
                 return false;
+            }
+
+            if (path.StartsWith("res://", StringComparison.Ordinal))
+            {
+                KeepFile(ProjectSettings.GlobalizePath(path));
             }
 
             var aabb = mesh.GetAabb();

@@ -14,7 +14,10 @@ render_mode cull_back, depth_draw_opaque;
 //   b: the idle phase, or -1 when focused
 //   a: 1 when an idle clip animates it, so it doesn't bob as well
 // and slot_state holds, per cell (y) and media slot (x): what the slot shows without media (1 generated,
-// 0 authored), the media's aspect (0 when none is wanted), its fade in, and its layer.
+// 0 authored), the media's aspect (0 when none is wanted), its fade in, and its layer. Two more columns per cell
+// reshape a box to its game's art (A6 shape = "media"): SHAPE_COLUMN = (half the width's growth, the height's, half
+// the depth's, the height where the top half starts; all 0 for every other model), then (the front and back faces'
+// aspect, the spine's).
 // (Godot 4 multiplies a MultiMesh's instance colour into COLOR, which carries the material data here.)
 
 // Media slots, in Launcher.Core.Theming.MediaSlots order.
@@ -22,6 +25,7 @@ const int SLOT_COVER = 0;
 const int SLOT_BACK = 1;
 const int SLOT_SPINE = 2;
 const int SLOT_LABEL = 4;
+const int SHAPE_COLUMN = 8;
 
 // Media, one layer per pool cell and slot channel, BC7 with mips. The whole image is squeezed into the square and
 // cropped here to the face. The cover's layers are 512²; every other slot's are 256² (Grid/SlotLayout.cs).
@@ -116,6 +120,21 @@ void vertex() {
 	v_tex = code % 8 - 1;
 	v_face_aspect = UV2.y;
 	v_state = v_slot >= 0 ? texelFetch(slot_state, ivec2(v_slot, cell), 0) : vec4(0.0);
+
+	// A box shaped by its game's art: each half of the rest mesh moves out (or in) by the growth, so bevels and corners
+	// keep their size and flat faces their normals, and the faces take the art's proportions, so it isn't cropped.
+	vec4 shape = texelFetch(slot_state, ivec2(SHAPE_COLUMN, cell), 0);
+	if (shape.w > 0.0) {
+		VERTEX.x += sign(VERTEX.x) * shape.x;
+		VERTEX.z += sign(VERTEX.z) * shape.z;
+		VERTEX.y += step(shape.w, VERTEX.y) * shape.y;
+		vec2 faces = texelFetch(slot_state, ivec2(SHAPE_COLUMN + 1, cell), 0).xy;
+		if (v_slot == SLOT_COVER || v_slot == SLOT_BACK) {
+			v_face_aspect = faces.x;
+		} else if (v_slot == SLOT_SPINE) {
+			v_face_aspect = faces.y;
+		}
+	}
 	v_cover = texelFetch(slot_state, ivec2(SLOT_COVER, cell), 0);
 	v_focus = custom.b < 0.0 ? 1.0 : 0.0;
 	float packed = custom.g;

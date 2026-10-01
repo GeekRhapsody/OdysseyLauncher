@@ -26,12 +26,15 @@ param(
     # Extra user arguments, after --bench (e.g. --user-dir=..., --bench-scenario=scroll, --no-textures).
     [string[]] $AppArgs = @(),
     # Longest a run may take before it's stopped.
-    [ValidateRange(10, 3600)] [int] $TimeoutSeconds = 300
+    [ValidateRange(10, 3600)] [int] $TimeoutSeconds = 300,
+    # The executable to export to and bench (default artifacts/export/windows/OdysseyLauncher.exe), so two builds
+    # can be benched side by side.
+    [string] $Executable = ''
 )
 
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
-$exe = Join-Path $root 'artifacts\export\windows\OdysseyLauncher.exe'
+$exe = if ($Executable) { $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Executable) } else { Join-Path $root 'artifacts\export\windows\OdysseyLauncher.exe' }
 
 if (-not $SkipExport) {
     New-Item -ItemType Directory -Force (Split-Path -Parent $exe) | Out-Null

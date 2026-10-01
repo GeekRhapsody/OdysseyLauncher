@@ -53,7 +53,8 @@ public static class ThemeLoader
     private static readonly string[] AmbientKeys = ["colour", "energy"];
     private static readonly string[] LightKeys = ["direction", "colour", "energy"];
     private static readonly string[] DefaultsKeys = ["system_model", "tint_system_model", "game_template"];
-    private static readonly string[] TemplateKeys = ["model", "slots"];
+    private static readonly string[] TemplateKeys = ["model", "slots", "shape"];
+    private static readonly string[] Shapes = ["model", "media"];
     private static readonly string[] SystemKeys = ["model", "tint", "game_template", "colour", "look"];
     private static readonly string[] SourceKeywords = ["generated", "authored"];
 
@@ -336,18 +337,25 @@ public static class ThemeLoader
                 }
 
                 var slotErrors = v.ErrorCount - beforeSlots;
-                if (model is not null)
+
+                // A bad shape falls back to the model's own, as a bad chain does.
+                var beforeShape = v.ErrorCount;
+                var shapeFromMedia = ReadShape(entry, prefix);
+                var shapeErrors = v.ErrorCount - beforeShape;
+                if (model is not null && CheckMaterials(entry, prefix, model, slots) is { } present && shapeFromMedia && !present[MediaSlots.Cover])
                 {
-                    CheckMaterials(entry, prefix, model, slots);
+                    entry.TryGet("shape", out var shapeNode);
+                    v.Warning(shapeNode, prefix + ".shape", $"'{model}' has no 'cover' material, so its shape can't follow the cover; it keeps its own");
+                    shapeFromMedia = false;
                 }
 
-                if (v.ErrorCount - slotErrors > errors || model is null)
+                if (v.ErrorCount - slotErrors - shapeErrors > errors || model is null)
                 {
                     v.Info(entry, prefix, "this template is left out until its errors are fixed; systems that use it fall back to the next model in line");
                     continue;
                 }
 
-                templates[id] = new GameTemplate(id, model, slots);
+                templates[id] = new GameTemplate(id, model, slots, shapeFromMedia);
             }
 
             return templates;
@@ -430,7 +438,27 @@ public static class ThemeLoader
         /// A template's model must be a readable <c>.glb</c>; it needn't have a cover or any slot (M6: a CRT with only a
         /// screenshot is fine), but a chain for a slot the model doesn't have is never used.
         /// </summary>
-        private void CheckMaterials(TomlTableNode entry, string prefix, string model, Dictionary<int, SlotChain> slots)
+        /// <summary><c>shape</c>: true for <c>"media"</c>; false for <c>"model"</c> (the default) or a bad value.</summary>
+        private bool ReadShape(TomlTableNode entry, string prefix)
+        {
+            var shape = v.String(entry, prefix, "shape");
+            if (shape is null || shape == "model")
+            {
+                return false;
+            }
+
+            if (shape == "media")
+            {
+                return true;
+            }
+
+            entry.TryGet("shape", out var node);
+            v.Error(node, prefix + ".shape", $"unknown shape '{shape}'{TomlValidator.Suggest(shape, Shapes)}: use \"model\" (the model's own) or \"media\" (from each game's cover and spine)");
+            return false;
+        }
+
+        /// <summary>Which slots the model has, read from its file; null when it can't be read (a built-in theme's model).</summary>
+        private bool[]? CheckMaterials(TomlTableNode entry, string prefix, string model, Dictionary<int, SlotChain> slots)
         {
             var materials = source.Files.MaterialsOf(model, out var error);
             entry.TryGet("model", out var modelNode);
@@ -441,7 +469,7 @@ public static class ThemeLoader
                     v.Error(modelNode, prefix + ".model", $"'{model}' {error}");
                 }
 
-                return;
+                return null;
             }
 
             var present = new bool[MediaSlots.Count];
@@ -461,6 +489,8 @@ public static class ThemeLoader
                     v.Warning(slotsNode, $"{prefix}.slots.{MediaSlots.Names[slot]}", $"'{model}' has no '{MediaSlots.Names[slot]}' material, so this chain is never used");
                 }
             }
+
+            return present;
         }
 
         /// <summary>A <c>.glb</c> inside the theme's folder that exists.</summary>
@@ -575,6 +605,17 @@ public static class ThemeLoader
             }
 
             table.TryGet("game_template", out var node);
+
+            // A model's path where its template's id belongs: say how a .glb becomes a template.
+            if (id.EndsWith(".glb", StringComparison.OrdinalIgnoreCase) || id.Contains('/', StringComparison.Ordinal))
+            {
+                var name = Path.GetFileNameWithoutExtension(id).ToLowerInvariant();
+                v.Error(node, prefix + ".game_template",
+                    $"'{id}' is a model, but game_template names a template: declare it with [templates.{name}] and model = \"{id}\" " +
+                    $"(and shape = \"media\" for a box shaped by each game's art), then write game_template = \"{name}\"; the next model in line is used");
+                return null;
+            }
+
             v.Error(node, prefix + ".game_template",
                 $"no template '{id}' in this theme{TomlValidator.Suggest(id, templates.Keys)}; the next model in line is used");
             return null;

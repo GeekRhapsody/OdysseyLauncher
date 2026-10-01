@@ -28,6 +28,9 @@ public sealed class ItemTemplate
         Description = candidate.Description;
         Tint = candidate.Tint;
         PerGame = candidate.Level == ModelLevel.UserGame;
+
+        // A6 shape = "media": only for a static game template, whose one merged mesh the shader reshapes.
+        ShapeFromMedia = !systemCard && !PerGame && candidate.Template?.ShapeFromMedia == true && model.Scene is null;
         Mesh = model.Mesh;
         Scene = model.Scene;
         Size = model.Size;
@@ -71,6 +74,12 @@ public sealed class ItemTemplate
 
     /// <summary>One game's own model (A7 level 1): drawn on its own node, never in a template's MultiMesh.</summary>
     public bool PerGame { get; }
+
+    /// <summary>
+    /// Each game's box takes its shape from its cover and spine (<see cref="BoxShape"/>; the grid reshapes the mesh in
+    /// the item shader). Only a static game template's.
+    /// </summary>
+    public bool ShapeFromMedia { get; }
 
     /// <summary>The textures its materials were authored with, by the index their faces carry.</summary>
     public Texture2D?[] Authored { get; }

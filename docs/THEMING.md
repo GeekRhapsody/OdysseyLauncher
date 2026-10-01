@@ -81,6 +81,7 @@ game_template = "crt_tv"                      # the template for systems the the
 
 [templates.crt_tv]                    # a game template: an id, a model, and optional slot chains
 model = "models/templates/crt_tv.glb"
+shape = "model"                       # optional: "model" (its own shape, the default) or "media" (section 4)
 
 [templates.crt_tv.slots]              # optional; see section 4
 screenshot = ["screenshot", "hero", "cover", "authored"]
@@ -113,6 +114,7 @@ bottom_right = "#100A08"
   - A bad look block falls back to the built-in theme's.
   - A template whose model is missing, or isn't a `.glb` inside the folder, is left out. Whatever named it falls through to the next model in line (section 5).
   - A bad slot chain falls back to that slot's default chain.
+  - A bad `shape` is an error, and the template keeps its own shape.
   - Unknown keys are warnings, with a "did you mean" suggestion.
 
 ## 4. Media slots and fallback chains
@@ -164,6 +166,22 @@ label = ["logo", "generated"]                               # the stand's plate:
 - **Cropping:** art is centre-cropped to fill the face. The face's aspect ratio (width over height) comes from the material's custom property `aspect`. If a material has none, it's measured from the slot mesh's bounds, which works for flat, upright faces. For a curved or tilted face, set `aspect` (section 9).
 - **Colour:** make each slot material's base colour **white**, because it multiplies the art. Its base colour texture, if it has one, is what `authored` shows.
 - **Resolution:** art is streamed at 512² for the cover and 256² for every other slot, whatever the source's size. Only the slots whose chains name a media kind stream anything, so an unused slot costs nothing.
+
+### Boxes shaped by the art (`shape = "media"`)
+
+Box art doesn't come in one size: DOS big boxes alone range from tall to square to landscape, thin to deep. With `shape = "media"` on a template, each game's box takes the shape of its own art, so nothing is cropped:
+- **The front** is as wide over high as the game's `cover` image (that image itself, even if a chain shows something else on the front). The larger of the two fills the grid cell.
+- **The depth** is the game's `spine` width over its height, times the box's height. Scraped images are scaled to a set height (ScreenScraper's are 700 pixels high), so only these proportions are used, never sizes.
+- **Without a cover or a spine**, the model's own proportions stand in.
+- **Out-of-range art** is clamped: covers to between 1:4 and 4:1, and spines to between 2% and 50% of the height.
+- **The grid's cells** fit the widest and tallest box in the list being shown, so a list of tall boxes keeps tight columns.
+- **The `cover`, `back` and `spine` faces** take the new proportions. The back's art is cropped to the cover's shape.
+
+The built-in theme's `big_box` (DOS) does this. To make a model for it:
+- **It must have a `cover` material**, or the key is ignored, with a warning.
+- **The launcher moves each half of the model**, left and right, top and bottom (split at half the height), front and back, by however much the box grows or shrinks. Nothing is stretched, so corners and bevels keep their size. So keep vertices off the centre planes (x = 0, z = 0, and half the height), keep corner and bevel detail near the edges, and make `cover`, `back` and `spine` whole faces of the box.
+- **A model with animation clips keeps its own shape**, with a warning: the launcher reshapes a template's one merged mesh, not a node tree.
+- **It costs nothing per frame:** the box is reshaped in the item shader from numbers worked out when a game's cell is bound.
 
 ## 5. Which model is used (precedence)
 

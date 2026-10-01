@@ -29,7 +29,7 @@ public sealed class ThemeLoaderTests
         Assert.Empty(result.Diagnostics);
         var theme = result.Theme!;
         Assert.Equal(("memory-card", "Memory Card", ThemeOrigin.BuiltIn), (theme.Id, theme.Name, theme.Origin));
-        Assert.Equal(["cartridge_box", "clamshell", "dvd_case", "gameboy_box", "jewel_case", "umd_case"], theme.Templates.Keys.Order(StringComparer.Ordinal));
+        Assert.Equal(["big_box", "cartridge_box", "clamshell", "dvd_case", "gameboy_box", "jewel_case", "umd_case"], theme.Templates.Keys.Order(StringComparer.Ordinal));
         Assert.Equal(("models/systems/generic.glb", true, "dvd_case"), (theme.Defaults.SystemModel, theme.Defaults.TintSystemModel, theme.Defaults.GameTemplate));
 
         // The look of A6, exactly.
@@ -55,6 +55,9 @@ public sealed class ThemeLoaderTests
         Assert.Equal("clamshell", theme.Systems["megadrive"].GameTemplate);
         Assert.Equal("umd_case", theme.Systems["psp"].GameTemplate);
         Assert.Equal("gameboy_box", theme.Systems["gb"].GameTemplate);
+        Assert.Equal("big_box", theme.Systems["dos"].GameTemplate);
+        Assert.True(theme.Templates["big_box"].ShapeFromMedia);
+        Assert.Single(theme.Templates.Values, t => t.ShapeFromMedia);
     }
 
     [Fact]
@@ -323,6 +326,56 @@ public sealed class ThemeLoaderTests
         var warning = Single(result, Severity.Warning);
         Assert.Equal("templates.box.slots.screenshot", warning.Key);
         Assert.Contains("has no 'screenshot' material", warning.Message, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("", false)]
+    [InlineData("\nshape = \"model\"", false)]
+    [InlineData("\nshape = \"media\"", true)]
+    public void A_template_takes_its_shape_from_the_model_unless_it_says_media(string shape, bool fromMedia)
+    {
+        var result = ThemeFixtures.Parse(MinimalTemplate + shape, Box());
+
+        Assert.Empty(result.Diagnostics);
+        Assert.Equal(fromMedia, result.Theme!.Templates["box"].ShapeFromMedia);
+    }
+
+    [Fact]
+    public void A_bad_shape_is_an_error_at_its_key_and_the_template_keeps_its_own_shape()
+    {
+        var result = ThemeFixtures.Parse(MinimalTemplate + "\nshape = \"meda\"", Box());
+
+        var error = Single(result, Severity.Error);
+        Assert.Equal(("templates.box.shape", 6), (error.Key, error.Line));
+        Assert.Contains("did you mean 'media'?", error.Message, StringComparison.Ordinal);
+        Assert.False(result.Theme!.Templates["box"].ShapeFromMedia);
+    }
+
+    [Fact]
+    public void A_models_path_as_a_game_template_says_how_to_declare_the_template()
+    {
+        var result = ThemeFixtures.Parse(MinimalTemplate + """
+
+            [systems.dos]
+            game_template = "models/games/big_box.glb"
+            """, Box());
+
+        var error = Single(result, Severity.Error);
+        Assert.Equal("systems.dos.game_template", error.Key);
+        Assert.Contains("[templates.big_box] and model = \"models/games/big_box.glb\"", error.Message, StringComparison.Ordinal);
+        Assert.Contains("game_template = \"big_box\"", error.Message, StringComparison.Ordinal);
+        Assert.Null(result.Theme!.Systems["dos"].GameTemplate);
+    }
+
+    [Fact]
+    public void A_shape_from_media_needs_a_cover_material()
+    {
+        var result = ThemeFixtures.Parse(MinimalTemplate + "\nshape = \"media\"", Box("screenshot", "case"));
+
+        var warning = Single(result, Severity.Warning);
+        Assert.Equal("templates.box.shape", warning.Key);
+        Assert.Contains("has no 'cover' material", warning.Message, StringComparison.Ordinal);
+        Assert.False(result.Theme!.Templates["box"].ShapeFromMedia);
     }
 
     [Fact]

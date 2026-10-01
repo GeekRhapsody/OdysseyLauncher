@@ -45,6 +45,28 @@ public sealed class BuiltInModelTests
     }
 
     [Fact]
+    public void Every_model_in_the_Godot_project_is_exported_as_the_file_itself()
+    {
+        // The app reads a built-in theme's .glb from the PCK as a file (A6 Locations). Godot's default import for a new
+        // .glb is a scene, which the export packs instead of the file, so the theme can't find it and drops the
+        // template: DOS fell back to the DVD case in the export, though the editor (reading the folder) was right.
+        var project = Path.Combine(ThemeFixtures.RepoRoot, "godot");
+        var models = Directory.GetFiles(project, "*.glb", SearchOption.AllDirectories)
+            .Where(path => !path.Contains($"{Path.DirectorySeparatorChar}.godot{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
+            .ToList();
+
+        Assert.NotEmpty(models);
+        Assert.All(models, path =>
+        {
+            var import = path + ".import";
+            Assert.True(File.Exists(import), $"{import} is missing.");
+            Assert.True(
+                File.ReadAllText(import).Contains("importer=\"keep\"", StringComparison.Ordinal),
+                $"{import} must say importer=\"keep\" (Import dock: Keep File), or the export leaves the .glb out.");
+        });
+    }
+
+    [Fact]
     public void The_generic_system_model_follows_the_model_spec()
     {
         var model = Load(ThemeFixtures.BuiltInFolder, ThemeFixtures.Load(ThemeFixtures.BuiltInFolder).Defaults.SystemModel!);

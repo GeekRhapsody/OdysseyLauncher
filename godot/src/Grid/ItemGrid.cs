@@ -85,6 +85,10 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
     private const float LaunchFallbackSeconds = 0.7f;
     private const int Slots = MediaSlots.Count;
 
+    // The slot-state texture's two columns after the slots: a reshaped box's growth, and its faces' aspects (item.gdshader).
+    private const int ShapeColumn = Slots;
+    private const int StateColumns = Slots + 2;
+
     private static readonly Transform3D Hidden = new(new Basis(Vector3.Zero, Vector3.Zero, Vector3.Zero), Vector3.Zero);
     private static readonly Shader ItemShader = GD.Load<Shader>("res://shaders/item.gdshader");
     private static readonly StringName[] ClipNames = ["idle", "focused", "launch"];
@@ -120,6 +124,7 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
     private readonly MeshInstance3D[] _cellMesh;
     private readonly SceneInstance?[] _cellScene;
     private readonly Node3D?[] _cellNode;
+    private readonly bool[] _shaped;
 
     // Per pool cell and slot: cell × Slots + slot.
     private readonly bool[] _wanted;
@@ -159,6 +164,10 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
     private int _fadingSlots;
     private bool _texturesEnabled = true;
 
+    // The bound list's widest and tallest reshaped box (A6 shape = "media"), in model units; 0 when it has none.
+    private float _envelopeWidth;
+    private float _envelopeHeight;
+
     private float _gridFade;
     private Vector3 _offset;
     private float _zoom = 1;
@@ -197,6 +206,7 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
         _cellMesh = new MeshInstance3D[maxCells];
         _cellScene = new SceneInstance?[maxCells];
         _cellNode = new Node3D?[maxCells];
+        _shaped = new bool[maxCells];
         _wanted = new bool[maxCells * Slots];
         _textured = new bool[maxCells * Slots];
         _fade = new float[maxCells * Slots];
@@ -216,8 +226,9 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
         _root.AddChild(_warmNode);
 
         // One texel per cell and slot (item.gdshader): the fallback shown without media, the media's aspect (0: none
-        // wanted), its fade, and its layer. Made once; only updated after that.
-        _stateImage = Image.CreateEmpty(Slots, maxCells, false, Image.Format.Rgbaf);
+        // wanted), its fade, and its layer; then two per cell for a reshaped box (WriteShape). Made once; only updated
+        // after that.
+        _stateImage = Image.CreateEmpty(StateColumns, maxCells, false, Image.Format.Rgbaf);
         _stateTexture = ImageTexture.CreateFromImage(_stateImage);
         _atlas = new TitleAtlas(maxCells, blockSize, spines);
     }
@@ -410,6 +421,13 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
             _root.AddChild(instance);
         }
 
+        // A reshaped box grows past its rest mesh, up to the largest a box can be (BoxShape: sides of 1, half as deep),
+        // so its bounds for culling are that.
+        if (template.ShapeFromMedia)
+        {
+            template.Mesh.CustomAabb = new Aabb(new Vector3(-0.55f, -0.05f, -0.3f), new Vector3(1.1f, 1.1f, 0.6f));
+        }
+
         _templates.Add(template);
         _multiMeshes.Add(multiMesh);
         _instances.Add(instance);
@@ -557,6 +575,7 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
         _source = source;
         _count = source.Count;
 
+        FindEnvelope(source);
         var width = 0.1f;
         var height = 0.1f;
         for (var t = 0; t < _templates.Count; t++)
@@ -567,7 +586,13 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
                 instance.Visible = used;
             }
 
-            if (used)
+            if (used && _templates[t].ShapeFromMedia && _envelopeWidth > 0)
+            {
+                // Reshaped boxes: the cells fit the list's widest and tallest.
+                width = Math.Max(width, _envelopeWidth);
+                height = Math.Max(height, _envelopeHeight);
+            }
+            else if (used)
             {
                 width = Math.Max(width, _templates[t].Size.X);
                 height = Math.Max(height, _templates[t].Size.Y);
@@ -1212,6 +1237,8 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
 
             Apply(cell, slot, channel, resolution, item);
         }
+
+        WriteShape(cell);
     }
 
     /// <summary>Shows a resolution in a cell's slot: requests its media, or shows its fallback.</summary>
@@ -1273,6 +1300,7 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
 
         _cellTemplate[cell] = -1;
         _cellModel[cell] = null;
+        WriteShape(cell);
         _cellItem[cell] = -1;
         for (var slot = 0; slot < Slots; slot++)
         {
@@ -1302,6 +1330,76 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
         }
 
         _stateImage.SetPixel(slot, cell, new Color(_fallback[i], aspect, _textured[i] ? _fade[i] : 0, layer));
+        _stateDirty = true;
+    }
+
+    /// <summary>
+    /// Main thread, binding a list: the widest and tallest of its reshaped boxes (A6 shape = "media"), each with the
+    /// larger of its width and height 1, so the cells fit them. Lists without such a template skip the walk.
+    /// </summary>
+    private void FindEnvelope(IGridSource source)
+    {
+        _envelopeWidth = 0;
+        _envelopeHeight = 0;
+        var any = false;
+        for (var t = 0; t < _templates.Count; t++)
+        {
+            any |= _templates[t].ShapeFromMedia && source.UsesTemplate(t);
+        }
+
+        if (!any)
+        {
+            return;
+        }
+
+        for (var item = 0; item < source.Count; item++)
+        {
+            source.Describe(item, out var info);
+            var template = _templates[Math.Clamp(info.Template, 0, _templates.Count - 1)];
+            if (info.Model is not null || !template.ShapeFromMedia)
+            {
+                continue;
+            }
+
+            var cover = source.TryGetMedia(item, MediaSlots.Cover, out var media) ? media.Aspect : 0;
+            var (width, height) = BoxShape.Unit(RestOf(template), cover);
+            _envelopeWidth = Math.Max(_envelopeWidth, width);
+            _envelopeHeight = Math.Max(_envelopeHeight, height);
+        }
+    }
+
+    private static BoxSize RestOf(ItemTemplate template) => new(template.Size.X, template.Size.Y, template.Size.Z);
+
+    /// <summary>
+    /// A reshaped box's two texels (item.gdshader), from its game's cover and spine (<see cref="BoxShape"/>): how much
+    /// each half of the rest mesh moves out (half the width's growth, the height's, half the depth's) and the height
+    /// above which a vertex is in the top half; then the faces' new aspects (front and back, spine). Zeros for every
+    /// other cell, which the shader leaves as it is.
+    /// </summary>
+    private void WriteShape(int cell)
+    {
+        var item = _cellItem[cell];
+        if (_cellModel[cell] is not { ShapeFromMedia: true } model || item < 0 || _source is null)
+        {
+            if (_shaped[cell])
+            {
+                _stateImage.SetPixel(ShapeColumn, cell, default);
+                _stateImage.SetPixel(ShapeColumn + 1, cell, default);
+                _shaped[cell] = false;
+                _stateDirty = true;
+            }
+
+            return;
+        }
+
+        var rest = RestOf(model);
+        var cover = _source.TryGetMedia(item, MediaSlots.Cover, out var coverMedia) ? coverMedia.Aspect : 0;
+        var spine = _source.TryGetMedia(item, MediaSlots.Spine, out var spineMedia) ? spineMedia.Aspect : 0;
+        var size = BoxShape.Fit(rest, cover, spine, _envelopeWidth, _envelopeHeight);
+        _stateImage.SetPixel(ShapeColumn, cell, new Color(
+            (size.Width - rest.Width) / 2, size.Height - rest.Height, (size.Depth - rest.Depth) / 2, rest.Height / 2));
+        _stateImage.SetPixel(ShapeColumn + 1, cell, new Color(size.Width / size.Height, size.Depth / size.Height, 0, 0));
+        _shaped[cell] = true;
         _stateDirty = true;
     }
 

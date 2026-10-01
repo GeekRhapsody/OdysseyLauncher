@@ -38,7 +38,11 @@ public sealed record Look(LookBackground Background, LookAmbient Ambient, IReadO
 /// <summary>A game template (<c>[templates.&lt;id&gt;]</c>): a model, and the fallback chain of each of its slots.</summary>
 /// <param name="Model">The <c>.glb</c>, relative to the theme's folder, '/'-separated.</param>
 /// <param name="Slots">The chains the theme writes, by slot number; a slot it doesn't list uses <see cref="SlotChain.Default"/>.</param>
-public sealed record GameTemplate(string Id, string Model, IReadOnlyDictionary<int, SlotChain> Slots)
+/// <param name="ShapeFromMedia">
+/// <c>shape = "media"</c>: each game's box takes its front's proportions from its cover and its depth from its spine
+/// (<see cref="BoxShape"/>); otherwise the model's own shape.
+/// </param>
+public sealed record GameTemplate(string Id, string Model, IReadOnlyDictionary<int, SlotChain> Slots, bool ShapeFromMedia = false)
 {
     public SlotChain ChainFor(int slot) => Slots.TryGetValue(slot, out var chain) ? chain : SlotChain.Default(slot);
 }

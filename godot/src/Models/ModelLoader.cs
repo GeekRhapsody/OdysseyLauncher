@@ -316,5 +316,9 @@ public sealed class ModelLoader
 
         entry.Template = new ItemTemplate(entry.Candidate, entry.SystemCard, model);
         entry.State = ModelState.Ready;
+        if (entry.Candidate.Template?.ShapeFromMedia == true && !entry.SystemCard && !entry.Template.ShapeFromMedia)
+        {
+            GD.PushWarning($"Models: {entry.Candidate.Description} ({entry.Candidate.Path}) has animation clips, so it keeps its own shape: shape = \"media\" is for static boxes.");
+        }
     }
 }
