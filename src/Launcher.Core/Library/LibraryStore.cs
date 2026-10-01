@@ -174,6 +174,57 @@ internal static class LibraryStore
         return rows;
     }
 
+    /// <summary>Every media row of one game, with its source (the game options panel).</summary>
+    public static List<GameMediaInfo> GetGameMediaInfo(SqliteConnection connection, long gameId)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = $"SELECT {GameMediaColumns} FROM media m WHERE m.game_id = $id ORDER BY m.kind";
+        command.Parameters.AddWithValue("$id", gameId);
+        var rows = new List<GameMediaInfo>();
+        using var reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            rows.Add(new GameMediaInfo(
+                reader.GetString(1),
+                new MediaRef(RootOf(reader.GetString(3)), reader.GetString(2), Aspect(reader, 4),
+                    reader.IsDBNull(6) ? 0 : reader.GetInt64(6), reader.IsDBNull(7) ? 0 : reader.GetInt64(7)),
+                reader.GetString(3),
+                reader.IsDBNull(4) ? null : reader.GetInt32(4),
+                reader.IsDBNull(5) ? null : reader.GetInt32(5)));
+        }
+
+        return rows;
+    }
+
+    /// <summary>A game's title and metadata, the scraped values and the user's apart.</summary>
+    public static GameMetadataEdit? GetMetadataEdit(SqliteConnection connection, GameKey key)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT g.title, o.title, mt.source, mt.description, mt.release_date, mt.developer, mt.publisher, mt.genre,
+                   mt.players, mt.rating, o.description, o.release_date, o.developer, o.publisher, o.genre, o.players, o.rating
+            FROM games g
+            LEFT JOIN user.game_overrides o ON o.system_id = g.system_id AND o.path_key = g.path_key
+            LEFT JOIN metadata mt ON mt.game_id = g.game_id
+            WHERE g.system_id = $system AND g.path_key = $key
+            """;
+        command.Parameters.AddWithValue("$system", key.SystemId);
+        command.Parameters.AddWithValue("$key", key.PathKey);
+        using var reader = command.ExecuteReader();
+        if (!reader.Read())
+        {
+            return null;
+        }
+
+        var scraped = reader.IsDBNull(2) ? null : new GameMetadata(
+            NullableString(reader, 3), NullableString(reader, 4), NullableString(reader, 5), NullableString(reader, 6),
+            NullableString(reader, 7), NullableString(reader, 8), reader.IsDBNull(9) ? null : reader.GetDouble(9), reader.GetString(2));
+        var overrides = new MetadataOverride(
+            NullableString(reader, 10), NullableString(reader, 11), NullableString(reader, 12), NullableString(reader, 13),
+            NullableString(reader, 14), NullableString(reader, 15), reader.IsDBNull(16) ? null : reader.GetDouble(16));
+        return new GameMetadataEdit(key, reader.GetString(0), NullableString(reader, 1), scraped, overrides);
+    }
+
     private static string KindParameters(SqliteCommand command, IReadOnlyList<string> kinds)
     {
         var names = new string[kinds.Count];

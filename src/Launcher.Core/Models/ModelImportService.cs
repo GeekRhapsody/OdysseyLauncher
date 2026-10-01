@@ -1,6 +1,7 @@
 using Launcher.Core.Library;
 using Launcher.Core.Media;
 using Launcher.Core.Platform;
+using Launcher.Core.Theming;
 
 namespace Launcher.Core.Models;
 
@@ -25,6 +26,16 @@ public enum ModelImportStatus
 /// <param name="Report">The inspector's report, once the file was a <c>.glb</c>; null before that.</param>
 /// <param name="Messages">Problems before the report existed (conversion), for the user.</param>
 public sealed record ModelImportResult(ModelImportStatus Status, string? ModelPath, bool Converted, ModelReport? Report, IReadOnlyList<string> Messages);
+
+/// <summary>Which of a system's own models (A7 level 2).</summary>
+public enum SystemModelSlot
+{
+    /// <summary>Its card in the systems grid: <c>ConfigDir/models/systems/&lt;system&gt;.glb</c>.</summary>
+    Card,
+
+    /// <summary>The template its games use: <c>ConfigDir/models/templates/&lt;system&gt;.glb</c>.</summary>
+    GameTemplate,
+}
 
 /// <summary>What removing a game's model did.</summary>
 public enum ModelRemoveStatus
@@ -93,36 +104,7 @@ public sealed class ModelImportService
         }
 
         var relative = ModelPathFor(game, details.RelPath);
-        var name = $"{Path.GetFileName(sourceFile)} for {game.SystemId}/{details.RelPath}";
-        var result = await Task.Run(() =>
-        {
-            var prepared = Prepare(sourceFile, ModelKind.PerGame, _decoder, ScratchDir);
-            if (prepared.Processed is not { } processed)
-            {
-                foreach (var message in prepared.Messages)
-                {
-                    _log.Write(Diagnostics.LogLevel.Error, $"{name}: {message}");
-                }
-
-                return new ModelImportResult(ModelImportStatus.Unsupported, null, prepared.Converted, null, prepared.Messages);
-            }
-
-            if (processed.Glb is not { } glb)
-            {
-                _log.Report(name, processed.Report, "Nothing was imported");
-                return new ModelImportResult(ModelImportStatus.Rejected, null, prepared.Converted, processed.Report, prepared.Messages);
-            }
-
-            var target = Path.Combine(_paths.ConfigDir, relative.Replace('/', Path.DirectorySeparatorChar));
-            Directory.CreateDirectory(Path.GetDirectoryName(target)!);
-            var temporary = target + ".import.tmp";
-            File.WriteAllBytes(temporary, glb);
-            File.Move(temporary, target, overwrite: true);
-            _cache.Put(target, ModelKind.PerGame, processed);
-            _log.Report(name, processed.Report, $"Imported{(prepared.Converted ? " (converted from OBJ)" : string.Empty)} as {relative}");
-            return new ModelImportResult(ModelImportStatus.Imported, relative, prepared.Converted, processed.Report, prepared.Messages);
-        }, cancellationToken).ConfigureAwait(false);
-
+        var result = await ImportAsync(sourceFile, relative, ModelKind.PerGame, $"{Path.GetFileName(sourceFile)} for {game.SystemId}/{details.RelPath}", cancellationToken).ConfigureAwait(false);
         if (result.Status == ModelImportStatus.Imported)
         {
             await _library.RefreshUserMediaAsync(game.SystemId, cancellationToken).ConfigureAwait(false);
@@ -190,6 +172,91 @@ public sealed class ModelImportService
         var cached = await Task.Run(() => _cache.Get(full, ModelKind.PerGame), cancellationToken).ConfigureAwait(false);
         return (path, cached.Report);
     }
+
+    /// <summary>A system's own model, relative to ConfigDir: <c>models/systems/&lt;system&gt;.glb</c> or <c>models/templates/&lt;system&gt;.glb</c> (A7 level 2).</summary>
+    public static string SystemModelPathFor(string systemId, SystemModelSlot slot)
+    {
+        ArgumentNullException.ThrowIfNull(systemId);
+        return $"{UserModels.FolderName}/{(slot == SystemModelSlot.Card ? "systems" : "templates")}/{systemId}.glb";
+    }
+
+    /// <summary>
+    /// Imports the user's model for a system (M7's system options panel): its card in the systems grid, or the template
+    /// every one of its games uses unless a game has its own. Checked, fitted to the budget of its kind and written as
+    /// <see cref="ImportGameModelAsync"/> does; nothing is indexed, since these are found when a theme is resolved, so
+    /// the app resolves its theme again to show it.
+    /// </summary>
+    public async Task<ModelImportResult> ImportSystemModelAsync(string systemId, SystemModelSlot slot, string sourceFile, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(sourceFile);
+        if (_library.Config.FindSystem(systemId) is null)
+        {
+            return new ModelImportResult(ModelImportStatus.NotInLibrary, null, false, null, [$"'{systemId}' isn't an enabled system"]);
+        }
+
+        var relative = SystemModelPathFor(systemId, slot);
+        var what = slot == SystemModelSlot.Card ? "the system model" : "the game template";
+        return await ImportAsync(sourceFile, relative, KindOf(slot), $"{Path.GetFileName(sourceFile)} as {what} for {systemId}", cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>Removes the user's model for a system, so the theme's shows again. False when there wasn't one.</summary>
+    public Task<bool> RemoveSystemModelAsync(string systemId, SystemModelSlot slot, CancellationToken cancellationToken)
+    {
+        var relative = SystemModelPathFor(systemId, slot);
+        return Task.Run(() =>
+        {
+            var target = Path.Combine(_paths.ConfigDir, relative.Replace('/', Path.DirectorySeparatorChar));
+            if (!File.Exists(target))
+            {
+                return false;
+            }
+
+            File.Delete(target);
+            _cache.Forget(target);
+            _log.Write(Diagnostics.LogLevel.Info, $"{relative}: removed");
+            return true;
+        }, cancellationToken);
+    }
+
+    /// <summary>The report for the system's own model (processing it if the cache has none), or null if it has none.</summary>
+    public Task<ModelReport?> GetSystemModelAsync(string systemId, SystemModelSlot slot, CancellationToken cancellationToken)
+    {
+        var target = Path.Combine(_paths.ConfigDir, SystemModelPathFor(systemId, slot).Replace('/', Path.DirectorySeparatorChar));
+        return Task.Run(() => File.Exists(target) ? _cache.Get(target, KindOf(slot)).Report : null, cancellationToken);
+    }
+
+    private static ModelKind KindOf(SystemModelSlot slot) => slot == SystemModelSlot.Card ? ModelKind.SystemModel : ModelKind.GameTemplate;
+
+    /// <summary>Prepares <paramref name="sourceFile"/> as <paramref name="kind"/> and, if it passes, writes it to <paramref name="relative"/> (ConfigDir).</summary>
+    private Task<ModelImportResult> ImportAsync(string sourceFile, string relative, ModelKind kind, string name, CancellationToken cancellationToken) =>
+        Task.Run(() =>
+        {
+            var prepared = Prepare(sourceFile, kind, _decoder, ScratchDir);
+            if (prepared.Processed is not { } processed)
+            {
+                foreach (var message in prepared.Messages)
+                {
+                    _log.Write(Diagnostics.LogLevel.Error, $"{name}: {message}");
+                }
+
+                return new ModelImportResult(ModelImportStatus.Unsupported, null, prepared.Converted, null, prepared.Messages);
+            }
+
+            if (processed.Glb is not { } glb)
+            {
+                _log.Report(name, processed.Report, "Nothing was imported");
+                return new ModelImportResult(ModelImportStatus.Rejected, null, prepared.Converted, processed.Report, prepared.Messages);
+            }
+
+            var target = Path.Combine(_paths.ConfigDir, relative.Replace('/', Path.DirectorySeparatorChar));
+            Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+            var temporary = target + ".import.tmp";
+            File.WriteAllBytes(temporary, glb);
+            File.Move(temporary, target, overwrite: true);
+            _cache.Put(target, kind, processed);
+            _log.Report(name, processed.Report, $"Imported{(prepared.Converted ? " (converted from OBJ)" : string.Empty)} as {relative}");
+            return new ModelImportResult(ModelImportStatus.Imported, relative, prepared.Converted, processed.Report, prepared.Messages);
+        }, cancellationToken);
 
     private string ScratchDir => Path.Combine(_paths.CacheDir, ModelCache.FolderName, "scratch");
 

@@ -109,6 +109,70 @@ internal static class ScrapedRestore
         return restored;
     }
 
+    /// <summary>
+    /// Points the game's <paramref name="kind"/> back at its scraped file, from the saved responses in config order,
+    /// when the user's own file for it has gone (M7: "remove my image"). Leaves a row that's still there alone.
+    /// Returns the media restored (its provider and file), or null when nothing scraped is left for it.
+    /// </summary>
+    public static (string Provider, StoredMedia Media)? RestoreMedia(SqliteConnection connection, string dataDir, AppConfig config, GameKey key, string kind)
+    {
+        using var find = connection.CreateCommand();
+        find.CommandText = """
+            SELECT g.game_id, m.game_id IS NOT NULL FROM games g
+            LEFT JOIN media m ON m.game_id = g.game_id AND m.kind = $kind
+            WHERE g.system_id = $system AND g.path_key = $key
+            """;
+        find.Parameters.AddWithValue("$system", key.SystemId);
+        find.Parameters.AddWithValue("$key", key.PathKey);
+        find.Parameters.AddWithValue("$kind", kind);
+        long gameId;
+        using (var reader = find.ExecuteReader())
+        {
+            if (!reader.Read() || reader.GetBoolean(1))
+            {
+                return null;
+            }
+
+            gameId = reader.GetInt64(0);
+        }
+
+        foreach (var provider in config.Settings.Scraping.ProviderOrder.Concat(ConfigLoader.Scrapers).Distinct(StringComparer.Ordinal))
+        {
+            if (ScrapedResponses.Load(dataDir, provider, key) is not { Status: "ok" } saved)
+            {
+                continue;
+            }
+
+            foreach (var m in saved.Media)
+            {
+                var file = new FileInfo(Path.Combine(dataDir, m.Path.Replace('/', Path.DirectorySeparatorChar)));
+                if (m.Kind != kind || !file.Exists)
+                {
+                    continue;
+                }
+
+                var stored = new StoredMedia(m.Path, file.Length, new DateTimeOffset(file.LastWriteTimeUtc).ToUnixTimeMilliseconds(), m.Width, m.Height);
+                using var insert = connection.CreateCommand();
+                insert.CommandText = """
+                    INSERT INTO media (game_id, kind, path, width, height, source, size_bytes, mtime_ms)
+                    VALUES ($id, $kind, $path, $width, $height, $source, $size, $mtime)
+                    ON CONFLICT (game_id, kind) DO NOTHING
+                    """;
+                insert.Parameters.AddWithValue("$id", gameId);
+                insert.Parameters.AddWithValue("$kind", kind);
+                insert.Parameters.AddWithValue("$path", stored.RelativePath);
+                insert.Parameters.AddWithValue("$width", stored.Width > 0 ? stored.Width : DBNull.Value);
+                insert.Parameters.AddWithValue("$height", stored.Height > 0 ? stored.Height : DBNull.Value);
+                insert.Parameters.AddWithValue("$source", provider);
+                insert.Parameters.AddWithValue("$size", stored.SizeBytes);
+                insert.Parameters.AddWithValue("$mtime", stored.MtimeMs);
+                return insert.ExecuteNonQuery() == 1 ? (provider, stored) : null;
+            }
+        }
+
+        return null;
+    }
+
     public static ScraperCapabilities CapabilitiesOf(string provider) => provider switch
     {
         ScraperIds.ScreenScraper => ScreenScraperScraper.Supplies,

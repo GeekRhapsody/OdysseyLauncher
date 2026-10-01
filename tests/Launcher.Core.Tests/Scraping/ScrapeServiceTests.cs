@@ -554,6 +554,49 @@ public sealed class ScrapeServiceTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Editing_sees_the_scraped_values_and_the_users_apart()
+    {
+        _bed.Rom(Sonic);
+        await _bed.ScanAsync();
+        var key = Key(Sonic);
+        using var service = _bed.Service();
+        await service.ScrapeGameAsync(key, Ct);
+        await _bed.Library.SetTitleOverrideAsync(key, "My Sonic", Ct);
+        await _bed.Library.SetMetadataOverrideAsync(key, new MetadataOverride(Genre: "Mine", Rating: 0.5), Ct);
+
+        var edit = (await _bed.Library.GetMetadataEditAsync(key, Ct))!;
+
+        Assert.Equal("Sonic the Hedgehog 3", edit.Title);
+        Assert.Equal("My Sonic", edit.TitleOverride);
+        Assert.Equal("Platform", edit.Scraped!.Genre);
+        Assert.Equal(0.8, edit.Scraped.Rating!.Value, 3);
+        Assert.Equal(new MetadataOverride(Genre: "Mine", Rating: 0.5), edit.Overrides);
+        Assert.Null(await _bed.Library.GetMetadataEditAsync(new GameKey("megadrive", "gone.md"), Ct));
+
+        // The game's media, with where each came from.
+        var game = await _bed.Game("megadrive", "Sonic the Hedgehog 3 (Europe).md");
+        var media = await _bed.Library.GetGameMediaInfoAsync(game.GameId, Ct);
+        Assert.Equal(["box_texture", "cover", "spine"], media.Select(m => m.Kind));
+        Assert.All(media, m => Assert.Equal("screenscraper", m.Source));
+    }
+
+    [Fact]
+    public async Task Scraping_a_system_is_counted_first()
+    {
+        _bed.Rom(Sonic);
+        _bed.Rom(Ecco);
+        _bed.Rom("megadrive/Other.md");
+        _bed.Rom("snes/Elsewhere.sfc");
+        await _bed.ScanAsync();
+        using var service = _bed.Service();
+        await service.ScrapeGameAsync(Key(Sonic), Ct);
+
+        Assert.Equal(new SystemScrapeCount(3, 2), await service.CountSystemAsync("megadrive", Ct));
+        Assert.Equal(new SystemScrapeCount(1, 1), await service.CountSystemAsync("snes", Ct));
+        Assert.Equal(new SystemScrapeCount(0, 0), await service.CountSystemAsync("unknown", Ct));
+    }
+
+    [Fact]
     public async Task A_stored_match_is_fetched_by_id_without_searching_again()
     {
         _bed.Rom(Sonic);

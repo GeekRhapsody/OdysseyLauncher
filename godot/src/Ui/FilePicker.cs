@@ -56,7 +56,6 @@ public sealed partial class FilePicker : UiPanel
     private const double PreviewDelay = 0.15;
     private const int PreviewSide = 300;
     private static readonly FileFilter AnyFile = new("Files", []);
-    private static readonly object DecoderLock = new();
 
     private readonly UiContext _context;
     private readonly PickerRequest _request;
@@ -652,7 +651,7 @@ public sealed partial class FilePicker : UiPanel
         var decoder = _context.Decoder;
         _ = Task.Run(() =>
         {
-            var texture = Thumbnail(path, decoder, out var info);
+            var texture = Thumbnails.Load(path, PreviewSide, decoder, out var info);
             _context.Queue.Post(() =>
             {
                 if (generation == _previewGeneration && !_finished)
@@ -677,56 +676,5 @@ public sealed partial class FilePicker : UiPanel
 
         _preview.Texture = texture;
         _previewInfo!.Text = info;
-    }
-
-    /// <summary>Worker thread: the image scaled to fit the preview, and its size for the caption.</summary>
-    private static ImageTexture? Thumbnail(string path, IImageDecoder? decoder, out string info)
-    {
-        try
-        {
-            if (!ImageHeaders.TryReadSize(path, out var width, out var height) || width <= 0 || height <= 0)
-            {
-                info = "Not an image the launcher can read.";
-                return null;
-            }
-
-            var scale = Math.Min(1.0, Math.Min((double)PreviewSide / width, (double)PreviewSide / height));
-            var w = Math.Max(1, (int)Math.Round(width * scale));
-            var h = Math.Max(1, (int)Math.Round(height * scale));
-            Image image;
-            if (decoder is not null)
-            {
-                var rgba = new byte[w * h * 4];
-                bool decoded;
-                string? error;
-                lock (DecoderLock)
-                {
-                    decoded = decoder.TryDecodeScaled(path, w, h, rgba, out error);
-                }
-
-                if (!decoded)
-                {
-                    info = $"It couldn't be read: {error}";
-                    return null;
-                }
-
-                image = Image.CreateFromData(w, h, false, Image.Format.Rgba8, rgba);
-            }
-            else
-            {
-                image = Image.LoadFromFile(path);
-                image.Resize(w, h);
-            }
-
-            var texture = ImageTexture.CreateFromImage(image);
-            image.Dispose();
-            info = string.Create(CultureInfo.InvariantCulture, $"{width} × {height}, {UiStyle.Size(new FileInfo(path).Length)}");
-            return texture;
-        }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
-        {
-            info = $"It couldn't be read: {e.Message}";
-            return null;
-        }
     }
 }

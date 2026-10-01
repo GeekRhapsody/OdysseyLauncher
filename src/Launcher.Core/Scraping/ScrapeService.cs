@@ -58,6 +58,11 @@ public sealed record ConnectionTestResult(string Provider, bool Succeeded, strin
 /// <param name="Systems">Each system with games to scrape, in config order.</param>
 public sealed record MissingSummary(int Games, IReadOnlyList<(string SystemId, int Games)> Systems);
 
+/// <summary>What "scrape this system" would take on, counted before it starts (M7).</summary>
+/// <param name="Games">Every game of the system: each is scraped (matched ones fetched by id).</param>
+/// <param name="Missing">Those never successfully scraped, or without a front cover.</param>
+public sealed record SystemScrapeCount(int Games, int Missing);
+
 /// <summary>What clearing a game removed.</summary>
 /// <param name="KeptSharedArt">User art files another game also uses (by stem): their rows went, the files stay.</param>
 public sealed record ClearResult(bool Found, int FilesDeleted, IReadOnlyList<string> KeptSharedArt);
@@ -279,6 +284,24 @@ public sealed class ScrapeService : IDisposable
             }
 
             return new MissingSummary(games.Count, systems);
+        }, cancellationToken);
+    }
+
+    /// <summary>
+    /// What <see cref="ScrapeSystemAsync"/> would take on (M7: the system options panel asks first): every game of the
+    /// system, and how many of them are "missing" (never successfully scraped, or without a front cover).
+    /// </summary>
+    public Task<SystemScrapeCount> CountSystemAsync(string systemId, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(systemId);
+        var config = _library.Config;
+        return _library.ReadAsync(c =>
+        {
+            var games = ScrapeStore.SystemGames(c, systemId).Count;
+            var missing = config.FindSystem(systemId) is { } system
+                ? ScrapeStore.MissingGames(c, config with { Systems = [system] }).Count
+                : 0;
+            return new SystemScrapeCount(games, missing);
         }, cancellationToken);
     }
 

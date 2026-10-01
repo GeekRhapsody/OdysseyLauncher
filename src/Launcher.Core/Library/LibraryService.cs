@@ -173,6 +173,14 @@ public sealed class LibraryService : ILibrary, IPlayHistory, IDisposable
     public Task<GameDetails?> GetGameAsync(GameKey game, CancellationToken cancellationToken) =>
         _readers.RunAsync(c => LibraryStore.GetGame(c, game), cancellationToken);
 
+    /// <summary>Every media row of a game, with whether it's the user's own file or which provider supplied it (M7).</summary>
+    public Task<IReadOnlyList<GameMediaInfo>> GetGameMediaInfoAsync(long gameId, CancellationToken cancellationToken) =>
+        _readers.RunAsync<IReadOnlyList<GameMediaInfo>>(c => LibraryStore.GetGameMediaInfo(c, gameId), cancellationToken);
+
+    /// <summary>A game's title and metadata with the scraped values and the user's apart, for editing (M7). Null if it isn't in the library.</summary>
+    public Task<GameMetadataEdit?> GetMetadataEditAsync(GameKey game, CancellationToken cancellationToken) =>
+        _readers.RunAsync(c => LibraryStore.GetMetadataEdit(c, game), cancellationToken);
+
     public Task SetEmulatorOverrideAsync(GameKey game, string? emulatorId, CancellationToken cancellationToken)
     {
         var id = string.IsNullOrWhiteSpace(emulatorId) ? null : emulatorId.Trim();

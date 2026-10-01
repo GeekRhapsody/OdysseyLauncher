@@ -142,4 +142,43 @@ public sealed class ModelImportServiceTests : IAsyncLifetime
         Assert.Equal((ModelRemoveStatus.Shared, "models/games/ps2/Other.glb"), (result.Status, result.SharedPath));
         Assert.Single(await Models());
     }
+
+    [Fact]
+    public async Task A_systems_card_and_game_template_go_where_the_theme_resolver_looks()
+    {
+        var card = await _service.ImportSystemModelAsync("ps2", SystemModelSlot.Card, Source("console.glb", ModelFixtures.Model(12_000, ["label", "body"])), Ct);
+        var template = await _service.ImportSystemModelAsync("ps2", SystemModelSlot.GameTemplate, Source("case.glb", ModelFixtures.Model(900, ["cover", "case"])), Ct);
+
+        Assert.Equal((ModelImportStatus.Imported, "models/systems/ps2.glb"), (card.Status, card.ModelPath));
+        Assert.Equal((ModelImportStatus.Imported, "models/templates/ps2.glb"), (template.Status, template.ModelPath));
+        var found = Launcher.Core.Theming.UserModels.Find(_paths.ConfigDir);
+        Assert.Contains("ps2", found.Systems);
+        Assert.Contains("ps2", found.Templates);
+        Assert.Equal(12_000, (await _service.GetSystemModelAsync("ps2", SystemModelSlot.Card, Ct))!.Triangles);
+        Assert.Equal(["cover"], (await _service.GetSystemModelAsync("ps2", SystemModelSlot.GameTemplate, Ct))!.Slots);
+        Assert.Empty(await Models());                                                  // not a per-game model
+    }
+
+    [Fact]
+    public async Task A_system_model_is_held_to_the_budget_of_its_kind()
+    {
+        // 5,000 triangles is in a per-game model's budget but more than twice a game template's.
+        var template = await _service.ImportSystemModelAsync("ps2", SystemModelSlot.GameTemplate, Source("big.glb", ModelFixtures.Model(5_000)), Ct);
+        var unknown = await _service.ImportSystemModelAsync("nope", SystemModelSlot.Card, Source("card.glb", ModelFixtures.Model(10)), Ct);
+
+        Assert.Equal(ModelImportStatus.Rejected, template.Status);
+        Assert.Equal(ModelImportStatus.NotInLibrary, unknown.Status);
+        Assert.False(Directory.Exists(Path.Combine(_paths.ConfigDir, "models")));
+    }
+
+    [Fact]
+    public async Task Removing_a_system_model_puts_the_themes_back()
+    {
+        await _service.ImportSystemModelAsync("ps2", SystemModelSlot.Card, Source("card.glb", ModelFixtures.Model(100)), Ct);
+
+        Assert.True(await _service.RemoveSystemModelAsync("ps2", SystemModelSlot.Card, Ct));
+        Assert.False(await _service.RemoveSystemModelAsync("ps2", SystemModelSlot.Card, Ct));
+        Assert.Empty(Launcher.Core.Theming.UserModels.Find(_paths.ConfigDir).Systems);
+        Assert.Null(await _service.GetSystemModelAsync("ps2", SystemModelSlot.Card, Ct));
+    }
 }

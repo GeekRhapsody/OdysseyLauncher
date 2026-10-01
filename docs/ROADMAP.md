@@ -273,7 +273,28 @@ All of it is done ([perf/m7-settings.md](perf/m7-settings.md), [captures](perf/m
 - **Input is validated before saving:** `ConfigInput` checks folders, programs, credentials and the provider order; then the edited files are loaded as the app would load them, and an edit that brings a new error writes nothing.
 - **Changes apply without a restart:** the theme switches at once; changed ROM folders rescan what they affect; emulators apply at the next launch; new credentials and scraping settings give the next scrape a new service.
 
-Still to do: part 2, the item options panels (a game's emulator, title and metadata overrides, its model, manual matching). A real pad, the mouse and a physical keyboard on the Deck, a live connection test and a live "scrape all missing" are the owner's manual test ([manual-tests.md](manual-tests.md#m7-part-1-the-settings-screen)).
+A real pad, the mouse and a physical keyboard on the Deck, a live connection test and a live "scrape all missing" are the owner's manual test ([manual-tests.md](manual-tests.md#m7-part-1-the-settings-screen)).
+
+**Closed on 2026-10-01 with part 2: the item options panels.**
+
+The owner's brief for part 2, reusing part 1's components (on-screen keyboard, pickers, confirmation dialogs, progress):
+- a system's options, on the West (X) button: its ROM folders (folder picker), its emulator, its model and template overrides (file picker for `.glb`), and "scrape this system", saying how many games it will affect
+- a game's options, on X: its emulator, its model (file picker for `.glb`), metadata editing, each media slot with its current image and source (scraped, the user's or none) and the user's own image per slot from the image picker, "scrape this game", and "clear metadata" with a confirmation saying it removes scraped data, every image including the user's, and edits
+- after any scrape, edit or image change, the affected items in the 3D grid update without a restart
+- each panel checked with `--capture`, including a game with the user's images on its box
+
+All of it is done ([perf/m7-items.md](perf/m7-items.md), [captures](perf/m7/part2/captures.jpg), and the [log](#log)). The slots are the design's eight image kinds: the brief's "support texture" (ScreenScraper's disc or cartridge art) is the `label` slot, and there's no video slot, because the design has no video kind (A7; the decisions log). Against the M7 criteria:
+- **TOML writes preserve comments and formatting, and contain only changed values:** part 1; part 2's one TOML write, a system's `game_model`, goes through the same `ConfigWriter`. Everything else part 2 saves is the user's data in userdata.db (overrides, the emulator) or files in ConfigDir (images, models).
+- **Secrets are written only to `secrets.toml`:** part 2 writes none.
+- **Input is validated before saving:** typed metadata by `MetadataInput` (one line and a length; dates and ratings parsed), on the keyboard before Done; images by their headers and models by `ModelInspector` before anything is copied.
+- **Changes apply without a restart:** images and a game's model rebind its cell in place (MediaChanged); titles from scrapes, clears and edits are renamed in place; a system's models and template reload the theme in the background; an emulator applies at the next launch. Each was checked in a capture taken in the same run as the change.
+
+Moved or not done:
+- manual matching (choosing a provider's game by hand), listed with part 2 when part 1 closed but not in the part 2 brief: `IScraper.SearchAsync` is ready for it
+- a video slot: not in the design; the owner's choice
+- scraping `label` art (ScreenScraper's "support-texture"): no provider is mapped to it yet, so the slot takes the user's own images only
+- the app still doesn't resume a scrape batch left unfinished when it closed (part 1)
+- the owner's manual test: a real pad on the panels, and a live "scrape this game" and "scrape this system" ([manual-tests.md](manual-tests.md#m7-part-2-item-options))
 
 ## Progress
 
@@ -288,7 +309,7 @@ Update this at the end of every milestone: the status, the date, and the evidenc
 | M4 Scraping and media pipeline | Done (the live 50-game scrape and the `systemesListe.php` check need the owner's credentials: [manual-tests.md](manual-tests.md#m4-a-live-scrape)) | 2026-09-28 | [perf/m4-scraping.md](perf/m4-scraping.md), bench JSON in [perf/m4/](perf/m4/), [real cover capture](perf/m4/real-cover-bc7.png); 321 tests, 62 of them new for scraping and derivatives; see the log below |
 | M5 3D navigation | Done (p99 and fullscreen hitches not met, the same without the launcher's work; handheld, 4K and PresentMon still to do) | 2026-09-28 | [perf/m5-navigation.md](perf/m5-navigation.md), bench JSON in [perf/m5/](perf/m5/), [captures](perf/m5/captures.jpg); 259 tests, including the model spec check; see the log below |
 | M6 Theming and custom models | Done (the working set is at the target with 300 per-game models; p99 and fullscreen hitches not met, as in M5; a Blender model on the real display is the owner's manual test) | 2026-09-30 | Part 1: [perf/m6-themes.md](perf/m6-themes.md), [perf/m6/](perf/m6/), [captures](perf/m6/captures.jpg). Part 2: [perf/m6-models.md](perf/m6-models.md), [perf/m6/part2/](perf/m6/part2/), [captures](perf/m6/part2/captures.jpg), [THEMING.md](THEMING.md); 427 tests; see the log below |
-| M7 Settings UI | Part 1 done (the shared components and the main settings screen); part 2 (the item options panels) next | Part 1: 2026-09-30 | Part 1: [perf/m7-settings.md](perf/m7-settings.md), bench JSON in [perf/m7/](perf/m7/), [captures](perf/m7/captures.jpg); 477 tests; see the log below |
+| M7 Settings UI | Done (a real pad on the panels and live scrapes are the owner's manual test; manual matching moved out) | 2026-10-01 | Part 1: [perf/m7-settings.md](perf/m7-settings.md), bench JSON in [perf/m7/](perf/m7/), [captures](perf/m7/captures.jpg); 477 tests. Part 2: [perf/m7-items.md](perf/m7-items.md), bench JSON in [perf/m7/part2/](perf/m7/part2/), [captures](perf/m7/part2/captures.jpg); 523 tests; see the log below |
 
 ### Log
 
@@ -483,3 +504,15 @@ Update this at the end of every milestone: the status, the date, and the evidenc
   - **Results** ([perf/m7-settings.md](perf/m7-settings.md); export, Deck docked, 3,000 games, the same session as M6 part 2's commit): scroll 0 hitches and 0 frames over 2× in every run, 100% textured, 64 B on the main thread, working set 425–426 MB, all the same as before; start-up of our code 446 ms median (before: 517 ms).
   - **Found and fixed:** a page showing through the page over it; the grid's overlay and the progress cards beside the settings panel; a new `secrets.toml` with its table above its header comment (Tomlyn keeps a comment-only file's text as the document's trailing trivia); a doubled blank line before a new table; an empty picker after B while its first folder was still opening; a progress card running off the screen.
   - **Not done:** part 2 (above); the owner's manual test; the app doesn't resume a scrape batch left unfinished when it closed (`odyssey-scrape resume` does).
+- **2026-10-01: M7 part 2, the item options panels. M7 closed.**
+  - **What was added:**
+    - Core `Library`: `GetGameMediaInfoAsync` (a game's media with their sources), `GetMetadataEditAsync` (scraped values and the user's overrides apart), `MetadataInput` (titles and fields, UK dates, ratings).
+    - Core `Media`: `UserArtService` (the user's own image per slot: copied to the game's ROM name, baked, indexed; removed with the scraped image restored).
+    - Core `Models`: `ModelImportService` imports, removes and reports a system's own card and game template.
+    - Core `Scraping`: `ScrapeService.CountSystemAsync`; `ScrapedRestore.RestoreMedia`.
+    - App `Options`: `ItemOptions`, `GameOptionsPanel`, `GameMetadataPanel`, `GameMediaPanel`; `Ui/Thumbnails` (shared with the image picker).
+    - App elsewhere: `SystemPage` gains models and "scrape this system" (and opens with X on a system); `LibraryJobs` scrapes a system or a game, clears a game and raises `GamesUpdated`; the navigator opens the options on X (O or the menu key on a keyboard), renames games in place after scrapes and edits, and reloads the theme after a system's model changes; `RefreshItem` sets the cell's title; `ThemeRuntime` says which model a system uses.
+  - **Verification:** `dotnet build`: 0 warnings. 523 tests pass (477 at part 1). The 46 new ones cover the user's images (set, replaced in another format, refused files, removal restoring the scraped image or leaving none, a shared file left alone, a rebuild keeping them), typed metadata (dates in every accepted form and rejected ones, ratings, lengths, single lines), the editing view (scraped and user values apart, sources), a system's card and template (imported where the theme resolver looks, held to their budgets, removed), and the system scrape count. `verify.ps1` passes. Every panel and dialog was captured and reviewed, with changes checked in the grid in the same run ([perf/m7-items.md](perf/m7-items.md#captures)).
+  - **Results** ([perf/m7-items.md](perf/m7-items.md); export, Deck docked, 3,000 games, the same session as part 1's commit): scroll 0–1 hitches and 0 frames over 2× (before: 0–2 and 0), 100% textured, 64 B on the main thread, GPU 1.35–1.37 ms, working set 425–426 MB: all as before; start-up of our code 411 ms median (before: 375 ms, overlapping ranges).
+  - **Found and fixed:** switching away from a theme whose models have clips leaked their node trees (since M6 part 2); "scrape this game" without credentials named one provider only.
+  - **Not done:** see M7 above (manual matching, a video slot, scraping labels, resuming batches at start-up, the owner's manual test).

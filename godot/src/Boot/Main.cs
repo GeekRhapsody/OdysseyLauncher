@@ -11,6 +11,7 @@ using Launcher.App.Grid;
 using Launcher.App.Launching;
 using Launcher.App.Models;
 using Launcher.App.Navigation;
+using Launcher.App.Options;
 using Launcher.App.Screens;
 using Launcher.App.Settings;
 using Launcher.App.Textures;
@@ -582,6 +583,25 @@ public partial class Main : Node3D
                 _settings.Open();
             }
         };
+
+        // X on a system or a game: its options (M7 part 2). Scrapes and edits rename games in the grid in place.
+        var options = new ItemOptions(_settings, navigator);
+        _settings.Options = options;
+        navigator.SystemOptionsRequested += id =>
+        {
+            if (!_ui!.IsOpen)
+            {
+                options.OpenSystem(id);
+            }
+        };
+        navigator.GameOptionsRequested += id =>
+        {
+            if (!_ui!.IsOpen)
+            {
+                options.OpenGame(id);
+            }
+        };
+        _jobs.GamesUpdated += navigator.OnGamesUpdated;
         _ui!.Blocked = () => _launch?.IsInputBlocked ?? false;
 
         // The overlay's text is about the grid (its controls, the focused game), so it steps aside for the settings.

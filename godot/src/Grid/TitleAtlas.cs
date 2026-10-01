@@ -1,3 +1,4 @@
+using System;
 using Godot;
 using Launcher.App.Theming;
 
@@ -27,6 +28,7 @@ public sealed partial class TitleAtlas : SubViewport
     private Label[] _blocks = [];
     private Label[] _spines = [];
     private bool _dirty;
+    private readonly string?[] _titles;
 
     /// <param name="blockSize">A block's side in pixels.</param>
     public TitleAtlas(int slots, int blockSize, bool withSpines)
@@ -34,6 +36,7 @@ public sealed partial class TitleAtlas : SubViewport
         _slots = slots;
         _blockSize = blockSize;
         _withSpines = withSpines;
+        _titles = new string?[slots];
         _blockColumns = Mathf.CeilToInt(Mathf.Sqrt(slots));
         var blockRows = (slots + _blockColumns - 1) / _blockColumns;
         var spineRows = (slots + SpineColumns - 1) / SpineColumns;
@@ -101,6 +104,13 @@ public sealed partial class TitleAtlas : SubViewport
     /// <summary>Main thread. The atlas redraws at the next <see cref="Flush"/>.</summary>
     public void SetTitle(int slot, string title)
     {
+        // Compared with the title last set (a managed reference: reading Label.Text back would allocate per bind).
+        if (string.Equals(_titles[slot], title, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        _titles[slot] = title;
         _blocks[slot].Text = title;
         if (_withSpines)
         {

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Godot;
@@ -25,6 +26,9 @@ public sealed class LibraryJobs : IDisposable
     public const string ScanKind = "scan";
     public const string ScrapeKind = "scrape";
 
+    /// <summary>One game's scrape (M7), which can run beside a batch: the service puts single games first.</summary>
+    public const string GameScrapeKind = "scrape-game";
+
     private readonly AppServices _services;
     private readonly MainThreadQueue _queue;
     private readonly CancellationTokenSource _shutdown = new();
@@ -46,7 +50,11 @@ public sealed class LibraryJobs : IDisposable
 
     public bool Scanning => Jobs.Running(ScanKind) is not null;
 
+    /// <summary>A batch is running (scrape all missing, or a system).</summary>
     public bool Scraping => Jobs.Running(ScrapeKind) is not null;
+
+    /// <summary>Main thread: these games' scraped data or user edits changed (a scrape, a clear), for the grid's titles.</summary>
+    public event Action<IReadOnlyList<GameKey>>? GamesUpdated;
 
     // ---- Scans ---------------------------------------------------------------------------------------
 
@@ -133,8 +141,133 @@ public sealed class LibraryJobs : IDisposable
         return (missing, scraper.GetProviders());
     }
 
-    /// <summary>Starts "scrape all missing" in the background. Main thread; false if a scrape is running.</summary>
-    public bool ScrapeMissing()
+    /// <summary>Starts "scrape all missing" in the background. Main thread; false if a batch is running.</summary>
+    public bool ScrapeMissing() => RunBatch("missing", "Scraping missing metadata", (scraper, token) => scraper.ScrapeAllMissingAsync(token));
+
+    /// <summary>
+    /// Starts scraping every game of a system in the background (the system options panel, M7). Main thread; false if
+    /// a batch is running.
+    /// </summary>
+    public bool ScrapeSystem(string systemId) =>
+        RunBatch("system", $"Scraping {SystemName(systemId)}", (scraper, token) => scraper.ScrapeSystemAsync(systemId, token));
+
+    /// <summary>
+    /// Scrapes one game in the background (the game options panel, M7), ahead of any batch. Main thread; false if that
+    /// game is being scraped already. <paramref name="done"/> gets the outcome, on the main thread.
+    /// </summary>
+    public bool ScrapeGame(GameKey game, string title, Action<string>? done = null)
+    {
+        var jobTitle = $"Scraping {title}";
+        foreach (var running in Jobs.Jobs)
+        {
+            if (running.Kind == GameScrapeKind && running.State == JobState.Running && running.Title == jobTitle)
+            {
+                return false;
+            }
+        }
+
+        var cancel = CancellationTokenSource.CreateLinkedTokenSource(_shutdown.Token);
+        var job = Jobs.Start(GameScrapeKind, jobTitle, "games", cancel.Cancel);
+        job.Report(0, 1);
+        var library = _services.Library;
+        _ = Task.Run(async () =>
+        {
+            var scraper = Scraper();
+            void Noticed(object? sender, ProviderNoticeEventArgs e) => job.SetNote(e.Notice.Message);
+            scraper.ProviderNotice += Noticed;
+            try
+            {
+                var result = await scraper.ScrapeGameAsync(game, cancel.Token).ConfigureAwait(false);
+                var details = await library.GetGameAsync(game, CancellationToken.None).ConfigureAwait(false);
+                string outcome;
+                JobState state;
+                if (result.Cancelled)
+                {
+                    (outcome, state) = ("Scraping stopped.", JobState.Cancelled);
+                }
+                else if (result.Total == 0)
+                {
+                    (outcome, state) = (NothingQueued(result), JobState.Failed);
+                }
+                else
+                {
+                    job.Report(1, 1, result.Failed);
+                    outcome = details?.Scrape switch
+                    {
+                        { Status: "ok" or "partial" } s => $"Found by {string.Join(" and ", s.Providers.Select(ScrapingPage.NameOf))}{(s.Status == "partial" ? ", though a provider failed" : string.Empty)}.",
+                        { Status: "not_found" } => "No provider found it. Edit its title to match the game's name, then scrape it again.",
+                        _ => "Scraping failed: a provider couldn't be reached.",
+                    };
+                    state = details?.Scrape?.Status is "ok" or "partial" ? JobState.Finished : JobState.Failed;
+                }
+
+                _queue.Post(() =>
+                {
+                    Jobs.End(job, state, outcome);
+                    GamesUpdated?.Invoke([game]);
+                    done?.Invoke(outcome);
+                });
+            }
+            catch (OperationCanceledException)
+            {
+                _queue.Post(() => Jobs.End(job, JobState.Cancelled, "Scraping stopped."));
+            }
+            catch (Exception e)
+            {
+                _queue.Post(() =>
+                {
+                    Jobs.End(job, JobState.Failed, $"Scraping failed: {e.Message}");
+                    done?.Invoke($"Scraping failed: {e.Message}");
+                });
+            }
+            finally
+            {
+                scraper.ProviderNotice -= Noticed;
+                cancel.Dispose();
+                _queue.Post(RetireStaleScraper);
+            }
+        }, cancel.Token);
+        return true;
+    }
+
+    /// <summary>What "scrape this system" would take on, and each provider's state. Thread pool.</summary>
+    public async Task<(SystemScrapeCount Count, IReadOnlyList<ProviderStatus> Providers)> PreviewSystemAsync(string systemId, CancellationToken cancellationToken)
+    {
+        var scraper = Scraper();
+        var count = await scraper.CountSystemAsync(systemId, cancellationToken).ConfigureAwait(false);
+        return (count, scraper.GetProviders());
+    }
+
+    /// <summary>
+    /// Clears a game's metadata (M4's clear: scraped data, every image including the user's own, its model, and the
+    /// user's edits). Thread pool; the grid hears about it through <see cref="GamesUpdated"/> and the library's
+    /// MediaChanged.
+    /// </summary>
+    public async Task<ClearResult> ClearGameAsync(GameKey game, CancellationToken cancellationToken)
+    {
+        var result = await Scraper().ClearGameAsync(game, cancellationToken).ConfigureAwait(false);
+        _queue.Post(() => GamesUpdated?.Invoke([game]));
+        return result;
+    }
+
+    /// <summary>Main thread: a game's title or metadata was edited, so the grid shows it.</summary>
+    public void GameEdited(GameKey game) => GamesUpdated?.Invoke([game]);
+
+    /// <summary>Why a scrape took on no game: no provider has credentials, or the first provider's reason.</summary>
+    private static string NothingQueued(ScrapeBatchResult result, string otherwise = "No provider could look it up.")
+    {
+        if (result.Notices.Count == 0)
+        {
+            return otherwise;
+        }
+
+        return result.Notices.All(n => n.State == ProviderState.MissingCredentials)
+            ? "None of your providers has its credentials yet: add them in Settings, under Scraping."
+            : result.Notices[0].Message;
+    }
+
+    /// <summary>A batch (all missing, or a system) as a job bound to the service's events. Main thread; false if one is running.</summary>
+    private bool RunBatch(string batchKind, string title, Func<ScrapeService, CancellationToken, Task<ScrapeBatchResult>> run)
     {
         if (Scraping)
         {
@@ -142,14 +275,14 @@ public sealed class LibraryJobs : IDisposable
         }
 
         var cancel = CancellationTokenSource.CreateLinkedTokenSource(_shutdown.Token);
-        var job = Jobs.Start(ScrapeKind, "Scraping missing metadata", "games", cancel.Cancel);
+        var job = Jobs.Start(ScrapeKind, title, "games", cancel.Cancel);
         _ = Task.Run(async () =>
         {
             var scraper = Scraper();
             long batch = -1;
             void Started(object? sender, ScrapeBatchEventArgs e)
             {
-                if (e.Result.Kind == "missing")
+                if (e.Result.Kind == batchKind)
                 {
                     Interlocked.CompareExchange(ref batch, e.Result.BatchId, -1);
                 }
@@ -163,19 +296,30 @@ public sealed class LibraryJobs : IDisposable
                 }
             }
 
+            // Each game as it's done, so its title in the grid follows (its media follow the library's MediaChanged).
+            void Scraped(object? sender, ScrapeGameEventArgs e)
+            {
+                if (e.BatchId == Interlocked.Read(ref batch))
+                {
+                    var game = e.Result.Game;
+                    _queue.Post(() => GamesUpdated?.Invoke([game]));
+                }
+            }
+
             void Noticed(object? sender, ProviderNoticeEventArgs e) => job.SetNote(e.Notice.Message);
 
             scraper.BatchStarted += Started;
             scraper.Progress += Progressed;
+            scraper.GameScraped += Scraped;
             scraper.ProviderNotice += Noticed;
             try
             {
-                var result = await scraper.ScrapeAllMissingAsync(cancel.Token).ConfigureAwait(false);
-                var state = result.Cancelled ? JobState.Cancelled : result.Paused ? JobState.Cancelled : JobState.Finished;
+                var result = await run(scraper, cancel.Token).ConfigureAwait(false);
+                var state = result.Cancelled || result.Paused ? JobState.Cancelled : JobState.Finished;
                 var outcome = result.Cancelled
                     ? string.Create(CultureInfo.InvariantCulture, $"Scraping stopped after {result.Done:N0} of {result.Total:N0} games.")
                     : result.Total == 0
-                        ? "Nothing needed scraping."
+                        ? NothingQueued(result, "Nothing needed scraping.")
                         : string.Create(CultureInfo.InvariantCulture, $"Done: {result.Done - result.Failed:N0} of {result.Total:N0} games scraped{(result.Failed > 0 ? $", {result.Failed:N0} failed" : string.Empty)}.");
                 _queue.Post(() => Jobs.End(job, state, outcome));
             }
@@ -191,6 +335,7 @@ public sealed class LibraryJobs : IDisposable
             {
                 scraper.BatchStarted -= Started;
                 scraper.Progress -= Progressed;
+                scraper.GameScraped -= Scraped;
                 scraper.ProviderNotice -= Noticed;
                 cancel.Dispose();
                 _queue.Post(RetireStaleScraper);
@@ -223,14 +368,21 @@ public sealed class LibraryJobs : IDisposable
             _scraperStale = true;
         }
 
-        if (!Scraping)
+        if (!AnyScraping)
         {
             RetireStaleScraper();
         }
     }
 
+    private bool AnyScraping => Scraping || Jobs.Running(GameScrapeKind) is not null;
+
     private void RetireStaleScraper()
     {
+        if (AnyScraping)
+        {
+            return;
+        }
+
         ScrapeService? old;
         lock (_scraperLock)
         {

@@ -36,6 +36,7 @@ public sealed class ModelLoader
     private readonly Dictionary<string, ConvertedModel> _models = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _failed = new(StringComparer.Ordinal);
     private readonly HashSet<string> _loading = new(StringComparer.Ordinal);
+    private readonly List<ConvertedModel> _retired = [];
     private readonly ConcurrentQueue<(string File, ConvertedModel? Model, string? Error, double WorkerMs)> _parsed = new();
     private ModelCache? _cache;
     private ModelLog? _log;
@@ -122,7 +123,11 @@ public sealed class ModelLoader
         return changed;
     }
 
-    /// <summary>Main thread: user files are read again next time (a theme switch picks up edited models).</summary>
+    /// <summary>
+    /// Main thread: user files are read again next time (a theme switch picks up edited models). The grids still draw
+    /// the forgotten models until the next theme is applied, so their node trees are freed then
+    /// (<see cref="FreeRetired"/>).
+    /// </summary>
     public void ForgetUserModels()
     {
         foreach (var (key, entry) in new List<KeyValuePair<string, Entry>>(_entries))
@@ -130,10 +135,31 @@ public sealed class ModelLoader
             if (entry.Candidate.Origin == ThemeOrigin.User && entry.State != ModelState.Loading)
             {
                 _entries.Remove(key);
-                _models.Remove(entry.File);
+                if (_models.Remove(entry.File, out var model) && model.Scene is not null)
+                {
+                    _retired.Add(model);
+                }
+
                 _failed.Remove(entry.File);
             }
         }
+    }
+
+    /// <summary>
+    /// Main thread, once a theme has been applied and the grids hold none of the forgotten models: frees their node
+    /// trees, which are never in the scene tree (each theme switch away from models with clips leaked them).
+    /// </summary>
+    public void FreeRetired()
+    {
+        foreach (var model in _retired)
+        {
+            if (model.Scene is { } scene && GodotObject.IsInstanceValid(scene))
+            {
+                scene.QueueFree();
+            }
+        }
+
+        _retired.Clear();
     }
 
     /// <summary>
@@ -178,7 +204,8 @@ public sealed class ModelLoader
     /// <summary>Main thread, at exit: frees the models' node trees, which are never in the scene tree.</summary>
     public void FreeScenes()
     {
-        foreach (var model in _models.Values)
+        _retired.AddRange(_models.Values);
+        foreach (var model in _retired)
         {
             if (model.Scene is { } scene && GodotObject.IsInstanceValid(scene))
             {
@@ -186,6 +213,7 @@ public sealed class ModelLoader
             }
         }
 
+        _retired.Clear();
         _models.Clear();
         _entries.Clear();
     }

@@ -112,6 +112,23 @@ public sealed record GameMetadata(
     double? Rating,
     string Source);
 
+/// <summary>One of a game's media rows with where it came from, for the game options panel (M7).</summary>
+/// <param name="Source">'user' for the user's own file, else the provider that supplied it ('screenscraper').</param>
+/// <param name="Width">From the image's header; null for a model or an image whose header wasn't read.</param>
+public sealed record GameMediaInfo(string Kind, MediaRef Media, string Source, int? Width, int? Height)
+{
+    public bool IsUsers => Source == "user";
+}
+
+/// <summary>
+/// A game's title and metadata with the scraped values and the user's own apart, for editing them (M7). The grid and
+/// <see cref="GameDetails"/> show the user's value where there is one, else the scraped one.
+/// </summary>
+/// <param name="Title">The scraped title, else the one cleaned from the file name: what shows without an override.</param>
+/// <param name="Scraped">The <c>metadata</c> row; null when the game has never been scraped (or nothing was found).</param>
+/// <param name="Overrides">The user's metadata (userdata.db); every field null when there's none.</param>
+public sealed record GameMetadataEdit(GameKey Key, string Title, string? TitleOverride, GameMetadata? Scraped, MetadataOverride Overrides);
+
 /// <summary>A game's play statistics from userdata.db.</summary>
 public sealed record PlayStats(int PlayCount, TimeSpan TotalPlayTime, DateTimeOffset? LastPlayedAt);
 

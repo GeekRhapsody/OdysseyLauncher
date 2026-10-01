@@ -184,6 +184,17 @@ public sealed class ThemeRuntime
     public int CardTemplateOf(string? systemId) =>
         _cardTemplateOf.TryGetValue(systemId ?? ThemePlan.VirtualCards, out var t) ? t : _cardTemplateOf[ThemePlan.VirtualCards];
 
+    /// <summary>The candidate a system's games use, once ready (the options panel says which: M7); null if none loaded.</summary>
+    public ModelCandidate? GameModelInUse(string systemId) => InUse(Plan.GameCandidates, _gameChoice, systemId);
+
+    /// <summary>The candidate a system's card uses, once ready; null if none loaded.</summary>
+    public ModelCandidate? CardModelInUse(string systemId) => InUse(Plan.CardCandidates, _cardChoice, systemId);
+
+    private static ModelCandidate? InUse(Dictionary<string, IReadOnlyList<ModelCandidate>> lists, Dictionary<string, int> choice, string systemId) =>
+        lists.TryGetValue(systemId, out var candidates) && choice.TryGetValue(systemId, out var index) && index < candidates.Count
+            ? candidates[index]
+            : null;
+
     public ThemeLook LookFor(string? systemId) => Plan.Resolver.LookFor(systemId);
 
     /// <summary>A system's colour: the theme's, else one made from its id.</summary>

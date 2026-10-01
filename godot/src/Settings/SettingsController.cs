@@ -25,6 +25,9 @@ public sealed class SettingsController(AppServices services, UiContext ui, Libra
 
     public UiLayer Layer => Ui.Layer;
 
+    /// <summary>The item options (M7 part 2), which a system's page also shows: its models and "scrape this system".</summary>
+    public Options.ItemOptions? Options { get; set; }
+
     /// <summary>Main thread: config changed (the navigator refreshes what it shows, the launcher uses it next launch).</summary>
     public event Action<AppConfig>? ConfigApplied;
 

@@ -278,3 +278,20 @@ This checks what the scripts can't: a real pad, the mouse and a physical keyboar
 
 - Anything that didn't answer the pad, the mouse or the keyboard, any frame that froze, any message that was unclear, and any config file whose comments or layout changed beyond the value you set.
 - The log lines: `Select-String -Path "$env:APPDATA\Godot\app_userdata\Odyssey Launcher\logs\godot.log" -Pattern '^Settings|^Scan|^Scrape|^Theme|error|warning'`.
+
+## M7 part 2: item options
+
+This checks what the scripts can't: a real pad on the options panels, and a live "scrape this game" and "scrape this system" with your credentials. It uses the M3 set-up (`C:\OdysseyTest`) with the M5 Mega Drive ROMs and your credentials from M7 part 1, and the export full screen: `& .\artifacts\export\windows\OdysseyLauncher.exe --fullscreen ++ --user-dir=C:\OdysseyTest`. Keep two or three images of your own (PNG or JPEG) and a `.glb` somewhere handy.
+
+1. **A game's options.** Enter Mega Drive, focus a game and press X. Move with the D-pad, A to choose, B to go back. With a physical keyboard, O opens them too.
+2. **Scrape this game.** Choose it: the panel says "Scraping …", then which provider found it. Press B: the game's box shows its scraped cover at once, and the details (bottom left) its metadata.
+3. **Your own images.** Images: a card per slot shows the scraped art and where it came from. Choose the front cover, pick one of your images in the picker (it shows a preview), then do the same for the back. Close the options: the box shows your cover straight away. Reopen Images, focus your cover and press Y, then Remove it: the scraped cover comes back.
+4. **Metadata.** Edit the title and metadata, then Title: type a new title on the on-screen keyboard and press Menu. The grid shows the new title when you close the options (and the game moves if it now sorts elsewhere). Try Released with nonsense: it's refused with the formats it takes. Focus a field you changed and press Y: it's the scraped value again.
+5. **Emulator and model.** Emulator: choose another profile; launch the game: it uses that one. Model: choose your `.glb`; the box becomes your model. Y on Model removes it.
+6. **Clear metadata.** Read the question (it says your images go too), then Clear it. The game shows a plain box and its file-name title, and your image files for it are gone from `C:\OdysseyTest\media\megadrive\`.
+7. **A system's options.** On the systems grid, focus Mega Drive and press X. Game template: choose `jewel_case`; the theme reloads and Mega Drive's games are jewel cases. Choose "The theme's choice" to put it back. Scrape this system: the question says how many games, and which providers; start it, close the options and watch the progress card while the boxes fill in.
+
+### Send back
+
+- Anything that didn't answer the pad, any frame that froze while a panel saved or loaded, any message that was unclear, and any change that needed a restart or a rescan to show.
+- The log lines: `Select-String -Path "$env:APPDATA\Godot\app_userdata\Odyssey Launcher\logs\godot.log" -Pattern '^Options|^Titles|^Media|^Scrape|^Theme|error|warning'`.

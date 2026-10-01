@@ -173,16 +173,16 @@ For each game and each system card, the launcher tries these candidates in order
 1. The user's own model for that game: `ConfigDir/models/games/<system>/<rel path>.glb`, where `<rel path>` is the ROM's path under its ROM folder.
    - With the extension kept (`Game (Europe).iso.glb`), it's for that ROM only.
    - Without it (`Game (Europe).glb`), it's for every ROM of that name.
-   - Users can import one with `odyssey-scrape import-model` (section 10), or later from the game options screen.
-2. The user's template for the system: `ConfigDir/models/templates/<system>.glb`.
-3. The user's `game_model` for the system in `systems.toml`: a template id in the active theme, else in the built-in one.
+   - Users choose one in the game's options (X on the game, then Model), or import one with `odyssey-scrape import-model` (section 10).
+2. The user's template for the system: `ConfigDir/models/templates/<system>.glb`. Users choose one in the system's options (X on the system, then Game template).
+3. The user's `game_model` for the system in `systems.toml`: a template id in the active theme, else in the built-in one. The system's options list your theme's templates for this.
 4. Your theme's `[systems.<system>] game_template`.
 5. Your theme's `[defaults] game_template`.
 6. The built-in theme's template for the system.
 7. The built-in theme's default template (`dvd_case`).
 
 **A system's card:**
-1. The user's `ConfigDir/models/systems/<system>.glb`.
+1. The user's `ConfigDir/models/systems/<system>.glb`, chosen in the system's options (X on the system, then System model).
 2. Your theme's `[systems.<system>] model`.
 3. Your theme's `[defaults] system_model`.
 4. The built-in theme's generic card.

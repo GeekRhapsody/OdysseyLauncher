@@ -630,7 +630,7 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
     }
 
     /// <summary>
-    /// Main thread: the item's media (or its model) changed, so its bound cell, if any, walks its slot chains again.
+    /// Main thread: the item's media, model or title changed, so its bound cell, if any, walks its slot chains again.
     /// Its model stays unless it changed; slots whose media is unchanged keep their layers; a slot whose derivative
     /// was missing tries again.
     /// </summary>
@@ -643,6 +643,7 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
         }
 
         _source.Describe(item, out var info);
+        _atlas.SetTitle(cell, info.Title);
         var template = Math.Clamp(info.Template, 0, _templates.Count - 1);
         var model = info.Model ?? _templates[template];
         if (model != _cellModel[cell])

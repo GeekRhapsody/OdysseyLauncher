@@ -33,8 +33,9 @@ public sealed partial class Navigator : Node
     private const double StatusSeconds = 2.5;
     private const int CachedLists = 3;
 
-    private const string SystemsHints = "A / Enter  Open     View / F5  Rescan     Menu / Esc  Settings";
-    private const string GamesHints = "A / Enter  Play     B / Esc  Back     Y / F  Favourite     LB RB  Page     LT RT  Letter";
+    private const string SystemsHints = "A / Enter  Open     X / O  Options     View / F5  Rescan     Menu / Esc  Settings";
+    private const string GamesHints = "A / Enter  Play     B / Esc  Back     X / O  Options     Y / F  Favourite     LB RB  Page     LT RT  Letter";
+    private const double TitlesDelay = 0.4;
 
     private static readonly GridPose Shown = new(0, 1, 0);
     private static readonly GridPose SystemsHidden = new(1, 1.12f, 0.7f);
@@ -73,6 +74,8 @@ public sealed partial class Navigator : Node
     private double _launchStartedAt;
     private double _launchSeconds;
     private GameDetails? _launchGame;
+    private double _titlesDue = -1;
+    private readonly HashSet<string> _titleSystems = new(StringComparer.Ordinal);
 
     public Navigator(AppServices services, MainThreadQueue queue, ItemGrid systemsGrid, ItemGrid gamesGrid, InfoOverlay overlay, LookStage stage, ModelLoader loader, ThemeRuntime theme)
     {
@@ -132,6 +135,15 @@ public sealed partial class Navigator : Node
 
     /// <summary>Menu, or Back on the systems screen: the settings screen should open (M7).</summary>
     public event Action? SettingsRequested;
+
+    /// <summary>X on a system: its options panel should open (M7). The system's id.</summary>
+    public event Action<string>? SystemOptionsRequested;
+
+    /// <summary>X on a game: its options panel should open (M7). The game's id.</summary>
+    public event Action<long>? GameOptionsRequested;
+
+    /// <summary>The theme the grids show (the options panels say which model each system uses).</summary>
+    public ThemeRuntime Theme => _theme;
 
     /// <summary>The media streamer, for evicting textures while a game runs and for a theme's layout.</summary>
     public TextureStreamer? Streamer { get; set; }
@@ -209,6 +221,12 @@ public sealed partial class Navigator : Node
         if (_pendingTheme is { } pending)
         {
             PollTheme(pending);
+        }
+
+        if (_titlesDue >= 0 && _clock >= _titlesDue)
+        {
+            _titlesDue = -1;
+            RefreshTitles();
         }
 
         if (_perGameLoading.Count > 0 && _theme.PollLoads())
@@ -297,6 +315,32 @@ public sealed partial class Navigator : Node
             case NavCommand.Back when _screen == Screen.Systems:
                 SettingsRequested?.Invoke();
                 break;
+            case NavCommand.Alternate:
+                RequestOptions();
+                break;
+        }
+    }
+
+    /// <summary>X: the focused system's or game's options. Favourites and Recently played have none.</summary>
+    private void RequestOptions()
+    {
+        if (_screen == Screen.Systems)
+        {
+            if (_systemsGrid.FocusIndex >= 0 && _systems.Entries[_systemsGrid.FocusIndex] is { Virtual: VirtualKind.None } entry)
+            {
+                SystemOptionsRequested?.Invoke(entry.Id);
+            }
+            else
+            {
+                ShowStatus("Favourites and Recently played have no options. Press X on a system or a game.");
+            }
+
+            return;
+        }
+
+        if (_games is not null && _gamesGrid.FocusIndex >= 0 && _gamesGrid.FocusIndex < _games.Count)
+        {
+            GameOptionsRequested?.Invoke(_games.Row(_gamesGrid.FocusIndex).GameId);
         }
     }
 
@@ -775,6 +819,122 @@ public sealed partial class Navigator : Node
         return false;
     }
 
+    // ---- Titles and details after a scrape or an edit (M7) ------------------------------------------
+
+    /// <summary>
+    /// Main thread: these games' titles or metadata changed (a scrape, a clear, an edit in the options panel). Their
+    /// media follow MediaChanged; their titles are read again shortly after (several changes in a row read once), and
+    /// the focused game's details now.
+    /// </summary>
+    public void OnGamesUpdated(IReadOnlyList<GameKey> games)
+    {
+        _cache.Clear();
+        foreach (var game in games)
+        {
+            _titleSystems.Add(game.SystemId);
+        }
+
+        if (_titlesDue < 0)
+        {
+            _titlesDue = _clock + TitlesDelay;
+        }
+
+        if (_screen is Screen.Games && _focusKey >= 0)
+        {
+            _detailsDue = _clock;
+        }
+    }
+
+    /// <summary>
+    /// Reads the shown list again and updates the titles in place when its games are still in the same order; a title
+    /// that moved a game (an edited title sorts in its own place) binds the list again, keeping the focus on its game.
+    /// </summary>
+    private void RefreshTitles()
+    {
+        var concerns = false;
+        if (_games is { } shown)
+        {
+            foreach (var system in shown.SystemIds)
+            {
+                concerns |= _titleSystems.Contains(system);
+            }
+        }
+
+        _titleSystems.Clear();
+        if (!concerns || _games is not { } source || FindEntry(source.Id) is not { } entry)
+        {
+            return;
+        }
+
+        var library = _services.Library;
+        var token = _shutdown.Token;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                GameRow[] rows;
+                if (entry.Virtual == VirtualKind.None)
+                {
+                    rows = [.. (await library.GetGamesAsync(entry.Id, token).ConfigureAwait(false)).Games];
+                }
+                else
+                {
+                    var list = entry.Virtual == VirtualKind.Favourites
+                        ? await library.GetFavouritesAsync(token).ConfigureAwait(false)
+                        : await library.GetRecentlyPlayedAsync(RecentlyPlayedLimit, token).ConfigureAwait(false);
+                    rows = new GameRow[list.Count];
+                    for (var i = 0; i < rows.Length; i++)
+                    {
+                        rows[i] = list[i].Game;
+                    }
+                }
+
+                _queue.Post(() =>
+                {
+                    if (_games != source)
+                    {
+                        return;
+                    }
+
+                    if (source.UpdateTitles(rows) is not { } changed)
+                    {
+                        var focusIndex = Math.Max(0, _gamesGrid.FocusIndex);
+                        LoadGames(entry, null, focusIndex < source.Count ? source.Row(focusIndex).GameId : 0);
+                        GD.Print($"Titles: {source.Id}'s order changed, so it was bound again.");
+                        return;
+                    }
+
+                    foreach (var game in changed)
+                    {
+                        _gamesGrid.RefreshItem(game);
+                        if (game == _gamesGrid.FocusIndex && _screen == Screen.Games)
+                        {
+                            _overlay.ShowHeading(source.Row(game).Title, source.SystemName(game));
+                        }
+                    }
+
+                    if (changed.Count > 0)
+                    {
+                        GD.Print($"Titles: {changed.Count} game(s) in {source.Id} renamed in place.");
+                    }
+                });
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            catch (Exception e)
+            {
+                GD.PushWarning($"Titles: couldn't re-read {source.Id}: {e.Message}");
+            }
+        }, token);
+    }
+
+    /// <summary>
+    /// The theme resolved again and applied (a system's own model was imported or removed, or its <c>game_model</c>
+    /// changed: M7), as a switch to the same theme is.
+    /// </summary>
+    public void ReloadTheme() => SwitchTheme(ThemeId);
+
     // ---- Themes (M6) ------------------------------------------------------------------------------
 
     /// <summary>
@@ -855,6 +1015,7 @@ public sealed partial class Navigator : Node
         _systemsGrid.SetTemplates(theme.CardTemplates);
         _gamesGrid.DisableTextures();
         _gamesGrid.SetTemplates(theme.GameTemplates);
+        _loader.FreeRetired();
         InstallLayout(theme);
 
         var systemsFocus = _systemsGrid.FocusIndex;

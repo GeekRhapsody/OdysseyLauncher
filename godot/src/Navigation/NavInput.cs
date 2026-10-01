@@ -32,7 +32,10 @@ public enum NavCommand
     /// <summary>Menu (Start) or F1: opens and closes the settings screen (M7); "done" on the on-screen keyboard.</summary>
     Menu,
 
-    /// <summary>X: a screen's third action (the on-screen keyboard's space, the folder picker's "use this folder").</summary>
+    /// <summary>
+    /// X, or O or the menu key: a screen's third action (an item's options in the grids, M7; the on-screen keyboard's
+    /// space; the folder picker's "use this folder").
+    /// </summary>
     Alternate,
 }
 
@@ -108,7 +111,7 @@ public sealed class NavInput
         AddPress(5, [Key.F5], [JoyButton.Back]);
         AddPress(6, [Key.T], []);
         AddPress(7, [Key.F1], [JoyButton.Start]);
-        AddPress(8, [], [JoyButton.X]);
+        AddPress(8, [Key.O, Key.Menu], [JoyButton.X]);
 
         foreach (var action in GodotNavigation)
         {

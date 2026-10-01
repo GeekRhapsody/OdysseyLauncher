@@ -386,6 +386,40 @@ public sealed class GamesSource : IGridSource
         return changed;
     }
 
+    /// <summary>
+    /// Main thread: the list read again after titles changed (M7). When it holds the same games in the same order, the
+    /// titles are updated in place and the indices that changed returned; otherwise null, and the list must be bound
+    /// again.
+    /// </summary>
+    public List<int>? UpdateTitles(IReadOnlyList<GameRow> rows)
+    {
+        if (rows.Count != _rows.Length)
+        {
+            return null;
+        }
+
+        for (var i = 0; i < rows.Count; i++)
+        {
+            if (rows[i].GameId != _rows[i].GameId)
+            {
+                return null;
+            }
+        }
+
+        var changed = new List<int>();
+        for (var i = 0; i < rows.Count; i++)
+        {
+            if (!string.Equals(rows[i].Title, _rows[i].Title, StringComparison.Ordinal))
+            {
+                _rows[i] = _rows[i] with { Title = rows[i].Title };
+                _letters[i] = LetterOf(rows[i].Title);
+                changed.Add(i);
+            }
+        }
+
+        return changed;
+    }
+
     public void Describe(int index, out CellInfo cell)
     {
         ref readonly var row = ref _rows[index];
