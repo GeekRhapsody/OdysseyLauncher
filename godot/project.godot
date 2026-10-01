@@ -43,3 +43,4 @@ theme/lcd_subpixel_layout=0
 rendering_device/staging_buffer/max_size_mb=16
 rendering_device/driver.windows="d3d12"
 renderer/rendering_method="mobile"
+textures/default_filters/anisotropic_filtering_level=4
