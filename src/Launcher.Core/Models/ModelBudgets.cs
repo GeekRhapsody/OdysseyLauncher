@@ -15,7 +15,8 @@ public enum ModelKind
 
 /// <summary>
 /// A7's budgets for one kind of model. Textures don't count the media a slot shows (that's streamed), only the
-/// model's own images. Over budget, a model loads with a warning; more than 2× over a count (triangles, textures,
+/// model's own base colour images (normal, metallic-roughness, occlusion and emissive maps aren't drawn yet, so they
+/// cost nothing and don't count). Over budget, a model loads with a warning; more than 2× over a count (triangles, textures,
 /// materials, joints, morph targets), it's rejected and the next model in line is used. A texture larger than
 /// <see cref="TextureSide"/> is scaled down when the model is processed, so its size never rejects a model.
 /// </summary>

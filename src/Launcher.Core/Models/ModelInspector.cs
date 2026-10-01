@@ -12,7 +12,7 @@ namespace Launcher.Core.Models;
 /// model in the cache, and shown to the user by the import service (and M7's game options panel).
 /// </summary>
 /// <param name="Accepted">False: the model is rejected (see <see cref="Errors"/>) and the next model in line is used.</param>
-/// <param name="Textures">The model's own images that its materials use (media slots stream theirs).</param>
+/// <param name="Textures">The model's own images that its materials use as base colour (media slots stream theirs; other maps aren't drawn yet).</param>
 /// <param name="Slots">The media slots its materials name, in slot order.</param>
 /// <param name="Clips">The animation clips it has that the launcher plays (idle, focused, launch).</param>
 /// <param name="Joints">The most joints in one skin.</param>
@@ -52,7 +52,7 @@ public sealed record ModelReport(
 }
 
 /// <summary>An image in a model, as the inspector found it.</summary>
-/// <param name="Used">Whether a material uses it (through a texture).</param>
+/// <param name="Used">Whether a material draws it (through a base colour texture).</param>
 public sealed record ModelImage(int Index, int BufferView, string MimeType, int Width, int Height, bool Used);
 
 /// <summary>A model's report plus what processing needs from the file.</summary>
@@ -520,6 +520,9 @@ public static class ModelInspector
                 }
             }
 
+            // Only base colour textures are drawn (the app decodes those alone), so only they count against the budget.
+            // The other maps are still checked, since Godot's parser reads their references, but they cost nothing yet.
+            var ignoredMaps = new SortedSet<string>(StringComparer.Ordinal);
             var materials = Arr("materials");
             for (var i = 0; i < materials.Count; i++)
             {
@@ -533,12 +536,21 @@ public static class ModelInspector
                     if (owner?[name] is JsonObject info)
                     {
                         var texture = Ref(info, "index", "textures", $"{where} {name}", required: true);
-                        if (texture >= 0 && textureImage[texture] >= 0)
+                        if (name != "baseColorTexture")
+                        {
+                            ignoredMaps.Add(name);
+                        }
+                        else if (texture >= 0 && textureImage[texture] >= 0)
                         {
                             _usedImages.Add(textureImage[texture]);
                         }
                     }
                 }
+            }
+
+            if (ignoredMaps.Count > 0)
+            {
+                _notes.Add($"its materials' {string.Join(", ", ignoredMaps)} maps aren't drawn yet, so they don't count as textures");
             }
 
             for (var i = 0; i < _images.Count; i++)

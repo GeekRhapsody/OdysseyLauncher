@@ -17,7 +17,7 @@ public sealed record ProcessedModel(byte[]? Glb, ModelReport Report);
 public static class ModelProcessor
 {
     /// <summary>Bump when processing changes, so cached models are processed again.</summary>
-    public const int Version = 1;
+    public const int Version = 2;
 
     public static ProcessedModel Process(ReadOnlySpan<byte> data, ModelKind kind, IImageDecoder? decoder, string scratchDir)
     {

@@ -63,6 +63,33 @@ public sealed class ModelInspectorTests
     }
 
     [Fact]
+    public void Only_base_colour_textures_count_since_other_maps_arent_drawn()
+    {
+        // Two base colour images, plus eight more on maps the app doesn't draw: ten images, five times the budget.
+        var model = ModelFixtures.Edited(json =>
+        {
+            var materials = (JsonArray)json["materials"]!;
+            var next = 2;
+            foreach (var material in materials.Cast<JsonObject>())
+            {
+                var pbr = (JsonObject)material["pbrMetallicRoughness"]!;
+                pbr["metallicRoughnessTexture"] = new JsonObject { ["index"] = next++ };
+                foreach (var map in (string[])["normalTexture", "occlusionTexture", "emissiveTexture"])
+                {
+                    material[map] = new JsonObject { ["index"] = next++ };
+                }
+            }
+        }, ModelFixtures.Model(100, ["cover", "case"], [.. Enumerable.Repeat((8, 8), 9), (2048, 2048)]));
+
+        var report = Inspect(model);
+
+        Assert.True(report.Accepted, string.Join("; ", report.Errors));
+        Assert.Equal((2, 8), (report.Textures, report.LargestTextureSide));
+        Assert.Empty(report.Warnings);
+        Assert.Contains(report.Notes, n => n.Contains("emissiveTexture, metallicRoughnessTexture, normalTexture, occlusionTexture maps aren't drawn yet", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void A_model_needs_no_media_slot()
     {
         var report = Inspect(ModelFixtures.Model(100, ["body", "stand"]));
@@ -92,6 +119,7 @@ public sealed class ModelInspectorTests
         { "index out of range", ModelFixtures.Edited(j => { foreach (var i in (int[])[0, 1, 2]) { Accessor(j, i)["count"] = 3; } }), "has an index 3, but only 3 vertices" },
         { "missing accessor", ModelFixtures.Edited(j => Primitive(j)["indices"] = 99), "names accessor 99, which doesn't exist" },
         { "missing material", ModelFixtures.Edited(j => Primitive(j)["material"] = 7), "names material 7" },
+        { "missing normal map", ModelFixtures.Edited(j => ((JsonObject)((JsonArray)j["materials"]!)[0]!)["normalTexture"] = new JsonObject { ["index"] = 5 }), "names texture 5" },
         { "cycle", ModelFixtures.Edited(j => ((JsonObject)((JsonArray)j["nodes"]!)[1]!)["children"] = new JsonArray(0)), "loop" },
         { "external buffer", ModelFixtures.Edited(j => ((JsonObject)((JsonArray)j["buffers"]!)[0]!)["uri"] = "model.bin"), "everything must be embedded" },
         { "required extension", ModelFixtures.Edited(j => j["extensionsRequired"] = new JsonArray("KHR_draco_mesh_compression")), "KHR_draco_mesh_compression" },

@@ -199,7 +199,7 @@ User models (levels 1 and 2) use the default slot chains. Nothing is looked for 
 | Size | About 1 m on its largest side. You don't have to be exact: the launcher fits every model to the spec, and fits per-game models into the grid cell. More than 10× off gets a "wrong units?" warning. |
 | Materials honoured today | Base colour (factor and texture), roughness, vertex colours, and the slot names. |
 | Materials ignored for now | Metallic, normal maps, emissive, unlit, alpha, texture transforms and double-sided. They're planned. Until then, don't rely on them: a model looks the same without them, just flatter. |
-| Textures | Base colour textures, at most 4 per model. They're mipmapped when loaded. |
+| Textures | Base colour textures, at most 4 per model. They're mipmapped when loaded. Normal, metallic-roughness, occlusion and emissive maps are allowed but not drawn yet, so they don't count towards the budget. |
 | Animation | Clips named `idle`, `focused` and `launch` (section 8), with node transforms, skinning and morph targets. |
 | Ignored | Cameras, lights (the theme's lights are the only lights), extra scenes, and other clips. |
 
@@ -207,7 +207,7 @@ Every model, whether it's the built-in theme's, yours or the user's, is drawn wi
 
 ## 7. Budgets
 
-| Model | Triangles | Textures (not counting slot art) | Materials |
+| Model | Triangles | Base colour textures (not counting slot art) | Materials |
 |---|---|---|---|
 | Game template | ≤ 2,000 | ≤ 2, each ≤ 1024² | ≤ 4 |
 | A user's per-game model | ≤ 5,000 | ≤ 2, each ≤ 1024² | ≤ 4 |
