@@ -85,7 +85,8 @@ public sealed class BoxBuilder
     /// <summary>A face's width over its height, for a slot material's <c>extras.aspect</c>.</summary>
     public static float SlotAspect(BoxSpec spec, string slot) => slot switch
     {
-        "spine" => spec.Depth / (spec.Height - 2 * spec.SpineRadius),
+        // The spine's UVs span the straight wall: the depth less both chamfers, and the height less both corners.
+        "spine" => (spec.Depth - 2 * spec.Bevel) / (spec.Height - 2 * spec.SpineRadius),
         "back" => spec.Width / spec.Height,
         _ when slot == spec.LowerSlot => spec.Width / spec.SplitAt,
         _ => spec.Split switch

@@ -41,9 +41,16 @@ public partial class BoxTemplateGenerator : Node
             CaseColour: new Color("#2A2D35"), CaseRoughness: 0.2f, ArtRoughness: 0.22f,
             Split: FrontSplit.SpineStrip, SplitAt: 15),
 
-        // NES, SNES, N64 and the Game Boy family: a cardboard box, 135 x 185 x 32, printed on both sides.
+        // NES, SNES, N64 and Game Boy Advance: a cardboard box, 135 x 185 x 32, printed on both sides.
         new("cartridge_box", 135, 185, 32, SpineRadius: 0.6f, OpeningRadius: 0.6f, Bevel: 0.5f,
             CaseColour: new Color("#D9D3C3"), CaseRoughness: 0.9f, ArtRoughness: 0.75f, PrintedOpeningSide: true),
+
+        // Game Boy, Game Boy Color and Super Game Boy: the square cardboard box, 125 x 125, printed on both sides.
+        // The depth follows the scraped art rather than a ruler: ScreenScraper's spines are 98 x 700 against a
+        // 700 x 700 front and back, so the spine face (the depth less the chamfers, over the height less the
+        // corners) is 0.14: (18.2 - 0.8) / 124. A real box is nearer 22 mm, which would crop a fifth off the spine.
+        new("gameboy_box", 125, 125, 18.2f, SpineRadius: 0.5f, OpeningRadius: 0.5f, Bevel: 0.4f,
+            CaseColour: new Color("#C4C6C8"), CaseRoughness: 0.85f, ArtRoughness: 0.7f, PrintedOpeningSide: true),
 
         // Mega Drive (and Master System): the European plastic clamshell, 136 x 190 x 24, with a thick rim.
         new("clamshell", 136, 190, 24, SpineRadius: 3, OpeningRadius: 6, Bevel: 2.5f,

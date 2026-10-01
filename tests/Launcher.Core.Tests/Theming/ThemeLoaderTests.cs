@@ -29,7 +29,7 @@ public sealed class ThemeLoaderTests
         Assert.Empty(result.Diagnostics);
         var theme = result.Theme!;
         Assert.Equal(("memory-card", "Memory Card", ThemeOrigin.BuiltIn), (theme.Id, theme.Name, theme.Origin));
-        Assert.Equal(["cartridge_box", "clamshell", "dvd_case", "jewel_case", "umd_case"], theme.Templates.Keys.Order(StringComparer.Ordinal));
+        Assert.Equal(["cartridge_box", "clamshell", "dvd_case", "gameboy_box", "jewel_case", "umd_case"], theme.Templates.Keys.Order(StringComparer.Ordinal));
         Assert.Equal(("models/systems/generic.glb", true, "dvd_case"), (theme.Defaults.SystemModel, theme.Defaults.TintSystemModel, theme.Defaults.GameTemplate));
 
         // The look of A6, exactly.
@@ -54,6 +54,7 @@ public sealed class ThemeLoaderTests
 
         Assert.Equal("clamshell", theme.Systems["megadrive"].GameTemplate);
         Assert.Equal("umd_case", theme.Systems["psp"].GameTemplate);
+        Assert.Equal("gameboy_box", theme.Systems["gb"].GameTemplate);
     }
 
     [Fact]
