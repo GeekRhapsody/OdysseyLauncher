@@ -23,7 +23,7 @@ public enum NavCommand
     /// <summary>Y or F: a favourite in the games grid; a list's second action in the settings screens.</summary>
     Favourite,
 
-    /// <summary>View or F5: rescan in the grids.</summary>
+    /// <summary>F5: rescan in the grids.</summary>
     Rescan,
 
     /// <summary>T: switch to the next theme for this session (M6; the settings screen chooses and saves one from M7).</summary>
@@ -37,6 +37,9 @@ public enum NavCommand
     /// space; the folder picker's "use this folder").
     /// </summary>
     Alternate,
+
+    /// <summary>View (Select) or P: the power menu in the grids (restart, shut down or sleep the system, or quit).</summary>
+    Power,
 }
 
 /// <summary>
@@ -73,6 +76,7 @@ public sealed class NavInput
         new("nav_accept", NavCommand.Accept), new("nav_back", NavCommand.Back), new("nav_favourite", NavCommand.Favourite),
         new("nav_first", NavCommand.First), new("nav_last", NavCommand.Last), new("nav_rescan", NavCommand.Rescan),
         new("nav_next_theme", NavCommand.NextTheme), new("nav_menu", NavCommand.Menu), new("nav_alternate", NavCommand.Alternate),
+        new("nav_power", NavCommand.Power),
     ];
 
     /// <summary>Godot's GUI navigation, which the settings screens replace with <see cref="NavCommand"/>s.</summary>
@@ -108,10 +112,11 @@ public sealed class NavInput
         AddPress(2, [Key.F], [JoyButton.Y]);
         AddPress(3, [Key.Home], []);
         AddPress(4, [Key.End], []);
-        AddPress(5, [Key.F5], [JoyButton.Back]);
+        AddPress(5, [Key.F5], []);
         AddPress(6, [Key.T], []);
         AddPress(7, [Key.F1], [JoyButton.Start]);
         AddPress(8, [Key.O, Key.Menu], [JoyButton.X]);
+        AddPress(9, [Key.P], [JoyButton.Back]);
 
         foreach (var action in GodotNavigation)
         {

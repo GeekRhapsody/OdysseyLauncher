@@ -70,6 +70,7 @@ public partial class Main : Node3D
     private UiLayer? _ui;
     private LibraryJobs? _jobs;
     private SettingsController? _settings;
+    private IPowerControl? _power;
     private Stage _stage = Stage.Loading;
     private int _warmUpFrame;
     private SubViewport? _glyphWarmUp;
@@ -465,6 +466,7 @@ public partial class Main : Node3D
             "favourite" => NavCommand.Favourite,
             "menu" => NavCommand.Menu,
             "x" => NavCommand.Alternate,
+            "power" => NavCommand.Power,
             _ => NavCommand.None,
         };
         if (command != NavCommand.None && _ui!.IsOpen)
@@ -602,6 +604,15 @@ public partial class Main : Node3D
             }
         };
         _jobs.GamesUpdated += navigator.OnGamesUpdated;
+
+        // View (Select) or P in the grids: restart, shut down or sleep the system, or quit.
+        navigator.PowerRequested += () =>
+        {
+            if (!_ui!.IsOpen)
+            {
+                OpenPowerMenu();
+            }
+        };
         _ui!.Blocked = () => _launch?.IsInputBlocked ?? false;
 
         // The overlay's text is about the grid (its controls, the focused game), so it steps aside for the settings.
@@ -617,6 +628,9 @@ public partial class Main : Node3D
             hud.Visible = true;
         };
     }
+
+    private void OpenPowerMenu() =>
+        _ui!.Push(new PowerMenu(_power ??= PlatformServices.CreatePowerControl(), _queue, () => GetTree().Quit()));
 
     /// <summary>
     /// The nav script's input steps: real events through <see cref="Input.ParseInputEvent"/>, as the mouse and
@@ -689,6 +703,9 @@ public partial class Main : Node3D
                 settings.Open();
                 ConfirmDialog.Ask(_ui!, "Remove this folder?", @"D:\ROMs\Mega Drive" + "\n\nMega Drive won't be scanned there any more, and its games from there leave the library (their favourites and play history are kept, for if you add it back).",
                     "Remove it", "Keep it", yes => GD.Print($"Confirm: {(yes ? "yes" : "no")}."), destructive: true);
+                break;
+            case "power":
+                OpenPowerMenu();
                 break;
             case "progress":
                 // A job with made-up numbers, so the card and its row can be captured mid-run.

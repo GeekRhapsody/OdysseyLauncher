@@ -15,7 +15,7 @@ using Launcher.Core.Scraping;
 namespace Launcher.App.Settings;
 
 /// <summary>
-/// The library's long operations (M7): rescans (the grid's View/F5 and the settings screen) and "scrape all missing",
+/// The library's long operations (M7): rescans (the grid's F5 and the settings screen) and "scrape all missing",
 /// each a <see cref="BackgroundJob"/> the HUD and the settings screen show, bound to the library's progress and the
 /// scrape service's M4 events, and cancellable. Neither blocks navigation. It also owns the scrape service: built on
 /// first use (off the main thread: it reads secrets.toml), and replaced when credentials or scraping settings change,

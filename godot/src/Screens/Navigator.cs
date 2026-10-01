@@ -19,7 +19,7 @@ namespace Launcher.App.Screens;
 /// <summary>
 /// The screens (A1 Screens): Systems → Games → Launching, and back, with animated transitions between the two
 /// grids, each system's look cross-faded in (A6), focus memory per system, the focused item's details in the
-/// overlay, favourites, rescans, launching, and themes (M6): switching one at run time, per-game models, and
+/// overlay, favourites, rescans, the power menu, launching, and themes (M6): switching one at run time, per-game models, and
 /// rebinding a game's media when it changes. Library calls run on the thread pool and their results come back
 /// through the <see cref="MainThreadQueue"/>.
 /// </summary>
@@ -33,7 +33,7 @@ public sealed partial class Navigator : Node
     private const double StatusSeconds = 2.5;
     private const int CachedLists = 3;
 
-    private const string SystemsHints = "A / Enter  Open     X / O  Options     View / F5  Rescan     Menu / Esc  Settings";
+    private const string SystemsHints = "A / Enter  Open     X / O  Options     View / P  Power     Menu / Esc  Settings";
     private const string GamesHints = "A / Enter  Play     B / Esc  Back     X / O  Options     Y / F  Favourite     LB RB  Page     LT RT  Letter";
     private const double TitlesDelay = 0.4;
 
@@ -135,6 +135,9 @@ public sealed partial class Navigator : Node
 
     /// <summary>Menu, or Back on the systems screen: the settings screen should open (M7).</summary>
     public event Action? SettingsRequested;
+
+    /// <summary>View (Select) or P in either grid: the power menu should open.</summary>
+    public event Action? PowerRequested;
 
     /// <summary>X on a system: its options panel should open (M7). The system's id.</summary>
     public event Action<string>? SystemOptionsRequested;
@@ -317,6 +320,9 @@ public sealed partial class Navigator : Node
                 break;
             case NavCommand.Alternate:
                 RequestOptions();
+                break;
+            case NavCommand.Power:
+                PowerRequested?.Invoke();
                 break;
         }
     }
@@ -624,7 +630,7 @@ public sealed partial class Navigator : Node
 
         var system = _services.Config.FindSystem(id);
         var folder = system is null || system.RomDirs.Count == 0 ? "its ROM folder" : system.RomDirs[0];
-        return $"No games found in {folder}. Add some, then press View or F5 on the systems screen to rescan.";
+        return $"No games found in {folder}. Add some, then rescan from the settings (Menu), or press F5 on the systems screen.";
     }
 
     private void LeaveGames()

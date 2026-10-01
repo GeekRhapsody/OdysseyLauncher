@@ -20,6 +20,16 @@ public class DebugOptionsTests
     }
 
     [Fact]
+    public void The_power_menu_can_be_opened_and_driven()
+    {
+        var result = DebugOptions.Parse(["--open=power", "--nav-script=power,last"]);
+
+        Assert.True(result.IsValid, string.Join("; ", result.Errors));
+        Assert.Equal("power", result.Options.Open);
+        Assert.Equal(["power", "last"], result.Options.NavScript);
+    }
+
+    [Fact]
     public void Open_arguments_are_checked()
     {
         var absolute = Path.Combine(Path.GetTempPath(), "odyssey");

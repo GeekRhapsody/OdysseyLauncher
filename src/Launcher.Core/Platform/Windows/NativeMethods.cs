@@ -2,7 +2,7 @@ using System.Runtime.InteropServices;
 
 namespace Launcher.Core.Platform.Windows;
 
-/// <summary>The kernel32 and user32 calls the Windows platform code uses. Structs are blittable.</summary>
+/// <summary>The kernel32, user32, advapi32 and powrprof calls the Windows platform code uses. Structs are blittable.</summary>
 internal static unsafe partial class NativeMethods
 {
     public const int ErrorFileNotFound = 2;
@@ -35,6 +35,16 @@ internal static unsafe partial class NativeMethods
     public const ushort VkMenu = 0x12;
     public const uint FlashWTray = 0x0000_0002;
     public const uint FlashWTimerNoFg = 0x0000_000C;
+
+    public const uint TokenAdjustPrivileges = 0x0020;
+    public const uint TokenQuery = 0x0008;
+    public const uint SePrivilegeEnabled = 0x0000_0002;
+    public const int ErrorNotAllAssigned = 1300;
+    public const uint EwxShutdown = 0x0000_0001;
+    public const uint EwxReboot = 0x0000_0002;
+    public const uint EwxPowerOff = 0x0000_0008;
+    public const uint EwxForceIfHung = 0x0000_0010;
+    public const uint ShtdnReasonFlagPlanned = 0x8000_0000;
 
     [StructLayout(LayoutKind.Sequential)]
     public struct StartupInfo
@@ -179,6 +189,36 @@ internal static unsafe partial class NativeMethods
         public uint Timeout;
     }
 
+    [StructLayout(LayoutKind.Sequential)]
+    public struct Luid
+    {
+        public uint LowPart;
+        public int HighPart;
+    }
+
+    /// <summary><c>TOKEN_PRIVILEGES</c> with room for one privilege.</summary>
+    [StructLayout(LayoutKind.Sequential)]
+    public struct TokenPrivileges
+    {
+        public uint PrivilegeCount;
+        public Luid Luid;
+        public uint Attributes;
+    }
+
+    /// <summary><c>SYSTEM_POWER_CAPABILITIES</c> (76 bytes): only the sleep states are read.</summary>
+    [StructLayout(LayoutKind.Explicit, Size = 76)]
+    public struct SystemPowerCapabilities
+    {
+        [FieldOffset(3)]
+        public byte SystemS1;
+
+        [FieldOffset(4)]
+        public byte SystemS2;
+
+        [FieldOffset(5)]
+        public byte SystemS3;
+    }
+
     // ---- kernel32 --------------------------------------------------------------------------------
 
     [LibraryImport("kernel32.dll", EntryPoint = "CreateJobObjectW", SetLastError = true)]
@@ -251,6 +291,9 @@ internal static unsafe partial class NativeMethods
     [LibraryImport("kernel32.dll")]
     public static partial uint GetCurrentProcessId();
 
+    [LibraryImport("kernel32.dll")]
+    public static partial nint GetCurrentProcess();
+
     // ---- user32 ----------------------------------------------------------------------------------
 
     [LibraryImport("user32.dll", SetLastError = true)]
@@ -295,4 +338,32 @@ internal static unsafe partial class NativeMethods
     [LibraryImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
     public static partial bool FlashWindowEx(in FlashWInfo info);
+
+    [LibraryImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool ExitWindowsEx(uint flags, uint reason);
+
+    // ---- advapi32 --------------------------------------------------------------------------------
+
+    [LibraryImport("advapi32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool OpenProcessToken(nint process, uint desiredAccess, out nint token);
+
+    [LibraryImport("advapi32.dll", EntryPoint = "LookupPrivilegeValueW", SetLastError = true, StringMarshalling = StringMarshalling.Utf16)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool LookupPrivilegeValue(string? systemName, string name, out Luid luid);
+
+    [LibraryImport("advapi32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool AdjustTokenPrivileges(
+        nint token, [MarshalAs(UnmanagedType.Bool)] bool disableAll, TokenPrivileges* newState, uint bufferLength, nint previousState, nint returnLength);
+
+    // ---- powrprof --------------------------------------------------------------------------------
+
+    /// <summary>The three arguments and the result are Win32 <c>BOOLEAN</c>s (a byte).</summary>
+    [LibraryImport("powrprof.dll", SetLastError = true)]
+    public static partial byte SetSuspendState(byte hibernate, byte force, byte wakeupEventsDisabled);
+
+    [LibraryImport("powrprof.dll")]
+    public static partial byte GetPwrCapabilities(SystemPowerCapabilities* capabilities);
 }

@@ -144,7 +144,7 @@ Use only the gamepad from here on.
 1. **Systems grid.** The launcher opens on the systems grid with a system focused (the first one with games). Its name and details are top and bottom left.
    - The D-pad and the left stick move the focus. Held, a move repeats after about a third of a second, then speeds up over the next second and a half.
    - LB and RB move four rows at a time.
-   - View rescans: a "Scanning your ROM folders" card shows top right with its progress (M7), then the counts update.
+   - View opens the power menu (see [the power menu](#the-power-menu)); B closes it. Rescanning is in the settings: Menu, then Rescan the library. A "Scanning your ROM folders" card shows top right with its progress (M7), then the counts update.
 2. **Games grid.** Press A on Mega Drive.
    - The systems grid flies towards you and fades while the games come up from behind: clamshell cases with your ROMs' titles, and plain boxes (no art until M4).
    - The title top left follows the focus. After a moment, the details bottom left fill in (Played: Never, Region...).
@@ -235,7 +235,7 @@ This checks what captures can't: switching themes on the real display, the look 
 2. Start the export full screen: `& .\artifacts\export\windows\OdysseyLauncher.exe --fullscreen ++ --user-dir=C:\OdysseyTest`, and use only the gamepad.
 3. **Looks.** Press A on Mega Drive: the background and lights cross-fade to Mega Drive's blue look over about a third of a second while the games come up. B cross-fades back.
 4. **Switching.** On the systems grid, press Menu, choose Theme, then Slot Showcase (from M7 the settings choose the theme; Menu used to cycle through them). The cards become square tiles, the background turns plum and teal, and nothing restarts. Close the settings and enter Mega Drive: the games are tall cases with a screenshot panel; games with no screenshot show a test card there. Choose Memory Card the same way to go back.
-5. **Your own model.** Quit, copy any `.glb` with a material named `cover` (for example `tests\themes\slot-showcase\models\templates\showcase_case.glb`) to `C:\OdysseyTest\models\games\megadrive\<a ROM's name without its extension>.glb`, start again and press View to rescan. Enter Mega Drive: that one game shows your model, the same height as its neighbours, with its cover on the `cover` material.
+5. **Your own model.** Quit, copy any `.glb` with a material named `cover` (for example `tests\themes\slot-showcase\models\templates\showcase_case.glb`) to `C:\OdysseyTest\models\games\megadrive\<a ROM's name without its extension>.glb`, start again and press F5 to rescan. Enter Mega Drive: that one game shows your model, the same height as its neighbours, with its cover on the `cover` material.
 
 ### Send back
 
@@ -255,7 +255,7 @@ This checks what the scripts can't: a model made in Blender (or downloaded) impo
    - Enter Mega Drive: your two games show your models, fitted into their cells, with their art on any slot materials.
    - Press Menu on the systems grid, choose Theme, then Retro TV, and close the settings. The cards are consoles whose cartridges rise and settle (the idle clip). The focused console lifts its cartridge higher and wobbles (focused).
    - Enter Mega Drive: every game is a television showing its screenshot (else its cover, else colour bars), with its logo (else its title) on the stand. The focused television's aerials sway. Press A: the television spins and its aerials fold before the emulator starts (at most 2 s).
-6. **Clearing removes the model.** `& $cli --user-dir=C:\OdysseyTest clear "megadrive/<the first ROM's file name>"`, then press View in the app: that game shows its template again, and its file in `models\games\megadrive\` is gone.
+6. **Clearing removes the model.** `& $cli --user-dir=C:\OdysseyTest clear "megadrive/<the first ROM's file name>"`, then press F5 in the app: that game shows its template again, and its file in `models\games\megadrive\` is gone.
 
 ### Send back
 
@@ -296,3 +296,18 @@ This checks what the scripts can't: a real pad on the options panels, and a live
 
 - Anything that didn't answer the pad, any frame that froze while a panel saved or loaded, any message that was unclear, and any change that needed a restart or a rescan to show.
 - The log lines: `Select-String -Path "$env:APPDATA\Godot\app_userdata\Odyssey Launcher\logs\godot.log" -Pattern '^Options|^Titles|^Media|^Scrape|^Theme|error|warning'`.
+
+## The power menu
+
+This checks what a script mustn't do: restart, shut down and sleep the PC from the launcher. Save your work in other apps first. It uses the M3 set-up (`C:\OdysseyTest`) and the export full screen: `& .\artifacts\export\windows\OdysseyLauncher.exe --fullscreen ++ --user-dir=C:\OdysseyTest`. Use the gamepad.
+
+1. **Opening and closing.** On the systems grid, press View: the Power menu shows Restart system, Shut down system, Sleep system and Quit app, with Restart focused. B closes it, and so does View again. Enter a system and press View: it opens there too. With a keyboard, P opens it.
+2. **Sleep.** Choose Sleep system: the PC sleeps within a few seconds. Wake it: the launcher is where you left it, and the button that woke the PC didn't act in it. (On a Modern Standby PC the row is dimmed and says why; tell me if yours is.)
+3. **Quit.** Choose Quit app: the launcher closes straight away.
+4. **Restart.** Start the launcher again and choose Restart system: the launcher closes and Windows restarts, as it does from the Start menu (an app with unsaved work holds it up and asks).
+5. **Shut down.** After the restart, start the launcher and choose Shut down system: the PC turns off.
+
+### Send back
+
+- Anything that differed: a row that did nothing, a "Couldn't …" message (with its text), or the launcher still open after a restart or shutdown started.
+- After step 2, the log lines: `Select-String -Path "$env:APPDATA\Godot\app_userdata\Odyssey Launcher\logs\godot.log" -Pattern '^Power|error|warning'`. (The log is rewritten each run, so steps 4 and 5 leave nothing to send.)
