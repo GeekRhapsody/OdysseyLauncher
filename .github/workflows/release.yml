@@ -1,0 +1,185 @@
+# Builds the Windows release when a version tag (v1.2.3, or v1.2.3-beta.1 for a pre-release) is pushed, and attaches
+# the zip to that tag's GitHub release (made if it doesn't exist). Run it by hand (Actions > Release > Run workflow)
+# for a test build: the zip is kept as the run's artifact and nothing is released.
+#
+# The tag must match <Version> in Directory.Build.props and config/version in godot/project.godot.
+# The runner has no GPU. The export still needs a rendering device for the shader baker (a headless export bakes
+# nothing), so Godot runs windowed on D3D12's software adapter (WARP), and the PCK's size shows the bake happened.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+
+env:
+  GODOT_VERSION: 4.7.2
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  # Godot's export runs `dotnet publish`. Its build servers (MSBuild nodes, the compiler server) inherit Godot's
+  # output pipe, and the console wrapper waits for them to idle out (about 10 minutes) before it exits.
+  MSBUILDDISABLENODEREUSE: 1
+  DOTNET_CLI_USE_MSBUILD_SERVER: 0
+  UseSharedCompilation: false
+
+jobs:
+  windows:
+    name: Windows x86_64
+    runs-on: windows-2025
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Version
+        id: version
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+          SHA: ${{ github.sha }}
+        run: |
+          if ((Get-Content Directory.Build.props -Raw) -notmatch '<Version>([^<]+)</Version>') { throw 'No <Version> in Directory.Build.props.' }
+          $version = $Matches[1]
+          if ((Get-Content godot/project.godot -Raw) -notmatch 'config/version="([^"]+)"') { throw 'No config/version in godot/project.godot.' }
+          if ($Matches[1] -ne $version) { throw "Directory.Build.props says $version, godot/project.godot says $($Matches[1])." }
+          if ($env:REF_TYPE -eq 'tag') {
+            if ($env:REF_NAME -ne "v$version") { throw "The tag is $env:REF_NAME, but the version is ${version}: tag v$version, or change the version." }
+            $label = $version
+          }
+          else {
+            $label = "$version-$($env:SHA.Substring(0, 7))"
+          }
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "package=OdysseyLauncher-$label-windows-x86_64" >> $env:GITHUB_OUTPUT
+          "prerelease=$($version.Contains('-').ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          # The SDK from global.json, and the .NET 8 runtime the fake emulator in the launch smoke test runs on.
+          global-json-file: global.json
+          dotnet-version: 8.0.x
+
+      - name: Install Godot
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $true
+          $tag = "$env:GODOT_VERSION-stable"
+          $editorZip = "Godot_v${tag}_mono_win64.zip"
+          $templatesTpz = "Godot_v${tag}_mono_export_templates.tpz"
+          $downloads = Join-Path $env:RUNNER_TEMP 'godot-downloads'
+          gh release download $tag -R godotengine/godot-builds -D $downloads -p $editorZip -p $templatesTpz -p SHA512-SUMS.txt
+
+          $sums = @{}
+          foreach ($line in Get-Content (Join-Path $downloads 'SHA512-SUMS.txt')) {
+            if ($line -match '^([0-9a-f]{128})\s+\*?(\S+)$') { $sums[$Matches[2]] = $Matches[1] }
+          }
+          foreach ($file in $editorZip, $templatesTpz) {
+            $actual = (Get-FileHash -Algorithm SHA512 (Join-Path $downloads $file)).Hash
+            if ($actual -ne $sums[$file]) { throw "$file doesn't match its SHA-512 in SHA512-SUMS.txt." }
+          }
+
+          $editor = Join-Path $env:RUNNER_TEMP 'godot'
+          Expand-Archive (Join-Path $downloads $editorZip) $editor
+          $console = Get-ChildItem $editor -Recurse -Filter 'Godot_v*_mono_win64_console.exe' | Select-Object -First 1
+          if (-not $console) { throw "No console build in $editorZip." }
+          # The same `godot` command as on the owner's machine, for the steps below.
+          Set-Content (Join-Path $editor 'godot.cmd') "@`"$($console.FullName)`" %*" -Encoding ascii
+          $editor >> $env:GITHUB_PATH
+
+          # Only the Windows x86_64 templates, out of about 1 GB for every platform.
+          Add-Type -AssemblyName System.IO.Compression, System.IO.Compression.FileSystem
+          $zip = [IO.Compression.ZipFile]::OpenRead((Join-Path $downloads $templatesTpz))
+          try {
+            $version = (New-Object IO.StreamReader($zip.GetEntry('templates/version.txt').Open())).ReadToEnd().Trim()
+            $templates = Join-Path $env:APPDATA "Godot\export_templates\$version"
+            New-Item -ItemType Directory -Force $templates | Out-Null
+            foreach ($entry in $zip.Entries) {
+              if ($entry.FullName -match '^templates/(version\.txt|windows_(debug|release)_x86_64(_console)?\.exe)$') {
+                [IO.Compression.ZipFileExtensions]::ExtractToFile($entry, (Join-Path $templates $entry.Name), $true)
+              }
+            }
+          }
+          finally {
+            $zip.Dispose()
+          }
+          Get-ChildItem $templates | Format-Table Name, Length -AutoSize
+
+      - name: Build and test
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $true
+          dotnet build
+          # The scan benchmarks' budgets were set on the Steam Deck; a shared runner's timings aren't comparable.
+          dotnet test --no-build --filter-not-trait "Category=Benchmark"
+
+      - name: Godot C# build and import
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $true
+          godot --headless --path godot --build-solutions --quit
+          godot --headless --path godot --import
+
+      - name: Export
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $true
+          $out = Join-Path $env:GITHUB_WORKSPACE 'artifacts\export\windows'
+          New-Item -ItemType Directory -Force $out | Out-Null
+          # Not headless: the shader baker needs a rendering device (here WARP, D3D12's software adapter).
+          godot --path godot --export-release 'Windows Desktop' (Join-Path $out 'OdysseyLauncher.exe')
+          Get-ChildItem $out | Format-Table Name, Length -AutoSize
+          # A baked PCK is about 2.7 MB; one with no baked shaders is about 50 KB.
+          $pck = Get-Item (Join-Path $out 'OdysseyLauncher.pck')
+          if ($pck.Length -lt 1MB) { throw "OdysseyLauncher.pck is only $($pck.Length) bytes: the shader baker didn't run." }
+
+      - name: Launch smoke test of the export
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $true
+          powershell -NoProfile -ExecutionPolicy Bypass -File tools\launch-smoke.ps1 -Executable artifacts\export\windows\OdysseyLauncher.exe
+
+      - name: Package
+        env:
+          PACKAGE: ${{ steps.version.outputs.package }}
+        run: |
+          Add-Type -AssemblyName System.IO.Compression, System.IO.Compression.FileSystem
+          $staging = Join-Path $env:RUNNER_TEMP $env:PACKAGE
+          Copy-Item artifacts\export\windows $staging -Recurse
+          New-Item -ItemType Directory -Force artifacts\release | Out-Null
+          $zip = Join-Path $env:GITHUB_WORKSPACE "artifacts\release\$env:PACKAGE.zip"
+          # One folder inside the zip, named after the package.
+          [IO.Compression.ZipFile]::CreateFromDirectory($staging, $zip, [IO.Compression.CompressionLevel]::Optimal, $true)
+          $hash = (Get-FileHash -Algorithm SHA256 $zip).Hash.ToLowerInvariant()
+          Set-Content "$zip.sha256" "$hash  $env:PACKAGE.zip" -Encoding ascii -NoNewline
+          Get-ChildItem artifacts\release | Format-Table Name, Length -AutoSize
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ${{ steps.version.outputs.package }}
+          path: artifacts/release/
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          VERSION: ${{ steps.version.outputs.version }}
+          PRERELEASE: ${{ steps.version.outputs.prerelease }}
+        run: |
+          # A release made by hand on GitHub (which pushes the tag) keeps its title and notes; the files are added to it.
+          gh release view $env:TAG *> $null
+          $exists = $LASTEXITCODE -eq 0
+          $PSNativeCommandUseErrorActionPreference = $true
+          if (-not $exists) {
+            $options = @('--verify-tag', '--title', "Odyssey Launcher $env:VERSION", '--generate-notes')
+            if ($env:PRERELEASE -eq 'true') { $options += '--prerelease' }
+            gh release create $env:TAG @options
+          }
+          gh release upload $env:TAG (Get-ChildItem artifacts\release).FullName --clobber
