@@ -98,6 +98,26 @@ public sealed class ConnectionTestTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task The_steam_store_needs_no_credentials_and_is_tested_with_one_search()
+    {
+        using var service = _bed.Service(ScrapeBed.Accounts(screenScraper: false, igdb: false, steamGridDb: false));
+
+        var ok = await service.TestConnectionAsync(ScraperIds.Steam, Ct);
+        _bed.Http.On("GET", u => ScrapeBed.Is(u, "api.steampowered.com", "/IStoreQueryService/SearchSuggestions/"),
+            _ => FakeHttpHandler.Text("busy", HttpStatusCode.ServiceUnavailable));
+        var busy = await service.TestConnectionAsync(ScraperIds.Steam, Ct);
+
+        Assert.True(ok.Succeeded, ok.Message);
+        Assert.Equal("The Steam store answered.", ok.Message);
+        Assert.False(busy.Succeeded);
+        Assert.Contains("server error (HTTP 503)", busy.Message, StringComparison.Ordinal);
+        var first = _bed.Http.Requests.First();
+        Assert.Contains("\"search_term\":\"Portal 2\"", ScrapeBed.SteamInput(first), StringComparison.Ordinal);
+        Assert.DoesNotContain("data_request", ScrapeBed.SteamInput(first), StringComparison.Ordinal);   // the ids alone
+        Assert.Contains(service.GetProviders(), p => p.Id == ScraperIds.Steam && p.State == ProviderState.Ready);
+    }
+
+    [Fact]
     public async Task Scrape_all_missing_counts_its_games_per_system_before_it_starts()
     {
         _bed.Rom("megadrive/Sonic the Hedgehog 3 (Europe).md");

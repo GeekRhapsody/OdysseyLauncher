@@ -227,7 +227,24 @@ public sealed class ScrapeBed : IAsyncDisposable
         Http.On("GET", u => Is(u, "steamgriddb.com", "/api/v2/heroes/game/"), _ => FakeHttpHandler.Json(Fixture("sgdb_heroes.json")));
         Http.On("GET", u => Is(u, "steamgriddb.com", "/api/v2/logos/game/"), _ => FakeHttpHandler.Json(Fixture("sgdb_logos.json")));
         Http.On("GET", u => u.Host == "cdn2.steamgriddb.com", r => FakeHttpHandler.Bytes(Png(r.Uri.AbsolutePath)));
+
+        // The Steam store: Portal 2 (app 620, which has a logo) is found, anything else nowhere.
+        Http.On("GET", u => Is(u, "api.steampowered.com", "/IStoreQueryService/SearchSuggestions/"), r =>
+            SteamInput(r).Contains("\"search_term\":\"Portal 2\"", StringComparison.Ordinal)
+                ? FakeHttpHandler.Json(Fixture("steam_suggestions_portal2.json"))
+                : FakeHttpHandler.Json(Fixture("steam_suggestions_empty.json")));
+        Http.On("GET", u => Is(u, "api.steampowered.com", "/IStoreBrowseService/GetItems/"), r =>
+            SteamInput(r).Contains("{\"appid\":620}", StringComparison.Ordinal)
+                ? FakeHttpHandler.Json(Fixture("steam_getitems_620.json"))
+                : FakeHttpHandler.Json(Fixture("steam_getitems_missing.json")));
+        Http.On("HEAD", u => u.Host == SteamStoreScraper.ImageHost, r => r.Uri.AbsolutePath.EndsWith("/apps/620/logo.png", StringComparison.Ordinal)
+            ? FakeHttpHandler.Bytes([])
+            : FakeHttpHandler.Text("Not Found", HttpStatusCode.NotFound));
+        Http.On("GET", u => u.Host == SteamStoreScraper.ImageHost, r => FakeHttpHandler.Bytes(Png(r.Uri.AbsolutePath)));
     }
+
+    /// <summary>The <c>input_json</c> a Steam store request carries.</summary>
+    public static string SteamInput(RecordedRequest request) => request.Query("input_json") ?? string.Empty;
 
     /// <summary>A small real PNG whose colour depends on <paramref name="seed"/>, so different media differ.</summary>
     public static byte[] Png(string seed)

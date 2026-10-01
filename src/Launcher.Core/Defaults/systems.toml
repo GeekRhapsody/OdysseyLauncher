@@ -1059,6 +1059,7 @@ extensions = [".bat", ".cmd", ".lnk", ".url"]
 emulator = "run-file"
 screenscraper_id = 138
 igdb_platforms = [6]
+steam_store = true                   # looked up on the Steam store, by title
 
 [systems.stv]
 name = "Titan Video Game System"
@@ -1240,6 +1241,7 @@ extensions = [".bat", ".cmd", ".lnk", ".url"]
 emulator = "run-file"
 screenscraper_id = 138
 igdb_platforms = [6]
+steam_store = true                   # looked up on the Steam store, by title
 
 [systems.windows3x]
 name = "Windows 3.x"

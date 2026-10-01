@@ -20,6 +20,7 @@ public sealed partial class ScrapeMediaPage : ListPanel
         (ScraperIds.ScreenScraper, ScreenScraperScraper.Supplies),
         (ScraperIds.Igdb, IgdbScraper.Supplies),
         (ScraperIds.SteamGridDb, SteamGridDbScraper.Supplies),
+        (ScraperIds.Steam, SteamStoreScraper.Supplies),
     ];
 
     private readonly SettingsController _settings;

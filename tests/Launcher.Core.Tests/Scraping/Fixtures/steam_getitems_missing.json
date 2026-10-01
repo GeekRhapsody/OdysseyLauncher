@@ -1,0 +1,16 @@
+{
+  "response": {
+    "store_items": [
+      {
+        "item_type": 0,
+        "id": 999999999,
+        "success": 15,
+        "visible": false,
+        "name": "",
+        "store_url_path": "app/0/",
+        "store_url_slug": "",
+        "appid": 0
+      }
+    ]
+  }
+}

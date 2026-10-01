@@ -30,9 +30,10 @@ public sealed partial class ProviderPage : ListPanel
     {
         _settings = settings;
         _provider = provider;
-        Subtitle = $"[{provider}] in secrets.toml";
+        var keyless = ConfigInput.CredentialKeys(provider).Count == 0;
+        Subtitle = keyless ? "No credentials needed" : $"[{provider}] in secrets.toml";
         Build();
-        SetHints("A  Change     Y  Clear     B  Back");
+        SetHints(keyless ? "A  Choose     B  Back" : "A  Change     Y  Clear     B  Back");
         Load();
     }
 
@@ -50,6 +51,8 @@ public sealed partial class ProviderPage : ListPanel
         };
     }
 
+    private string TestDetail => ConfigInput.CredentialKeys(_provider).Count == 0 ? "One search on the store" : "One request with these credentials";
+
     private static string HelpOf(string provider) => provider switch
     {
         ScraperIds.ScreenScraper =>
@@ -58,14 +61,21 @@ public sealed partial class ProviderPage : ListPanel
             "IGDB uses a Twitch application: register one at dev.twitch.tv/console (a confidential client), and copy its client ID and a new client secret.",
         ScraperIds.SteamGridDb =>
             "Make an API key on steamgriddb.com: Preferences, then API.",
+        ScraperIds.Steam =>
+            "The Steam store needs no account. It finds a game by its title (not the shortcut's app id), for systems with steam_store = true in systems.toml: Windows and Steam. A game no longer sold can't be found.",
         _ => string.Empty,
     };
 
     private void Build()
     {
         AddNote(HelpOf(_provider));
-        AddSection("Credentials");
-        foreach (var (key, label, _) in ConfigInput.CredentialKeys(_provider))
+        var keys = ConfigInput.CredentialKeys(_provider);
+        if (keys.Count > 0)
+        {
+            AddSection("Credentials");
+        }
+
+        foreach (var (key, label, _) in keys)
         {
             var captured = key;
             var row = AddRow(label, "Checking…", null, () => Edit(captured, label));
@@ -73,7 +83,7 @@ public sealed partial class ProviderPage : ListPanel
         }
 
         AddSection("Check");
-        _test = AddRow("Test connection", "One request with these credentials", null, Test);
+        _test = AddRow("Test connection", TestDetail, null, Test);
     }
 
     /// <summary>Reads secrets.toml (and the environment) off the main thread, then shows what's set.</summary>
@@ -191,7 +201,7 @@ public sealed partial class ProviderPage : ListPanel
         _testing = true;
         _test.Value = "Testing…";
         _test.ValueColour = UiStyle.Dim;
-        _test.Detail = "One request with these credentials";
+        _test.Detail = TestDetail;
         var jobs = _settings.Jobs;
         var provider = _provider;
         _ = Task.Run(async () =>

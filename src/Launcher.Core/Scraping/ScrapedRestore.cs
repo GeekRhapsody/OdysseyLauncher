@@ -178,6 +178,7 @@ internal static class ScrapedRestore
         ScraperIds.ScreenScraper => ScreenScraperScraper.Supplies,
         ScraperIds.Igdb => IgdbScraper.Supplies,
         ScraperIds.SteamGridDb => SteamGridDbScraper.Supplies,
+        ScraperIds.Steam => SteamStoreScraper.Supplies,
         _ => new ScraperCapabilities(new HashSet<MetadataField>(), new HashSet<string>()),
     };
 }

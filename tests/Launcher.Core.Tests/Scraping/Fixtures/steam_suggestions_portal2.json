@@ -1,0 +1,514 @@
+{
+  "response": {
+    "metadata": {
+      "total_matching_records": 5,
+      "start": 0,
+      "count": 5
+    },
+    "ids": [
+      {
+        "appid": 620
+      },
+      {
+        "appid": 104600
+      },
+      {
+        "appid": 2722610
+      },
+      {
+        "appid": 2194590
+      },
+      {
+        "appid": 1837000
+      }
+    ],
+    "store_items": [
+      {
+        "item_type": 0,
+        "id": 620,
+        "success": 1,
+        "visible": true,
+        "name": "Portal 2",
+        "store_url_path": "app/620/Portal_2",
+        "store_url_slug": "Portal_2",
+        "appid": 620,
+        "type": 0,
+        "categories": {
+          "supported_player_categoryids": [
+            2,
+            1,
+            9,
+            38,
+            39,
+            24
+          ],
+          "feature_categoryids": [
+            22,
+            29,
+            13,
+            30,
+            51,
+            67,
+            68,
+            69,
+            70,
+            74,
+            79,
+            23,
+            15,
+            17,
+            14,
+            41,
+            42,
+            43,
+            44,
+            62
+          ],
+          "controller_categoryids": [
+            28,
+            55,
+            56,
+            57,
+            58,
+            59
+          ]
+        },
+        "reviews": {
+          "summary_filtered": {
+            "review_count": 390926,
+            "percent_positive": 98,
+            "review_score": 9,
+            "review_score_label": "Overwhelmingly Positive"
+          },
+          "summary_language_specific": {
+            "review_count": 174007,
+            "percent_positive": 98,
+            "review_score": 9,
+            "review_score_label": "Overwhelmingly Positive"
+          }
+        },
+        "basic_info": {
+          "short_description": "The \"Perpetual Testing Initiative\" has been expanded to allow you to design co-op puzzles for you and your friends!",
+          "publishers": [
+            {
+              "name": "Valve",
+              "creator_clan_account_id": 4
+            }
+          ],
+          "developers": [
+            {
+              "name": "Valve",
+              "creator_clan_account_id": 4
+            }
+          ],
+          "franchises": [
+            {
+              "name": "Portal"
+            }
+          ]
+        },
+        "assets": {
+          "asset_url_format": "steam/apps/620/${FILENAME}?t=1790187113",
+          "main_capsule": "02b755eb0cf5f41c1838a99c9a353ebce32a88cd/capsule_616x353.jpg",
+          "main_capsule_2x": "02b755eb0cf5f41c1838a99c9a353ebce32a88cd/capsule_616x353_2x.jpg",
+          "small_capsule": "bd23943dcd0280aa2cdc066e2f86d2185cfd4cce/capsule_231x87.jpg",
+          "small_capsule_2x": "bd23943dcd0280aa2cdc066e2f86d2185cfd4cce/capsule_231x87_2x.jpg",
+          "header": "faffc0f560786e2f05104a8d2fac837c6969bf13/header.jpg",
+          "header_2x": "faffc0f560786e2f05104a8d2fac837c6969bf13/header_2x.jpg",
+          "hero_capsule": "9a8ae9bb0b85f125bd956024f86f30a3aeb799e8/hero_capsule.jpg",
+          "hero_capsule_2x": "9a8ae9bb0b85f125bd956024f86f30a3aeb799e8/hero_capsule_2x.jpg",
+          "library_capsule": "library_600x900.jpg",
+          "library_capsule_2x": "library_600x900_2x.jpg",
+          "library_hero": "a58588d857b8683f8065e55f97ab82ad8a945c51/library_hero.jpg",
+          "library_hero_2x": "a58588d857b8683f8065e55f97ab82ad8a945c51/library_hero_2x.jpg",
+          "community_icon": "25a5a16b2423bf7487ac5340b5b0948cef48c5f8",
+          "page_background_path": "app/620?t=1790187113",
+          "last_modified": 1790187113
+        },
+        "release": {
+          "steam_release_date": 1303186800
+        },
+        "best_purchase_option": {
+          "packageid": 7877,
+          "purchase_option_name": "Portal 2",
+          "final_price_in_cents": "999",
+          "formatted_final_price": "$9.99",
+          "user_can_purchase_as_gift": true,
+          "hide_discount_pct_for_compliance": false,
+          "included_game_count": 1,
+          "must_purchase_as_set": false,
+          "package_group": "default",
+          "price_cannot_be_displayed_as_discount": false
+        },
+        "screenshots": {
+          "all_ages_screenshots": [
+            {
+              "filename": "steam/apps/620/ss_f3f6787d74739d3b2ec8a484b5c994b3d31ef325.jpg?t=1790187113",
+              "ordinal": 1
+            },
+            {
+              "filename": "steam/apps/620/ss_6a4f5afdaa98402de9cf0b59fed27bab3256a6f4.jpg?t=1790187113",
+              "ordinal": 2
+            }
+          ]
+        }
+      },
+      {
+        "item_type": 0,
+        "id": 104600,
+        "success": 1,
+        "visible": true,
+        "name": "Portal 2 - The Final Hours",
+        "store_url_path": "app/104600/Portal_2_The_Final_Hours",
+        "store_url_slug": "Portal_2_The_Final_Hours",
+        "appid": 104600,
+        "type": 0,
+        "categories": {
+          "supported_player_categoryids": [
+            2
+          ],
+          "feature_categoryids": [
+            62
+          ]
+        },
+        "reviews": {
+          "summary_filtered": {
+            "review_count": 767,
+            "percent_positive": 76,
+            "review_score": 6,
+            "review_score_label": "Mostly Positive"
+          }
+        },
+        "basic_info": {
+          "publishers": [
+            {
+              "name": "Geoff Keighley",
+              "creator_clan_account_id": 6857257
+            }
+          ],
+          "developers": [
+            {
+              "name": "Geoff Keighley",
+              "creator_clan_account_id": 6857257
+            }
+          ]
+        },
+        "assets": {
+          "asset_url_format": "steam/apps/104600/${FILENAME}?t=1447354230",
+          "small_capsule": "capsule_231x87.jpg",
+          "header": "header.jpg",
+          "header_2x": "header.jpg",
+          "library_capsule": "portrait.png",
+          "community_icon": "90f9d5dea43be0a9d8d4891bea12d71c237c4483",
+          "page_background_path": "app/104600?t=1447354230",
+          "last_modified": 1447354230
+        },
+        "release": {
+          "steam_release_date": 1305668040
+        },
+        "best_purchase_option": {
+          "packageid": 8187,
+          "purchase_option_name": "Portal 2 - The Final Hours",
+          "final_price_in_cents": "199",
+          "formatted_final_price": "$1.99",
+          "user_can_purchase_as_gift": true,
+          "hide_discount_pct_for_compliance": false,
+          "included_game_count": 1,
+          "must_purchase_as_set": false,
+          "package_group": "default",
+          "price_cannot_be_displayed_as_discount": false
+        },
+        "screenshots": {
+          "all_ages_screenshots": [
+            {
+              "filename": "steam/apps/104600/ss_f00fbf8c8c5ec3d10cb8ee73d09fcea4c052108c.jpg?t=1447354230",
+              "ordinal": 1
+            },
+            {
+              "filename": "steam/apps/104600/ss_10cab2e6b1a898c0b62af737fddade0d643b25d9.jpg?t=1447354230",
+              "ordinal": 2
+            }
+          ]
+        }
+      },
+      {
+        "item_type": 0,
+        "id": 2722610,
+        "success": 1,
+        "visible": true,
+        "name": "Grand Emprise 2: Portals Apart",
+        "store_url_path": "app/2722610/Grand_Emprise_2_Portals_Apart",
+        "store_url_slug": "Grand_Emprise_2_Portals_Apart",
+        "appid": 2722610,
+        "type": 0,
+        "related_items": {
+          "demo_appid": [
+            3516070
+          ],
+          "demos": [
+            {
+              "appid": 3516070,
+              "show_above_purchase": true
+            }
+          ]
+        },
+        "categories": {
+          "supported_player_categoryids": [
+            2
+          ],
+          "feature_categoryids": [
+            23,
+            62
+          ]
+        },
+        "reviews": {
+          "summary_filtered": {
+            "review_count": 78,
+            "percent_positive": 50,
+            "review_score": 5,
+            "review_score_label": "Mixed"
+          }
+        },
+        "basic_info": {
+          "short_description": "⛏️ Survival crafting adventure 💎\r\n🌌 Through magical portals 🌀 \r\n👹 Into fantasy worlds 🏰\r\n⚡ Once-in-a-lifetime, high-p...",
+          "publishers": [
+            {
+              "name": "Tbjbu2",
+              "creator_clan_account_id": 41707212
+            },
+            {
+              "name": "GrabTheGames",
+              "creator_clan_account_id": 33066823
+            }
+          ],
+          "developers": [
+            {
+              "name": "Tbjbu2",
+              "creator_clan_account_id": 41707212
+            }
+          ]
+        },
+        "assets": {
+          "asset_url_format": "steam/apps/2722610/${FILENAME}?t=1789119977",
+          "main_capsule": "capsule_616x353.jpg",
+          "small_capsule": "capsule_231x87.jpg",
+          "header": "header.jpg",
+          "page_background": "page_bg_generated_v6b.jpg",
+          "hero_capsule": "hero_capsule.jpg",
+          "library_capsule": "library_600x900.jpg",
+          "library_capsule_2x": "library_600x900_2x.jpg",
+          "library_hero": "library_hero.jpg",
+          "community_icon": "6ff148b5561466be1d47830f98808de4f6daedde",
+          "page_background_path": "app/2722610?t=1789119977",
+          "raw_page_background": "page_bg_raw.jpg",
+          "last_modified": 1789119977
+        },
+        "release": {
+          "steam_release_date": 1754409601
+        },
+        "best_purchase_option": {
+          "packageid": 974483,
+          "purchase_option_name": "Grand Emprise 2: Portals Apart",
+          "final_price_in_cents": "1199",
+          "formatted_final_price": "$11.99",
+          "user_can_purchase_as_gift": true,
+          "hide_discount_pct_for_compliance": false,
+          "included_game_count": 1,
+          "must_purchase_as_set": false,
+          "package_group": "default",
+          "price_cannot_be_displayed_as_discount": false
+        },
+        "screenshots": {
+          "all_ages_screenshots": [
+            {
+              "filename": "steam/apps/2722610/ss_3e31240279427a7ebe2f1ac92762d848d00ef771.jpg?t=1789119977",
+              "ordinal": 1
+            },
+            {
+              "filename": "steam/apps/2722610/ss_496e670cb4e49cfe4477da2518b79391e7fa917e.jpg?t=1789119977",
+              "ordinal": 2
+            }
+          ]
+        }
+      },
+      {
+        "item_type": 0,
+        "id": 2194590,
+        "success": 1,
+        "visible": true,
+        "name": "Roads Of Rome: Portals 2 Collector’s Edition",
+        "store_url_path": "app/2194590/Roads_Of_Rome_Portals_2_Collectors_Edition",
+        "store_url_slug": "Roads_Of_Rome_Portals_2_Collectors_Edition",
+        "appid": 2194590,
+        "type": 0,
+        "categories": {
+          "supported_player_categoryids": [
+            2
+          ],
+          "feature_categoryids": [
+            62
+          ],
+          "controller_categoryids": [
+            18
+          ]
+        },
+        "reviews": {
+          "summary_filtered": {
+            "review_count": 19,
+            "percent_positive": 68,
+            "review_score": 5,
+            "review_score_label": "Mixed"
+          }
+        },
+        "basic_info": {
+          "short_description": "Another adventure of Romans who lost in the mysterious portals while searching the way home.",
+          "publishers": [
+            {
+              "name": "Qumaron"
+            }
+          ],
+          "developers": [
+            {
+              "name": "Qumaron"
+            }
+          ]
+        },
+        "assets": {
+          "asset_url_format": "steam/apps/2194590/${FILENAME}?t=1706559848",
+          "main_capsule": "capsule_616x353.jpg",
+          "small_capsule": "capsule_231x87.jpg",
+          "header": "header.jpg",
+          "header_2x": "header.jpg",
+          "page_background": "page_bg_generated_v6b.jpg",
+          "hero_capsule": "hero_capsule.jpg",
+          "library_capsule": "library_600x900.jpg",
+          "library_capsule_2x": "library_600x900_2x.jpg",
+          "library_hero": "library_hero.jpg",
+          "community_icon": "63edd7f295f4b43bca92752cbb55f56c74c08c7d",
+          "page_background_path": "app/2194590?t=1706559848",
+          "raw_page_background": "page_bg_raw.jpg",
+          "last_modified": 1706559848
+        },
+        "release": {
+          "steam_release_date": 1706559850
+        },
+        "best_purchase_option": {
+          "packageid": 785653,
+          "purchase_option_name": "Roads Of Rome: Portals 2 Collector’s Edition",
+          "final_price_in_cents": "599",
+          "formatted_final_price": "$5.99",
+          "user_can_purchase_as_gift": true,
+          "hide_discount_pct_for_compliance": false,
+          "included_game_count": 1,
+          "must_purchase_as_set": false,
+          "package_group": "default",
+          "price_cannot_be_displayed_as_discount": false
+        },
+        "screenshots": {
+          "all_ages_screenshots": [
+            {
+              "filename": "steam/apps/2194590/ss_7285ba0bfa98b3618e266e5b9a5619ac91ad1e7f.jpg?t=1706559848",
+              "ordinal": 1
+            },
+            {
+              "filename": "steam/apps/2194590/ss_3fc33ae7850f25b8feceda6ca943262bac2be31d.jpg?t=1706559848",
+              "ordinal": 2
+            }
+          ]
+        }
+      },
+      {
+        "item_type": 0,
+        "id": 1837000,
+        "success": 1,
+        "visible": true,
+        "name": "Two World Portal",
+        "store_url_path": "app/1837000/Two_World_Portal",
+        "store_url_slug": "Two_World_Portal",
+        "appid": 1837000,
+        "type": 0,
+        "categories": {
+          "supported_player_categoryids": [
+            2
+          ],
+          "feature_categoryids": [
+            62
+          ],
+          "controller_categoryids": [
+            28,
+            55,
+            56
+          ]
+        },
+        "reviews": {
+          "summary_filtered": {
+            "review_count": 4,
+            "percent_positive": 75,
+            "review_score": 0,
+            "review_score_label": "4 user reviews"
+          }
+        },
+        "basic_info": {
+          "short_description": "Unravels an ancient tale where you are destined to reconnect two worlds by recovering lost crystals, hidden across ti...",
+          "publishers": [
+            {
+              "name": "NEXTSQUARESTUDIO"
+            }
+          ],
+          "developers": [
+            {
+              "name": "NEXTSQUARESTUDIO"
+            }
+          ]
+        },
+        "assets": {
+          "asset_url_format": "steam/apps/1837000/${FILENAME}?t=1733376797",
+          "main_capsule": "b8b8d1b27edeef9052920c638248fd90b157f475/capsule_616x353.jpg",
+          "main_capsule_2x": "b8b8d1b27edeef9052920c638248fd90b157f475/capsule_616x353_2x.jpg",
+          "small_capsule": "7ca79753a58a7098f9968d5d4cd8e13c9086e1d6/capsule_231x87.jpg",
+          "small_capsule_2x": "7ca79753a58a7098f9968d5d4cd8e13c9086e1d6/capsule_231x87_2x.jpg",
+          "header": "header.jpg",
+          "header_2x": "header_2x.jpg",
+          "page_background": "page_bg_generated_v6b.jpg",
+          "hero_capsule": "f3bf68d6df93d4fc790ccb5ce617f04f8201ea17/hero_capsule.jpg",
+          "hero_capsule_2x": "f3bf68d6df93d4fc790ccb5ce617f04f8201ea17/hero_capsule_2x.jpg",
+          "library_capsule": "943193c8d07cedf9d0ba9e8cd3375825ddcc3ad3/library_600x900.jpg",
+          "library_capsule_2x": "943193c8d07cedf9d0ba9e8cd3375825ddcc3ad3/library_600x900_2x.jpg",
+          "library_hero": "81c206cf66714d543c026caf043a0885b6191010/library_hero.jpg",
+          "library_hero_2x": "81c206cf66714d543c026caf043a0885b6191010/library_hero_2x.jpg",
+          "community_icon": "8202f967aedbe32295a97d7887618a8b01642d3b",
+          "page_background_path": "app/1837000?t=1733376797",
+          "raw_page_background": "page_bg_raw.jpg",
+          "last_modified": 1733376797
+        },
+        "release": {
+          "steam_release_date": 1642153932
+        },
+        "best_purchase_option": {
+          "packageid": 660922,
+          "purchase_option_name": "Two World Portal",
+          "final_price_in_cents": "499",
+          "formatted_final_price": "$4.99",
+          "user_can_purchase_as_gift": true,
+          "hide_discount_pct_for_compliance": false,
+          "included_game_count": 1,
+          "must_purchase_as_set": false,
+          "package_group": "default",
+          "price_cannot_be_displayed_as_discount": false
+        },
+        "screenshots": {
+          "all_ages_screenshots": [
+            {
+              "filename": "steam/apps/1837000/ss_2d922d5a15b4e1e62f8bcbd93376a22b7552a44b.jpg?t=1733376797",
+              "ordinal": 1
+            },
+            {
+              "filename": "steam/apps/1837000/ss_2a0ae46bc7055198db90cb2abc5eaf5badff3257.jpg?t=1733376797",
+              "ordinal": 2
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

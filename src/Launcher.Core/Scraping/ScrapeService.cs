@@ -190,6 +190,7 @@ public sealed class ScrapeService : IDisposable
                 new ScreenScraperScraper(http, options.Accounts, settings, _log, accountsFile),
                 new IgdbScraper(http, options.Accounts, settings, _log, accountsFile, tokenFile),
                 new SteamGridDbScraper(http, options.Accounts, _log, accountsFile),
+                new SteamStoreScraper(http, settings, _log),
             }.ToDictionary(s => s.Id, StringComparer.Ordinal);
         }
     }

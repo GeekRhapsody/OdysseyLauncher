@@ -244,6 +244,97 @@ public sealed class ScraperUnitTests
         }
     }
 
+    [Fact]
+    public void Steam_store_reads_the_library_art_and_store_metadata_and_offers_a_logo_only_once_found()
+    {
+        var item = SteamItem(ScrapeBed.Fixture("steam_getitems_620.json"), "620");
+        const string Base = "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/620/";
+
+        var game = SteamStoreScraper.Parse($$"""{"id":"620","item":{{item}},"logo":true}""")!;
+        var notChecked = SteamStoreScraper.Parse($$"""{"id":"620","item":{{item}}}""")!;
+        var none = SteamStoreScraper.Parse($$"""{"id":"620","item":{{item}},"logo":false}""")!;
+
+        Assert.Equal(("620", "Portal 2", "Valve", "Valve"), (game.ProviderGameId, game.Title, game.Developer, game.Publisher));
+        Assert.StartsWith("The \"Perpetual Testing Initiative\"", game.Description, StringComparison.Ordinal);
+        Assert.Equal("2011-04-19", game.ReleaseDate);                                   // steam_release_date 1303186800
+        Assert.Equal(0.98, game.Rating!.Value, 3);                                       // percent_positive
+        Assert.Null(game.Genre);
+        Assert.Null(game.Players);
+        Assert.Equal(Base + "library_600x900_2x.jpg?t=1790187113", Url(game, "cover"));     // a bare name, the 2x first
+        Assert.Equal(Base + "a58588d857b8683f8065e55f97ab82ad8a945c51/library_hero_2x.jpg?t=1790187113", Url(game, "hero"));  // a hashed one
+        Assert.Equal(Base + "ss_f3f6787d74739d3b2ec8a484b5c994b3d31ef325.jpg?t=1790187113", Url(game, "screenshot"));     // the first by ordinal
+        Assert.Equal(Base + "logo.png", Url(game, "logo"));
+        Assert.DoesNotContain(notChecked.MediaOrEmpty, m => m.Kind == "logo");
+        Assert.DoesNotContain(none.MediaOrEmpty, m => m.Kind == "logo");
+
+        // Only the 1x art, a description with HTML entities, and no reviews or release date.
+        var sparse = SteamStoreScraper.Parse("""
+            {"id":"7","item":{"appid":7,"name":"Tiny","basic_info":{"short_description":"Fish &amp; chips &quot;now&quot;"},
+             "reviews":{"summary_filtered":{"review_count":0,"percent_positive":0}},"release":{"is_coming_soon":true,"steam_release_date":1},
+             "assets":{"asset_url_format":"steam/apps/7/${FILENAME}?t=1","library_capsule":"library_600x900.jpg"}}}
+            """)!;
+        Assert.Equal("Fish & chips \"now\"", sparse.Description);
+        Assert.Equal((null, null), (sparse.Rating, sparse.ReleaseDate));
+        Assert.Equal("https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/7/library_600x900.jpg?t=1", Url(sparse, "cover"));
+        Assert.Single(sparse.MediaOrEmpty);
+
+        static string Url(ScrapedGame game, string kind) => game.MediaOrEmpty.Single(m => m.Kind == kind).Url;
+    }
+
+    [Fact]
+    public void Steam_store_search_picks_the_closest_name_and_only_items_steam_found()
+    {
+        using var document = System.Text.Json.JsonDocument.Parse(ScrapeBed.Fixture("steam_suggestions_portal2.json"));
+        var items = SteamStoreScraper.StoreItems(document.RootElement).ToList();
+        using var missing = System.Text.Json.JsonDocument.Parse(ScrapeBed.Fixture("steam_getitems_missing.json"));
+
+        Assert.Equal("620", SteamStoreScraper.Best("Portal 2", items)!.Value.Str("appid"));
+        Assert.Equal("620", SteamStoreScraper.Best("PORTAL™ 2", items)!.Value.Str("appid"));     // ™ and case don't count
+        Assert.Equal("104600", SteamStoreScraper.Best("Portal 2 - The Final Hours", items)!.Value.Str("appid"));
+        Assert.Null(SteamStoreScraper.Best("Half-Life 2", items));
+        Assert.Empty(SteamStoreScraper.StoreItems(missing.RootElement));                     // success 15: no such app
+    }
+
+    [Fact]
+    public void Steam_store_asks_in_the_first_language_it_has()
+    {
+        Assert.Equal("english", SteamStoreScraper.LanguageFor(Settings()));
+        Assert.Equal("french", SteamStoreScraper.LanguageFor(Settings("languages = [\"xx\", \"fr\", \"de\"]")));
+        Assert.Equal("english", SteamStoreScraper.LanguageFor(Settings("languages = [\"xx\"]")));
+    }
+
+    [Fact]
+    public void Only_windows_and_steam_are_looked_up_on_the_steam_store_unless_a_system_says_so()
+    {
+        var result = new ConfigLoader().Load(new ConfigSources
+        {
+            HomeDir = "C:/h",
+            ConfigDir = "C:/c",
+            FileExists = null,
+            Systems = new ConfigFile("systems.toml", """
+                [systems.dos]
+                steam_store = true
+
+                [systems.megadrive]
+                steam_store = "yes"
+                """),
+        });
+        var error = Assert.Single(result.Diagnostics, d => d.IsError);
+        Assert.Equal("systems.megadrive.steam_store", error.Key);
+        using var client = new HttpClient();
+        var steam = new SteamStoreScraper(new ScraperHttp(client, TimeProvider.System, (_, _) => Task.CompletedTask, RetryPolicy.Default, new ListLog()), Settings(), new ListLog());
+        Assert.Equal(["dos", "steam", "windows"], result.Config.Systems.Where(s => s.SteamStore).Select(s => s.Id).Order(StringComparer.Ordinal));
+        Assert.Null(steam.Unsupported(result.Config.FindSystem("steam")!));
+        Assert.Equal("Super Nintendo Entertainment System has no steam_store in systems.toml", steam.Unsupported(result.Config.FindSystem("snes")!));
+        Assert.Null(steam.Unavailable);                                                      // no credentials
+    }
+
+    private static string SteamItem(string answer, string appId)
+    {
+        using var document = System.Text.Json.JsonDocument.Parse(answer);
+        return SteamStoreScraper.StoreItems(document.RootElement).Single(i => i.Str("appid") == appId).GetRawText();
+    }
+
     // ---- Selection and limits ----------------------------------------------------------------------
 
     [Fact]

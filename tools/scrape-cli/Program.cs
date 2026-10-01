@@ -40,7 +40,8 @@ const string Usage = """
 
     <rel path> is the ROM's path under its system's ROM folder, as on disk: megadrive/Sonic the Hedgehog 3 (Europe).md
     Credentials: ConfigDir/secrets.toml ([screenscraper] dev_id, dev_password, username, password;
-    [steamgriddb] api_key; [igdb] client_id, client_secret), or ODYSSEY_* environment variables.
+    [steamgriddb] api_key; [igdb] client_id, client_secret), or ODYSSEY_* environment variables. The Steam store
+    ("steam") needs none; it looks up systems with steam_store = true (Windows and Steam) by title.
     """;
 
 Console.OutputEncoding = System.Text.Encoding.UTF8;

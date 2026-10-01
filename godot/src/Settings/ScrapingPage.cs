@@ -15,7 +15,7 @@ namespace Launcher.App.Settings;
 /// </summary>
 public sealed partial class ScrapingPage : ListPanel
 {
-    private static readonly string[] Providers = [ScraperIds.ScreenScraper, ScraperIds.Igdb, ScraperIds.SteamGridDb];
+    private static readonly string[] Providers = [ScraperIds.ScreenScraper, ScraperIds.Igdb, ScraperIds.SteamGridDb, ScraperIds.Steam];
 
     private readonly SettingsController _settings;
     private readonly Dictionary<string, SettingRow> _credentialRows = new(StringComparer.Ordinal);
@@ -36,6 +36,7 @@ public sealed partial class ScrapingPage : ListPanel
         ScraperIds.ScreenScraper => "ScreenScraper",
         ScraperIds.Igdb => "IGDB",
         ScraperIds.SteamGridDb => "SteamGridDB",
+        ScraperIds.Steam => "Steam store",
         _ => provider,
     };
 
@@ -44,6 +45,7 @@ public sealed partial class ScrapingPage : ListPanel
         ScraperIds.ScreenScraper => "Metadata and every kind of media, videos included",
         ScraperIds.Igdb => "Metadata, covers, screenshots and artwork",
         ScraperIds.SteamGridDb => "Community covers, heroes and logos; no metadata",
+        ScraperIds.Steam => "Steam's own art and store metadata, for Windows and Steam games",
         _ => string.Empty,
     };
 
@@ -75,7 +77,7 @@ public sealed partial class ScrapingPage : ListPanel
         AddSection("Media");
         AddRow("Media to scrape", ScrapeMediaPage.Summary(scraping.Media), null, () => Layer.Push(new ScrapeMediaPage(_settings)));
 
-        AddSection("Credentials");
+        AddSection("Providers");
         foreach (var id in Providers)
         {
             var captured = id;

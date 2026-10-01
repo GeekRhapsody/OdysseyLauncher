@@ -352,3 +352,18 @@ This checks what the fixtures can't: that ScreenScraper really names its media a
 ### Send back
 
 - Any kind that didn't arrive for a game ScreenScraper's website shows it for, and the warnings: `Select-String -Path "$env:APPDATA\Godot\app_userdata\Odyssey Launcher\logs\godot.log" -Pattern 'screenscraper.*(download|isn.t)'`.
+
+## Steam store scraping
+
+This checks what the fixtures can't: Steam's live store answering searches, its art arriving, and its titles matching your shortcuts' names. It needs no credentials. It uses the M3 set-up (`C:\OdysseyTest`) with the Steam shortcuts from [Windows and Steam games](#windows-and-steam-games), and the scrape CLI built with `dotnet build`: `$cli = '.\tools\scrape-cli\bin\Debug\net8.0\odyssey-scrape.exe'`.
+
+1. **Opt in.** Under `[scraping]` in `C:\OdysseyTest\settings.toml`, set `provider = "steam"` and `fallback = ["screenscraper", "igdb", "steamgriddb"]`, and add `"hero"` to `media`. `& $cli --user-dir=C:\OdysseyTest providers` lists "Steam store: Ready" first. (Or in the app: Settings, Providers, media and credentials, Default provider, then right until it says Steam store; Steam store's own page says no credentials are needed, and Test connection says "The Steam store answered.")
+2. **One game.** `& $cli --user-dir=C:\OdysseyTest game "steam/<a shortcut>.url"`, then `show` for it: the title, description, developer, publisher and release date are Steam's, the metadata source is `steam`, and the cover, hero, logo and screenshot are from `steam`. Genre and players come from ScreenScraper or IGDB.
+3. **Every game.** `& $cli --user-dir=C:\OdysseyTest system steam`, and the same for `windows` if it has shortcuts to games. Note the time and any games not found.
+4. **Not a Steam system.** Scrape a Mega Drive game: the log has no `steam:` lines and nothing changed for it.
+5. **In the app.** In the export, the Steam system's cards show Steam's library capsules, and a game's Images show its hero and logo.
+
+### Send back
+
+- Games matched to the wrong Steam game, and games not found with their file names (a game Steam no longer sells isn't found: that's expected).
+- The `steam:` warnings: `Select-String -Path "$env:APPDATA\Godot\app_userdata\Odyssey Launcher\logs\godot.log" -Pattern 'steam:'`, or the CLI's output.

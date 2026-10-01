@@ -21,7 +21,7 @@ public sealed class ConfigLoader : IConfigLoader
     public const string DefaultRomRoot = "{home}/ROMs";
 
     /// <summary>The scraping providers <c>[scraping] provider</c> and <c>fallback</c> can name.</summary>
-    public static IReadOnlyList<string> Scrapers { get; } = ["screenscraper", "igdb", "steamgriddb"];
+    public static IReadOnlyList<string> Scrapers { get; } = ["screenscraper", "igdb", "steamgriddb", "steam"];
 
     /// <summary>Used when <c>scraping.hash_limit_mb</c> is missing or invalid.</summary>
     public const long DefaultHashLimitMb = 64;
@@ -37,7 +37,7 @@ public sealed class ConfigLoader : IConfigLoader
     private static readonly string[] SystemKeys =
     [
         "enabled", "name", "manufacturer", "year", "aliases", "extensions", "emulator", "alt_emulators",
-        "game_model", "screenscraper_id", "igdb_platforms", "rom_dirs", "recursive", "exclude",
+        "game_model", "screenscraper_id", "igdb_platforms", "steam_store", "rom_dirs", "recursive", "exclude",
     ];
 
     private static readonly string[] SystemRequiredKeys = ["name", "extensions", "emulator"];
@@ -897,6 +897,7 @@ public sealed class ConfigLoader : IConfigLoader
                         Error(igdbNode, prefix + ".igdb_platforms", $"expected an array of integers, found {TomlNode.KindName(igdbNode.Kind)}");
                     }
                 }
+                var steamStore = Bool(entry, prefix, "steam_store") ?? false;
                 var recursive = Bool(entry, prefix, "recursive") ?? true;
 
                 var aliases = new List<string>();
@@ -1027,7 +1028,7 @@ public sealed class ConfigLoader : IConfigLoader
 
                 result.Add(new SystemConfig(
                     id, name, manufacturer, (int?)year, aliases, extensions, emulator, altEmulators, gameModel,
-                    (int?)screenScraperId, romDirs, romDirSource, recursive, exclude, igdbPlatforms));
+                    (int?)screenScraperId, romDirs, romDirSource, recursive, exclude, igdbPlatforms, steamStore));
             }
 
             return result;

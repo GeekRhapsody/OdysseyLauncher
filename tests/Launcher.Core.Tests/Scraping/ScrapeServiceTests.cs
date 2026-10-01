@@ -738,6 +738,119 @@ public sealed class ScrapeServiceTests : IAsyncLifetime
         Assert.NotNull((await _bed.Library.GetGamesAsync("megadrive", Ct)).Games.Single().CoverPath);
     }
 
+    // ---- The Steam store ---------------------------------------------------------------------------
+
+    private const string Portal = "steam/Portal 2.url";
+
+    /// <summary>The Steam store first, for Windows and Steam games; every other system starts with ScreenScraper.</summary>
+    private void SteamFirst(string media = "[\"cover\", \"hero\", \"logo\", \"screenshot\"]") =>
+        _bed.Reconfigure($"provider = \"steam\"\nfallback = [\"screenscraper\", \"steamgriddb\"]\nmedia = {media}");
+
+    [Fact]
+    public async Task The_steam_store_finds_a_game_by_its_title_not_its_shortcuts_app_id()
+    {
+        SteamFirst();
+        _bed.Rom(Portal, "[InternetShortcut]\nURL=steam://rungameid/400\n");     // the shortcut names Portal (400), not Portal 2
+        await _bed.ScanAsync();
+        using var service = _bed.Service();
+
+        var result = await service.ScrapeGameAsync(Key(Portal), Ct);
+
+        Assert.True((1, 1, 0) == (result.Total, result.Done, result.Failed), string.Join(" | ", _bed.Log.Lines));
+        var search = Assert.Single(_bed.Http.Requests, r => r.Uri.AbsolutePath.Contains("SearchSuggestions", StringComparison.Ordinal));
+        Assert.Contains("\"search_term\":\"Portal 2\"", ScrapeBed.SteamInput(search), StringComparison.Ordinal);
+        Assert.Contains("\"country_code\":\"US\"", ScrapeBed.SteamInput(search), StringComparison.Ordinal);
+        Assert.DoesNotContain(_bed.Http.Requests, r => r.Uri.AbsolutePath.Contains("/apps/400/", StringComparison.Ordinal)
+            || ScrapeBed.SteamInput(r).Contains("400", StringComparison.Ordinal));
+        Assert.Equal(0, _bed.Http.Count("GetItems"));                                    // the search answer had everything
+
+        var game = await _bed.Game("steam", "Portal 2.url");
+        Assert.Equal("Portal 2", game.Title);
+        Assert.Equal(("Valve", "Valve", "2011-04-19", "steam"), (game.Metadata!.Developer, game.Metadata.Publisher, game.Metadata.ReleaseDate, game.Metadata.Source));
+        Assert.Equal(0.98, game.Metadata.Rating!.Value, 3);
+        Assert.Equal("ok", game.Scrape!.Status);
+        Assert.Equal(["steam"], game.Scrape.Providers);
+        Assert.Equal(("620", "search"), (_bed.Query<string>("SELECT scraper_game_id FROM scraper_matches"), _bed.Query<string>("SELECT method FROM scraper_matches")));
+        foreach (var kind in (string[])["cover", "hero", "logo", "screenshot"])
+        {
+            Assert.Equal("steam", _bed.Query<string>("SELECT source FROM media WHERE kind = $kind", ("$kind", kind)));
+        }
+
+        Assert.Contains(_bed.Http.Requests, r => r.Method == "GET" && r.Uri.AbsolutePath.EndsWith("/apps/620/library_600x900_2x.jpg", StringComparison.Ordinal));
+        Assert.Contains(_bed.Http.Requests, r => r.Method == "HEAD" && r.Uri.AbsolutePath.EndsWith("/apps/620/logo.png", StringComparison.Ordinal));
+        Assert.Equal(1, _bed.Http.Count("jeuInfos.php"));                                // ScreenScraper for the genre and players Steam hasn't
+        Assert.Equal(0, _bed.Http.Count("steamgriddb"));                                 // no media left for SteamGridDB
+
+        // A rebuild with the network off gets it all back from the saved response.
+        var requests = _bed.Http.Requests.Count;
+        _bed.Http.Offline = true;
+        await _bed.Library.RebuildAsync(null, Ct);
+        Assert.Equal(requests, _bed.Http.Requests.Count);
+        var rebuilt = await _bed.Game("steam", "Portal 2.url");
+        Assert.Equal((game.Title, game.Metadata), (rebuilt.Title, rebuilt.Metadata));
+        Assert.Equal(4L, _bed.Query<long>("SELECT COUNT(*) FROM media WHERE source = 'steam'"));
+    }
+
+    [Fact]
+    public async Task The_steam_store_is_only_asked_about_systems_with_steam_store()
+    {
+        SteamFirst("[\"cover\"]");
+        _bed.Rom(Sonic);
+        await _bed.ScanAsync();
+        using var service = _bed.Service();
+
+        await service.ScrapeGameAsync(Key(Sonic), Ct);
+
+        Assert.Equal(0, _bed.Http.Count("steampowered") + _bed.Http.Count("steamstatic"));
+        var game = await _bed.Game("megadrive", "Sonic the Hedgehog 3 (Europe).md");
+        Assert.Equal(("Sonic the Hedgehog 3", "screenscraper"), (game.Title, game.Metadata!.Source));
+    }
+
+    [Fact]
+    public async Task A_game_with_no_logo_on_steam_gets_one_from_the_next_provider()
+    {
+        SteamFirst("[\"cover\", \"logo\"]");
+        _bed.Http.On("HEAD", u => u.Host == SteamStoreScraper.ImageHost, _ => FakeHttpHandler.Text("Not Found", HttpStatusCode.NotFound));
+        _bed.Http.On("GET", u => ScrapeBed.Is(u, "steamgriddb.com", "/api/v2/search/autocomplete/"),
+            _ => FakeHttpHandler.Json("""{"success":true,"data":[{"id":5170,"name":"Portal 2","release_date":1303186800}]}"""));
+        _bed.Rom(Portal, "[InternetShortcut]\nURL=steam://rungameid/620\n");
+        await _bed.ScanAsync();
+        using var service = _bed.Service();
+
+        await service.ScrapeGameAsync(Key(Portal), Ct);
+
+        Assert.Equal("steam", _bed.Query<string>("SELECT source FROM media WHERE kind = 'cover'"));
+        Assert.Equal("steamgriddb", _bed.Query<string>("SELECT source FROM media WHERE kind = 'logo'"));
+        Assert.Equal(0, _bed.Http.Count("/api/v2/grids/"));                             // SteamGridDB was asked for the logo alone
+        Assert.DoesNotContain(_bed.Http.Requests, r => r.Method == "GET" && r.Uri.AbsolutePath.EndsWith("/logo.png", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task A_steam_store_match_is_fetched_by_its_app_id_and_found_again_when_its_gone()
+    {
+        SteamFirst("[\"cover\"]");
+        _bed.Rom(Portal);
+        await _bed.ScanAsync();
+        using var service = _bed.Service();
+
+        await service.ScrapeGameAsync(Key(Portal), Ct);
+        await service.ScrapeGameAsync(Key(Portal), Ct);
+
+        Assert.Equal(1, _bed.Http.Count("SearchSuggestions"));
+        var fetch = Assert.Single(_bed.Http.Requests, r => r.Uri.AbsolutePath.Contains("GetItems", StringComparison.Ordinal));
+        Assert.Contains("\"ids\":[{\"appid\":620}]", ScrapeBed.SteamInput(fetch), StringComparison.Ordinal);
+        Assert.Equal("search", _bed.Query<string>("SELECT method FROM scraper_matches"));   // the method it was matched by is kept
+
+        // Steam no longer knows the stored id (success 15): the game is searched for again.
+        _bed.Http.On("GET", u => ScrapeBed.Is(u, "api.steampowered.com", "/IStoreBrowseService/GetItems/"),
+            _ => FakeHttpHandler.Json(ScrapeBed.Fixture("steam_getitems_missing.json")));
+        await service.ScrapeGameAsync(Key(Portal), Ct);
+
+        Assert.Equal(2, _bed.Http.Count("GetItems"));
+        Assert.Equal(2, _bed.Http.Count("SearchSuggestions"));
+        Assert.Equal("ok", (await _bed.Game("steam", "Portal 2.url")).Scrape!.Status);
+    }
+
     // ---- Clearing ----------------------------------------------------------------------------------
 
     [Fact]
