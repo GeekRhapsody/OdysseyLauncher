@@ -17,6 +17,9 @@ public sealed partial class InfoOverlay : CanvasLayer
     public const int MaxRows = 9;
     private const float Margin = 44;
 
+    /// <summary>Kept clear of the title, top right: the status indicators (<see cref="StatusBar"/>), and "Favourite" under them.</summary>
+    private const float StatusBarRoom = 250;
+
     private readonly Label[] _keys = new Label[MaxRows];
     private readonly Label[] _values = new Label[MaxRows];
     private Control _root = null!;
@@ -61,7 +64,7 @@ public sealed partial class InfoOverlay : CanvasLayer
         heading.AddThemeConstantOverride("separation", 2);
         heading.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.TopWide);
         heading.OffsetLeft = Margin;
-        heading.OffsetRight = -Margin - 170;
+        heading.OffsetRight = -Margin - StatusBarRoom;
         heading.OffsetTop = 26;
         _root.AddChild(heading);
 
@@ -89,8 +92,8 @@ public sealed partial class InfoOverlay : CanvasLayer
         _favourite.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.TopRight);
         _favourite.OffsetLeft = -Margin - 150;
         _favourite.OffsetRight = -Margin;
-        _favourite.OffsetTop = 30;
-        _favourite.OffsetBottom = 60;
+        _favourite.OffsetTop = 56;
+        _favourite.OffsetBottom = 82;
         _favourite.HorizontalAlignment = HorizontalAlignment.Right;
 
         var keyStyle = new LabelSettings { FontSize = 14, FontColor = new Color("#8E9CC6"), ShadowColor = new Color(0, 0, 0, 0.7f), ShadowSize = 3, ShadowOffset = Vector2.Zero };

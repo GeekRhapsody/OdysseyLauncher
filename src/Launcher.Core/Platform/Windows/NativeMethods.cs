@@ -2,7 +2,7 @@ using System.Runtime.InteropServices;
 
 namespace Launcher.Core.Platform.Windows;
 
-/// <summary>The kernel32, user32, advapi32 and powrprof calls the Windows platform code uses. Structs are blittable.</summary>
+/// <summary>The kernel32, user32, advapi32, powrprof, iphlpapi and wlanapi calls the Windows platform code uses. Structs are blittable.</summary>
 internal static unsafe partial class NativeMethods
 {
     public const int ErrorFileNotFound = 2;
@@ -77,6 +77,73 @@ internal static unsafe partial class NativeMethods
         public nint StdOutput;
         public nint StdError;
     }
+
+    public const byte AcLineOnline = 1;
+    public const byte BatteryFlagNoSystemBattery = 128;
+    public const byte BatteryFlagUnknown = 255;
+    public const byte BatteryPercentUnknown = 255;
+
+    public const uint IfTypeEthernetCsmacd = 6;
+    public const uint IfTypeIeee80211 = 71;
+    public const uint NdisPhysicalMediumNative80211 = 9;
+    public const uint IfOperStatusUp = 1;
+    public const uint MediaConnectStateConnected = 1;
+    public const byte IfFlagHardwareInterface = 0x01;
+
+    public const uint WlanClientVersion2 = 2;
+    public const int WlanIntfOpcodeCurrentConnection = 7;
+    public const uint WlanInterfaceStateConnected = 1;
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct SystemPowerStatus
+    {
+        public byte AcLineStatus;
+        public byte BatteryFlag;
+        public byte BatteryLifePercent;
+        public byte SystemStatusFlag;
+        public uint BatteryLifeTime;
+        public uint BatteryFullLifeTime;
+    }
+
+    /// <summary>
+    /// <c>MIB_IF_ROW2</c> (netioapi.h), 1352 bytes on x86 and x64: only the fields the status indicators read, at their
+    /// offsets. <c>MIB_IF_TABLE2</c>'s rows start at <see cref="IfTable2RowsOffset"/>.
+    /// </summary>
+    [StructLayout(LayoutKind.Explicit, Size = 1352)]
+    public struct MibIfRow2
+    {
+        [FieldOffset(8)]
+        public uint InterfaceIndex;
+
+        [FieldOffset(12)]
+        public Guid InterfaceGuid;
+
+        [FieldOffset(1128)]
+        public uint Type;
+
+        [FieldOffset(1140)]
+        public uint PhysicalMediumType;
+
+        /// <summary><c>InterfaceAndOperStatusFlags</c>: bit 0 is <c>HardwareInterface</c>.</summary>
+        [FieldOffset(1152)]
+        public byte Flags;
+
+        [FieldOffset(1156)]
+        public uint OperStatus;
+
+        [FieldOffset(1164)]
+        public uint MediaConnectState;
+    }
+
+    /// <summary><c>MIB_IF_TABLE2</c>: a <c>ULONG</c> count, then the rows, aligned to 8.</summary>
+    public const int IfTable2RowsOffset = 8;
+
+    /// <summary><c>WLAN_INTERFACE_INFO_LIST</c>: two <c>DWORD</c>s, then 532-byte <c>WLAN_INTERFACE_INFO</c>s (a GUID first).</summary>
+    public const int WlanInterfaceListItemsOffset = 8;
+    public const int WlanInterfaceInfoSize = 532;
+
+    /// <summary>In <c>WLAN_CONNECTION_ATTRIBUTES</c>: <c>isState</c> first, <c>wlanAssociationAttributes.wlanSignalQuality</c> here.</summary>
+    public const int WlanConnectionSignalQualityOffset = 576;
 
     [StructLayout(LayoutKind.Sequential)]
     public struct StartupInfoEx
@@ -422,4 +489,41 @@ internal static unsafe partial class NativeMethods
 
     [LibraryImport("powrprof.dll")]
     public static partial byte GetPwrCapabilities(SystemPowerCapabilities* capabilities);
+
+    // ---- kernel32: power -------------------------------------------------------------------------
+
+    [LibraryImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool GetSystemPowerStatus(out SystemPowerStatus status);
+
+    // ---- iphlpapi ----------------------------------------------------------------------------------
+
+    /// <summary>Returns a Win32 error code; the table is freed with <see cref="FreeMibTable"/>.</summary>
+    [LibraryImport("iphlpapi.dll")]
+    public static partial uint GetIfTable2(out nint table);
+
+    [LibraryImport("iphlpapi.dll")]
+    public static partial void FreeMibTable(nint memory);
+
+    /// <summary>The interface the route to <paramref name="destination"/> (IPv4, network order) leaves by; no packet is sent.</summary>
+    [LibraryImport("iphlpapi.dll")]
+    public static partial uint GetBestInterface(uint destination, out uint interfaceIndex);
+
+    // ---- wlanapi -----------------------------------------------------------------------------------
+
+    [LibraryImport("wlanapi.dll")]
+    public static partial uint WlanOpenHandle(uint clientVersion, nint reserved, out uint negotiatedVersion, out nint client);
+
+    [LibraryImport("wlanapi.dll")]
+    public static partial uint WlanCloseHandle(nint client, nint reserved);
+
+    [LibraryImport("wlanapi.dll")]
+    public static partial uint WlanEnumInterfaces(nint client, nint reserved, out nint interfaceList);
+
+    [LibraryImport("wlanapi.dll")]
+    public static partial uint WlanQueryInterface(
+        nint client, in Guid interfaceGuid, int opcode, nint reserved, out uint dataSize, out nint data, nint opcodeValueType);
+
+    [LibraryImport("wlanapi.dll")]
+    public static partial void WlanFreeMemory(nint memory);
 }

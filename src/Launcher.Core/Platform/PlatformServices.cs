@@ -19,6 +19,10 @@ public static class PlatformServices
     public static IPowerControl CreatePowerControl() =>
         OperatingSystem.IsWindows() ? new WindowsPowerControl() : NullPowerControl.Instance;
 
+    /// <summary>The battery and the network, for the status indicators.</summary>
+    public static IDeviceStatus CreateDeviceStatus() =>
+        OperatingSystem.IsWindows() ? new WindowsDeviceStatus() : new PortableDeviceStatus();
+
     /// <summary>The drives and quick-access folders the pickers start from (M7).</summary>
     public static IFileLocations CreateFileLocations(string homeDir) =>
         OperatingSystem.IsWindows() ? new WindowsFileLocations(homeDir) : new PortableFileLocations(homeDir);

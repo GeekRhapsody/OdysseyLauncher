@@ -979,7 +979,7 @@ game_template = "dvd_case"
 
 [systems.windows]                       # Windows
 colour = "#629E5C"
-game_template = "dvd_case"
+game_template = "big_box"
 
 [systems.windows3x]                       # Windows 3.x
 colour = "#6A9E5C"

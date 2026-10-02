@@ -28,7 +28,7 @@ public sealed partial class JobsHud : CanvasLayer
         _cards.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.TopRight);
         _cards.OffsetLeft = -44 - Width;
         _cards.OffsetRight = -44;
-        _cards.OffsetTop = 70;
+        _cards.OffsetTop = 96; // under the status indicators and "Favourite"
         _cards.AddThemeConstantOverride("separation", 8);
         root.AddChild(_cards);
         jobs.Changed += Rebuild;

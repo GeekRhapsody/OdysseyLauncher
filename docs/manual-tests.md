@@ -384,3 +384,19 @@ This checks what the fixtures can't: each provider's live search results, and sc
 - Games whose right result wasn't listed, with the name searched for, and any provider whose results looked wrong (wrong system, wrong names).
 - Anything that took long or didn't answer the pad, and any message that was unclear.
 - The log lines: `Select-String -Path "$env:APPDATA\Godot\app_userdata\Odyssey Launcher\logs\godot.log" -Pattern '^Match|^Scrape|error|warning'`.
+
+## Status indicators
+
+This checks what a capture can't: the indicators following the device's real state as it changes. Use the Deck (or a laptop) and the export: `& .\artifacts\export\windows\OdysseyLauncher.exe --fullscreen`.
+
+1. **What shows.** In the top-right corner you see the network, the battery's charge, and the time in your Windows time format (24-hour or 12-hour, as Windows' clock shows it).
+2. **The battery.** Plug the charger in and out. Within 10 s, the icon changes to the charging one (green) and back. Below 10% on battery, it turns red.
+3. **The network.** Turn Wi-Fi off: within a few seconds the crossed-out Wi-Fi icon (dimmed) shows. Turn it back on: it returns, with its bars. On the dock with a cable, the cable icon shows. Walk away from the router: the bars drop.
+4. **The clock.** Watch the minute change: the clock follows within a second. Sleep the Deck for a few minutes, then wake it: the time is right at once.
+5. **The settings.** Open Settings (Menu). In the UI section, turn Clock, Battery and Network off and on, with A and with left and right. Each one disappears and comes back at once, top right, and the others close up against the right edge with no gap. Close Settings and restart the app: your choices are kept.
+6. **A game.** Launch a game and quit it. The indicators are still right, including the time.
+
+### Send back
+
+- Any state that showed wrong or late: which one, what it showed, and what Windows' own tray icons showed.
+- A Wi-Fi signal that never shows bars (all arcs bright, always): the WLAN service couldn't answer.

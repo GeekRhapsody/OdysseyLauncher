@@ -34,7 +34,7 @@ namespace Launcher.App.Boot;
 /// <item>When both are done, the look and the grids are built and the systems grid is bound; the next drawn frame is
 /// <c>interactive</c>.</item>
 /// <item>After that, a warm-up spread over a few frames: every pipeline drawn once, the first cover upload, the
-/// glyphs, and the launch controller. Nothing is scanned at boot; systems never scanned are scanned after it.</item>
+/// glyphs, the launch controller and the status indicators. Nothing is scanned at boot; systems never scanned are scanned after it.</item>
 /// </list>
 /// </summary>
 public partial class Main : Node3D
@@ -71,6 +71,8 @@ public partial class Main : Node3D
     private LibraryJobs? _jobs;
     private SettingsController? _settings;
     private IPowerControl? _power;
+    private StatusBar? _statusBar;
+    private DeviceStatusMonitor? _deviceStatus;
     private Stage _stage = Stage.Loading;
     private int _warmUpFrame;
     private SubViewport? _glyphWarmUp;
@@ -167,6 +169,7 @@ public partial class Main : Node3D
         }
 
         _scrollBench?.Dispose();
+        _deviceStatus?.Dispose();
 
         // A scrape still running pauses (it stays queued) before the library closes.
         _jobs?.Dispose();
@@ -201,6 +204,7 @@ public partial class Main : Node3D
         StepNavScript();
         _ui!.Update(delta);
         _jobs?.Jobs.Tick(delta);
+        _statusBar?.Tick(delta);
         _navigator?.Update(delta);
         var dt = (float)delta;
         _systemsGrid!.Tick(dt);
@@ -439,6 +443,7 @@ public partial class Main : Node3D
             case 3 + GlyphSteps:
                 _glyphWarmUp?.QueueFree();
                 _glyphWarmUp = null;
+                BuildStatusBar();
                 _stage = Stage.Running;
                 DebugHooks.Timeline.Mark(BootMarks.WarmUpDone);
                 AfterWarmUp();
@@ -581,6 +586,7 @@ public partial class Main : Node3D
         {
             _launch?.ApplyConfig(config);
             navigator.OnConfigChanged();
+            _statusBar?.Apply(config.Settings.Ui);
         };
         _settings.ThemeChosen += id =>
         {
@@ -638,6 +644,48 @@ public partial class Main : Node3D
             _overlay!.Visible = !_options.NoOverlay;
             hud.Visible = true;
         };
+    }
+
+    /// <summary>
+    /// The status indicators, top right (time, battery, network), and the monitor that reads the device's state on the
+    /// thread pool, delivering it only when it changes; paused while a game runs. Built in the warm-up, after the
+    /// launch controller and after the glyphs, whose frames are the warm-up's dearest.
+    /// </summary>
+    private void BuildStatusBar()
+    {
+        // First uses cost milliseconds, so they happen on the thread pool: the local time zone (DateTime.Now reads it
+        // from the registry), the culture's time format, the icons, and the monitor (System.Net.NetworkInformation's
+        // first load). Only the nodes are made on the main thread, once that's done.
+        var fake = _options.FakeStatus;
+        _ = Task.Run(() =>
+        {
+            _ = DateTime.Now.ToString("t", System.Globalization.CultureInfo.CurrentCulture);
+            var icons = StatusBar.LoadIcons();
+            var monitor = new DeviceStatusMonitor(fake is { } status ? new FixedDeviceStatus(status) : PlatformServices.CreateDeviceStatus());
+            _queue.Post(() =>
+            {
+                if (_shutdown.IsCancellationRequested)
+                {
+                    monitor.Dispose();
+                    return;
+                }
+
+                var bar = new StatusBar(icons) { Visible = !_options.NoOverlay };
+                AddChild(bar);
+                bar.Apply(_services!.Config.Settings.Ui);
+                _statusBar = bar;
+                monitor.Changed += status => _queue.Post(() => bar.Show(status));
+                _deviceStatus = monitor;
+                _settings!.DeviceStatus = monitor;
+                if (_launch is { } launch)
+                {
+                    launch.GameModeEntered += monitor.Pause;
+                    launch.GameModeLeft += monitor.Resume;
+                }
+
+                _ = Task.Run(monitor.Start);
+            });
+        });
     }
 
     private void OpenPowerMenu() =>

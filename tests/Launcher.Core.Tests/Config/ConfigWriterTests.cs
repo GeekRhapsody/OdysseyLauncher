@@ -88,6 +88,24 @@ public sealed class ConfigWriterTests : IDisposable
     }
 
     [Fact]
+    public void A_status_indicator_turned_off_gets_a_ui_table_and_turned_on_again_leaves_nothing()
+    {
+        Write("settings.toml", "[display]\ntheme = \"retro-tv\"\n");
+        var writer = Writer();
+
+        var off = writer.Save([new ConfigEdit(ConfigFileKind.Settings, ["ui", "show_clock"], false)]);
+        Assert.True(off.Saved, off.Problem);
+        Assert.Equal("[display]\ntheme = \"retro-tv\"\n\n[ui]\nshow_clock = false\n", File.ReadAllText(ConfigFile("settings.toml")));
+        Assert.False(off.Config!.Config.Settings.Ui.ShowClock);
+
+        var on = writer.Save([new ConfigEdit(ConfigFileKind.Settings, ["ui", "show_clock"], true)]);
+        Assert.True(on.Saved, on.Problem);
+        // The empty table goes too (the blank line that separated it stays).
+        Assert.Equal("[display]\ntheme = \"retro-tv\"\n", File.ReadAllText(ConfigFile("settings.toml")).TrimEnd('\n') + "\n");
+        Assert.True(on.Config!.Config.Settings.Ui.ShowClock);
+    }
+
+    [Fact]
     public void Null_removes_a_key_so_the_default_applies_again()
     {
         Write("systems.toml", "[systems.snes]\nrom_dirs = [\"E:/SNES\"]\nrecursive = false\n");

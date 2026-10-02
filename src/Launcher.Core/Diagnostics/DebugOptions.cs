@@ -1,4 +1,5 @@
 using System.Globalization;
+using Launcher.Core.Platform;
 
 namespace Launcher.Core.Diagnostics;
 
@@ -49,6 +50,7 @@ public sealed record DebugOptions
     public const string NoOverlayArg = "--no-overlay";
     public const string OpenArg = "--open";
     public const string OpenPathArg = "--open-path";
+    public const string FakeStatusArg = "--fake-status";
 
     /// <summary>
     /// What <c>--open</c> can show once the app is interactive (M7), for captures of each settings screen and shared
@@ -76,6 +78,7 @@ public sealed record DebugOptions
         CaptureArg, CaptureFrameArg, BenchArg, BenchFramesArg, BenchScenarioArg, BenchSystemArg, BenchScrollSecondsArg,
         NoTexturesArg, RenderScaleArg, UpscalerArg, UploadCapArg, StartSystemArg, StartIndexArg, NavScriptArg, LaunchArg,
         UserDirArg, QuitAfterLaunchArg, ThemeArg, NoOverlayArg, OpenArg, OpenPathArg,
+        FakeStatusArg,
     ];
 
     /// <summary>
@@ -173,6 +176,14 @@ public sealed record DebugOptions
     /// <summary><c>--open-path</c>: the folder a picker opened by <c>--open</c> starts in (absolute), or null.</summary>
     public string? OpenPath { get; init; }
 
+    /// <summary>
+    /// <c>--fake-status=&lt;battery&gt;/&lt;network&gt;</c>: what the status indicators show instead of the device's own
+    /// state, for captures on a PC with no battery or no Wi-Fi; null for the real state. The battery is <c>none</c>,
+    /// a percentage, or a percentage and <c>+</c> (plugged in); the network is <c>off</c>, <c>lan</c>, or <c>wifi0</c>
+    /// to <c>wifi3</c> (its bars).
+    /// </summary>
+    public DeviceStatus? FakeStatus { get; init; }
+
     public bool CaptureRequested => CapturePath is not null;
 
     public bool BenchRequested => BenchPath is not null;
@@ -240,6 +251,7 @@ public sealed record DebugOptions
                 NoOverlayArg => options with { NoOverlay = true },
                 OpenArg => options with { Open = ParseOpen(value, errors) },
                 OpenPathArg => options with { OpenPath = ParsePath(name, value, null, errors) },
+                FakeStatusArg => options with { FakeStatus = ParseFakeStatus(value, errors) },
                 _ => options,
             };
         }
@@ -305,6 +317,46 @@ public sealed record DebugOptions
         }
 
         return steps;
+    }
+
+    private static DeviceStatus? ParseFakeStatus(string value, List<string> errors)
+    {
+        var slash = value.IndexOf('/', StringComparison.Ordinal);
+        BatteryState? battery = null;
+        NetworkState? network = null;
+        if (slash > 0)
+        {
+            var charge = value[..slash].ToLowerInvariant();
+            var pluggedIn = charge.EndsWith('+');
+            var digits = pluggedIn ? charge[..^1] : charge;
+            if (charge == "none")
+            {
+                battery = BatteryState.None;
+            }
+            else if (int.TryParse(digits, NumberStyles.None, CultureInfo.InvariantCulture, out var percent) && percent <= 100)
+            {
+                battery = new BatteryState(true, percent, pluggedIn);
+            }
+
+            network = value[(slash + 1)..].ToLowerInvariant() switch
+            {
+                "off" => new NetworkState(NetworkKind.Disconnected),
+                "lan" => new NetworkState(NetworkKind.Wired),
+                "wifi0" => new NetworkState(NetworkKind.Wireless, 0),
+                "wifi1" => new NetworkState(NetworkKind.Wireless, 1),
+                "wifi2" => new NetworkState(NetworkKind.Wireless, 2),
+                "wifi3" => new NetworkState(NetworkKind.Wireless, 3),
+                _ => null,
+            };
+        }
+
+        if (battery is { } b && network is { } n)
+        {
+            return new DeviceStatus(b, n);
+        }
+
+        errors.Add($"{FakeStatusArg} needs <battery>/<network>, e.g. {Example(FakeStatusArg)}: the battery none, a percentage, or a percentage and + (plugged in); the network off, lan or wifi0 to wifi3. Got '{value}'.");
+        return null;
     }
 
     private static string? ParseOpen(string value, List<string> errors)
@@ -425,6 +477,7 @@ public sealed record DebugOptions
         ThemeArg => $"{ThemeArg}=slot-showcase",
         OpenArg => $"{OpenArg}=settings",
         OpenPathArg => $"{OpenPathArg}=C:/Games",
+        FakeStatusArg => $"{FakeStatusArg}=42+/wifi2",
         _ => $"{BenchFramesArg}={DefaultBenchFrames}",
     };
 }

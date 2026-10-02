@@ -1,4 +1,5 @@
 using Launcher.Core.Diagnostics;
+using Launcher.Core.Platform;
 
 namespace Launcher.Core.Tests.Diagnostics;
 
@@ -27,6 +28,32 @@ public class DebugOptionsTests
         Assert.True(result.IsValid, string.Join("; ", result.Errors));
         Assert.Equal("power", result.Options.Open);
         Assert.Equal(["power", "last"], result.Options.NavScript);
+    }
+
+    [Fact]
+    public void Fake_status_shows_a_made_up_battery_and_network()
+    {
+        Assert.Null(DebugOptions.Parse([]).Options.FakeStatus);
+        (string Value, DeviceStatus Expected)[] cases =
+        [
+            ("42+/wifi2", new DeviceStatus(new BatteryState(true, 42, true), new NetworkState(NetworkKind.Wireless, 2))),
+            ("8/LAN", new DeviceStatus(new BatteryState(true, 8, false), new NetworkState(NetworkKind.Wired))),
+            ("none/off", new DeviceStatus(BatteryState.None, new NetworkState(NetworkKind.Disconnected))),
+            ("100/wifi0", new DeviceStatus(new BatteryState(true, 100, false), new NetworkState(NetworkKind.Wireless, 0))),
+        ];
+        foreach (var (value, expected) in cases)
+        {
+            var result = DebugOptions.Parse([$"--fake-status={value}"]);
+            Assert.True(result.IsValid, string.Join("; ", result.Errors));
+            Assert.Equal(expected, result.Options.FakeStatus);
+        }
+
+        foreach (var bad in (string[])["42", "101/lan", "-5/lan", "42/wifi4", "full/lan", "/lan", "42+/"])
+        {
+            var result = DebugOptions.Parse([$"--fake-status={bad}"]);
+            Assert.False(result.IsValid, bad);
+            Assert.Contains("--fake-status needs <battery>/<network>", Assert.Single(result.Errors), StringComparison.Ordinal);
+        }
     }
 
     [Fact]

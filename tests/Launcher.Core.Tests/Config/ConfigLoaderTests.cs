@@ -693,6 +693,31 @@ public class ConfigLoaderTests
         Assert.True(bad.Config.Settings.Display.HideEmptySystems);
     }
 
+    [Fact]
+    public void Every_status_indicator_is_on_unless_the_ui_settings_turn_it_off()
+    {
+        Assert.Equal(new UiSettings(true, true, true), Load().Config.Settings.Ui);
+
+        var off = Load(settings: """
+            [ui]
+            show_battery = false
+            show_clock = false
+            """);
+        Assert.Empty(off.Diagnostics);
+        Assert.Equal(new UiSettings(ShowClock: false, ShowBattery: false, ShowNetwork: true), off.Config.Settings.Ui);
+
+        var bad = Load(settings: """
+            [ui]
+            show_network = "no"
+            show_clok = false
+            """);
+        Assert.Single(bad.Diagnostics, d => d.IsError && d.Key == "ui.show_network");
+        var unknown = Assert.Single(bad.Diagnostics, d => d.Severity == Severity.Warning);
+        Assert.Equal("ui.show_clok", unknown.Key);
+        Assert.Contains("did you mean 'show_clock'?", unknown.Message, StringComparison.Ordinal);
+        Assert.Equal(new UiSettings(true, true, true), bad.Config.Settings.Ui);
+    }
+
     // ---- The built-in catalogue (every ES-DE system) ---------------------------------------------
 
     [Fact]

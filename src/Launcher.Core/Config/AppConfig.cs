@@ -30,13 +30,20 @@ public sealed record Settings(
     IReadOnlyDictionary<string, string> Variables,
     DisplaySettings Display,
     ScrapingSettings Scraping,
-    ScanningSettings Scanning);
+    ScanningSettings Scanning,
+    UiSettings Ui);
 
 /// <param name="Exclude">Glob patterns applied to every system; already folded into each <see cref="SystemConfig.Exclude"/>.</param>
 public sealed record ScanningSettings(IReadOnlyList<string> Exclude);
 
 /// <param name="HideEmptySystems">The systems grid leaves out systems with no games (like ES-DE), so the built-in catalogue only shows what the user has.</param>
 public sealed record DisplaySettings(string Theme, bool Fullscreen, bool HideEmptySystems = true);
+
+/// <summary><c>[ui]</c>: the status indicators top right, each on or off.</summary>
+/// <param name="ShowClock">The time, in the user's regional short-time format.</param>
+/// <param name="ShowBattery">The battery's charge; nothing shows on a device without one.</param>
+/// <param name="ShowNetwork">Wi-Fi (with its signal), a cable, or disconnected.</param>
+public sealed record UiSettings(bool ShowClock = true, bool ShowBattery = true, bool ShowNetwork = true);
 
 /// <summary><c>[scraping]</c>.</summary>
 /// <param name="Provider">The provider asked first for every game.</param>

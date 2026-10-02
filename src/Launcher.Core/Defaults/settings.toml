@@ -24,6 +24,13 @@ fullscreen = true
 # false shows every enabled system, empty or not.
 hide_empty_systems = true
 
+[ui]
+# The status indicators, top right: the time (in your Windows time format), the battery's charge (only on a
+# device with a battery) and the network (Wi-Fi with its signal, a cable, or disconnected).
+show_clock = true
+show_battery = true
+show_network = true
+
 [scraping]
 # Every game is looked up with `provider` first; each `fallback` provider, in order, then fills in the fields
 # and media still missing. Providers are "screenscraper", "igdb", "steamgriddb" and "steam" (the Steam store's

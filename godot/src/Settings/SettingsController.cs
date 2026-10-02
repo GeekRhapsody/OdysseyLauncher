@@ -5,6 +5,7 @@ using Godot;
 using Launcher.App.Boot;
 using Launcher.App.Ui;
 using Launcher.Core.Config;
+using Launcher.Core.Platform;
 
 namespace Launcher.App.Settings;
 
@@ -27,6 +28,9 @@ public sealed class SettingsController(AppServices services, UiContext ui, Libra
 
     /// <summary>The item options (M7 part 2), which a system's page also shows: its models and "scrape this system".</summary>
     public Options.ItemOptions? Options { get; set; }
+
+    /// <summary>The device's battery and network, read for the status indicators; null until the warm-up builds them.</summary>
+    public DeviceStatusMonitor? DeviceStatus { get; set; }
 
     /// <summary>Main thread: config changed (the navigator refreshes what it shows, the launcher uses it next launch).</summary>
     public event Action<AppConfig>? ConfigApplied;

@@ -26,11 +26,12 @@ public sealed class ConfigLoader : IConfigLoader
     /// <summary>Used when <c>scraping.hash_limit_mb</c> is missing or invalid.</summary>
     public const long DefaultHashLimitMb = 64;
 
-    private static readonly string[] SettingsRootKeys = ["format", "paths", "scanning", "variables", "display", "scraping"];
+    private static readonly string[] SettingsRootKeys = ["format", "paths", "scanning", "variables", "display", "ui", "scraping"];
     private static readonly string[] SystemsRootKeys = ["format", "systems"];
     private static readonly string[] EmulatorsRootKeys = ["format", "emulators"];
     private static readonly string[] PathsKeys = ["rom_root"];
     private static readonly string[] DisplayKeys = ["theme", "fullscreen", "hide_empty_systems"];
+    private static readonly string[] UiKeys = ["show_clock", "show_battery", "show_network"];
     private static readonly string[] ScrapingKeys = ["provider", "fallback", "regions", "languages", "media", "hash_limit_mb"];
     private static readonly string[] ScanningKeys = ["exclude"];
 
@@ -185,6 +186,12 @@ public sealed class ConfigLoader : IConfigLoader
                 WarnUnknownKeys(display, "display", DisplayKeys);
             }
 
+            var ui = SubTable(tree, "ui", "ui");
+            if (ui is not null)
+            {
+                WarnUnknownKeys(ui, "ui", UiKeys);
+            }
+
             var scraping = SubTable(tree, "scraping", "scraping");
             if (scraping is not null)
             {
@@ -200,6 +207,10 @@ public sealed class ConfigLoader : IConfigLoader
             var theme = SettingString(tree, defaults, "display", "theme")?.Value ?? "memory-card";
             var fullscreen = SettingBool(tree, defaults, "display", "fullscreen") ?? true;
             var hideEmptySystems = SettingBool(tree, defaults, "display", "hide_empty_systems") ?? true;
+            var uiSettings = new UiSettings(
+                SettingBool(tree, defaults, "ui", "show_clock") ?? true,
+                SettingBool(tree, defaults, "ui", "show_battery") ?? true,
+                SettingBool(tree, defaults, "ui", "show_network") ?? true);
             var regions = SettingStrings(tree, defaults, "scraping", "regions", null) ?? [];
             var languages = SettingStrings(tree, defaults, "scraping", "languages", null) ?? [];
             string? CheckScraper(string value) => Scrapers.Contains(value) ? null : $"unknown provider '{value}'{Suggest(value, Scrapers)}";
@@ -252,7 +263,8 @@ public sealed class ConfigLoader : IConfigLoader
                 variables,
                 new DisplaySettings(theme, fullscreen, hideEmptySystems),
                 new ScrapingSettings(provider, fallback, regions, languages, media, hashLimitMb * 1024 * 1024),
-                new ScanningSettings(_globalExcludes));
+                new ScanningSettings(_globalExcludes),
+                uiSettings);
         }
 
         private readonly record struct Located(string Value, TomlNode Node);

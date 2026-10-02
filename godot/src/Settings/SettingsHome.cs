@@ -16,9 +16,9 @@ using Launcher.Core.Theming;
 namespace Launcher.App.Settings;
 
 /// <summary>
-/// The main settings screen (M7): ROM folders, emulators, the theme, scraping, and the library's actions (rescan,
-/// scrape all missing) with their progress and a way to cancel them. Menu, B or the Back button closes it; every
-/// change is saved as it's made, and applies without a restart.
+/// The main settings screen (M7): ROM folders, emulators, the theme, the status indicators, scraping, and the
+/// library's actions (rescan, scrape all missing) with their progress and a way to cancel them. Menu, B or the Back
+/// button closes it; every change is saved as it's made, and applies without a restart.
 /// </summary>
 public sealed partial class SettingsHome : ListPanel
 {
@@ -26,6 +26,9 @@ public sealed partial class SettingsHome : ListPanel
     private readonly SettingRow _roms;
     private readonly SettingRow _emulators;
     private readonly SettingRow _theme;
+    private readonly SettingRow _clock;
+    private readonly SettingRow _battery;
+    private readonly SettingRow _network;
     private readonly SettingRow _scraping;
     private readonly SettingRow _rescan;
     private readonly SettingRow _scrapeMissing;
@@ -47,6 +50,11 @@ public sealed partial class SettingsHome : ListPanel
         AddSection("Look");
         _theme = AddRow("Theme", activated: ChooseTheme);
 
+        AddSection("UI");
+        _clock = AddIndicatorRow("Clock", "The time, top right, in your Windows time format", "show_clock", ui => ui.ShowClock);
+        _battery = AddIndicatorRow("Battery", "Its charge, top right", "show_battery", ui => ui.ShowBattery);
+        _network = AddIndicatorRow("Network", "Wi-Fi with its signal, a cable, or disconnected", "show_network", ui => ui.ShowNetwork);
+
         AddSection("Scraping");
         _scraping = AddRow("Providers, media and credentials", activated: () => Layer.Push(new ScrapingPage(_settings)));
 
@@ -60,7 +68,7 @@ public sealed partial class SettingsHome : ListPanel
         AddSection("Config files");
         _problems = AddRow("Problems in your config files", activated: ShowProblems);
 
-        SetHints("A  Choose     B / Menu  Close");
+        SetHints("A  Choose     Left Right  No or yes     B / Menu  Close");
         _settings.Jobs.Jobs.Changed += ShowJobs;
         _settings.ConfigApplied += OnConfigApplied;
         Refresh();
@@ -93,6 +101,14 @@ public sealed partial class SettingsHome : ListPanel
             ? $"{ScrapingPage.NameOf(scraping.Provider)} only"
             : $"{ScrapingPage.NameOf(scraping.Provider)}, then {string.Join(" and ", scraping.Fallback.Select(ScrapingPage.NameOf))} for what's missing";
 
+        ShowIndicator(_clock, config.Settings.Ui.ShowClock);
+        ShowIndicator(_battery, config.Settings.Ui.ShowBattery);
+        ShowIndicator(_network, config.Settings.Ui.ShowNetwork);
+        if (_settings.DeviceStatus?.Current is { Battery.Present: false })
+        {
+            _battery.Detail = "This PC has no battery, so it never shows";
+        }
+
         var problems = services.Diagnostics.Count(d => d.Severity != Severity.Info);
         var errors = services.Diagnostics.Count(d => d.IsError);
         _problems.Detail = problems == 0
@@ -102,6 +118,35 @@ public sealed partial class SettingsHome : ListPanel
                 : $"{errors} error{(errors == 1 ? string.Empty : "s")}: a setting with an error uses its default until it's fixed";
         _problems.Value = problems == 0 ? null : problems.ToString(CultureInfo.InvariantCulture);
         _problems.ValueColour = UiStyle.Warning;
+    }
+
+    // ---- UI -----------------------------------------------------------------------------------------
+
+    /// <summary>A status indicator's row: A turns it on or off; left is no, right is yes. It's saved as <c>[ui] key</c>.</summary>
+    private SettingRow AddIndicatorRow(string title, string detail, string key, Func<UiSettings, bool> shown)
+    {
+        var row = AddRow(title, detail, activated: () => SetIndicator(title, key, shown, null));
+        row.Adjuster = direction => SetIndicator(title, key, shown, direction > 0);
+        return row;
+    }
+
+    private static void ShowIndicator(SettingRow row, bool on)
+    {
+        row.Value = on ? "Yes" : "No";
+        row.ValueColour = on ? UiStyle.Good : UiStyle.Faint;
+    }
+
+    /// <param name="on">Shown or not; null turns it the other way.</param>
+    private void SetIndicator(string title, string key, Func<UiSettings, bool> shown, bool? on)
+    {
+        var current = shown(_settings.Services.Config.Settings.Ui);
+        var wanted = on ?? !current;
+        if (current == wanted)
+        {
+            return;
+        }
+
+        _settings.Save(this, [new ConfigEdit(ConfigFileKind.Settings, ["ui", key], wanted)], wanted ? $"{title}: shown." : $"{title}: hidden.");
     }
 
     // ---- Theme --------------------------------------------------------------------------------------
