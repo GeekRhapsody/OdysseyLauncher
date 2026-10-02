@@ -35,7 +35,7 @@ energy = 0.25
 [defaults]
 system_model = "models/systems/generic.glb"   # a memory-card slab with a label, for every system
 tint_system_model = true                      # its case takes each system's colour
-game_template = "dvd_case"                    # for systems this theme doesn't list
+game_template = "generic_box_spine"                    # for systems this theme doesn't list
 
 # Game templates. A material named after a media kind is a slot that shows the game's media of that kind. With no
 # `slots` table, each slot is [<its own kind>, "generated"]: the game's art, else a face the launcher draws (a title
@@ -76,7 +76,6 @@ model = "models/templates/umd_case.glb"
 
 [systems.gb]                       # Game Boy
 colour = "#8A9A5B"
-game_template = "gameboy_box"
 
 [systems.gb.look.background]
 top_left     = "#464C32"
@@ -101,7 +100,6 @@ energy = 0.25
 
 [systems.gbc]                      # Game Boy Color
 colour = "#6B3FA0"
-game_template = "gameboy_box"
 
 [systems.gbc.look.background]
 top_left     = "#37254C"
@@ -126,7 +124,6 @@ energy = 0.25
 
 [systems.gba]                      # Game Boy Advance
 colour = "#3F3A9E"
-game_template = "cartridge_box"
 
 [systems.gba.look.background]
 top_left     = "#25234C"
@@ -176,7 +173,6 @@ energy = 0.25
 
 [systems.snes]                     # SNES
 colour = "#6C5BA6"
-game_template = "cartridge_box"
 
 [systems.snes.look.background]
 top_left     = "#362F4C"
@@ -201,7 +197,6 @@ energy = 0.25
 
 [systems.n64]                      # Nintendo 64
 colour = "#2F8F4E"
-game_template = "cartridge_box"
 
 [systems.n64.look.background]
 top_left     = "#214C2F"
@@ -301,7 +296,6 @@ energy = 0.25
 
 [systems.saturn]                   # Saturn
 colour = "#4A4F5C"
-game_template = "jewel_case"
 
 [systems.saturn.look.background]
 top_left     = "#40434C"
@@ -423,10 +417,6 @@ energy = 0.55
 direction = [0.0, 0.9, -0.4]
 colour = "#FF9060"
 energy = 0.25
-
-# The other built-in systems (the rest of ES-DE's catalogue): a colour and a box each, and the theme's own look. The
-# colour follows the manufacturer; the box is the nearest of the five templates (cartridges, clamshells, jewel cases,
-# UMD-style cases, and DVD cases for everything else, including computers and arcades).
 
 [systems.3do]                       # 3DO Interactive Multiplayer
 colour = "#9E5C77"
