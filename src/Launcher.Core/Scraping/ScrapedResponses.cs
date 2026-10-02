@@ -17,7 +17,7 @@ public sealed record SavedMedia(string Kind, string Path, int Width, int Height)
 /// provider's parser reads back, so a rebuild recovers the game's metadata and matches offline if it's there.
 /// </summary>
 /// <param name="Status">'ok' or 'not_found'.</param>
-/// <param name="Response">The raw response, redacted; null when not found.</param>
+/// <param name="Response">The raw response, redacted. When not found, what the provider said, if it says why (ScreenScraper's file lookup and title search); else null.</param>
 public sealed record SavedScrape(
     string Provider,
     GameKey Game,

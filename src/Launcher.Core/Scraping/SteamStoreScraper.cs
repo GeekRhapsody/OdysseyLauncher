@@ -144,6 +144,9 @@ public sealed class SteamStoreScraper : IScraper
             : throw new ProviderException(Id, ProviderFailure.Rejected, "The Steam store didn't answer the test search as expected");
     }
 
+    /// <summary>The Steam store has no ROM index.</summary>
+    public Task<ScrapeCandidate?> IdentifyFileAsync(ScrapeQuery query, CancellationToken cancellationToken) => Task.FromResult<ScrapeCandidate?>(null);
+
     public async Task<IReadOnlyList<ScrapeCandidate>> SearchAsync(string title, SystemConfig system, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(title);

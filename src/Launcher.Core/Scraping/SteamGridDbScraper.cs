@@ -126,6 +126,9 @@ public sealed class SteamGridDbScraper : IScraper
             : throw new ProviderException(Id, ProviderFailure.Rejected, "SteamGridDB didn't answer the test search as expected");
     }
 
+    /// <summary>SteamGridDB has no ROM index.</summary>
+    public Task<ScrapeCandidate?> IdentifyFileAsync(ScrapeQuery query, CancellationToken cancellationToken) => Task.FromResult<ScrapeCandidate?>(null);
+
     public async Task<IReadOnlyList<ScrapeCandidate>> SearchAsync(string title, SystemConfig system, CancellationToken cancellationToken)
     {
         var candidates = new List<ScrapeCandidate>();

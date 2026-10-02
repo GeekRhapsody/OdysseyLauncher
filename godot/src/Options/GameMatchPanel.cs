@@ -57,8 +57,8 @@ public sealed partial class GameMatchPanel : ListPanel
 
     /// <summary>
     /// Made-up results for <paramref name="game"/>, for captures (<c>--open=match</c>): each kind of provider
-    /// section (results with the current match among them, the current match not among them, nothing found, and
-    /// providers that couldn't be searched). Nothing goes over the network.
+    /// section (the file's own match and results with the current match among them, the current match not among
+    /// them, nothing found, and providers that couldn't be searched). Nothing goes over the network.
     /// </summary>
     public static MatchSearch MadeUpResults(GameDetails game, string systemName)
     {
@@ -67,7 +67,7 @@ public sealed partial class GameMatchPanel : ListPanel
         [
             new ProviderMatches(ScraperIds.ScreenScraper, "ScreenScraper", true,
             [
-                new MatchCandidate("1187", term, "1994", 1),
+                new MatchCandidate("1187", term, "1994", 1, MatchMethods.Filename),
                 new MatchCandidate("1190", term + " & Knuckles", "1994", 0.9),
                 new MatchCandidate("52211", term + " (Prototype)", null, 0.9),
                 new MatchCandidate("3402", "Sonic Spinball", "1993", 0.41),
@@ -147,7 +147,7 @@ public sealed partial class GameMatchPanel : ListPanel
                 {
                     _search = search;
                     GD.Print(string.Create(CultureInfo.InvariantCulture,
-                        $"Match: {key.SystemId}/{key.PathKey}: '{search.Term}': {string.Join(", ", search.Providers.Select(p => $"{p.Provider} {(p.Problem is null ? p.Candidates.Count : "-")}"))}"));
+                        $"Match: {key.SystemId}/{key.PathKey}: '{search.Term}': {string.Join(", ", search.Providers.Select(p => $"{p.Provider} {(p.Problem is null ? p.Candidates.Count : "-")}{FileHit(p)}"))}"));
                 }
 
                 Build(focusFirstResult: true);
@@ -204,7 +204,9 @@ public sealed partial class GameMatchPanel : ListPanel
             foreach (var candidate in provider.Candidates)
             {
                 var isCurrent = candidate.ProviderGameId == current;
-                var detail = string.Create(CultureInfo.InvariantCulture, $"ID {candidate.ProviderGameId} · {candidate.Similarity * 100:0}% like {Quote(_search!.Term)}");
+                var detail = candidate.MatchedBy is { } matchedBy
+                    ? $"ID {candidate.ProviderGameId} · matches the file's {(matchedBy == MatchMethods.Hash ? "contents" : "name")}"
+                    : string.Create(CultureInfo.InvariantCulture, $"ID {candidate.ProviderGameId} · {candidate.Similarity * 100:0}% like {Quote(_search!.Term)}");
                 AddResult(provider, candidate.ProviderGameId, Label(candidate), isCurrent ? $"{detail} · its match now, {Origin(provider)}" : detail, isCurrent);
                 first = first < 0 ? rows : first;
                 firstCurrent = isCurrent && firstCurrent < 0 ? rows : firstCurrent;
@@ -242,6 +244,12 @@ public sealed partial class GameMatchPanel : ListPanel
         Close();
         _scrape(provider, id);
     }
+
+    /// <summary>For the log: the provider's match for the file itself (its ROM index), when it had one.</summary>
+    private static string FileHit(ProviderMatches provider) =>
+        provider.Candidates.Count > 0 && provider.Candidates[0].MatchedBy is { } matchedBy
+            ? $" (file: {provider.Candidates[0].ProviderGameId} by {matchedBy})"
+            : string.Empty;
 
     private static string Label(MatchCandidate candidate) => candidate.Year is { } year ? $"{candidate.Name} ({year})" : candidate.Name;
 

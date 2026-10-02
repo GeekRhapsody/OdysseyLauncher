@@ -110,6 +110,27 @@ public sealed class ScrapeServiceTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task A_lookup_that_finds_nothing_saves_what_ScreenScraper_said()
+    {
+        _bed.Rom(Ecco);
+        await _bed.ScanAsync();
+        using var service = _bed.Service(saveResponses: true);
+
+        await service.ScrapeGameAsync(Key(Ecco), Ct);
+
+        // What the file lookup answered, and what the title search found, for debugging a game that isn't found.
+        var saved = ScrapedResponses.Load(_bed.Paths.DataDir, "screenscraper", Key(Ecco))!;
+        Assert.Equal(("not_found", null), (saved.Status, saved.GameId));
+        Assert.Contains("jeuInfos.php, romnom=Ecco the Dolphin (USA, Europe).md: Erreur : Rom/Iso/Dossier non trouvée !", saved.Response, StringComparison.Ordinal);
+        Assert.Contains("jeuRecherche.php, recherche=Ecco the Dolphin: 0 results", saved.Response, StringComparison.Ordinal);
+
+        // A rebuild doesn't read a game into it.
+        _bed.Http.Offline = true;
+        await _bed.Library.RebuildAsync(null, Ct);
+        Assert.Null((await _bed.Game("megadrive", "Ecco the Dolphin (USA, Europe).md")).Metadata);
+    }
+
+    [Fact]
     public async Task A_scrape_fills_only_kinds_with_no_file_and_never_replaces_one()
     {
         _bed.Rom(Sonic);

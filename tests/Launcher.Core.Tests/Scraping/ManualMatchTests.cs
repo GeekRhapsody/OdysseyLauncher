@@ -67,8 +67,14 @@ public sealed class ManualMatchTests : IAsyncLifetime
         Assert.Empty(steam.Candidates);
         Assert.Contains("steam_store", steam.Problem, StringComparison.Ordinal);
 
+        // ScreenScraper's ROM index was asked for the file too, and knows it as the same game: it's listed once, first,
+        // as the file's match. The other providers have no ROM index.
+        var lookup = Assert.Single(_bed.Http.Requests, r => r.Uri.AbsolutePath.EndsWith("jeuInfos.php", StringComparison.Ordinal));
+        Assert.Equal(("Sonic the Hedgehog 3 (Europe).md", null), (lookup.Query("romnom"), lookup.Query("gameid")));
+        Assert.Equal([MatchMethods.Hash, null], ss.Candidates.Select(c => c.MatchedBy));
+        Assert.All(search.Providers.Skip(1), p => Assert.All(p.Candidates, c => Assert.Null(c.MatchedBy)));
+
         // Searches only: nothing fetched, downloaded or written.
-        Assert.DoesNotContain(_bed.Http.Requests, r => r.Uri.AbsolutePath.EndsWith("jeuInfos.php", StringComparison.Ordinal));
         Assert.Equal(0, _bed.Http.Count("steamgriddb.com/api/v2/grids"));
         Assert.Null((await _bed.Game("megadrive", "Sonic the Hedgehog 3 (Europe).md")).Scrape);
         Assert.All(search.Providers, p => Assert.Null(p.Current));
@@ -91,7 +97,11 @@ public sealed class ManualMatchTests : IAsyncLifetime
         Assert.True(igdb.CurrentIsManual);
         Assert.Null(search.Providers[0].Current);
 
+        // The first search asked ScreenScraper's ROM index for the file, which doesn't know it. A typed name is only
+        // searched for.
+        Assert.Equal(1, _bed.Http.Count("jeuInfos.php"));
         var typed = (await service.SearchMatchesAsync(Key(Odd), "  Ecco  ", Ct))!;
+        Assert.Equal(1, _bed.Http.Count("jeuInfos.php"));
         Assert.Equal("Ecco", typed.Term);
         Assert.Contains(_bed.Http.Requests, r => r.Query("recherche") == "Ecco");
         Assert.All(typed.Providers.Take(3), p => Assert.Empty(p.Candidates));
@@ -99,6 +109,35 @@ public sealed class ManualMatchTests : IAsyncLifetime
         var empty = (await service.SearchMatchesAsync(Key(Odd), " ", Ct))!;
         Assert.All(empty.Providers, p => Assert.NotNull(p.Problem));
         Assert.Null(await service.SearchMatchesAsync(new GameKey("megadrive", "not a game.md"), null, Ct));
+    }
+
+    [Fact]
+    public async Task An_arcade_set_is_found_by_its_MAME_short_name_which_the_title_search_cant_find()
+    {
+        const string Arcade = "arcade/3kokushi.zip";
+        _bed.Rom(Arcade);
+        await _bed.ScanAsync();
+
+        // ScreenScraper's ROM index knows the set by its file name (its hash differs); its title search has nothing
+        // for "3kokushi".
+        _bed.Http.On("GET", u => ScrapeBed.Is(u, "screenscraper.fr", "jeuInfos.php") && u.Query.Contains("romnom=3kokushi.zip", StringComparison.Ordinal),
+            _ => FakeHttpHandler.Json(_bed.Fill("ss_jeuinfos.json")));
+        using var service = _bed.Service();
+
+        var search = (await service.SearchMatchesAsync(Key(Arcade), null, Ct))!;
+
+        Assert.Equal("3kokushi", search.Term);
+        Assert.Contains(_bed.Http.Requests, r => r.Query("recherche") == "3kokushi");
+        var hit = Assert.Single(search.Providers[0].Candidates);
+        Assert.Equal(("1187", "Sonic the Hedgehog 3", MatchMethods.Filename), (hit.ProviderGameId, hit.Name, hit.MatchedBy));
+        var lookup = Assert.Single(_bed.Http.Requests, r => r.Query("romnom") is not null);
+        Assert.Equal(("75", "rom"), (lookup.Query("systemeid"), lookup.Query("romtype")));
+        Assert.NotNull(lookup.Query("crc"));                                          // hashed, as a scrape would
+        Assert.All(search.Providers.Skip(1), p => Assert.Empty(p.Candidates));
+
+        // Choosing it scrapes the game with it.
+        await service.ScrapeGameWithMatchAsync(Key(Arcade), "screenscraper", hit.ProviderGameId, Ct);
+        Assert.Equal("Sonic the Hedgehog 3", (await _bed.Game("arcade", "3kokushi.zip")).Title);
     }
 
     [Fact]

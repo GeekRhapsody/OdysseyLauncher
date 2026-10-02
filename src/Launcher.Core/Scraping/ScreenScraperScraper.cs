@@ -172,6 +172,59 @@ public sealed partial class ScreenScraperScraper : IScraper
     public async Task<ProviderResult> LookupAsync(ScrapeQuery query, CancellationToken cancellationToken)
     {
         ThrowIfQuotaUsed();
+        var (game, method, text) = await FileLookupAsync(query, cancellationToken).ConfigureAwait(false);
+        if (game is not null)
+        {
+            return new ProviderResult(game, method, text);
+        }
+
+        // Not recognised by file: search by title, and take a hit only if its name matches. What ScreenScraper said
+        // goes back with the not-found result, for --save-responses.
+        var diagnosis = new StringBuilder("jeuInfos.php, romnom=").Append(query.FileName).Append(": ").Append(text.Trim());
+        var term = TitleMatcher.SearchTerm(query.Title);
+        if (term.Length < 4)
+        {
+            diagnosis.Append("\njeuRecherche.php not asked: '").Append(term).Append("' is too short to search for");
+            return new ProviderResult(null, null, diagnosis.ToString());
+        }
+
+        var candidates = await SearchAsync(term, query.System, cancellationToken).ConfigureAwait(false);
+        var ranked = candidates
+            .Select(c => (Candidate: c, Score: TitleMatcher.Similarity(term, c.Name)))
+            .OrderByDescending(c => c.Score)
+            .ToList();
+        var best = ranked.FirstOrDefault(c => c.Score >= TitleMatcher.Threshold);
+        if (best.Candidate is null)
+        {
+            diagnosis.Append(CultureInfo.InvariantCulture, $"\njeuRecherche.php, recherche={term}: {candidates.Count} results");
+            if (ranked.Count > 0)
+            {
+                diagnosis.Append(CultureInfo.InvariantCulture, $", the closest '{ranked[0].Candidate.Name}' ({ranked[0].Candidate.ProviderGameId}) at {ranked[0].Score:P0}, under {TitleMatcher.Threshold:P0}");
+            }
+
+            return new ProviderResult(null, null, diagnosis.ToString());
+        }
+
+        var fetched = await FetchAsync(best.Candidate.ProviderGameId, query, cancellationToken).ConfigureAwait(false);
+        return fetched.Found ? fetched with { Method = MatchMethods.Search } : fetched;
+    }
+
+    public async Task<ScrapeCandidate?> IdentifyFileAsync(ScrapeQuery query, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(query);
+        ThrowIfQuotaUsed();
+        var (game, method, _) = await FileLookupAsync(query, cancellationToken).ConfigureAwait(false);
+        return game is null
+            ? null
+            : new ScrapeCandidate(game.ProviderGameId, game.Title ?? query.FileName, game.ReleaseDate is { Length: >= 4 } date ? date[..4] : null, method);
+    }
+
+    /// <summary>
+    /// ScreenScraper's ROM index: the file's name, size and hashes. For arcade sets the name is the MAME short name
+    /// (<c>sf2.zip</c>), which ScreenScraper knows, though its title search doesn't.
+    /// </summary>
+    private async Task<(ScrapedGame? Game, string? Method, string Text)> FileLookupAsync(ScrapeQuery query, CancellationToken cancellationToken)
+    {
         var system = query.System.ScreenScraperId!.Value.ToString(CultureInfo.InvariantCulture);
         var url = Url("jeuInfos.php",
             ("systemeid", system),
@@ -188,29 +241,10 @@ public sealed partial class ScreenScraperScraper : IScraper
                 && crc.Equals(query.Hashes.Crc32, StringComparison.OrdinalIgnoreCase)
                 ? MatchMethods.Hash
                 : MatchMethods.Filename;
-            return new ProviderResult(game, method, reply.Text);
+            return (game, method, reply.Text);
         }
 
-        // Not recognised by file: search by title, and take a hit only if its name matches.
-        var term = TitleMatcher.SearchTerm(query.Title);
-        if (term.Length < 4)
-        {
-            return ProviderResult.NotFound;
-        }
-
-        var candidates = await SearchAsync(term, query.System, cancellationToken).ConfigureAwait(false);
-        var best = candidates
-            .Select(c => (Candidate: c, Score: TitleMatcher.Similarity(term, c.Name)))
-            .Where(c => c.Score >= TitleMatcher.Threshold)
-            .OrderByDescending(c => c.Score)
-            .FirstOrDefault();
-        if (best.Candidate is null)
-        {
-            return ProviderResult.NotFound;
-        }
-
-        var fetched = await FetchAsync(best.Candidate.ProviderGameId, query, cancellationToken).ConfigureAwait(false);
-        return fetched.Found ? fetched with { Method = MatchMethods.Search } : fetched;
+        return (null, null, reply.Text);
     }
 
     public async Task<ProviderResult> FetchAsync(string providerGameId, ScrapeQuery query, CancellationToken cancellationToken)

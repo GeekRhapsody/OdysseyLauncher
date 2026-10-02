@@ -89,12 +89,13 @@ public sealed record ScrapedGame(
 }
 
 /// <summary>A search hit, for choosing a manual match (M7).</summary>
-public sealed record ScrapeCandidate(string ProviderGameId, string Name, string? Year);
+/// <param name="Method">How the file itself matched it (<see cref="MatchMethods.Filename"/> or <see cref="MatchMethods.Hash"/>): a hit from <see cref="IScraper.IdentifyFileAsync"/>; null for a title search's.</param>
+public sealed record ScrapeCandidate(string ProviderGameId, string Name, string? Year, string? Method = null);
 
 /// <summary>A provider's result for one game.</summary>
 /// <param name="Game">Null when not found.</param>
 /// <param name="Method">How it was matched (<see cref="MatchMethods"/>); null for a fetch by a known id.</param>
-/// <param name="Response">The raw response to save (the service redacts it first); null when not found.</param>
+/// <param name="Response">The raw response to save (the service redacts it first). When not found, what the provider said, if it says why (ScreenScraper); else null.</param>
 public sealed record ProviderResult(ScrapedGame? Game, string? Method, string? Response)
 {
     public static ProviderResult NotFound { get; } = new(null, null, null);
@@ -173,6 +174,13 @@ public interface IScraper
 
     /// <summary>Title search, for choosing a manual match.</summary>
     Task<IReadOnlyList<ScrapeCandidate>> SearchAsync(string title, SystemConfig system, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The game the file itself is known as, from the provider's ROM index (name, size, hashes), for choosing a manual
+    /// match: a title search can't find an arcade set by its MAME short name, but ScreenScraper's ROM index can. Null
+    /// when the file isn't known, or the provider has no such index.
+    /// </summary>
+    Task<ScrapeCandidate?> IdentifyFileAsync(ScrapeQuery query, CancellationToken cancellationToken);
 
     /// <summary>Downloads one image. The bytes are checked (and rejected if they aren't an image) by the media store.</summary>
     Task<byte[]> DownloadAsync(ScrapedMedia media, CancellationToken cancellationToken);

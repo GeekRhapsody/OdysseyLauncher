@@ -378,10 +378,13 @@ This checks what the fixtures can't: each provider's live search results, and sc
 4. **Another provider's game.** Scrape this game again and press A on an IGDB result: its cover and description now show (ScreenScraper's fill in only what IGDB lacks, such as the spine). Do it once more with the ScreenScraper result: ScreenScraper's are back.
 5. **Correcting a match.** On a game matched to the wrong game, choose the right one. The wrong game's images (a back or spine the right one lacks too) are gone, not left behind.
 6. **It sticks.** Scrape Mega Drive from its options (X on the system): the games you matched keep the games you chose. Clear metadata on one, then Scrape this game: nothing is marked "In use" (your choice went with the clear).
+7. **Arcade sets by their MAME names.** With Arcade's `rom_dirs` on your sets (`S:\Arcade`), Scrape this game on `1on1gov`, `3stooges` and `3wonders`. ScreenScraper's first result is the real game (1 On 1 Government, The Three Stooges In Brides Is Brides, Three Wonders), saying "matches the file's name" (or "contents"), even though "Search for" shows the short name. The log's `Match:` line says `screenscraper <n> (file: <id> by filename)`.
+8. **Not found, saved.** Start the export with `--save-responses` added, and scrape Arcade from its options. For each game not found, `C:\OdysseyTest\scraped\responses\screenscraper\arcade\<file>.json` holds ScreenScraper's answer to the file lookup and what the title search found.
 
 ### Send back
 
 - Games whose right result wasn't listed, with the name searched for, and any provider whose results looked wrong (wrong system, wrong names).
+- Arcade sets whose file match was missing or wrong, and the `not_found` response files from step 8 (zip `scraped\responses\screenscraper\arcade`).
 - Anything that took long or didn't answer the pad, and any message that was unclear.
 - The log lines: `Select-String -Path "$env:APPDATA\Godot\app_userdata\Odyssey Launcher\logs\godot.log" -Pattern '^Match|^Scrape|error|warning'`.
 

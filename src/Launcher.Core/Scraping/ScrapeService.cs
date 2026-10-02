@@ -69,11 +69,12 @@ public sealed record SystemScrapeCount(int Games, int Missing);
 
 /// <summary>One search hit for a manual match.</summary>
 /// <param name="Similarity">How close its name is to the search, 0 to 1 (<see cref="TitleMatcher.Similarity"/>).</param>
-public sealed record MatchCandidate(string ProviderGameId, string Name, string? Year, double Similarity);
+/// <param name="MatchedBy">How the game's file matched it, for a hit from the provider's ROM index (<see cref="MatchMethods.Filename"/> or <see cref="MatchMethods.Hash"/>); null for a title search's.</param>
+public sealed record MatchCandidate(string ProviderGameId, string Name, string? Year, double Similarity, string? MatchedBy = null);
 
 /// <summary>One provider's answer to a manual match search.</summary>
 /// <param name="InOrder">Whether config's provider and fallback list names it; one that doesn't is still used for the game if the user chooses one of its results.</param>
-/// <param name="Candidates">The closest name first; empty when nothing was found or it wasn't searched.</param>
+/// <param name="Candidates">The file's own match first (<see cref="MatchCandidate.MatchedBy"/>), then the closest name; empty when nothing was found or it wasn't searched.</param>
 /// <param name="Problem">Why it wasn't searched (no credentials, no id for the system, resting) or why the search failed, written for the user; null when it was searched.</param>
 /// <param name="Current">The game's match on this provider now: the user's own, else the one found automatically; null when it has none.</param>
 public sealed record ProviderMatches(
@@ -352,7 +353,10 @@ public sealed class ScrapeService : IDisposable
     /// <summary>
     /// Manual matching (the game options' "scrape this game"): searches every provider at once for
     /// <paramref name="term"/> (null: the user's title for the game, else its file name's, without a disc number), so
-    /// the user can choose the right game. Each provider's results come with its current match. A provider
+    /// the user can choose the right game. The first search (a null term) also asks each provider's ROM index for the
+    /// file itself, whose hit comes first: a title search can't find an arcade set by its MAME short name
+    /// (<c>1on1gov</c>), but ScreenScraper's ROM index can. A typed term is a title search only, so it costs no more of
+    /// ScreenScraper's quota. Each provider's results come with its current match. A provider
     /// that can't be searched (no credentials, no id for the system, resting) or whose search fails says why in its
     /// <see cref="ProviderMatches.Problem"/>; this never throws for a provider problem. Null when the game isn't in
     /// the library.
@@ -367,11 +371,15 @@ public sealed class ScrapeService : IDisposable
         }
 
         var search = term?.Trim() ?? TitleMatcher.SearchTerm(context.TitleOverride ?? context.FileTitle);
-        var order = _library.Config.Settings.Scraping.ProviderOrder;
+        var settings = _library.Config.Settings.Scraping;
+        var order = settings.ProviderOrder;
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _lifetime.Token);
+
+        // The file's query, hashed as a scrape hashes it (once, then kept), shared by the providers.
+        var file = term is null ? FileQueryAsync(context, system, settings, linked.Token) : null;
         var searches = order.Concat(ConfigLoader.Scrapers).Concat(_scrapers.Keys).Distinct(StringComparer.Ordinal)
             .Where(_scrapers.ContainsKey)
-            .Select(id => SearchProviderAsync(_scrapers[id], order.Contains(id), context, system, search, linked.Token))
+            .Select(id => SearchProviderAsync(_scrapers[id], order.Contains(id), context, system, search, file, linked.Token))
             .ToList();
         var providers = await Task.WhenAll(searches).ConfigureAwait(false);
         return new MatchSearch(game, search, providers);
@@ -408,7 +416,15 @@ public sealed class ScrapeService : IDisposable
         return await RunBatchAsync(ManualKind, $"{game.SystemId}/{game.PathKey}", 0, _ => [game], cancellationToken).ConfigureAwait(false);
     }
 
-    private async Task<ProviderMatches> SearchProviderAsync(IScraper scraper, bool inOrder, GameContext context, SystemConfig system, string term, CancellationToken cancellationToken)
+    private async Task<ScrapeQuery> FileQueryAsync(GameContext context, SystemConfig system, ScrapingSettings settings, CancellationToken cancellationToken)
+    {
+        var hashes = await HashAsync(context, system, [ScraperIds.ScreenScraper], settings, cancellationToken).ConfigureAwait(false);
+        return new ScrapeQuery(context.Key, system, Path.GetFileName(context.RelPath), TitleMatcher.SearchTerm(context.FileTitle),
+            context.SizeBytes, hashes, new HashSet<string>(StringComparer.Ordinal));
+    }
+
+    private async Task<ProviderMatches> SearchProviderAsync(IScraper scraper, bool inOrder, GameContext context, SystemConfig system, string term,
+        Task<ScrapeQuery>? file, CancellationToken cancellationToken)
     {
         var id = scraper.Id;
         var (current, manual) = context.ManualMatches.TryGetValue(id, out var own) ? (own, true)
@@ -432,21 +448,30 @@ public sealed class ScrapeService : IDisposable
             return Answer([], resting.Message);
         }
 
-        if (term.Length == 0)
+        if (term.Length == 0 && file is null)
         {
             return Answer([], "Type a name to search for");
         }
 
         try
         {
-            var hits = await scraper.SearchAsync(term, system, cancellationToken).ConfigureAwait(false);
+            // The file's own match (the ROM index) first, then the title search's hits, closest name first.
+            var identify = file is null ? Task.FromResult<ScrapeCandidate?>(null) : IdentifyAsync(scraper, file, cancellationToken);
+            var hits = term.Length == 0 ? [] : await scraper.SearchAsync(term, system, cancellationToken).ConfigureAwait(false);
+            var fileHit = await identify.ConfigureAwait(false);
             var candidates = hits
                 .DistinctBy(h => h.ProviderGameId, StringComparer.Ordinal)
+                .Where(h => h.ProviderGameId != fileHit?.ProviderGameId)
                 .Select((h, index) => (Candidate: new MatchCandidate(h.ProviderGameId, h.Name, h.Year, TitleMatcher.Similarity(term, h.Name)), Index: index))
                 .OrderByDescending(c => c.Candidate.Similarity)
                 .ThenBy(c => c.Index)
                 .Select(c => c.Candidate)
                 .ToList();
+            if (fileHit is not null)
+            {
+                candidates.Insert(0, new MatchCandidate(fileHit.ProviderGameId, fileHit.Name, fileHit.Year, TitleMatcher.Similarity(term, fileHit.Name), fileHit.Method ?? MatchMethods.Filename));
+            }
+
             return Answer(candidates, null);
         }
         catch (ProviderException e)
@@ -454,6 +479,12 @@ public sealed class ScrapeService : IDisposable
             Rest(e);
             return Answer([], _redactor.Redact(e.Message));
         }
+    }
+
+    private static async Task<ScrapeCandidate?> IdentifyAsync(IScraper scraper, Task<ScrapeQuery> file, CancellationToken cancellationToken)
+    {
+        var query = await file.ConfigureAwait(false);
+        return await scraper.IdentifyFileAsync(query, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>Scrapes every game of a system, in grid order. Matched games are fetched by id, not searched again.</summary>
@@ -1070,7 +1101,7 @@ public sealed class ScrapeService : IDisposable
                 }
                 else
                 {
-                    responses[id] = ("not_found", null);
+                    responses[id] = ("not_found", result.Response);
                     log.Add(new ProviderLog(id, "not_found", null));
                 }
 

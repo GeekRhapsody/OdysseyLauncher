@@ -282,6 +282,9 @@ public sealed class IgdbScraper : IScraper
         return Parse(text, _settings, query.System) is { } game ? new ProviderResult(game, null, text) : ProviderResult.NotFound;
     }
 
+    /// <summary>IGDB has no ROM index.</summary>
+    public Task<ScrapeCandidate?> IdentifyFileAsync(ScrapeQuery query, CancellationToken cancellationToken) => Task.FromResult<ScrapeCandidate?>(null);
+
     public async Task<IReadOnlyList<ScrapeCandidate>> SearchAsync(string title, SystemConfig system, CancellationToken cancellationToken)
     {
         var text = await QueryAsync(
