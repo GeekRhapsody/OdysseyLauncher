@@ -37,6 +37,15 @@ internal static class ThemeFixtures
             new ThemeSource(id, new ConfigFile($"user/themes/{id}/theme.toml", toml), ThemeOrigin.User, $"C:/themes/{id}", files ?? new FakeThemeFiles()),
             fallback ?? BuiltIn.Look);
 
+    /// <summary>
+    /// An inline manifest loaded as a built-in theme (no fallback look), over fake files: a stand-in for the
+    /// memory-card theme where a test needs fixed templates, since that theme's choices keep changing.
+    /// </summary>
+    public static Theme ParseBuiltIn(string toml, FakeThemeFiles files, string id = ThemeCatalog.BuiltInId) =>
+        ThemeLoader.Load(
+            new ThemeSource(id, new ConfigFile($"res://themes/{id}/theme.toml", toml), ThemeOrigin.BuiltIn, $"res://themes/{id}", files),
+            null).Theme ?? throw new InvalidOperationException($"The inline built-in theme '{id}' didn't load.");
+
     private static string FindRepoRoot()
     {
         for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir is not null; dir = dir.Parent)

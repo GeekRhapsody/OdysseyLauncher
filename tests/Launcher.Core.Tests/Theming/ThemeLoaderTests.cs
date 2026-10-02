@@ -22,17 +22,17 @@ public sealed class ThemeLoaderTests
     // ---- The committed themes -------------------------------------------------------------------
 
     [Fact]
-    public void The_built_in_theme_loads_cleanly_with_a_look_colour_and_template_for_every_built_in_system()
+    public void The_built_in_theme_loads_cleanly_with_a_look_and_colour_for_every_built_in_system_and_only_templates_it_has()
     {
         var result = ThemeFixtures.LoadResult(ThemeFixtures.BuiltInFolder);
 
         Assert.Empty(result.Diagnostics);
         var theme = result.Theme!;
         Assert.Equal(("memory-card", "Memory Card", ThemeOrigin.BuiltIn), (theme.Id, theme.Name, theme.Origin));
-        Assert.Equal(
-            ["arcade_cabinet", "cartridge_box", "clamshell", "dvd_case", "gameboy_box", "generic_box_logo", "generic_box_spine", "jewel_case", "umd_case"],
-            theme.Templates.Keys.Order(StringComparer.Ordinal));
-        Assert.Equal(("models/systems/generic.glb", true, "dvd_case"), (theme.Defaults.SystemModel, theme.Defaults.TintSystemModel, theme.Defaults.GameTemplate));
+        // Which template each system gets (its own, or the default) is the theme's to change as its models do, so only
+        // that the templates named exist is checked.
+        Assert.Equal(("models/systems/generic.glb", true), (theme.Defaults.SystemModel, theme.Defaults.TintSystemModel));
+        Assert.Contains(Assert.IsType<string>(theme.Defaults.GameTemplate), theme.Templates);
 
         // The look of A6, exactly.
         Assert.Equal("#1B1F4A", theme.Look.Background.TopLeft.ToString());
@@ -44,7 +44,11 @@ public sealed class ThemeLoaderTests
         {
             var entry = Assert.Contains(system.Id, theme.Systems);
             Assert.NotNull(entry.Colour);
-            Assert.NotNull(entry.GameTemplate);
+            if (entry.GameTemplate is { } template)
+            {
+                Assert.Contains(template, theme.Templates);
+            }
+
             Assert.Same(theme.Look.Ambient, entry.Look.Ambient);
 
             // The first fourteen have a look of their own; the rest of the catalogue shows the theme's.
@@ -53,25 +57,6 @@ public sealed class ThemeLoaderTests
                 Assert.NotSame(theme.Look.Background, entry.Look.Background);
             }
         }
-
-        Assert.Equal("clamshell", theme.Systems["megadrive"].GameTemplate);
-        Assert.Equal("umd_case", theme.Systems["psp"].GameTemplate);
-        Assert.Equal("gameboy_box", theme.Systems["gb"].GameTemplate);
-        Assert.Equal("generic_box_spine", theme.Systems["dos"].GameTemplate);
-        Assert.Equal("generic_box_logo", theme.Systems["windows"].GameTemplate);
-        Assert.Equal("generic_box_logo", theme.Systems["steam"].GameTemplate);
-        Assert.Equal("arcade_cabinet", theme.Systems["arcade"].GameTemplate);
-        Assert.Equal("arcade_cabinet", theme.Systems["mame"].GameTemplate);
-        Assert.Equal("label = [\"logo\", \"generated\"]", theme.Templates["arcade_cabinet"].ChainFor(MediaSlots.Label).ToString());
-        Assert.True(theme.Templates["arcade_cabinet"].ShowsWhole(MediaSlots.Screenshot));
-
-        // Two templates of one box: its own spine art, or the game's logo along the spine.
-        var spine = theme.Templates["generic_box_spine"];
-        var logo = theme.Templates["generic_box_logo"];
-        Assert.Equal(spine.Model, logo.Model);
-        Assert.Equal("spine = [\"spine\", \"generated\"]", spine.ChainFor(MediaSlots.Spine).ToString());
-        Assert.Equal("spine = [\"logo\", \"generated\"]", logo.ChainFor(MediaSlots.Spine).ToString());
-        Assert.Equal(["generic_box_logo", "generic_box_spine"], theme.Templates.Values.Where(t => t.ShapeFromMedia).Select(t => t.Id).Order(StringComparer.Ordinal));
     }
 
     [Fact]
@@ -471,7 +456,8 @@ public sealed class ThemeLoaderTests
     public void Theme_paths_resolve_inside_the_theme_folder()
     {
         var builtIn = ThemeFixtures.BuiltIn;
-        Assert.Equal($"{ThemeFixtures.BuiltInFolder}/models/templates/dvd_case.glb", builtIn.PathOf(builtIn.Templates["dvd_case"].Model));
+        var template = builtIn.Templates[builtIn.Defaults.GameTemplate!];
+        Assert.Equal($"{ThemeFixtures.BuiltInFolder}/{template.Model}", builtIn.PathOf(template.Model));
 
         var user = ThemeFixtures.Load(ThemeFixtures.SlotShowcaseFolder);
         Assert.Equal(

@@ -33,6 +33,52 @@ public sealed class ModelResolverTests
         """, new FakeThemeFiles().Model("tall.glb", "cover").Model("wide.glb", "cover").Model("my_clamshell.glb", "cover")
             .Model("card.glb", "label").Model("ps2.glb", "case"), id: "active").Theme!;
 
+    /// <summary>
+    /// The built-in theme's part, with fixed templates: the real memory-card theme's assignments change as its models
+    /// do, and these tests are about the resolution order, not its choices.
+    /// </summary>
+    private static Theme BuiltIn => ThemeFixtures.ParseBuiltIn("""
+        format = 1
+        name = "Built-in"
+
+        [look.background]
+        top_left = "#1B1F4A"
+        top_right = "#1B1F4A"
+        bottom_left = "#04040C"
+        bottom_right = "#0B0B24"
+
+        [look.ambient]
+        colour = "#303038"
+
+        [[look.lights]]
+        direction = [-0.5, -0.4, -0.75]
+
+        [defaults]
+        system_model = "models/systems/generic.glb"
+        tint_system_model = true
+        game_template = "dvd_case"
+
+        [templates.dvd_case]
+        model = "models/templates/dvd_case.glb"
+
+        [templates.jewel_case]
+        model = "models/templates/jewel_case.glb"
+
+        [templates.clamshell]
+        model = "models/templates/clamshell.glb"
+
+        [systems.ps2]
+        colour = "#2A3A8C"
+        game_template = "dvd_case"
+
+        [systems.megadrive]
+        colour = "#1F3E8C"
+        game_template = "clamshell"
+        """, new FakeThemeFiles().Model("models/systems/generic.glb", "label", "case")
+            .Model("models/templates/dvd_case.glb", "cover", "back", "spine", "case")
+            .Model("models/templates/jewel_case.glb", "cover", "back", "spine", "case")
+            .Model("models/templates/clamshell.glb", "cover", "back", "spine", "case"));
+
     private static AppConfig Config(string systems = "") => new ConfigLoader().Load(new ConfigSources
     {
         HomeDir = "C:/home",
@@ -43,7 +89,7 @@ public sealed class ModelResolverTests
 
     private static ModelResolver Resolver(Theme? active = null, UserModels? user = null, AppConfig? config = null)
     {
-        var builtIn = ThemeFixtures.BuiltIn;
+        var builtIn = BuiltIn;
         return new ModelResolver(active ?? builtIn, builtIn, user ?? UserModels.None(ConfigDir), config ?? Config(), DataDir);
     }
 
