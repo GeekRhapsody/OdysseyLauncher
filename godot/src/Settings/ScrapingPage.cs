@@ -94,7 +94,7 @@ public sealed partial class ScrapingPage : ListPanel
         var configDir = _settings.Services.Paths.ConfigDir;
         _ = Task.Run(() =>
         {
-            var accounts = ProviderAccounts.Load(configDir).Accounts;
+            var accounts = ProviderAccounts.Load(configDir, builtIn: ProviderAccounts.BuiltIn).Accounts;
             var states = Providers.ToDictionary(p => p, p => ProviderPage.CredentialState(accounts, p));
             _settings.Ui.Queue.Post(() =>
             {

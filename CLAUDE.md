@@ -17,8 +17,9 @@ A fully 3D game launcher frontend (systems grid → games grid → emulator), st
 | `src/Launcher.Core/Defaults/` | The built-in `settings.toml`, `systems.toml` and `emulators.toml`, embedded in Core: the original 14 systems, then ES-DE's catalogue (docs/ARCHITECTURE.md A5, "The ES-DE catalogue"), with Windows and Steam ("Windows and Steam games"). Keep them plain TOML (tables, bare keys, strings, numbers, booleans, single-line arrays): `TomlFast` reads them and `TomlFastTests` checks it builds Tomlyn's tree. |
 | `src/Launcher.Core/Data/Migrations/` | Numbered SQL migrations for `library.db` and `userdata.db`, embedded in Core. |
 | `tools/verify.ps1` | Runs every non-windowed check. |
-| `.github/workflows/release.yml` | The Windows release (docs/ARCHITECTURE.md decisions log, 2026-10-01): on a pushed `v<version>` tag it builds, tests (not the benchmarks), exports on the runner's software GPU (WARP), runs the launch smoke test on the export, and attaches `OdysseyLauncher-<version>-windows-x86_64.zip` to the tag's release. Run by hand (Actions > Release), it's a test build kept as the run's artifact. |
+| `.github/workflows/release.yml` | The Windows release (docs/ARCHITECTURE.md decisions log, 2026-10-01): on a pushed `v<version>` tag it writes the built-in ScreenScraper developer credentials from the repository's secrets (`tools/write-built-in-accounts.ps1`), builds, tests (not the benchmarks), exports on the runner's software GPU (WARP), runs the launch smoke test on the export, and attaches `OdysseyLauncher-<version>-windows-x86_64.zip` to the tag's release. Run by hand (Actions > Release), it's a test build kept as the run's artifact. |
 | `tools/launch-smoke.ps1` | Runs the app with `--launch` against the fake emulator, in an isolated user folder. |
+| `tools/write-built-in-accounts.ps1` | Writes the gitignored `src/Launcher.Core/Scraping/BuiltInAccounts.Release.g.cs` (ScreenScraper's developer credentials, scrambled) from `SCREENSCRAPER_DEV_ID` and `SCREENSCRAPER_DEV_PASSWORD`, for the release workflow (docs/ARCHITECTURE.md A5, "Secrets"). `-Remove` deletes it. Never commit that file. |
 | `docs/manual-tests.md` | Checks a script can't observe (window focus with a real emulator). |
 | `tools/core-bench/` | Times Core's config, scan and query paths on self-contained .NET 8 (the export's runtime). Not in the solution. |
 | `tools/synthetic-library/` | Writes a portable user folder with 20 systems and 14,215 games (10,000 on PS2), with covers and BC7 derivatives hardlinked from the M1 spike library (`artifacts/spike-library`). `--games`, `--others`, `--slots=back,spine,...` (art for more slots) and `--models=<n>` (that many PS2 games get a per-game model) make other libraries. Not in the solution. |
@@ -107,7 +108,7 @@ godot --path godot --resolution 1280x800 -- --bench=$PWD/artifacts/bench.json --
 ## Rules
 
 - **Ask before adding any NuGet package**, including test and analyser packages.
-- **Never commit credentials.** API keys and passwords live only in the user's `secrets.toml` or in `ODYSSEY_*` environment variables. Never put them in the repo, tests, logs or bench output.
+- **Never commit credentials.** API keys and passwords live only in the user's `secrets.toml` or in `ODYSSEY_*` environment variables, and ScreenScraper's developer credentials also in the repository's GitHub secrets, from which the release workflow builds them in. Never put them in the repo, tests, logs or bench output.
 - Launcher.Core must never reference Godot. `ArchitectureTests` enforces this.
 - The Godot main thread must never do file, network or DB I/O, never decode images, and never call `.Wait()` or `.Result`. Never touch the scene tree from another thread.
 - No allocations in per-frame code (`_Process`, grid updates, `frame_post_draw` handlers). That means no LINQ, closures, boxing, string formatting, or implicit `string`→`StringName` conversions. Cache every `StringName` and `NodePath`.

@@ -105,7 +105,7 @@ public sealed partial class ScreenScraperScraper : IScraper
 
     public string? Unavailable =>
         _accounts.ScreenScraperDevId is null || _accounts.ScreenScraperDevPassword is null
-            ? $"ScreenScraper has no developer credentials: set dev_id and dev_password under [screenscraper] in {_accountsFile}, " +
+            ? $"ScreenScraper has no developer credentials, and this build has none of its own (a release has): set dev_id and dev_password under [screenscraper] in {_accountsFile}, " +
               "or ODYSSEY_SCREENSCRAPER_DEV_ID and ODYSSEY_SCREENSCRAPER_DEV_PASSWORD (ScreenScraper issues them on its forum)"
             : null;
 

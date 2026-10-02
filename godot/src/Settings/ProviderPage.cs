@@ -12,7 +12,8 @@ namespace Launcher.App.Settings;
 
 /// <summary>
 /// One provider's credentials (M7), stored in secrets.toml only. Values are never shown: each row says whether it's
-/// set, and where (secrets.toml, or an <c>ODYSSEY_*</c> variable, which wins). A types a new value on the on-screen
+/// set, and where (secrets.toml, or an <c>ODYSSEY_*</c> variable, which wins). A release has ScreenScraper's developer
+/// credentials built in, and then doesn't list them: only the user's account. A types a new value on the on-screen
 /// keyboard (hidden, with Show to check it), Y clears it, and "Test connection" tries them with one cheap request.
 /// </summary>
 public sealed partial class ProviderPage : ListPanel
@@ -53,10 +54,18 @@ public sealed partial class ProviderPage : ListPanel
 
     private string TestDetail => ConfigInput.CredentialKeys(_provider).Count == 0 ? "One search on the store" : "One request with these credentials";
 
+    /// <summary>Whether this build carries <paramref name="key"/> (ScreenScraper's developer credentials, in a release).</summary>
+    private static bool IsBuiltIn(string provider, string key) => ProviderAccounts.BuiltIn.ContainsKey(provider + "." + key);
+
+    /// <summary>ScreenScraper's developer credentials: a program's, not the user's, so they're listed after the account.</summary>
+    private static bool IsDeveloperKey(string provider, string key) => provider == ScraperIds.ScreenScraper && key is "dev_id" or "dev_password";
+
     private static string HelpOf(string provider) => provider switch
     {
+        ScraperIds.ScreenScraper when IsBuiltIn(provider, "dev_id") =>
+            "Sign in with your ScreenScraper account (free at screenscraper.fr) for your own daily quota and threads; without it, anonymous limits apply.",
         ScraperIds.ScreenScraper =>
-            "Developer credentials are issued by ScreenScraper, on its forum, for a program. Your own account (free at screenscraper.fr) raises your daily quota and threads; without it, anonymous limits apply.",
+            "Developer credentials are issued by ScreenScraper, on its forum, for a program; a release has its own, but this build doesn't. Your own account (free at screenscraper.fr) raises your daily quota and threads; without it, anonymous limits apply.",
         ScraperIds.Igdb =>
             "IGDB uses a Twitch application: register one at dev.twitch.tv/console (a confidential client), and copy its client ID and a new client secret.",
         ScraperIds.SteamGridDb =>
@@ -69,21 +78,34 @@ public sealed partial class ProviderPage : ListPanel
     private void Build()
     {
         AddNote(HelpOf(_provider));
+        // A release's built-in developer credentials are the only ones it uses (ProviderAccounts.Parse): not listed.
         var keys = ConfigInput.CredentialKeys(_provider);
-        if (keys.Count > 0)
+        var account = keys.Where(k => !IsDeveloperKey(_provider, k.Key)).ToList();
+        var developer = keys.Where(k => IsDeveloperKey(_provider, k.Key) && !IsBuiltIn(_provider, k.Key)).ToList();
+        if (account.Count > 0)
         {
-            AddSection("Credentials");
+            AddSection(account.Count < keys.Count ? "Your account" : "Credentials");
+            AddKeyRows(account);
         }
 
+        if (developer.Count > 0)
+        {
+            AddSection("Developer credentials");
+            AddKeyRows(developer);
+        }
+
+        AddSection("Check");
+        _test = AddRow("Test connection", TestDetail, null, Test);
+    }
+
+    private void AddKeyRows(List<(string Key, string Label, bool Secret)> keys)
+    {
         foreach (var (key, label, _) in keys)
         {
             var captured = key;
             var row = AddRow(label, "Checking…", null, () => Edit(captured, label));
             _keyRows.Add((row, key));
         }
-
-        AddSection("Check");
-        _test = AddRow("Test connection", TestDetail, null, Test);
     }
 
     /// <summary>Reads secrets.toml (and the environment) off the main thread, then shows what's set.</summary>
@@ -93,7 +115,7 @@ public sealed partial class ProviderPage : ListPanel
         var configDir = _settings.Services.Paths.ConfigDir;
         _ = Task.Run(() =>
         {
-            var accounts = ProviderAccounts.Load(configDir).Accounts;
+            var accounts = ProviderAccounts.Load(configDir, builtIn: ProviderAccounts.BuiltIn).Accounts;
             _settings.Ui.Queue.Post(() =>
             {
                 if (check == _check)

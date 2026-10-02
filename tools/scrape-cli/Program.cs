@@ -92,7 +92,7 @@ if (arguments.Count == 0 || arguments[0] is "help" or "-h" or "--help")
 var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
 var paths = userDir is null ? PlatformPaths.Detect(AppContext.BaseDirectory) : PlatformPaths.InOneFolder(userDir, home);
 var loaded = new ConfigLoader().Load(ConfigSources.FromDirectory(paths.ConfigDir, paths.HomeDir) with { FileExists = null });
-var accounts = ProviderAccounts.Load(paths.ConfigDir);
+var accounts = ProviderAccounts.Load(paths.ConfigDir, builtIn: ProviderAccounts.BuiltIn);
 foreach (var diagnostic in loaded.Diagnostics.Concat(accounts.Diagnostics).Where(d => d.Severity != Severity.Info))
 {
     Console.Error.WriteLine(diagnostic);
@@ -415,7 +415,7 @@ async Task<int> ScreenScraperSystems()
 {
     if (service.Scrapers[ScraperIds.ScreenScraper] is not ScreenScraperScraper screenScraper || screenScraper.Unavailable is not null)
     {
-        Console.WriteLine("ScreenScraper has no developer credentials.");
+        Console.WriteLine((service.Scrapers[ScraperIds.ScreenScraper] as ScreenScraperScraper)?.Unavailable ?? "ScreenScraper isn't available.");
         return 1;
     }
 

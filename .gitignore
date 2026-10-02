@@ -21,3 +21,6 @@ secrets.toml
 
 # Claude Code per-user settings
 .claude/settings.local.json
+
+# Built-in provider credentials, written by tools/write-built-in-accounts.ps1 for a release build only
+BuiltInAccounts.Release.g.cs

@@ -113,7 +113,22 @@ jobs:
           }
           Get-ChildItem $templates | Format-Table Name, Length -AutoSize
 
+      # ScreenScraper's developer credentials, built into the release so users only need their own account
+      # (docs/ARCHITECTURE.md A5, "Secrets"). A tag needs them; a run by hand builds without them if they aren't set.
+      - name: Built-in credentials
+        id: accounts
+        env:
+          SCREENSCRAPER_DEV_ID: ${{ secrets.SCREENSCRAPER_DEV_ID }}
+          SCREENSCRAPER_DEV_PASSWORD: ${{ secrets.SCREENSCRAPER_DEV_PASSWORD }}
+          REF_TYPE: ${{ github.ref_type }}
+        run: |
+          tools/write-built-in-accounts.ps1 -Required:($env:REF_TYPE -eq 'tag')
+          "present=$((Test-Path src/Launcher.Core/Scraping/BuiltInAccounts.Release.g.cs).ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
+
       - name: Build and test
+        env:
+          # BuiltInAccountsTests then checks the generated file was compiled in.
+          ODYSSEY_EXPECT_BUILT_IN_ACCOUNTS: ${{ steps.accounts.outputs.present }}
         run: |
           $PSNativeCommandUseErrorActionPreference = $true
           dotnet build

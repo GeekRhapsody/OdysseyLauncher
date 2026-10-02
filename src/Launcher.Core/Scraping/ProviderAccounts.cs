@@ -15,15 +15,19 @@ public enum CredentialSource
 
     /// <summary>An <c>ODYSSEY_*</c> variable, which overrides the file.</summary>
     Environment,
+
+    /// <summary>This build's own (<see cref="ProviderAccounts.BuiltIn"/>), which the file and the environment can't override.</summary>
+    BuiltIn,
 }
 
 /// <summary>
 /// The scraping providers' credentials (ARCHITECTURE.md A5): <c>ConfigDir/secrets.toml</c>, overridden per value by
-/// <c>ODYSSEY_*</c> environment variables. They exist nowhere else: never in the repo, logs, saved responses or
-/// bench output. <see cref="ToString"/> never shows a value.
+/// <c>ODYSSEY_*</c> environment variables. A release has ScreenScraper's developer credentials built in
+/// (<see cref="BuiltIn"/>), and then uses only those. They exist nowhere else: never in the repo, logs, saved
+/// responses or bench output. <see cref="ToString"/> never shows a value.
 /// <code>
 /// [screenscraper]      # ODYSSEY_SCREENSCRAPER_DEV_ID, _DEV_PASSWORD, _USERNAME, _PASSWORD
-/// dev_id = "..."       # developer credentials, issued by ScreenScraper for this software
+/// dev_id = "..."       # developer credentials, issued by ScreenScraper for this software (built into a release)
 /// dev_password = "..."
 /// username = "..."     # your ScreenScraper account (optional: without it, anonymous limits apply)
 /// password = "..."
@@ -62,6 +66,13 @@ public sealed class ProviderAccounts
 
     /// <summary>No credentials at all.</summary>
     public static ProviderAccounts None { get; } = new(new Dictionary<string, string>(StringComparer.Ordinal));
+
+    /// <summary>
+    /// The credentials this build carries, keyed "section.key": ScreenScraper's developer ID and password in a release,
+    /// none in a build from source. <see cref="Load"/> and <see cref="Parse"/> use them only when asked, so tests never
+    /// see a release's.
+    /// </summary>
+    public static IReadOnlyDictionary<string, string> BuiltIn => BuiltInAccounts.Values;
 
     public string? ScreenScraperDevId => Get("screenscraper.dev_id");
 
@@ -115,19 +126,25 @@ public sealed class ProviderAccounts
     }
 
     /// <summary>Reads <c>secrets.toml</c> from <paramref name="configDir"/> and the environment. Does file I/O: never on the main thread.</summary>
-    public static AccountsLoadResult Load(string configDir, Func<string, string?>? environment = null)
+    /// <param name="builtIn">The app passes <see cref="BuiltIn"/>; see <see cref="Parse"/>.</param>
+    public static AccountsLoadResult Load(string configDir, Func<string, string?>? environment = null, IReadOnlyDictionary<string, string>? builtIn = null)
     {
         ArgumentNullException.ThrowIfNull(configDir);
         var path = Path.Combine(configDir, FileName);
         var text = File.Exists(path) ? File.ReadAllText(path) : null;
-        return Parse(text, path, environment ?? Environment.GetEnvironmentVariable);
+        return Parse(text, path, environment ?? Environment.GetEnvironmentVariable, builtIn);
     }
 
     /// <param name="text">The file's text, or null when there's no file.</param>
-    public static AccountsLoadResult Parse(string? text, string source, Func<string, string?> environment)
+    /// <param name="builtIn">
+    /// Values keyed "section.key" (the app passes <see cref="BuiltIn"/>), which win: the file's and the environment's
+    /// values for those keys are ignored, with an Info diagnostic each.
+    /// </param>
+    public static AccountsLoadResult Parse(string? text, string source, Func<string, string?> environment, IReadOnlyDictionary<string, string>? builtIn = null)
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(environment);
+        builtIn ??= new Dictionary<string, string>(StringComparer.Ordinal);
         var diagnostics = new List<Diagnostic>();
         var values = new Dictionary<string, string>(StringComparer.Ordinal);
         var sources = new Dictionary<string, CredentialSource>(StringComparer.Ordinal);
@@ -169,6 +186,10 @@ public sealed class ProviderAccounts
                     {
                         diagnostics.Add(At(Severity.Warning, node, dotted, "unknown key. It's ignored"));
                     }
+                    else if (builtIn.ContainsKey(dotted))
+                    {
+                        diagnostics.Add(At(Severity.Info, node, dotted, BuiltInWins));
+                    }
                     else if (node is TomlScalar { Kind: TomlKind.String, Value: string value })
                     {
                         if (!string.IsNullOrWhiteSpace(value))
@@ -188,15 +209,34 @@ public sealed class ProviderAccounts
 
         foreach (var (section, key, env) in Entries)
         {
-            if (environment(env) is { } value && !string.IsNullOrWhiteSpace(value))
+            if (environment(env) is not { } value || string.IsNullOrWhiteSpace(value))
             {
-                values[section + "." + key] = value.Trim();
-                sources[section + "." + key] = CredentialSource.Environment;
+                continue;
+            }
+
+            if (builtIn.ContainsKey(section + "." + key))
+            {
+                diagnostics.Add(new Diagnostic(Severity.Info, env, 0, 0, section + "." + key, BuiltInWins));
+                continue;
+            }
+
+            values[section + "." + key] = value.Trim();
+            sources[section + "." + key] = CredentialSource.Environment;
+        }
+
+        foreach (var (key, value) in builtIn)
+        {
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                values[key] = value.Trim();
+                sources[key] = CredentialSource.BuiltIn;
             }
         }
 
         return new AccountsLoadResult(new ProviderAccounts(values, sources), diagnostics);
     }
+
+    private const string BuiltInWins = "this release has its own developer credentials, and uses only those. It's ignored";
 
     public override string ToString() => $"ProviderAccounts ({_values.Count} values set, redacted)";
 

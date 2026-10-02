@@ -170,7 +170,7 @@ Use only the gamepad from here on.
 This is the M4 acceptance's live scrape of a 50-game set, and the check of the built-in `screenscraper_id` values against ScreenScraper's system list. Both need your own credentials, which the repo never has. It uses the M3 set-up (`C:\OdysseyTest`), so your AppData isn't touched.
 
 1. Put 50 Mega Drive ROMs of your own in `C:\OdysseyTest\ROMs\megadrive` (a mix: well-known games, a few obscure ones, one renamed oddly).
-2. Create `C:\OdysseyTest\secrets.toml` with whichever providers you have (leave a section out to see it skipped):
+2. Create `C:\OdysseyTest\secrets.toml` with whichever providers you have (leave a section out to see it skipped). A build from source has no built-in developer credentials, so `dev_id` and `dev_password` are needed here; a release carries its own (see "A release's built-in ScreenScraper credentials"):
 
    ```toml
    [screenscraper]
@@ -418,3 +418,19 @@ This checks what a capture can't: a real pad's L3, and a video's sound. Use the 
 
 - A video whose sound drifts away from its picture, or stutters: which game, and whether it was on the Deck or docked.
 - A video that wouldn't play with a reason that isn't the 4:4:4 one: the reason it gave.
+
+## A release's built-in ScreenScraper credentials
+
+A release carries ScreenScraper's developer credentials (ARCHITECTURE.md A5, "Secrets"), written by the release workflow from the repository's secrets, so a user only enters their own account. Only a release built by the workflow has them: a script can't check them against ScreenScraper without a network call.
+
+1. Run the release workflow by hand (Actions > Release > Run workflow), or push a tag, and unzip its `OdysseyLauncher-<version>-windows-x86_64.zip`. In the log, "Built-in credentials" should say it wrote the file, and "Build and test" should pass (`BuiltInAccountsTests` fails if the file wasn't compiled in).
+2. Use an empty user folder, so your own `secrets.toml` isn't read: `.\OdysseyLauncher.exe -- --user-dir=C:\OdysseyRelease`.
+3. Open Settings > Scraping. ScreenScraper should say `Ready, anonymous`. Its page should list only "Your account" (username and password): no developer credentials. Then add `dev_id = "x"` under `[screenscraper]` in `C:\OdysseyRelease\secrets.toml`, reopen the page, and check nothing changes (after Test connection, the log says it's ignored).
+4. Test connection: it should connect, as an anonymous user.
+5. Set your username and password, then test again: it should connect with your account's threads and quota, and ScreenScraper should now say `Ready`.
+6. Scrape one game (X on it, then scrape) and check it gets its metadata and cover.
+7. Look for the credentials where they mustn't be: `Get-ChildItem C:\OdysseyRelease -Recurse -File | Select-String -Pattern '<your dev password>' -SimpleMatch` finds nothing, and neither does the same over `"$env:APPDATA\Godot\app_userdata\Odyssey Launcher\logs"`.
+
+### Send back
+
+- Any step that differed, especially a ScreenScraper refusal at step 4 (the message it gave), or a credential found at step 7 (which file).

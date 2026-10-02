@@ -428,7 +428,7 @@ public sealed class LibraryJobs : IDisposable
 
     private ScrapeService Build()
     {
-        var accounts = ProviderAccounts.Load(_services.Paths.ConfigDir);
+        var accounts = ProviderAccounts.Load(_services.Paths.ConfigDir, builtIn: ProviderAccounts.BuiltIn);
         foreach (var diagnostic in accounts.Diagnostics)
         {
             GD.Print(diagnostic.ToString());
