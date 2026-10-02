@@ -30,9 +30,11 @@ public sealed partial class VirtualList : Control
 {
     public const float RowHeight = 40;
 
-    private static readonly StyleBoxFlat Selected = UiStyle.Focused;
-    private static readonly StyleBoxFlat SelectedUnfocused = UiStyle.RowBox(new Color(0.12f, 0.17f, 0.42f, 0.7f), new Color("#3A4C9A"), 1);
-    private static readonly StyleBoxFlat Empty = UiStyle.RowBox(Colors.Transparent);
+    // The focused button's colours without its glow or vertical padding: a row's box must fit inside the row, or it
+    // spills over the rows above and below.
+    private static readonly StyleBoxFlat Selected = RowBox(new Color(0.16f, 0.24f, 0.62f, 0.85f), UiStyle.Accent, 2);
+    private static readonly StyleBoxFlat SelectedUnfocused = RowBox(new Color(0.12f, 0.17f, 0.42f, 0.7f), new Color("#3A4C9A"), 1);
+    private static readonly StyleBoxFlat Empty = RowBox(Colors.Transparent);
     private static readonly StringName PanelStyle = "panel";
 
     private readonly List<RowView> _rows = [];
@@ -220,6 +222,13 @@ public sealed partial class VirtualList : Control
         }
     }
 
+    private static StyleBoxFlat RowBox(Color background, Color border = default, int borderWidth = 0)
+    {
+        var box = UiStyle.RowBox(background, border, borderWidth);
+        box.ContentMarginTop = box.ContentMarginBottom = 0;
+        return box;
+    }
+
     /// <summary>Puts the visible items in the pooled rows.</summary>
     private void Bind()
     {
@@ -267,7 +276,10 @@ public sealed partial class VirtualList : Control
 
         public RowView()
         {
+            // A row's box from the start: with the theme's (the dialog frame, 40 px of padding) the row would be sized
+            // past its height before its first bind, and a control doesn't shrink back when its minimum does.
             Root = new PanelContainer { MouseFilter = MouseFilterEnum.Ignore };
+            Root.AddThemeStyleboxOverride(PanelStyle, Empty);
             var line = new HBoxContainer { MouseFilter = MouseFilterEnum.Ignore };
             line.AddThemeConstantOverride("separation", 12);
             Root.AddChild(line);
@@ -277,9 +289,11 @@ public sealed partial class VirtualList : Control
             _name.SizeFlagsHorizontal = SizeFlags.ExpandFill;
             _name.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
             _name.ClipText = true;
+            _name.VerticalAlignment = VerticalAlignment.Center;
             line.AddChild(_name);
             _detail = UiStyle.Label(string.Empty, UiStyle.Detail);
             _detail.HorizontalAlignment = HorizontalAlignment.Right;
+            _detail.VerticalAlignment = VerticalAlignment.Center;
             line.AddChild(_detail);
         }
 

@@ -136,9 +136,19 @@ public sealed partial class FilePicker : UiPanel
 
     public override void _Ready()
     {
-        // From the list, right (or down past its last row) reaches the buttons along the bottom.
+        // From the list, right (or down past its last row) reaches the buttons along the bottom. The buttons are chained
+        // explicitly: Godot's own search finds the list (wider, and overlapping them) before the next button along.
         _list.FocusNeighborRight = _list.GetPathTo(_up);
         _list.FocusNeighborBottom = _list.GetPathTo(_up);
+        var buttons = _up.GetParent().GetChildren();
+        for (var i = 0; i < buttons.Count; i++)
+        {
+            var button = (Button)buttons[i];
+            button.FocusNeighborLeft = button.GetPathTo(i == 0 ? _list : (Button)buttons[i - 1]);
+            button.FocusNeighborRight = button.GetPathTo((Button)buttons[Math.Min(i + 1, buttons.Count - 1)]);
+            button.FocusNeighborTop = button.GetPathTo(_list);
+            button.FocusNeighborBottom = button.GetPathTo(button);
+        }
     }
 
     /// <summary>The folder shown, or null for the top level (for the nav script's log and tests).</summary>
