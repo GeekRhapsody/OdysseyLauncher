@@ -63,6 +63,7 @@ public sealed class ThemeLoaderTests
         Assert.Equal("arcade_cabinet", theme.Systems["arcade"].GameTemplate);
         Assert.Equal("arcade_cabinet", theme.Systems["mame"].GameTemplate);
         Assert.Equal("label = [\"logo\", \"generated\"]", theme.Templates["arcade_cabinet"].ChainFor(MediaSlots.Label).ToString());
+        Assert.True(theme.Templates["arcade_cabinet"].ShowsWhole(MediaSlots.Screenshot));
 
         // Two templates of one box: its own spine art, or the game's logo along the spine.
         var spine = theme.Templates["generic_box_spine"];
@@ -362,6 +363,56 @@ public sealed class ThemeLoaderTests
         Assert.Equal(("templates.box.shape", 6), (error.Key, error.Line));
         Assert.Contains("did you mean 'media'?", error.Message, StringComparison.Ordinal);
         Assert.False(result.Theme!.Templates["box"].ShapeFromMedia);
+    }
+
+    [Fact]
+    public void A_template_draws_a_slot_whole_only_where_its_fit_says_so()
+    {
+        var result = ThemeFixtures.Parse(MinimalTemplate + """
+
+            [templates.box.fit]
+            screenshot = "whole"
+            cover = "crop"
+            """, Box("cover", "screenshot", "case"));
+
+        Assert.Empty(result.Diagnostics);
+        var template = result.Theme!.Templates["box"];
+        Assert.True(template.ShowsWhole(MediaSlots.Screenshot));
+        Assert.False(template.ShowsWhole(MediaSlots.Cover));
+        Assert.False(template.ShowsWhole(MediaSlots.Back));
+        Assert.False(ThemeFixtures.Parse(MinimalTemplate, Box()).Theme!.Templates["box"].ShowsWhole(MediaSlots.Cover));
+    }
+
+    [Fact]
+    public void A_bad_fit_is_an_error_at_its_key_and_the_slot_stays_cropped()
+    {
+        var result = ThemeFixtures.Parse(MinimalTemplate + """
+
+            [templates.box.fit]
+            cover = "hole"
+            screnshot = "whole"
+            """, Box());
+
+        Assert.Equal(2, result.Diagnostics.Count(d => d.Severity == Severity.Error));
+        var fit = Assert.Single(result.Diagnostics, d => d.Key == "templates.box.fit.cover");
+        Assert.Contains("did you mean 'whole'?", fit.Message, StringComparison.Ordinal);
+        var slot = Assert.Single(result.Diagnostics, d => d.Key == "templates.box.fit.screnshot");
+        Assert.Contains("did you mean 'screenshot'?", slot.Message, StringComparison.Ordinal);
+        Assert.False(result.Theme!.Templates["box"].ShowsWhole(MediaSlots.Cover));
+    }
+
+    [Fact]
+    public void A_fit_for_a_slot_the_model_doesnt_have_is_a_warning()
+    {
+        var result = ThemeFixtures.Parse(MinimalTemplate + """
+
+            [templates.box.fit]
+            screenshot = "whole"
+            """, Box("cover", "case"));
+
+        var warning = Single(result, Severity.Warning);
+        Assert.Equal("templates.box.fit.screenshot", warning.Key);
+        Assert.Contains("has no 'screenshot' material", warning.Message, StringComparison.Ordinal);
     }
 
     [Fact]

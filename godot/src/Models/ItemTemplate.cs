@@ -18,6 +18,7 @@ public sealed class ItemTemplate
     public const int MaxAuthoredTextures = 4;
 
     private readonly SlotChain?[] _chains;
+    private readonly bool[] _whole;
     private readonly float[] _slotAspects;
     private readonly Animation?[] _clips;
 
@@ -39,11 +40,13 @@ public sealed class ItemTemplate
         _clips = model.Clips;
         _slotAspects = model.SlotAspects;
         _chains = new SlotChain?[MediaSlots.Count];
+        _whole = new bool[MediaSlots.Count];
         for (var slot = 0; slot < MediaSlots.Count; slot++)
         {
             if (model.SlotAspects[slot] > 0)
             {
                 _chains[slot] = candidate.ChainFor(slot, systemCard);
+                _whole[slot] = !systemCard && candidate.Template?.ShowsWhole(slot) == true;
             }
         }
 
@@ -103,6 +106,9 @@ public sealed class ItemTemplate
 
     /// <summary>The slot's fallback chain, or null when the model has no such material.</summary>
     public SlotChain? Chain(int slot) => _chains[slot];
+
+    /// <summary>Whether the slot's art is drawn whole, fitted inside the face (its template's <c>fit = "whole"</c>).</summary>
+    public bool ShowsWhole(int slot) => _whole[slot];
 
     /// <summary>The slot face's width over its height (0 when the model has no such material).</summary>
     public float SlotAspect(int slot) => _slotAspects[slot];

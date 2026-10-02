@@ -87,6 +87,9 @@ shape = "model"                       # optional: "model" (its own shape, the de
 screenshot = ["screenshot", "hero", "cover", "authored"]
 label = ["logo", "generated"]
 
+[templates.crt_tv.fit]                # optional, per slot: "crop" (fill the face, the default) or "whole" (section 4)
+screenshot = "whole"
+
 [systems.ps2]                         # per system, by the launcher's system id (see below); every key is optional
 model = "models/systems/ps2.glb"      # its card (default: [defaults] system_model)
 tint = false                          # default false for its own model, else tint_system_model
@@ -113,7 +116,7 @@ bottom_right = "#100A08"
   - A TOML syntax error, or an unsupported `format`, rejects the whole theme, and the built-in one is used.
   - A bad look block falls back to the built-in theme's.
   - A template whose model is missing, or isn't a `.glb` inside the folder, is left out. Whatever named it falls through to the next model in line (section 5).
-  - A bad slot chain falls back to that slot's default chain.
+  - A bad slot chain falls back to that slot's default chain, and a bad `fit` leaves its slot cropped.
   - A bad `shape` is an error, and the template keeps its own shape.
   - Unknown keys are warnings, with a "did you mean" suggestion.
 
@@ -164,7 +167,8 @@ label = ["logo", "generated"]                               # the stand's plate:
 
 - **UVs:** a slot's first UV map (TEXCOORD_0) must span 0 to 1 across the face, upright as seen from outside. Sampling is clamped.
 - **A logo is never cropped:** when a slot shows the game's `logo` (`label = ["logo", "generated"]`, say), it's drawn whole with a margin, over the slot's fallback, using the logo's transparency. On a `spine` it's turned to read top to bottom like a spine's title; on any other slot it's upright, filling at most 88% of the face's width and 84% of its height. A `generated` fallback is the cover's main colour (or the game's plain colour, if the template has no `cover` slot) darkened to a deep shade, without the title; an `authored` one is the material's own texture. Logos are mostly about 2:1, so on a much wider face (a marquee, a plate) they fill its height and leave space at the sides. The built-in theme's `generic_box_logo` (on the spine) and `arcade_cabinet` (on its marquee) do this, and so does the sample TV's plate.
-- **Cropping:** every other slot's art is centre-cropped to fill the face. The face's aspect ratio (width over height) comes from the material's custom property `aspect`. If a material has none, it's measured from the slot mesh's bounds, which works for flat, upright faces. For a curved or tilted face, set `aspect` (section 9).
+- **Cropping:** every other slot's art is centre-cropped to fill the face, unless the template's `fit` says otherwise (below). The face's aspect ratio (width over height) comes from the material's custom property `aspect`. If a material has none, it's measured from the slot mesh's bounds, which works for flat, upright faces. For a curved or tilted face, set `aspect` (section 9).
+- **Fitting it whole (`fit`):** a template's `[templates.<id>.fit]` table can set a slot to `"whole"`. That slot's art is then never cropped: it's fitted inside the face at its own proportions, over the slot's fallback (the material's own texture, or its `generated` face), as a television shows a tall game with bars at the sides. The built-in `arcade_cabinet` fits its screen whole, so a vertical shooter is pillarboxed on the switched-off screen. Art is fitted at its image's proportions, so a screenshot saved at an arcade board's native resolution (224 × 256, say, shown on a 3:4 monitor) looks a little wider than it did on the cabinet. `"crop"` is the default. A logo is always drawn whole, whatever `fit` says.
 - **Colour:** make each slot material's base colour **white**, because it multiplies the art. Its base colour texture, if it has one, is what `authored` shows.
 - **Resolution:** art is streamed at 512² for the cover and 256² for every other slot, whatever the source's size. Only the slots whose chains name a media kind stream anything, so an unused slot costs nothing.
 

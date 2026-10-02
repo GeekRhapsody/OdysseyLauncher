@@ -29,8 +29,8 @@ public sealed class ArcadeCabinetBuilder
 
     // The monitor tilts back 12 degrees, its bezel running from the control panel to the marquee.
     private const float TiltDegrees = 12;
-    private const float ScreenWidth = 480;
-    private const float ScreenHeight = 360;
+    private const float ScreenWidth = 568;
+    private const float ScreenHeight = 426;
 
     // The marquee's lit panel: a little taller than most real ones (about 2.7:1, not 3.5:1), since a logo is drawn
     // whole and most are nearer 2:1, so they'd be small on a wider panel.
@@ -71,7 +71,7 @@ public sealed class ArcadeCabinetBuilder
         new("#22A04A"),
         new("#2464D2"),
         new("#E6E6EA"),
-        new("#0D0D10"), // dust washers, and the inside of the cabinet
+        new("#0D0D10"), // dust washers
     ];
 
     private const int PaletteSwatch = 16;
@@ -109,15 +109,16 @@ public sealed class ArcadeCabinetBuilder
     // ---- The parts -----------------------------------------------------------------------------------------
 
     /// <summary>
-    /// Each side panel's profile (z, y), front to back: the control panel's end, the edge alongside the screen, the
-    /// marquee's end, then the top and the back.
+    /// Each side panel's profile (z, y), front to back: inside the control panel (well under its top and behind its
+    /// front, so no face of the panel's is shared or nearly shared: those flickered as the model moved), the edge
+    /// alongside the screen, rising out through the panel's top, the marquee's end, then the top and the back.
     /// </summary>
     private static readonly Vector2[] SideProfile =
     [
         new(Back, 0),
-        new(372, 0),
-        new(372, 118),
-        new(150, 182),
+        new(366, 0),
+        new(366, 90),
+        new(140, 160),
         new(52, 690),
         new(MarqueeFront + 2, 690),
         new(MarqueeFront + 2, Top),
@@ -143,7 +144,7 @@ public sealed class ArcadeCabinetBuilder
     {
         Box(Paint.Cabinet, new Vector3(-InnerHalf, 0, Back), new Vector3(InnerHalf, Top, Back + 18));
         Box(Paint.Cabinet, new Vector3(-InnerHalf, Top - 26, Back), new Vector3(InnerHalf, Top, MarqueeFront));
-        Box(Paint.Dark, new Vector3(-InnerHalf, 0, Back), new Vector3(InnerHalf, 12, 150));
+        Box(Paint.Cabinet, new Vector3(-InnerHalf, 0, Back), new Vector3(InnerHalf, 12, 150));
     }
 
     private void Screen()
@@ -158,14 +159,15 @@ public sealed class ArcadeCabinetBuilder
         var top = bottom + up * length;
         Quad(Paint.Bezel, top - right, top + right, bottom + right, bottom - right);
 
-        // The screen, centred on the bezel's visible part, just in front of it.
-        var centre = bottom + up * (length * 0.5f) + normal * 3;
+        // The screen, filling the bezel's visible part (the control panel hides its bottom few millimetres, the marquee
+        // box its top) but for a thin margin, just in front of it.
+        var centre = bottom + up * (length * 0.53f) + normal * 3;
         var halfWidth = Vector3.Right * (ScreenWidth / 2);
         var halfHeight = up * (ScreenHeight / 2);
         SlotQuad("screenshot", centre - halfWidth + halfHeight, centre + halfWidth + halfHeight, centre + halfWidth - halfHeight, centre - halfWidth - halfHeight);
 
         // A thin frame round it, standing on the bezel.
-        const float Frame = 10;
+        const float Frame = 8;
         var onBezel = centre - normal * 3;
         Frame4(onBezel, normal, Vector3.Right * (ScreenWidth / 2 + Frame), up * (ScreenHeight / 2 + Frame), halfWidth, halfHeight, 7);
     }
@@ -479,8 +481,10 @@ public sealed class ArcadeCabinetBuilder
 
             var material = name switch
             {
-                "screenshot" => SlotMaterial(name, ScreenAspect, 0.15f, ImageTexture.CreateFromImage(DarkScreen())),
-                "label" => SlotMaterial(name, MarqueeAspect, 0.35f, null),
+                // Matte: glossy glass mirrored the theme's lights as the focused cabinet swayed, whiting out the
+                // screen, and a middling roughness spread that sheen over it, so a pillarboxed game's bars looked grey.
+                "screenshot" => SlotMaterial(name, ScreenAspect, 0.9f, ImageTexture.CreateFromImage(DarkScreen())),
+                "label" => SlotMaterial(name, MarqueeAspect, 0.9f, null),
                 _ => new StandardMaterial3D
                 {
                     ResourceName = name,

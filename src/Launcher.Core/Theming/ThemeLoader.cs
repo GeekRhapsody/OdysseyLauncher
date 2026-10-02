@@ -53,8 +53,9 @@ public static class ThemeLoader
     private static readonly string[] AmbientKeys = ["colour", "energy"];
     private static readonly string[] LightKeys = ["direction", "colour", "energy"];
     private static readonly string[] DefaultsKeys = ["system_model", "tint_system_model", "game_template"];
-    private static readonly string[] TemplateKeys = ["model", "slots", "shape"];
+    private static readonly string[] TemplateKeys = ["model", "slots", "shape", "fit"];
     private static readonly string[] Shapes = ["model", "media"];
+    private static readonly string[] Fits = ["crop", "whole"];
     private static readonly string[] SystemKeys = ["model", "tint", "game_template", "colour", "look"];
     private static readonly string[] SourceKeywords = ["generated", "authored"];
 
@@ -336,17 +337,36 @@ public static class ThemeLoader
                     ReadSlots(slotsTable, prefix + ".slots", slots);
                 }
 
+                // A bad fit leaves its slot cropped, as a bad chain does.
+                var whole = new HashSet<int>();
+                if (v.Table(entry, prefix, "fit") is { } fitTable)
+                {
+                    ReadFit(fitTable, prefix + ".fit", whole);
+                }
+
                 var slotErrors = v.ErrorCount - beforeSlots;
 
                 // A bad shape falls back to the model's own, as a bad chain does.
                 var beforeShape = v.ErrorCount;
                 var shapeFromMedia = ReadShape(entry, prefix);
                 var shapeErrors = v.ErrorCount - beforeShape;
-                if (model is not null && CheckMaterials(entry, prefix, model, slots) is { } present && shapeFromMedia && !present[MediaSlots.Cover])
+                if (model is not null && CheckMaterials(entry, prefix, model, slots) is { } present)
                 {
-                    entry.TryGet("shape", out var shapeNode);
-                    v.Warning(shapeNode, prefix + ".shape", $"'{model}' has no 'cover' material, so its shape can't follow the cover; it keeps its own");
-                    shapeFromMedia = false;
+                    if (shapeFromMedia && !present[MediaSlots.Cover])
+                    {
+                        entry.TryGet("shape", out var shapeNode);
+                        v.Warning(shapeNode, prefix + ".shape", $"'{model}' has no 'cover' material, so its shape can't follow the cover; it keeps its own");
+                        shapeFromMedia = false;
+                    }
+
+                    foreach (var slot in whole)
+                    {
+                        if (!present[slot])
+                        {
+                            entry.TryGet("fit", out var fitNode);
+                            v.Warning(fitNode, $"{prefix}.fit.{MediaSlots.Names[slot]}", $"'{model}' has no '{MediaSlots.Names[slot]}' material, so this is never used");
+                        }
+                    }
                 }
 
                 if (v.ErrorCount - slotErrors - shapeErrors > errors || model is null)
@@ -355,7 +375,7 @@ public static class ThemeLoader
                     continue;
                 }
 
-                templates[id] = new GameTemplate(id, model, slots, shapeFromMedia);
+                templates[id] = new GameTemplate(id, model, slots, shapeFromMedia, whole.Count > 0 ? whole : null);
             }
 
             return templates;
@@ -430,6 +450,35 @@ public static class ThemeLoader
                 if (ok)
                 {
                     slots[slot] = new SlotChain(slot, sources);
+                }
+            }
+        }
+
+        /// <summary>
+        /// <c>[templates.&lt;id&gt;.fit]</c>: per slot, <c>"crop"</c> (fill the face, the default) or <c>"whole"</c>
+        /// (fitted inside it, over the slot's fallback).
+        /// </summary>
+        private void ReadFit(TomlTableNode table, string prefix, HashSet<int> whole)
+        {
+            foreach (var name in table.Keys)
+            {
+                table.TryGet(name, out var node);
+                var key = $"{prefix}.{name}";
+                var slot = MediaSlots.IndexOf(name);
+                if (slot < 0)
+                {
+                    v.Error(node, key, $"'{name}' isn't a media slot{TomlValidator.Suggest(name, MediaSlots.Names)}. The slots are {string.Join(", ", MediaSlots.Names)}");
+                    continue;
+                }
+
+                var fit = v.String(table, prefix, name);
+                if (fit == "whole")
+                {
+                    whole.Add(slot);
+                }
+                else if (fit is not null and not "crop")
+                {
+                    v.Error(node, key, $"unknown fit '{fit}'{TomlValidator.Suggest(fit, Fits)}: use \"crop\" (fill the face) or \"whole\" (fitted inside it)");
                 }
             }
         }

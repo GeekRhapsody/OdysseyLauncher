@@ -42,9 +42,21 @@ public sealed record Look(LookBackground Background, LookAmbient Ambient, IReadO
 /// <c>shape = "media"</c>: each game's box takes its front's proportions from its cover and its depth from its spine
 /// (<see cref="BoxShape"/>); otherwise the model's own shape.
 /// </param>
-public sealed record GameTemplate(string Id, string Model, IReadOnlyDictionary<int, SlotChain> Slots, bool ShapeFromMedia = false)
+/// <param name="WholeSlots">
+/// <c>[templates.&lt;id&gt;.fit]</c>: the slots whose art is drawn whole, fitted inside the face over its fallback (a
+/// screen showing a tall screenshot pillarboxed), rather than centre-cropped to fill it. Null for none.
+/// </param>
+public sealed record GameTemplate(
+    string Id,
+    string Model,
+    IReadOnlyDictionary<int, SlotChain> Slots,
+    bool ShapeFromMedia = false,
+    IReadOnlySet<int>? WholeSlots = null)
 {
     public SlotChain ChainFor(int slot) => Slots.TryGetValue(slot, out var chain) ? chain : SlotChain.Default(slot);
+
+    /// <summary>Whether the slot's art is drawn whole (<c>fit = "whole"</c>); a logo always is, whatever this says.</summary>
+    public bool ShowsWhole(int slot) => WholeSlots?.Contains(slot) == true;
 }
 
 /// <summary>What a theme says about one system (<c>[systems.&lt;id&gt;]</c>).</summary>

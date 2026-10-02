@@ -5,7 +5,7 @@ Measured on 2 October 2026 on the development machine, windowed at 1280×800 (59
 - Builds are ExportRelease on .NET 8.0.31, Mobile/D3D12, with the shader baker on.
 - **Before** is commit `2953e8a`, exported to `artifacts/export-arcade-before/`. **After** is the change, exported to `artifacts/export-arcade-after/`. All three series ran in one session.
 - One warm-up and 5 benched runs per series; the table gives the medians, and ranges where the runs spread. The JSON is in [arcade-cabinet/](arcade-cabinet/), and the captures (the arcade grid on the owner's scraped art, focused on 3x3 Puzzle; then games with no art: a printed title on the marquee and the switched-off screen) are in [arcade-cabinet/captures.jpg](arcade-cabinet/captures.jpg).
-- The design is in [ARCHITECTURE.md](../ARCHITECTURE.md) (A7, "The arcade cabinet" and "A logo drawn whole", and the decisions log, 2026-10-02).
+- The design is in [ARCHITECTURE.md](../ARCHITECTURE.md) (A7, "The arcade cabinet" and "Art drawn whole", and the decisions log, 2026-10-02).
 
 ```powershell
 # artifacts\synthetic-genbox (2,620 PS2 games, each with a cover, back, spine, screenshot and logo), its systems.toml given
@@ -40,3 +40,24 @@ Measured on 2 October 2026 on the development machine, windowed at 1280×800 (59
 - **The box, before and after:** the same within the session's noise. Each run's scroll p99 falls in the same range, and the start-up medians are inside each other's spread (459–996 ms before, 538–686 ms after). This session had more hitches than the generic box's (0 there), in both builds alike.
 - **The cabinet:** 0.75 ms more GPU time for 6× the triangles, with the frame still inside the refresh interval; nothing more on the CPU.
 - **Texture memory** is the two extra channels (above), in both after series.
+
+## Second round: the screen fitted whole, a bigger screen, no flicker
+
+The owner's fixes (decisions log, 2026-10-02): a template's `fit` (`screenshot = "whole"` on the cabinet), a 568 × 426 mm matte screen, and the side panels ending inside the control panel. **Before** is the same `2953e8a` export; **after** is `artifacts/export-arcade-after2/`. Same library, scenario and method, all three series in one session; JSON in [arcade-cabinet/](arcade-cabinet/) (`fit-*`), captures in [arcade-cabinet/captures-fit.jpg](arcade-cabinet/captures-fit.jpg) (tall games pillarboxed; the focused 720° and 1942 close up).
+
+What changed per frame: the grid sets one more bit when a slot resolves (the template's fit, read from an array); the shader's whole-art branch tests that bit and skips the margin for art that isn't a logo. The cabinet has the same 1,402 triangles.
+
+| | Before, box | After, box | After, cabinet |
+|---|---|---|---|
+| Start-up of our code | 551 ms | 577 ms | 476 ms |
+| Scroll p50, p95, p99 | 18.00, 19.74, 20.63 ms | 18.02, 19.90, 20.74 ms | 18.27, 20.47, 21.38 ms |
+| Scroll p99, each run | 20.53–21.04 ms | 20.63–21.21 ms | 21.20–21.43 ms |
+| Hitches, each run | 1, 1, 1, 1, 0 | 1, 1, 0, 0, 4 | 0, 0, 0, 0, 1 |
+| GPU, render CPU | 1.55, 0.31 ms | 1.55, 0.31 ms | 2.28, 0.31 ms |
+| Main-thread allocation in the scroll | 96 B | 96 B | 96 B |
+| Grid textured | 100% | 100% | 100% |
+| Texture memory | 108.6 MB | 124.6 MB | 124.6 MB |
+| Working set | 440 MB | 442 MB | 438 MB |
+
+- **The box:** unchanged. The GPU time is the same to the hundredth, and the p99 ranges overlap; one after run had 4 hitches (the others 0–1), and two after runs had a frame over 2× the refresh interval (before: none), with the same 96 B allocated, so nothing points at the change; the first round had such frames before and after alike.
+- **The cabinet:** 0.73 ms more GPU time than the box, as in the first round, with nothing more on the CPU.

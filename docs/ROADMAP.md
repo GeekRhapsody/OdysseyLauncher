@@ -601,5 +601,17 @@ Update this at the end of every milestone: the status, the date, and the evidenc
     - Captures were reviewed (a copy of the owner's arcade library with scraped art): the grid, focused on 3x3 Puzzle (as in the mock-up); games with no art (a printed title on the marquee, the switched-off screen); the Retro TV sample, whose plate now shows each logo whole; Windows's logo spines, unchanged.
     - **Benches:** [perf/arcade-cabinet.md](perf/arcade-cabinet.md). The box scroll is unchanged within noise; the cabinet costs 0.75 ms more GPU time than the box, and nothing on the CPU.
   - **Not done:**
-    - A vertical game's screenshot (Pac-Man, most shooters) is centre-cropped to the 4:3 screen, showing its middle. Showing it whole, pillarboxed as on a real horizontal monitor, needs a per-slot "fit" option.
+    - A vertical game's screenshot (Pac-Man, most shooters) is centre-cropped to the 4:3 screen, showing its middle (fixed below: `fit`).
     - The two extra slot channels cost 16 MB of texture memory in every games grid, even with no arcade games: `SlotLayout` could be built from the templates the shown list uses, not the whole theme.
+- **2026-10-02: the arcade cabinet's fixes, and fitting art whole** (the owner's requests after trying it).
+  - **What was added:**
+    - Core `Theming`: `[templates.<id>.fit]`, per slot `"crop"` (the default) or `"whole"` (`GameTemplate.WholeSlots`, `ShowsWhole`), validated like a chain (a bad value or slot is an error and the slot stays cropped; a slot the model lacks, a warning).
+    - App: `ItemTemplate.ShowsWhole`; `ItemGrid` sets a "drawn whole" bit for such a slot (and a separate one for a logo); the item shader's logo branch is now `art_whole`, which draws a template's whole art with no margin and a logo as before.
+    - The built-in theme: the cabinet's `screenshot = "whole"`, so tall games are pillarboxed on its switched-off screen.
+    - The model: a 568 × 426 mm screen (was 480 × 360) in the same cabinet, with a thinner frame; the screen and marquee matte (roughness 0.9: glossy glass whited out the focused cabinet's screen, and middling roughness turned the bars grey); the side panels' lower part inside the control panel, well under its top and behind its front (their grey edges had shared the panel's front plane and stood just above its top, and flickered as the model moved).
+  - **Verification:**
+    - `dotnet build`: 0 warnings. 708 tests: 704 pass. The 3 new ones are `ThemeLoaderTests`: a fit read per slot, bad values and slots as errors at their keys with the slot left cropped, and a fit for a missing material as a warning; the built-in theme test also checks the cabinet's screen is fitted whole (though it still stops earlier on the known `dvd_case` failure; the same 4 fail as before).
+    - `inspect-model --kind=template`: accepted, 1,402 triangles, as before. The other generated models are unchanged.
+    - Captures were reviewed: tall games (1941, 1942, 1943, 19XX, 1945k III) pillarboxed on dark bars, wide ones filling the screen, the bigger screen, and the control panel's sides with no grey strips. The flicker itself can't show in a still: its cause, faces in or near the panel's planes, is gone.
+    - **Benches:** [perf/arcade-cabinet.md](perf/arcade-cabinet.md#second-round-the-screen-fitted-whole-a-bigger-screen-no-flicker): the box unchanged, the cabinet 0.73 ms more GPU time than the box.
+  - **Not done:** screenshots are fitted at their image's proportions, so one at an arcade board's native resolution (224 × 256 for 1942, shown on a 3:4 monitor) looks about 15% too wide; snapping a screen's art to 4:3 or 3:4 would fix that.

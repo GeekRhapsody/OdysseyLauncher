@@ -78,6 +78,9 @@ model = "models/templates/arcade_cabinet.glb"
 label = ["logo", "generated"]      # the marquee: the logo, whole, over a deep shade; else the title, printed
 # The screen keeps the default chain: the screenshot, else the model's own switched-off screen.
 
+[templates.arcade_cabinet.fit]
+screenshot = "whole"               # never cropped: a tall game's screenshot is pillarboxed on the switched-off screen
+
 # Each system: its colour (its card and its plain boxes), its game template, and the look while its games are shown.
 # A system's look block replaces the theme's block of the same name whole.
 
