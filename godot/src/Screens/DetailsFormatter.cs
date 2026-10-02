@@ -7,15 +7,19 @@ using Launcher.Core.Library;
 namespace Launcher.App.Screens;
 
 /// <summary>
-/// Turns library data into the overlay's rows, in UK English. Runs on the thread pool, so the main thread never
-/// formats strings (A3 C# rules).
+/// Turns library data into the overlay's rows and the game details screen's fields, in UK English. Runs on the thread
+/// pool, so the main thread never formats strings (A3 C# rules).
 /// </summary>
 public static class DetailsFormatter
 {
     private static readonly CultureInfo Uk = CultureInfo.GetCultureInfo("en-GB");
 
-    /// <summary>A game: its scraped metadata (A4 <c>metadata</c>), the tags from its file name, and its play history.</summary>
-    public static OverlayDetails Game(long key, GameDetails game, PlayStats? stats, DateTimeOffset now)
+    /// <summary>
+    /// Every field the library has for a game, for its details screen (Y): its metadata (A4 <c>metadata</c>, with the
+    /// user's edits), the tags from its file name, its play history, and how it launches and where its data came from.
+    /// Only fields with a value; the description is apart.
+    /// </summary>
+    public static IReadOnlyList<(string Label, string Value)> GameFields(GameDetails game, PlayStats? stats, AppConfig config, DateTimeOffset now)
     {
         var rows = new List<(string, string)>();
         var metadata = game.Metadata;
@@ -25,6 +29,13 @@ public static class DetailsFormatter
         Add(rows, "Publisher", metadata?.Publisher);
         Add(rows, "Players", metadata?.Players);
         Add(rows, "Rating", metadata?.Rating is { } rating ? string.Create(Uk, $"{rating * 5:0.0} / 5") : null);
+
+        Add(rows, "Region", game.Region);
+        Add(rows, "Languages", game.Languages?.Replace(",", ", ", StringComparison.Ordinal));
+        Add(rows, "Version", game.Revision);
+        Add(rows, "Disc", game.Disc?.ToString(Uk));
+        Add(rows, "Tags", game.Tags);
+
         if (stats is { PlayCount: > 0 })
         {
             Add(rows, "Played", stats.PlayCount == 1 ? "Once" : string.Create(Uk, $"{stats.PlayCount:N0} times"));
@@ -36,16 +47,25 @@ public static class DetailsFormatter
             Add(rows, "Played", "Never");
         }
 
-        Add(rows, "Region", game.Region);
-        Add(rows, "Languages", game.Languages?.Replace(",", ", ", StringComparison.Ordinal));
-        Add(rows, "Version", game.Revision);
-        Add(rows, "Disc", game.Disc?.ToString(Uk));
-        if (rows.Count > InfoOverlay.MaxRows)
+        Add(rows, "Favourite", game.IsFavourite ? "Yes" : "No");
+        string NameOf(string id) => config.Emulators.TryGetValue(id, out var emulator) ? emulator.Name : id;
+        Add(rows, "Emulator", game.EmulatorOverride is { } own
+            ? NameOf(own) + " (its own)"
+            : config.FindSystem(game.Key.SystemId) is { } system ? NameOf(system.Emulator) : null);
+        Add(rows, "Title", game.TitleOverride is null ? null : "Yours");
+        Add(rows, "Metadata", metadata?.Source is { } source
+            ? source == "user" ? "Yours" : string.Join(" and ", Array.ConvertAll(source.Split(','), Settings.ScrapingPage.NameOf))
+            : null);
+        Add(rows, "Scraped", game.Scrape switch
         {
-            rows.RemoveRange(InfoOverlay.MaxRows, rows.Count - InfoOverlay.MaxRows);
-        }
-
-        return new OverlayDetails(key, rows, metadata?.Description, game.IsFavourite);
+            null => "Never",
+            { Status: "ok" } s => Relative(s.ScrapedAt, now),
+            { Status: "partial" } s => Relative(s.ScrapedAt, now) + " · a provider failed",
+            { Status: "not_found" } s => "Not found · " + Relative(s.ScrapedAt, now),
+            { } s => "Failed · " + Relative(s.ScrapedAt, now),
+        });
+        Add(rows, "Size", Ui.UiStyle.Size(game.SizeBytes));
+        return rows;
     }
 
     /// <summary>A system from config, with its boot summary.</summary>

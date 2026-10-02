@@ -31,6 +31,16 @@ public class DebugOptionsTests
     }
 
     [Fact]
+    public void A_games_details_can_be_opened_and_its_media_viewed()
+    {
+        var result = DebugOptions.Parse(["--open=details", "--start-system=arcade", "--start-index=3", "--nav-script=accept,right,y,favourite"]);
+
+        Assert.True(result.IsValid, string.Join("; ", result.Errors));
+        Assert.Equal("details", result.Options.Open);
+        Assert.Equal(["accept", "right", "y", "favourite"], result.Options.NavScript);
+    }
+
+    [Fact]
     public void Fake_status_shows_a_made_up_battery_and_network()
     {
         Assert.Null(DebugOptions.Parse([]).Options.FakeStatus);

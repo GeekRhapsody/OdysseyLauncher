@@ -147,9 +147,9 @@ Use only the gamepad from here on.
    - View opens the power menu (see [the power menu](#the-power-menu)); B closes it. Rescanning is in the settings: Menu, then Rescan the library. A "Scanning your ROM folders" card shows top right with its progress (M7), then the counts update.
 2. **Games grid.** Press A on Mega Drive.
    - The systems grid flies towards you and fades while the games come up from behind: clamshell cases with your ROMs' titles, and plain boxes (no art until M4).
-   - The title top left follows the focus. After a moment, the details bottom left fill in (Played: Never, Region...).
+   - The title top left follows the focus, with the system under it. A game's details are on its details screen (Y: see [a game's details](#a-games-details-and-videos)).
    - LT and RT jump between letters.
-   - Y adds a favourite: "Favourite" shows top right. Y again removes it.
+   - L3 (press the left stick) adds a favourite: "Favourite" shows top right. L3 again removes it.
 3. **Back and focus memory.** Move to another game and press B.
    - The games fade back and the systems return.
    - Press A on Mega Drive again: the game you left is focused.
@@ -403,3 +403,18 @@ This checks what a capture can't: the indicators following the device's real sta
 
 - Any state that showed wrong or late: which one, what it showed, and what Windows' own tray icons showed.
 - A Wi-Fi signal that never shows bars (all arcs bright, always): the WLAN service couldn't answer.
+
+## A game's details and videos
+
+This checks what a capture can't: a real pad's L3, and a video's sound. Use the export on a library with scraped art and videos (`[scraping] media` with `video`, then scrape a system), on the Deck or a PC with speakers.
+
+1. **The screen.** In a system's games, press Y on a game. Its details open: its whole description, then every field it has, in two columns, and its file. Up on the pad moves to the details block (it lights up); up and down scroll a long description, and down at its end goes to the cards. Y or B goes back to the grid.
+2. **Images.** Along the bottom is a card for each image and the video, with a thumbnail (a video's shows a frame from a little way in, with a play mark). Press A on the front cover: it fills the window on black, with no status icons. Left and right go through the others; the caption at the bottom fades after a few seconds and comes back with any button. B goes back to the details.
+3. **The video.** Video is the first card, then the front cover and the screenshot. Press A on Video. It plays at full size with its sound, in step with the picture (watch a hit or an explosion). A pauses it, picture and sound together; A again carries on. Let it finish: "A Play again" shows, and A plays it from the start. Left goes back to the images while it plays, and the sound stops at once.
+4. **A video Windows can't play.** On a game whose video is H.264 4:4:4 (about a fifth of ScreenScraper's arcade videos), the card says it can't be played, and A shows why, full screen.
+5. **The favourite.** In the details, press L3: "Added to your favourites." shows, and Favourite says Yes. Go back: "Favourite" shows top right of the grid. L3 in the grid takes it out again.
+
+### Send back
+
+- A video whose sound drifts away from its picture, or stutters: which game, and whether it was on the Deck or docked.
+- A video that wouldn't play with a reason that isn't the 4:4:4 one: the reason it gave.

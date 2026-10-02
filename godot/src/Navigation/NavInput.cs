@@ -20,7 +20,10 @@ public enum NavCommand
     Accept,
     Back,
 
-    /// <summary>Y or F: a favourite in the games grid; a list's second action in the settings screens.</summary>
+    /// <summary>Y, or I: the focused game's details in the games grid; a list's second action in the settings screens.</summary>
+    Secondary,
+
+    /// <summary>L3 (pressing the left stick), or F: the focused game's favourite, in the games grid and its details.</summary>
     Favourite,
 
     /// <summary>F5: rescan in the grids.</summary>
@@ -73,10 +76,10 @@ public sealed class NavInput
 
     private static readonly Binding[] Presses =
     [
-        new("nav_accept", NavCommand.Accept), new("nav_back", NavCommand.Back), new("nav_favourite", NavCommand.Favourite),
+        new("nav_accept", NavCommand.Accept), new("nav_back", NavCommand.Back), new("nav_secondary", NavCommand.Secondary),
         new("nav_first", NavCommand.First), new("nav_last", NavCommand.Last), new("nav_rescan", NavCommand.Rescan),
         new("nav_next_theme", NavCommand.NextTheme), new("nav_menu", NavCommand.Menu), new("nav_alternate", NavCommand.Alternate),
-        new("nav_power", NavCommand.Power),
+        new("nav_power", NavCommand.Power), new("nav_favourite", NavCommand.Favourite),
     ];
 
     /// <summary>Godot's GUI navigation, which the settings screens replace with <see cref="NavCommand"/>s.</summary>
@@ -95,7 +98,7 @@ public sealed class NavInput
 
     /// <summary>
     /// Adds the <c>nav_*</c> actions to the input map, once at boot: arrows, Enter/Space, Escape/Backspace and the
-    /// rest on the keyboard; the D-pad, left stick, A/B/X/Y, shoulders, triggers, View and Menu on a gamepad.
+    /// rest on the keyboard; the D-pad, left stick (and its click), A/B/X/Y, shoulders, triggers, View and Menu on a gamepad.
     /// </summary>
     public static void RegisterActions()
     {
@@ -109,7 +112,7 @@ public sealed class NavInput
         Add(7, [Key.Bracketright], [], (JoyAxis.TriggerRight, 1));
         AddPress(0, [Key.Enter, Key.KpEnter, Key.Space], [JoyButton.A]);
         AddPress(1, [Key.Escape, Key.Backspace], [JoyButton.B]);
-        AddPress(2, [Key.F], [JoyButton.Y]);
+        AddPress(2, [Key.I], [JoyButton.Y]);
         AddPress(3, [Key.Home], []);
         AddPress(4, [Key.End], []);
         AddPress(5, [Key.F5], []);
@@ -117,6 +120,7 @@ public sealed class NavInput
         AddPress(7, [Key.F1], [JoyButton.Start]);
         AddPress(8, [Key.O, Key.Menu], [JoyButton.X]);
         AddPress(9, [Key.P], [JoyButton.Back]);
+        AddPress(10, [Key.F], [JoyButton.LeftStick]);
 
         foreach (var action in GodotNavigation)
         {

@@ -76,7 +76,7 @@ public sealed partial class GameOptionsPanel : ListPanel
 
     public override bool Handle(NavCommand command)
     {
-        if (command == NavCommand.Favourite && GetViewport().GuiGetFocusOwner() == _model)
+        if (command == NavCommand.Secondary && GetViewport().GuiGetFocusOwner() == _model)
         {
             RemoveModel();
             return true;

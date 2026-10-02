@@ -86,7 +86,7 @@ public sealed partial class GameMediaPanel : UiPanel
 
     public override bool Handle(NavCommand command)
     {
-        if (command != NavCommand.Favourite)
+        if (command != NavCommand.Secondary)
         {
             return false;
         }

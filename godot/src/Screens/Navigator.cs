@@ -18,8 +18,9 @@ namespace Launcher.App.Screens;
 
 /// <summary>
 /// The screens (A1 Screens): Systems → Games → Launching, and back, with animated transitions between the two
-/// grids, each system's look cross-faded in (A6), focus memory per system, the focused item's details in the
-/// overlay, favourites, rescans, the power menu, launching, and themes (M6): switching one at run time, per-game models, and
+/// grids, each system's look cross-faded in (A6), focus memory per system, the focused system's details in the
+/// overlay (a game's are on its details screen, Y), favourites, rescans, the power menu, launching, and themes (M6):
+/// switching one at run time, per-game models, and
 /// rebinding a game's media when it changes. Library calls run on the thread pool and their results come back
 /// through the <see cref="MainThreadQueue"/>.
 /// </summary>
@@ -34,7 +35,7 @@ public sealed partial class Navigator : Node
     private const int CachedLists = 3;
 
     private const string SystemsHints = "A / Enter  Open     X / O  Options     View / P  Power     Menu / Esc  Settings";
-    private const string GamesHints = "A / Enter  Play     B / Esc  Back     X / O  Options     Y / F  Favourite     LB RB  Page     LT RT  Letter";
+    private const string GamesHints = "A / Enter  Play     B / Esc  Back     X / O  Options     Y / I  Details     L3 / F  Favourite     LB RB  Page     LT RT  Letter";
     private const double TitlesDelay = 0.4;
 
     private static readonly GridPose Shown = new(0, 1, 0);
@@ -144,6 +145,9 @@ public sealed partial class Navigator : Node
 
     /// <summary>X on a game: its options panel should open (M7). The game's id.</summary>
     public event Action<long>? GameOptionsRequested;
+
+    /// <summary>Y on a game: its details screen should open (every field of its metadata, and its images and videos). The game's id.</summary>
+    public event Action<long>? GameDetailsRequested;
 
     /// <summary>The theme the grids show (the options panels say which model each system uses).</summary>
     public ThemeRuntime Theme => _theme;
@@ -305,6 +309,13 @@ public sealed partial class Navigator : Node
             case NavCommand.Back when _screen == Screen.Games:
                 LeaveGames();
                 break;
+            case NavCommand.Secondary when _screen == Screen.Games:
+                if (_games is not null && _gamesGrid.FocusIndex >= 0 && _gamesGrid.FocusIndex < _games.Count)
+                {
+                    GameDetailsRequested?.Invoke(_games.Row(_gamesGrid.FocusIndex).GameId);
+                }
+
+                break;
             case NavCommand.Favourite when _screen == Screen.Games:
                 ToggleFavourite();
                 break;
@@ -419,7 +430,7 @@ public sealed partial class Navigator : Node
             {
                 var details = entry.Virtual switch
                 {
-                    VirtualKind.Favourites => DetailsFormatter.Virtual(key, "The games you've marked as favourites. Press Y on a game to add it."),
+                    VirtualKind.Favourites => DetailsFormatter.Virtual(key, "The games you've marked as favourites. Press L3 (or F) on a game to add it."),
                     VirtualKind.RecentlyPlayed => DetailsFormatter.Virtual(key, "The games you've played most recently, newest first."),
                     _ => DetailsFormatter.System(key, entry.System!, entry.Summary!, config, DateTimeOffset.Now),
                 };
@@ -444,8 +455,8 @@ public sealed partial class Navigator : Node
                     return;
                 }
 
-                var stats = await library.GetPlayStatsAsync(game.Key, token).ConfigureAwait(false);
-                var details = DetailsFormatter.Game(key, game, stats, DateTimeOffset.Now);
+                // A game's metadata is on its details screen (Y); the overlay keeps its title and whether it's a favourite.
+                var details = new OverlayDetails(key, [], null, game.IsFavourite);
                 _queue.Post(() =>
                 {
                     if (_focusKey == key && _screen is Screen.Games or Screen.Launching)
@@ -463,6 +474,15 @@ public sealed partial class Navigator : Node
                 GD.PushError($"Details: {e.Message}");
             }
         }, token);
+    }
+
+    /// <summary>The focused item's details are read again now (its favourite changed on its details screen).</summary>
+    public void RefreshDetails()
+    {
+        if (_focusKey >= 0)
+        {
+            _detailsDue = _clock;
+        }
     }
 
     // ---- Systems → games ------------------------------------------------------------------------
@@ -620,7 +640,7 @@ public sealed partial class Navigator : Node
     {
         if (id == FavouritesId)
         {
-            return "No favourites yet. Press Y on a game to add it.";
+            return "No favourites yet. Press L3 (or F) on a game to add it.";
         }
 
         if (id == RecentlyPlayedId)

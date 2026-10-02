@@ -178,7 +178,7 @@ public sealed partial class FilePicker : UiPanel
             case NavCommand.Back:
                 Up();
                 return true;
-            case NavCommand.Favourite:
+            case NavCommand.Secondary:
                 TypePath();
                 return true;
             case NavCommand.Alternate when _request.Mode == PickerMode.Folder:

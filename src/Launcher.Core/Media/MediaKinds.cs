@@ -15,7 +15,7 @@ public static class MediaKinds
     public const string Logo = "logo";
     public const string Hero = "hero";
 
-    /// <summary>A gameplay video (an MP4): not an image, so not a slot, and nothing plays it yet.</summary>
+    /// <summary>A gameplay video (an MP4): not an image, so not a slot; the game's details screen plays it (<see cref="IVideoDecoder"/>).</summary>
     public const string Video = "video";
 
     /// <summary>A per-game model: <c>DataDir/media/&lt;system&gt;/model/&lt;rel path&gt;.glb</c> (M6).</summary>

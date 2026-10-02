@@ -38,6 +38,9 @@ public sealed partial class UiLayer : CanvasLayer
     /// <summary>The last panel closed: the grid has the input again.</summary>
     public event Action? AllClosed;
 
+    /// <summary>A panel was pushed or popped, so <see cref="Top"/> may be another.</summary>
+    public event Action? TopChanged;
+
     public bool IsOpen => _stack.Count > 0;
 
     public UiPanel? Top => _stack.Count > 0 ? _stack[^1] : null;
@@ -69,6 +72,7 @@ public sealed partial class UiLayer : CanvasLayer
         }
         _input.Reset();
         Callable.From(panel.FocusDefault).CallDeferred();
+        TopChanged?.Invoke();
     }
 
     /// <summary>Takes <paramref name="panel"/> (and anything above it) off the stack and frees it.</summary>
@@ -97,12 +101,14 @@ public sealed partial class UiLayer : CanvasLayer
             top.MouseBehaviorRecursive = Control.MouseBehaviorRecursiveEnum.Inherited;
             top.OnRevealed();
             Callable.From(top.FocusDefault).CallDeferred();
+            TopChanged?.Invoke();
             return;
         }
 
         Visible = false;
         GetViewport().GuiReleaseFocus();
         AllClosed?.Invoke();
+        TopChanged?.Invoke();
     }
 
     /// <summary>Closes every panel.</summary>

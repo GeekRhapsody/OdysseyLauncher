@@ -72,6 +72,7 @@ public partial class Main : Node3D
     private SettingsController? _settings;
     private IPowerControl? _power;
     private StatusBar? _statusBar;
+    private Launcher.Core.Media.IVideoDecoder? _videoDecoder;
     private DeviceStatusMonitor? _deviceStatus;
     private Stage _stage = Stage.Loading;
     private int _warmUpFrame;
@@ -481,6 +482,7 @@ public partial class Main : Node3D
             "favourite" => NavCommand.Favourite,
             "menu" => NavCommand.Menu,
             "x" => NavCommand.Alternate,
+            "y" => NavCommand.Secondary,
             "power" => NavCommand.Power,
             _ => NavCommand.None,
         };
@@ -622,6 +624,16 @@ public partial class Main : Node3D
         };
         _jobs.GamesUpdated += navigator.OnGamesUpdated;
 
+        // Y on a game: its details, with its images and video full size.
+        _videoDecoder = PlatformServices.CreateVideoDecoder();
+        navigator.GameDetailsRequested += id =>
+        {
+            if (!_ui!.IsOpen)
+            {
+                GameDetailsPanel.Open(context, services, _videoDecoder, id, navigator.RefreshDetails);
+            }
+        };
+
         // View (Select) or P in the grids: restart, shut down or sleep the system, or quit.
         navigator.PowerRequested += () =>
         {
@@ -644,6 +656,17 @@ public partial class Main : Node3D
             _overlay!.Visible = !_options.NoOverlay;
             hud.Visible = true;
         };
+
+        // A full-screen image or video has the whole window: the status indicators step aside for it.
+        _ui.TopChanged += ShowStatusBar;
+    }
+
+    private void ShowStatusBar()
+    {
+        if (_statusBar is { } bar)
+        {
+            bar.Visible = !_options.NoOverlay && _ui?.Top is not { FullScreen: true };
+        }
     }
 
     /// <summary>
@@ -670,10 +693,11 @@ public partial class Main : Node3D
                     return;
                 }
 
-                var bar = new StatusBar(icons) { Visible = !_options.NoOverlay };
+                var bar = new StatusBar(icons);
                 AddChild(bar);
                 bar.Apply(_services!.Config.Settings.Ui);
                 _statusBar = bar;
+                ShowStatusBar();
                 monitor.Changed += status => _queue.Post(() => bar.Show(status));
                 _deviceStatus = monitor;
                 _settings!.DeviceStatus = monitor;
@@ -776,7 +800,45 @@ public partial class Main : Node3D
             case "match":
                 OpenMatchForDebug();
                 break;
+            case "details":
+                OpenDetailsForDebug();
+                break;
         }
+    }
+
+    /// <summary>
+    /// <c>--open=details</c>: the details screen of the game at <c>--start-index</c> of <c>--start-system</c>, as Y opens
+    /// it (its id read off the main thread).
+    /// </summary>
+    private void OpenDetailsForDebug()
+    {
+        var services = _services!;
+        var context = _settings!.Ui;
+        var system = _options.StartSystem;
+        var index = _options.StartIndex ?? 0;
+        _ = Task.Run(async () =>
+        {
+            long? id = null;
+            if (system is not null)
+            {
+                var list = await services.Library.GetGamesAsync(system, CancellationToken.None).ConfigureAwait(false);
+                if (list.Games.Count > 0)
+                {
+                    id = list.Games[Math.Clamp(index, 0, list.Games.Count - 1)].GameId;
+                }
+            }
+
+            context.Queue.Post(() =>
+            {
+                if (id is null)
+                {
+                    GD.PushWarning("--open=details needs --start-system with games in it.");
+                    return;
+                }
+
+                GameDetailsPanel.Open(context, services, _videoDecoder, id.Value, () => _navigator?.RefreshDetails());
+            });
+        });
     }
 
     /// <summary>

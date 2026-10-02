@@ -11,6 +11,9 @@ public enum PanelPlacement
 
     /// <summary>Along the bottom (the on-screen keyboard, so the field it types into can stay in view).</summary>
     Bottom,
+
+    /// <summary>The whole window, on black, with no header or hints (the game details screen's image and video viewer).</summary>
+    FullScreen,
 }
 
 /// <summary>
@@ -33,6 +36,7 @@ public abstract partial class UiPanel : Control
         Name = GetType().Name;
         Theme = UiStyle.Theme;
         IsDialog = dimBelow;
+        FullScreen = placement == PanelPlacement.FullScreen;
         SetAnchorsPreset(LayoutPreset.FullRect);
         MouseFilter = MouseFilterEnum.Ignore;
 
@@ -44,26 +48,36 @@ public abstract partial class UiPanel : Control
             AddChild(dim);
         }
 
-        var holder = placement == PanelPlacement.Centre ? (Container)new CenterContainer() : new MarginContainer();
-        holder.MouseFilter = MouseFilterEnum.Ignore;
-        holder.SetAnchorsPreset(LayoutPreset.FullRect);
-        if (holder is MarginContainer margins)
+        if (FullScreen)
         {
-            margins.AddThemeConstantOverride("margin_top", (int)Math.Max(0, 800 - size.Y - 24));
-            margins.AddThemeConstantOverride("margin_bottom", 24);
-            margins.AddThemeConstantOverride("margin_left", (int)Math.Max(0, (1280 - size.X) / 2));
-            margins.AddThemeConstantOverride("margin_right", (int)Math.Max(0, (1280 - size.X) / 2));
+            Frame = new PanelContainer { MouseFilter = MouseFilterEnum.Stop };
+            Frame.SetAnchorsPreset(LayoutPreset.FullRect);
+            Frame.AddThemeStyleboxOverride("panel", new StyleBoxFlat { BgColor = Colors.Black });
+            AddChild(Frame);
         }
+        else
+        {
+            var holder = placement == PanelPlacement.Centre ? (Container)new CenterContainer() : new MarginContainer();
+            holder.MouseFilter = MouseFilterEnum.Ignore;
+            holder.SetAnchorsPreset(LayoutPreset.FullRect);
+            if (holder is MarginContainer margins)
+            {
+                margins.AddThemeConstantOverride("margin_top", (int)Math.Max(0, 800 - size.Y - 24));
+                margins.AddThemeConstantOverride("margin_bottom", 24);
+                margins.AddThemeConstantOverride("margin_left", (int)Math.Max(0, (1280 - size.X) / 2));
+                margins.AddThemeConstantOverride("margin_right", (int)Math.Max(0, (1280 - size.X) / 2));
+            }
 
-        AddChild(holder);
-        Frame = new PanelContainer { CustomMinimumSize = size, MouseFilter = MouseFilterEnum.Stop };
-        holder.AddChild(Frame);
+            AddChild(holder);
+            Frame = new PanelContainer { CustomMinimumSize = size, MouseFilter = MouseFilterEnum.Stop };
+            holder.AddChild(Frame);
+        }
 
         var column = new VBoxContainer { MouseFilter = MouseFilterEnum.Ignore };
         column.AddThemeConstantOverride("separation", 10);
         Frame.AddChild(column);
 
-        var header = new HBoxContainer { MouseFilter = MouseFilterEnum.Ignore };
+        var header = new HBoxContainer { MouseFilter = MouseFilterEnum.Ignore, Visible = !FullScreen };
         column.AddChild(header);
         var headings = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill, MouseFilter = MouseFilterEnum.Ignore };
         headings.AddThemeConstantOverride("separation", 0);
@@ -90,6 +104,7 @@ public abstract partial class UiPanel : Control
         column.AddChild(_status);
         _hints = UiStyle.Label(string.Empty, UiStyle.Hint);
         _hints.HorizontalAlignment = HorizontalAlignment.Right;
+        _hints.Visible = !FullScreen;
         column.AddChild(_hints);
     }
 
@@ -107,6 +122,9 @@ public abstract partial class UiPanel : Control
     /// through each other.
     /// </summary>
     public bool IsDialog { get; }
+
+    /// <summary>The panel fills the window (<see cref="PanelPlacement.FullScreen"/>): the status indicators step aside for it.</summary>
+    public bool FullScreen { get; }
 
     /// <summary>The layer showing this panel; set when it's pushed.</summary>
     public UiLayer Layer { get; internal set; } = null!;

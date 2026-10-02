@@ -116,7 +116,7 @@ public sealed partial class OnScreenKeyboard : UiPanel
             case NavCommand.Alternate:
                 Backspace();
                 return true;
-            case NavCommand.Favourite:
+            case NavCommand.Secondary:
                 Insert(" ");
                 return true;
             case NavCommand.PageUp:

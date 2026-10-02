@@ -56,11 +56,11 @@ public sealed record DebugOptions
     /// <summary>
     /// What <c>--open</c> can show once the app is interactive (M7), for captures of each settings screen and shared
     /// component: the settings screen, the on-screen keyboard, the three pickers, a confirmation, a progress card, the
-    /// power menu, and the match panel over made-up results (for <see cref="StartSystem"/>'s game at
-    /// <see cref="StartIndex"/>).
+    /// power menu, the match panel over made-up results, and a game's details screen (the last two for
+    /// <see cref="StartSystem"/>'s game at <see cref="StartIndex"/>).
     /// </summary>
     public static IReadOnlyList<string> OpenTargets { get; } =
-        ["settings", "keyboard", "folder-picker", "image-picker", "program-picker", "confirm", "progress", "power", "match"];
+        ["settings", "keyboard", "folder-picker", "image-picker", "program-picker", "confirm", "progress", "power", "match", "details"];
 
     public const int DefaultCaptureFrame = 60;
     public const int DefaultBenchFrames = 600;
@@ -84,7 +84,7 @@ public sealed record DebugOptions
 
     /// <summary>
     /// The steps <c>--nav-script</c> takes: the navigation commands (as the controller sends them; <c>menu</c> is Menu,
-    /// <c>x</c> is X, <c>favourite</c> is Y, <c>power</c> is View), <c>theme</c> (the next theme, as T does), <c>rescan</c> (every system, from
+    /// <c>x</c> is X, <c>y</c> is Y, <c>favourite</c> is L3, <c>power</c> is View), <c>theme</c> (the next theme, as T does), <c>rescan</c> (every system, from
     /// any screen, so a capture can show media changing), and <c>wait</c>, which does nothing for a step. While a
     /// settings screen is open (M7), the commands go to it. Three steps send real input events instead, through
     /// Godot's input like the mouse and keyboard: <c>click</c> (the left button, on the focused control), <c>scroll</c>
@@ -93,7 +93,7 @@ public sealed record DebugOptions
     public static IReadOnlyList<string> NavScriptSteps { get; } =
     [
         "up", "down", "left", "right", "pageup", "pagedown", "letterprevious", "letternext", "first", "last",
-        "accept", "back", "favourite", "menu", "x", "power", "theme", "rescan", "click", "scroll", "type", "wait",
+        "accept", "back", "favourite", "menu", "x", "y", "power", "theme", "rescan", "click", "scroll", "type", "wait",
     ];
 
     /// <summary>Frames between <c>--nav-script</c> steps: long enough for a transition to finish.</summary>

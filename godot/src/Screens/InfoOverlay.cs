@@ -4,12 +4,13 @@ using Godot;
 namespace Launcher.App.Screens;
 
 /// <summary>The focused item's details, formatted off the main thread (Screens/DetailsFormatter.cs).</summary>
-/// <param name="Rows">Label and value pairs, in display order; only the fields that are known.</param>
+/// <param name="Rows">Label and value pairs, in display order; only the fields that are known. None for a game, whose metadata is on its details screen.</param>
 public sealed record OverlayDetails(long Key, IReadOnlyList<(string Label, string Value)> Rows, string? Description, bool Favourite);
 
 /// <summary>
 /// The PS2-style text over the grid: the focused item's title top left with a soft glow, what it belongs to under
-/// it, its details bottom left, and the controls bottom right. 2D, at the project's base size (1280×800) and
+/// it, a system's details bottom left (a game's are on its details screen, <see cref="GameDetailsPanel"/>), "Favourite"
+/// top right on a favourite game, and the controls bottom right. 2D, at the project's base size (1280×800) and
 /// stretched, so it's native resolution at 4K.
 /// </summary>
 public sealed partial class InfoOverlay : CanvasLayer
@@ -124,7 +125,7 @@ public sealed partial class InfoOverlay : CanvasLayer
 
         _hints = AddLabel(new LabelSettings { FontSize = 14, FontColor = new Color("#9AA6CC") });
         _hints.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.BottomRight);
-        _hints.OffsetLeft = -Margin - 700;
+        _hints.OffsetLeft = -Margin - 1000;
         _hints.OffsetRight = -Margin;
         _hints.OffsetTop = -40;
         _hints.OffsetBottom = -18;

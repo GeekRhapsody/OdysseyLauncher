@@ -126,7 +126,7 @@ public sealed partial class SystemPage : ListPanel
 
     public override bool Handle(NavCommand command)
     {
-        if (command != NavCommand.Favourite)
+        if (command != NavCommand.Secondary)
         {
             return false;
         }
