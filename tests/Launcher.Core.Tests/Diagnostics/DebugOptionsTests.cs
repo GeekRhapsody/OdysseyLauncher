@@ -42,6 +42,15 @@ public class DebugOptionsTests
     }
 
     [Fact]
+    public void The_running_screen_can_be_opened()
+    {
+        var result = DebugOptions.Parse(["--open=running"]);
+
+        Assert.True(result.IsValid, string.Join("; ", result.Errors));
+        Assert.Equal("running", result.Options.Open);
+    }
+
+    [Fact]
     public void Fake_status_shows_a_made_up_battery_and_network()
     {
         Assert.Null(DebugOptions.Parse([]).Options.FakeStatus);

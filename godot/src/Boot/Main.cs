@@ -804,6 +804,9 @@ public partial class Main : Node3D
             case "details":
                 OpenDetailsForDebug();
                 break;
+            case "running":
+                Launch().ShowRunningScreenForDebug("Example Game");
+                break;
         }
     }
 

@@ -4,7 +4,7 @@ Checks that a script can't observe. Each says what to run, what should happen, a
 
 ## M3: launching a real emulator, and focus
 
-This checks what the fake emulator can't: a real emulator taking the foreground, the launcher minimising and idling while the game runs, and the launcher coming back to the front with keyboard focus afterwards. Windows' focus-stealing rules make the last part the one most likely to go wrong, and they behave differently with keyboard and gamepad input, so both are tested.
+This checks what the fake emulator can't: a real emulator taking the foreground, the launcher showing its black "Running <title>" screen and idling while the game runs, and the launcher coming back to the front with keyboard focus afterwards. Windows' focus-stealing rules make the last part the one most likely to go wrong, and they behave differently with keyboard and gamepad input, so both are tested.
 
 It uses the RetroArch that RetroBat installed (`C:\RetroBat\emulators\retroarch`, which has every built-in core) and a Mega Drive ROM of your own. Everything the launcher writes goes into `C:\OdysseyTest`; your AppData isn't touched.
 
@@ -55,7 +55,7 @@ It uses the RetroArch that RetroBat installed (`C:\RetroBat\emulators\retroarch`
 
 While it starts:
 - The launcher window (the systems grid) appears, then RetroArch opens full screen in front of it within a few seconds, and the game responds to the keyboard straight away, with no click needed.
-- Don't Alt+Tab to check on the launcher: switching windows is user input, and it changes what Windows allows afterwards. The log shows whether it minimised (`the emulator took the foreground after <n> ms, so the launcher minimised`).
+- Don't Alt+Tab to check on the launcher: switching windows is user input, and it changes what Windows allows afterwards. The log shows whether the emulator took the foreground (`the emulator took the foreground after <n> ms`). The launcher isn't minimised: anything showing behind RetroArch, and the launcher for a moment as the game ends, is black with "Running <title>" in the middle, never the desktop.
 
 While you play, in a second PowerShell window, measure the launcher's CPU use over 10 s:
 
@@ -98,7 +98,7 @@ emulator = "stub-retroarch"
 ```
 
 Run the command from A, and play for at least 30 s.
-- A console window flashes up for a moment: that's the stub, because the fake emulator is a console program. The stub exits within a fraction of a second. The launcher must still treat the game as running: it stays minimised until RetroArch itself quits, and only then comes back.
+- A console window flashes up for a moment: that's the stub, because the fake emulator is a console program. The stub exits within a fraction of a second. The launcher must still treat the game as running: it keeps its running screen until RetroArch itself quits, and only then comes back.
 - RetroArch must still come to the front with keyboard focus. It's a grandchild the launcher didn't start directly, which is why the launcher lets any process take the foreground at launch.
 - The log's `ended after <n> s` should match your play time, not a fraction of a second.
 
@@ -106,7 +106,7 @@ Delete `systems.toml` afterwards.
 
 ### D. Failure messages
 
-Each should leave the launcher in front, not minimised, with a message at the top of its window for 10 s, and a `Launch failed:` line in the log. Adding `--quit-after-launch` after `++` makes the launcher exit with code 1 after the failure (`$LASTEXITCODE`).
+Each should leave the launcher in front, with no running screen, with a message at the top of its window for 10 s, and a `Launch failed:` line in the log. Adding `--quit-after-launch` after `++` makes the launcher exit with code 1 after the failure (`$LASTEXITCODE`).
 
 1. **A missing core.** Add to `emulators.toml`:
 
@@ -318,7 +318,7 @@ This checks what the scripts can't: the grid and settings with the whole catalog
 
 1. **Only what you have.** Start the launcher with your ROM folders: the systems grid shows the systems that have games (Favourites and Recently played first), not the other 150 or so. Settings, then Emulators, lists only the programs those systems use. In `C:\OdysseyTest\config\settings.toml` set `[display]` `hide_empty_systems = false`, restart: every system has a card, empty ones with "0 games".
 2. **ES-DE folders.** Put a ROM in a folder named `genesis` (and none in `megadrive`): the Mega Drive system finds it after a rescan (View, then F5, or Settings, Library).
-3. **A shortcut as a game.** Make `ports\Notepad.lnk` (a shortcut to notepad.exe) under your ROM root and rescan. Ports shows it; launch it: Notepad opens, the launcher minimises, and when you close Notepad the launcher comes back with focus. A script, `ports\Hello & World.bat` containing `@pause`, does the same (a console window; any key ends it), and nothing after the `&` runs as a separate command. A file with a `%` in its path says so and doesn't start.
+3. **A shortcut as a game.** Make `ports\Notepad.lnk` (a shortcut to notepad.exe) under your ROM root and rescan. Ports shows it; launch it: Notepad opens in front of the launcher's running screen, and when you close Notepad the launcher comes back with focus. A script, `ports\Hello & World.bat` containing `@pause`, does the same (a console window; any key ends it), and nothing after the `&` runs as a separate command. A file with a `%` in its path says so and doesn't start.
 4. **A catalogue emulator.** Install one the catalogue lists (for example Stella under `C:\Emulators\Stella\64-bit\`, the folder ES-DE looks in), put an Atari 2600 ROM in `atari2600`, and launch it: Stella opens that game. Set another emulator on Atari 2600's page (X on its card) and launch again.
 
 ### Send back
@@ -330,8 +330,8 @@ This checks what the scripts can't: the grid and settings with the whole catalog
 This checks what the scripts can't: a real Steam game handed to Steam and followed until you quit it, with the focus coming back. It uses the M3 set-up (`C:\OdysseyTest`) and the export full screen: `& .\artifacts\export\windows\OdysseyLauncher.exe --fullscreen ++ --user-dir=C:\OdysseyTest`. Steam must be installed and signed in, with at least one game installed.
 
 1. **Shortcuts.** In Steam, right-click an installed game, then Manage, Add desktop shortcut. Move the `.url` from your desktop into `steam\` under your ROM root. Put a shortcut to a program (for example Notepad) in `windows\`. Rescan (F5): Steam and Windows have cards, each game titled by its file's name.
-2. **A Steam game.** Launch the Steam game: Steam starts it (it may sync saves first), the launcher minimises, and the game takes the foreground. Play for a minute, then quit the game from its own menu: within a few seconds the launcher comes back with focus, and the game's details show one play with about the time you played.
-3. **Steam closed.** Exit Steam completely (Steam, then Exit), and launch the game again: Steam opens, signs in and starts the game, and the launcher stays minimised until you quit it, then comes back. Steam stays open.
+2. **A Steam game.** Launch the Steam game: Steam starts it (it may sync saves first), the launcher shows its running screen, and the game takes the foreground. Play for a minute, then quit the game from its own menu: within a few seconds the launcher comes back with focus, and the game's details show one play with about the time you played.
+3. **Steam closed.** Exit Steam completely (Steam, then Exit), and launch the game again: Steam opens, signs in and starts the game, and the launcher keeps its running screen until you quit it, then comes back. Steam stays open.
 4. **Never started.** Launch a game Steam has uninstalled (make a shortcut first, then uninstall it in Steam): Steam offers to install it. Close that dialog: about 2 minutes later the launcher comes back and says Steam didn't start the game and that it isn't installed. It isn't counted as a play.
 5. **Windows.** Launch the Notepad shortcut from Windows: Notepad opens, and the launcher comes back with focus when you close it.
 

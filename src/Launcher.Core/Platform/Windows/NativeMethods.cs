@@ -38,7 +38,6 @@ internal static unsafe partial class NativeMethods
     public const uint CoinitApartmentThreaded = 0x2;
     public const uint CoinitDisableOle1Dde = 0x4;
     public const int SwRestore = 9;
-    public const int SwShowMinNoActive = 7;
     public const uint InputKeyboard = 1;
     public const uint KeyEventFKeyUp = 0x0002;
     public const ushort VkMenu = 0x12;

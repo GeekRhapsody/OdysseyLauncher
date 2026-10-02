@@ -11,8 +11,8 @@
 
     and checks the exit code and the arguments the fake received. Nothing outside -UserDir is touched.
 
-    -Windowed shows the window, so you can watch the launcher minimise and come back; -SleepMs sets how long the
-    fake "plays". -Executable runs another build, e.g. the export, instead of `godot --path godot`.
+    -Windowed shows the window, so you can watch the launcher show its running screen and come back; -SleepMs sets
+    how long the fake "plays". -Executable runs another build, e.g. the export, instead of `godot --path godot`.
 .EXAMPLE
     .\tools\launch-smoke.ps1
 .EXAMPLE

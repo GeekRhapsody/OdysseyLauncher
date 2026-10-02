@@ -12,14 +12,10 @@ public interface IWindowFocus
     /// </summary>
     void BeforeLaunch(nint launcherWindow, int childProcessId);
 
-    /// <summary>True once another process's window is in the foreground, so the launcher can minimise without
-    /// handing the foreground to some unrelated window.</summary>
+    /// <summary>True once another process's window is in the foreground (the launcher logs when the emulator took it).</summary>
     bool HasLostForeground(nint launcherWindow);
 
-    /// <summary>Minimises the launcher without activating anything.</summary>
-    void Minimise(nint launcherWindow);
-
-    /// <summary>After the emulator exits: restores the launcher window and brings it to the foreground.</summary>
+    /// <summary>After the emulator exits: restores the launcher window if it was minimised and brings it to the foreground.</summary>
     ForegroundResult AfterExit(nint launcherWindow);
 }
 
@@ -55,10 +51,6 @@ public sealed class NullWindowFocus : IWindowFocus
     }
 
     public bool HasLostForeground(nint launcherWindow) => false;
-
-    public void Minimise(nint launcherWindow)
-    {
-    }
 
     public ForegroundResult AfterExit(nint launcherWindow) => ForegroundResult.NotSupported;
 }

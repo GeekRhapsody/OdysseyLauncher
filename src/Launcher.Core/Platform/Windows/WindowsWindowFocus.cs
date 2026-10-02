@@ -37,14 +37,6 @@ public sealed class WindowsWindowFocus : IWindowFocus
         return processId != GetCurrentProcessId();
     }
 
-    public void Minimise(nint launcherWindow)
-    {
-        if (launcherWindow != 0)
-        {
-            ShowWindow(launcherWindow, SwShowMinNoActive);
-        }
-    }
-
     public ForegroundResult AfterExit(nint launcherWindow)
     {
         if (launcherWindow == 0)

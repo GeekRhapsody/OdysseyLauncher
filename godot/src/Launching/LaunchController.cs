@@ -19,11 +19,11 @@ namespace Launcher.App.Launching;
 /// <summary>
 /// Hands the machine to the emulator while a game runs, and takes it back afterwards (ARCHITECTURE.md A1):
 /// <list type="number">
-/// <item>Starting: the render loop stops, the engine idles at 10 iterations a second in low-processor mode, the
-/// tree pauses (no animation or processing), the master bus mutes and input is ignored.</item>
-/// <item>Running: the emulator may take the foreground. Once it has (or after 10 s), the launcher minimises without
-/// activating anything, so no unrelated window comes forward in between.</item>
-/// <item>Exited or failed: everything above is undone, the window is restored and brought to the foreground
+/// <item>Starting: the tree pauses (no animation or processing), the master bus mutes, input is ignored, and the
+/// window turns black with "Running" and the game's title in the middle. Once that has been drawn, the render loop
+/// stops and the engine idles at 10 iterations a second in low-processor mode; the window keeps showing it.</item>
+/// <item>Running: the emulator may take the foreground. The launcher stays as it is behind it (it isn't minimised).</item>
+/// <item>Exited or failed: everything above is undone, the window is brought to the foreground
 /// (<see cref="IWindowFocus.AfterExit"/>), and input stays ignored for a moment after focus returns, so the
 /// button press that quit the emulator doesn't also act in the launcher.</item>
 /// </list>
@@ -34,7 +34,14 @@ public partial class LaunchController : Node
     private const int IdleMaxFps = 10;
     private const int IdleSleepUsec = 100_000;
     private const double ForegroundPollSeconds = 0.25;
-    private const ulong MinimiseTimeoutMs = 10_000;
+    private const ulong ForegroundTimeoutMs = 10_000;
+
+    /// <summary>Frames drawn with the running screen before the render loop stops, so it's surely on screen.</summary>
+    private const int RunningScreenFrames = 2;
+
+    /// <summary>The longest the running screen waits for those frames: a headless or minimised window draws none.</summary>
+    private const ulong RunningScreenTimeoutMs = 500;
+
     private const ulong InputGraceMs = 500;
     private const double MessageSeconds = 10.0;
 
@@ -46,8 +53,12 @@ public partial class LaunchController : Node
     private Timer _foregroundTimer = null!;
     private Timer _messageTimer = null!;
     private Label _message = null!;
+    private CanvasLayer _runningScreen = null!;
+    private Label _runningTitle = null!;
     private bool _gameMode;
-    private bool _minimised;
+    private bool _idling;
+    private int _idleAfterFrame;
+    private ulong _idleByMs;
     private bool _quitAfterLaunch;
     private ulong _runningSinceMs;
     private ulong _endedAtMs;
@@ -66,7 +77,7 @@ public partial class LaunchController : Node
     /// </summary>
     public bool IsInputBlocked => _gameMode || Time.GetTicksMsec() < _inputBlockedUntilMs;
 
-    /// <summary>True while a game runs (textures are evicted then).</summary>
+    /// <summary>True while a game runs (textures are evicted then, once the running screen is up).</summary>
     public bool InGameMode => _gameMode;
 
     public override void _Ready()
@@ -78,6 +89,9 @@ public partial class LaunchController : Node
         // swallowing: every event reaching C# allocates a wrapper, and the Deck's controls send joypad motion
         // all the time (an always-on _Input cost about 1.9 KB per frame on the main thread).
         SetProcessInput(false);
+
+        // _Process runs only while the running screen is being drawn, before the render loop stops.
+        SetProcess(false);
 
         var headless = DisplayServer.GetName() == "headless";
         _window = headless ? 0 : (nint)DisplayServer.WindowGetNativeHandle(DisplayServer.HandleType.WindowHandle);
@@ -101,6 +115,32 @@ public partial class LaunchController : Node
         layer.AddChild(_message);
         AddChild(layer);
         _message.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.TopWide, Control.LayoutPresetMode.KeepSize, 24);
+
+        // Above everything else, the status indicators included.
+        _runningScreen = new CanvasLayer { Layer = 100, Visible = false, Name = "RunningScreen" };
+        var black = new ColorRect { Color = Colors.Black, MouseFilter = Control.MouseFilterEnum.Ignore };
+        black.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        _runningScreen.AddChild(black);
+        _runningTitle = new Label
+        {
+            LabelSettings = new LabelSettings { FontSize = 30, FontColor = Colors.White },
+            AutowrapMode = TextServer.AutowrapMode.WordSmart,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+        };
+        _runningTitle.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect, Control.LayoutPresetMode.Minsize, 44);
+        _runningScreen.AddChild(_runningTitle);
+        AddChild(_runningScreen);
+    }
+
+    /// <summary>Only while the running screen is being drawn: once it has been (or after a time limit), the launcher idles.</summary>
+    public override void _Process(double delta)
+    {
+        if (_gameMode && !_idling && (Engine.GetFramesDrawn() >= _idleAfterFrame || Time.GetTicksMsec() >= _idleByMs))
+        {
+            Idle();
+        }
     }
 
     public override void _ExitTree()
@@ -149,7 +189,10 @@ public partial class LaunchController : Node
         }
     }
 
-    /// <summary>Raised on the main thread when a game starts: the navigator frees its textures.</summary>
+    /// <summary>
+    /// Raised on the main thread once a game has started and the running screen is up: the navigator frees its
+    /// textures. <see cref="GameModeLeft"/> follows only if this was raised.
+    /// </summary>
     public event Action? GameModeEntered;
 
     /// <summary>Raised on the main thread when the launcher is back: the navigator restores its textures.</summary>
@@ -259,7 +302,7 @@ public partial class LaunchController : Node
             service.Starting += (_, e) =>
             {
                 GD.Print($"Launch: {e.Game.Title} with {e.Plan.EmulatorName}: {CommandLine(e.Plan)}");
-                CallDeferred(MethodName.OnStarting);
+                CallDeferred(MethodName.OnStarting, e.Game.Title);
             };
             service.Running += (_, e) => CallDeferred(MethodName.OnRunning, e.ProcessId);
             service.Exited += (_, e) => CallDeferred(
@@ -291,10 +334,9 @@ public partial class LaunchController : Node
 
     // ---- Main thread, through CallDeferred ------------------------------------------------------
 
-    private void OnStarting()
+    private void OnStarting(string title)
     {
-        EnterGameMode();
-        GameModeEntered?.Invoke();
+        EnterGameMode(title);
     }
 
     private void OnRunning(int processId)
@@ -308,17 +350,15 @@ public partial class LaunchController : Node
     {
         var waited = Time.GetTicksMsec() - _runningSinceMs;
         var lost = _focus.HasLostForeground(_window);
-        if (!lost && waited < MinimiseTimeoutMs)
+        if (!lost && waited < ForegroundTimeoutMs)
         {
             return;
         }
 
         _foregroundTimer.Stop();
-        _focus.Minimise(_window);
-        _minimised = true;
         GD.Print(lost
-            ? $"Launch: the emulator took the foreground after {waited} ms, so the launcher minimised."
-            : $"Launch: the emulator didn't take the foreground within {MinimiseTimeoutMs} ms, so the launcher minimised anyway.");
+            ? $"Launch: the emulator took the foreground after {waited} ms."
+            : $"Launch: the emulator didn't take the foreground within {ForegroundTimeoutMs} ms.");
     }
 
     private void OnLaunchEnded(bool failed, string message)
@@ -327,14 +367,20 @@ public partial class LaunchController : Node
         if (_gameMode)
         {
             _endedAtMs = Time.GetTicksMsec();
+            var entered = _idling;
             LeaveGameMode();
             var result = _focus.AfterExit(_window);
-            if (_minimised && DisplayServer.WindowGetMode() != _saved.WindowMode)
+            if (DisplayServer.WindowGetMode() != _saved.WindowMode)
             {
+                // The player minimised it while the game ran, and AfterExit restored it.
                 DisplayServer.WindowSetMode(_saved.WindowMode);
             }
 
-            GameModeLeft?.Invoke();
+            if (entered)
+            {
+                GameModeLeft?.Invoke();
+            }
+
             GD.Print($"Launch: back in the launcher; foreground: {result}.");
             if (result is ForegroundResult.AlreadyForeground or ForegroundResult.NotSupported)
             {
@@ -343,7 +389,6 @@ public partial class LaunchController : Node
             }
         }
 
-        _minimised = false;
         _inputBlockedUntilMs = Time.GetTicksMsec() + InputGraceMs;
         if (failed)
         {
@@ -369,7 +414,23 @@ public partial class LaunchController : Node
         _messageTimer.Start();
     }
 
-    private void EnterGameMode()
+    /// <summary>
+    /// <c>--open=running</c>: the running screen alone, for a capture. Nothing is launched and the launcher keeps
+    /// drawing; the screen stays up until the app quits.
+    /// </summary>
+    public void ShowRunningScreenForDebug(string title) => ShowRunningScreen(title);
+
+    private void ShowRunningScreen(string title)
+    {
+        _runningTitle.Text = $"Running {title}";
+        _runningScreen.Visible = true;
+    }
+
+    /// <summary>
+    /// The first half of game mode: everything stops but drawing, and the running screen goes up. <see cref="Idle"/>
+    /// does the rest once it has been drawn.
+    /// </summary>
+    private void EnterGameMode(string title)
     {
         _saved = new SavedState(
             OS.LowProcessorUsageMode,
@@ -380,20 +441,41 @@ public partial class LaunchController : Node
             GetViewport().GuiDisableInput,
             DisplayServer.WindowGetMode());
         _gameMode = true;
+        _idling = false;
         SetProcessInput(true);
 
+        GetTree().Paused = true;
+        AudioServer.SetBusMute(0, true);
+        GetViewport().GuiDisableInput = true;
+        ShowRunningScreen(title);
+
+        // The frame being built now may not have the screen yet; the ones after it do.
+        _idleAfterFrame = Engine.GetFramesDrawn() + 1 + RunningScreenFrames;
+        _idleByMs = Time.GetTicksMsec() + RunningScreenTimeoutMs;
+        SetProcess(true);
+    }
+
+    /// <summary>
+    /// The running screen has been drawn: the render loop stops (the window keeps showing its last frame), the engine
+    /// idles, and the navigator frees its textures.
+    /// </summary>
+    private void Idle()
+    {
+        SetProcess(false);
+        _idling = true;
         RenderingServer.RenderLoopEnabled = false;
         OS.LowProcessorUsageMode = true;
         OS.LowProcessorUsageModeSleepUsec = IdleSleepUsec;
         Engine.MaxFps = IdleMaxFps;
-        GetTree().Paused = true;
-        AudioServer.SetBusMute(0, true);
-        GetViewport().GuiDisableInput = true;
+        GameModeEntered?.Invoke();
     }
 
     private void LeaveGameMode()
     {
+        SetProcess(false);
         _gameMode = false;
+        _idling = false;
+        _runningScreen.Visible = false;
         OS.LowProcessorUsageMode = _saved.LowProcessor;
         OS.LowProcessorUsageModeSleepUsec = _saved.SleepUsec;
         Engine.MaxFps = _saved.MaxFps;
