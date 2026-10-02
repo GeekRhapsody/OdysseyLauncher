@@ -1,7 +1,7 @@
 <Project>
   <!-- Imported by every project in the repo, including the Godot project (via Microsoft.Common.props). -->
   <PropertyGroup>
-    <Version>0.2.0-beta.1</Version>
+    <Version>0.2.0-beta.2</Version>
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
