@@ -32,7 +32,7 @@ public sealed class ModelImportServiceTests : IAsyncLifetime
             Settings = new ConfigFile("settings.toml", $"[paths]\nrom_root = '{_dir.Combine("ROMs")}'\n"),
         }).Config;
         _library = await LibraryService.OpenAsync(config, _paths.DataDir, null, Ct);
-        _library.ConfigDir = _paths.ConfigDir;
+        _library.IndexMedia = true;
         _dir.File("ROMs/ps2/Sub/Crimson Odyssey (Europe).iso", "rom");
         _dir.File("ROMs/ps2/Other.iso", "rom");
         await _library.RescanAsync("ps2", null, Ct);
@@ -60,16 +60,16 @@ public sealed class ModelImportServiceTests : IAsyncLifetime
         var result = await _service.ImportGameModelAsync(Game, Source("tv.glb", ModelFixtures.Model(800, ["screenshot", "body"])), Ct);
 
         Assert.Equal(ModelImportStatus.Imported, result.Status);
-        Assert.Equal("models/games/ps2/Sub/Crimson Odyssey (Europe).iso.glb", result.ModelPath);
+        Assert.Equal("media/ps2/model/Sub/Crimson Odyssey (Europe).iso.glb", result.ModelPath);
         Assert.False(result.Converted);
-        Assert.True(File.Exists(Path.Combine(_paths.ConfigDir, "models", "games", "ps2", "Sub", "Crimson Odyssey (Europe).iso.glb")));
+        Assert.True(File.Exists(Path.Combine(_paths.DataDir, "media", "ps2", "model", "Sub", "Crimson Odyssey (Europe).iso.glb")));
         Assert.Equal(result.ModelPath, Assert.Single(await Models()).Media.Path);
         Assert.Equal([Game], Assert.Single(changes)!);
 
         // The cache already has it, so the app doesn't process it again.
-        var cached = new ModelCache(_paths.CacheDir, null, null).Get(Path.Combine(_paths.ConfigDir, result.ModelPath!), ModelKind.PerGame);
+        var cached = new ModelCache(_paths.CacheDir, null, null).Get(Path.Combine(_paths.DataDir, result.ModelPath!), ModelKind.PerGame);
         Assert.True(cached.FromCache);
-        Assert.Contains(ModelLog.ReadRecent(_paths.DataDir), l => l.Contains("Imported as models/games/ps2/", StringComparison.Ordinal));
+        Assert.Contains(ModelLog.ReadRecent(_paths.DataDir), l => l.Contains("Imported as media/ps2/model/", StringComparison.Ordinal));
         Assert.Equal(result.ModelPath, (await _service.GetGameModelAsync(Game, Ct))!.Value.Path);
     }
 
@@ -99,7 +99,7 @@ public sealed class ModelImportServiceTests : IAsyncLifetime
         Assert.Equal(ModelImportStatus.Rejected, result.Status);
         Assert.False(result.Report!.Accepted);
         Assert.Empty(await Models());
-        Assert.False(Directory.Exists(Path.Combine(_paths.ConfigDir, "models")));
+        Assert.False(Directory.Exists(Path.Combine(_paths.DataDir, "media")));
         Assert.Contains(ModelLog.ReadRecent(_paths.DataDir), l => l.Contains("error: huge.glb for ps2/Sub/Crimson Odyssey (Europe).iso: has 12,000 triangles", StringComparison.Ordinal));
     }
 
@@ -125,7 +125,7 @@ public sealed class ModelImportServiceTests : IAsyncLifetime
         var removed = await _service.RemoveGameModelAsync(Game, Ct);
 
         Assert.Equal(ModelRemoveStatus.Removed, removed.Status);
-        Assert.False(File.Exists(Path.Combine(_paths.ConfigDir, imported.ModelPath!)));
+        Assert.False(File.Exists(Path.Combine(_paths.DataDir, imported.ModelPath!)));
         Assert.Empty(await Models());
         Assert.Equal(ModelRemoveStatus.None, (await _service.RemoveGameModelAsync(Game, Ct)).Status);
         Assert.Null(await _service.GetGameModelAsync(Game, Ct));
@@ -134,12 +134,12 @@ public sealed class ModelImportServiceTests : IAsyncLifetime
     [Fact]
     public async Task A_model_shared_by_name_isnt_removed_for_one_game()
     {
-        ModelFixtures.Write(_dir, "user/models/games/ps2/Other.glb", ModelFixtures.Model(100));
-        await _library.RefreshUserMediaAsync("ps2", Ct);
+        ModelFixtures.Write(_dir, "user/media/ps2/model/Other.glb", ModelFixtures.Model(100));
+        await _library.RefreshMediaAsync("ps2", Ct);
 
         var result = await _service.RemoveGameModelAsync(new GameKey("ps2", "other.iso"), Ct);
 
-        Assert.Equal((ModelRemoveStatus.Shared, "models/games/ps2/Other.glb"), (result.Status, result.SharedPath));
+        Assert.Equal((ModelRemoveStatus.Shared, "media/ps2/model/Other.glb"), (result.Status, result.SharedPath));
         Assert.Single(await Models());
     }
 

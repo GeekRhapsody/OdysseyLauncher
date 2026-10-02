@@ -13,12 +13,12 @@ using Launcher.Core.Models;
 //
 // Writes a portable user folder for `--user-dir`: settings, systems and emulators config, 20 systems (the 14 built-in
 // ones plus 6 more), PlayStation 2 with --games games and the others with --others each (default 30 to 400), and
-// empty ROM files with generated No-Intro-style names. Every game but one in --no-art-every has a cover in
-// ConfigDir/media, hardlinked from the spike library's JPEGs, and its baked BC7 derivative in cache/textures,
+// empty ROM files with generated No-Intro-style names. Every game but one in --no-art-every has a cover in the media
+// folder (DataDir/media), hardlinked from the spike library's JPEGs, and its baked BC7 derivative in cache/textures,
 // hardlinked from the spike's DDS files, so the library costs almost no disk. With --slots, those games also get art
 // of each named kind (a different spike image for each), for themes whose templates use more slots than the cover.
 // With --models, that many PlayStation 2 games, spread evenly, get a per-game model of their own
-// (ConfigDir/models/games/ps2/<rel path>.glb, M6): a lathed figure on a plinth, about 1,000 triangles, with a cover
+// (DataDir/media/ps2/model/<rel path>.glb, M6): a lathed figure on a plinth, about 1,000 triangles, with a cover
 // slot on the plinth and, on every third, a small texture of its own. Then it scans the library, so the app boots warm.
 //
 // The folder is deleted and recreated, but only if it's empty or was made by this tool.
@@ -135,7 +135,7 @@ foreach (var system in generatedSystems)
         games++;
         if (system.Id == "ps2" && options.Models > 0 && i % Math.Max(1, count / options.Models) == 0 && models < options.Models)
         {
-            var model = Path.Combine(root, "models", "games", "ps2", stem + extension + ".glb");
+            var model = Path.Combine(root, MediaScanner.FolderName, "ps2", MediaKinds.Model, stem + extension + ".glb");
             Directory.CreateDirectory(Path.GetDirectoryName(model)!);
             File.WriteAllBytes(model, SyntheticModels.Make(random, models));
             models++;
@@ -146,7 +146,7 @@ foreach (var system in generatedSystems)
             continue;
         }
 
-        // The spike's cover N, as the game's user art, and its baked derivative under the key the app looks up; each
+        // The spike's cover N, as the game's art, and its baked derivative under the key the app looks up; each
         // extra slot kind gets another spike image.
         var n = spikeCover++;
         Link(system.Id, MediaKinds.Cover, stem, n % 10_000);
@@ -164,7 +164,7 @@ Console.WriteLine($"Wrote {generatedSystems.Count} systems, {games:N0} games, {c
 stopwatch.Restart();
 using (var library = await LibraryService.OpenAsync(loaded.Config, root, null, default))
 {
-    library.ConfigDir = root;
+    library.IndexMedia = true;
     var summary = await library.RescanAsync(null, null, default);
     Console.WriteLine($"Scanned {summary.Added:N0} games in {stopwatch.Elapsed.TotalSeconds:0.0} s; {summary.Diagnostics.Count} diagnostics.");
     foreach (var diagnostic in summary.Diagnostics.Take(5))
@@ -180,12 +180,12 @@ void Link(string systemId, string kind, string stem, int n)
 {
     var sourceJpeg = Path.Combine(options.Covers, "jpg", n.ToString("D5", CultureInfo.InvariantCulture) + ".jpg");
     var sourceDds = Path.Combine(options.Covers, "dds-bc7", n.ToString("D5", CultureInfo.InvariantCulture) + ".dds");
-    var relative = $"{UserMedia.FolderName}/{systemId}/{kind}/{stem}.jpg";
+    var relative = $"{MediaScanner.FolderName}/{systemId}/{kind}/{stem}.jpg";
     var art = Path.Combine(root, relative.Replace('/', Path.DirectorySeparatorChar));
     Directory.CreateDirectory(Path.GetDirectoryName(art)!);
     HardLink(art, sourceJpeg);
     var info = new FileInfo(art);
-    var key = TextureDerivatives.FileName(MediaRoot.Config, relative, info.Length, new DateTimeOffset(info.LastWriteTimeUtc).ToUnixTimeMilliseconds());
+    var key = TextureDerivatives.FileName(relative, info.Length, new DateTimeOffset(info.LastWriteTimeUtc).ToUnixTimeMilliseconds());
     var derivative = Path.Combine(cacheDir, key);
     if (!File.Exists(derivative))
     {

@@ -1,6 +1,5 @@
 using Launcher.Core.Library;
 using Launcher.Core.Platform;
-using Launcher.Core.Scraping;
 
 namespace Launcher.Core.Media;
 
@@ -9,10 +8,10 @@ public enum UserArtStatus
     /// <summary>The image is the game's now (<see cref="UserArtResult.Path"/>).</summary>
     Set,
 
-    /// <summary>The user's own image went; <see cref="UserArtResult.RestoredFrom"/> says whether a scraped one took its place.</summary>
+    /// <summary>The game's image went (scraped or the user's own); the slot is empty until a scrape fills it.</summary>
     Removed,
 
-    /// <summary>The game had no image of its own of that kind.</summary>
+    /// <summary>The game had no image of that kind.</summary>
     None,
 
     /// <summary>
@@ -29,23 +28,22 @@ public enum UserArtStatus
 }
 
 /// <summary>What setting or removing one of a game's images did.</summary>
-/// <param name="Path">The image's file, relative to ConfigDir and '/'-separated (<c>media/ps2/cover/Game.iso.png</c>).</param>
-/// <param name="RestoredFrom">After a removal: the provider whose scraped image shows again, or null if there's none.</param>
+/// <param name="Path">The image's file, relative to DataDir and '/'-separated (<c>media/ps2/cover/Game.iso.png</c>).</param>
 /// <param name="Message">Why it was refused, for the user.</param>
-public sealed record UserArtResult(UserArtStatus Status, string? Path, string? RestoredFrom = null, string? Message = null);
+public sealed record UserArtResult(UserArtStatus Status, string? Path, string? Message = null);
 
 /// <summary>
 /// The user's own images for a game (M7's game options panel): one per media kind, chosen with the image picker.
 /// <para>
-/// Setting one copies the file to the game's own name in the user's art folder,
-/// <c>ConfigDir/media/&lt;system&gt;/&lt;kind&gt;/&lt;rel path&gt;.&lt;ext&gt;</c> (the ROM's whole name, so no other game
-/// takes it; A4), bakes its derivative, and indexes it without a ROM scan
-/// (<see cref="LibraryService.RefreshUserMediaAsync"/>, which raises <c>MediaChanged</c>, so the grid shows it at
-/// once). The user's art beats scraped art, and the scraped file stays on disk.
+/// Setting one copies the file to the game's own name in the media folder,
+/// <c>DataDir/media/&lt;system&gt;/&lt;kind&gt;/&lt;rel path&gt;.&lt;ext&gt;</c> (the ROM's whole name, so no other game
+/// takes it; A4), replacing the game's file of that kind (a scraped one too: there's one file per kind), bakes its
+/// derivative, and indexes it without a ROM scan (<see cref="LibraryService.RefreshMediaAsync"/>, which raises
+/// <c>MediaChanged</c>, so the grid shows it at once). Scraping never replaces it.
 /// </para>
 /// <para>
-/// Removing it deletes that file and points the slot back at the scraped image, if the game has one, from its saved
-/// responses (A4 Restoring scraped data). A file every game of that name shares isn't removed for one game.
+/// Removing deletes the game's own file of that kind, whoever put it there; the slot stays empty until a scrape
+/// fills it. A file every game of that name shares isn't removed for one game.
 /// </para>
 /// It's just files in the folder the scanner indexes, so a rebuild keeps them. Clearing a game's metadata removes them.
 /// </summary>
@@ -54,11 +52,11 @@ public sealed class UserArtService(LibraryService library, IPlatformPaths paths,
     private readonly LibraryService _library = library ?? throw new ArgumentNullException(nameof(library));
     private readonly IPlatformPaths _paths = paths ?? throw new ArgumentNullException(nameof(paths));
 
-    /// <summary>The game's own file for a kind, relative to ConfigDir: <c>media/&lt;system&gt;/&lt;kind&gt;/&lt;rel path&gt;&lt;ext&gt;</c>.</summary>
+    /// <summary>The game's own file for a kind, relative to DataDir: <c>media/&lt;system&gt;/&lt;kind&gt;/&lt;rel path&gt;&lt;ext&gt;</c>.</summary>
     public static string PathFor(GameKey game, string relPath, string kind, string extension)
     {
-        ArgumentNullException.ThrowIfNull(relPath);
-        return $"{UserMedia.FolderName}/{game.SystemId}/{kind}/{relPath}{extension.ToLowerInvariant()}";
+        ArgumentNullException.ThrowIfNull(extension);
+        return MediaStore.RelativePathFor(game.SystemId, relPath, kind, extension.ToLowerInvariant());
     }
 
     public async Task<UserArtResult> SetAsync(GameKey game, string kind, string sourceFile, CancellationToken cancellationToken)
@@ -124,14 +122,14 @@ public sealed class UserArtService(LibraryService library, IPlatformPaths paths,
         var info = new FileInfo(Full(written.Path!));
         if (derivatives is not null)
         {
-            await derivatives.BakeAsync(MediaRoot.Config, written.Path!, info.Length, new DateTimeOffset(info.LastWriteTimeUtc).ToUnixTimeMilliseconds(), cancellationToken).ConfigureAwait(false);
+            await derivatives.BakeAsync(written.Path!, info.Length, new DateTimeOffset(info.LastWriteTimeUtc).ToUnixTimeMilliseconds(), cancellationToken).ConfigureAwait(false);
         }
 
-        await _library.RefreshUserMediaAsync(game.SystemId, cancellationToken).ConfigureAwait(false);
+        await _library.RefreshMediaAsync(game.SystemId, cancellationToken).ConfigureAwait(false);
         return written;
     }
 
-    /// <summary>Removes the game's own image of <paramref name="kind"/>, and shows the scraped one again if there is one.</summary>
+    /// <summary>Removes the game's own image of <paramref name="kind"/>, scraped or the user's.</summary>
     public async Task<UserArtResult> RemoveAsync(GameKey game, string kind, CancellationToken cancellationToken)
     {
         CheckKind(kind);
@@ -155,29 +153,16 @@ public sealed class UserArtService(LibraryService library, IPlatformPaths paths,
         if (removed is null)
         {
             var rows = await _library.GetGameMediaInfoAsync(details.GameId, cancellationToken).ConfigureAwait(false);
-            return rows.FirstOrDefault(r => r.Kind == kind && r.IsUsers) is { } shared
+            return rows.FirstOrDefault(r => r.Kind == kind) is { } shared
                 ? new UserArtResult(UserArtStatus.Shared, shared.Media.Path)
                 : new UserArtResult(UserArtStatus.None, null);
         }
 
-        await _library.RefreshUserMediaAsync(game.SystemId, cancellationToken).ConfigureAwait(false);
-        var config = _library.Config;
-        var dataDir = _library.DataDir;
-        var restored = await _library.WriteAsync(c => ScrapedRestore.RestoreMedia(c, dataDir, config, game, kind), cancellationToken).ConfigureAwait(false);
-        if (restored is { } back)
-        {
-            if (derivatives is not null)
-            {
-                await derivatives.BakeAsync(MediaRoot.Data, back.Media.RelativePath, back.Media.SizeBytes, back.Media.MtimeMs, cancellationToken).ConfigureAwait(false);
-            }
-
-            _library.RaiseMediaChanged([game]);
-        }
-
-        return new UserArtResult(UserArtStatus.Removed, removed, restored?.Provider);
+        await _library.RefreshMediaAsync(game.SystemId, cancellationToken).ConfigureAwait(false);
+        return new UserArtResult(UserArtStatus.Removed, removed);
     }
 
-    /// <summary>The game's own files of a kind (its whole ROM name, any image extension), relative to ConfigDir.</summary>
+    /// <summary>The game's own files of a kind (its whole ROM name, any image extension), relative to DataDir.</summary>
     private List<string> OwnFiles(GameKey game, string relPath, string kind)
     {
         var files = new List<string>();
@@ -193,7 +178,7 @@ public sealed class UserArtService(LibraryService library, IPlatformPaths paths,
         return files;
     }
 
-    private string Full(string relative) => Path.Combine(_paths.ConfigDir, relative.Replace('/', Path.DirectorySeparatorChar));
+    private string Full(string relative) => Path.Combine(_paths.DataDir, relative.Replace('/', Path.DirectorySeparatorChar));
 
     private static void CheckKind(string kind)
     {

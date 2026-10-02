@@ -461,15 +461,35 @@ public sealed class ScraperUnitTests
     {
         using var dir = new TempDir();
         var store = new MediaStore(dir.Path);
-        var game = new GameKey("megadrive", "sonic.md");
+        var ct = TestContext.Current.CancellationToken;
 
-        var video = await store.SaveAsync(game, MediaKinds.Video, ScrapeBed.Mp4("clip"), TestContext.Current.CancellationToken);
+        var video = (await store.SaveAsync("megadrive", "Sonic.md", MediaKinds.Video, ScrapeBed.Mp4("clip"), ct))!;
 
-        Assert.Equal("scraped/media/megadrive/video/sonic.md.mp4", video.RelativePath);
+        Assert.Equal("media/megadrive/video/Sonic.md.mp4", video.RelativePath);
         Assert.Equal((0, 0), (video.Width, video.Height));
-        Assert.Contains(store.FullPath(video.RelativePath), store.FilesOf(game));
-        await Assert.ThrowsAsync<InvalidDataException>(() => store.SaveAsync(game, MediaKinds.Video, ScrapeBed.Png("x"), TestContext.Current.CancellationToken));
-        await Assert.ThrowsAsync<InvalidDataException>(() => store.SaveAsync(game, MediaKinds.Cover, ScrapeBed.Mp4("x"), TestContext.Current.CancellationToken));
+        Assert.Contains(store.FullPath(video.RelativePath), store.FilesOf("megadrive", "Sonic.md"));
+        await Assert.ThrowsAsync<InvalidDataException>(() => store.SaveAsync("megadrive", "Sonic.md", MediaKinds.Video, ScrapeBed.Png("x"), ct));
+        await Assert.ThrowsAsync<InvalidDataException>(() => store.SaveAsync("megadrive", "Sonic.md", MediaKinds.Cover, ScrapeBed.Mp4("x"), ct));
+    }
+
+    [Fact]
+    public async Task A_download_never_replaces_a_file_the_game_has_in_any_format_its_own_or_shared()
+    {
+        using var dir = new TempDir();
+        var store = new MediaStore(dir.Path);
+        var ct = TestContext.Current.CancellationToken;
+        var shared = dir.File("media/megadrive/cover/Sonic.jpg", "the user's");
+        var own = dir.File("media/megadrive/logo/Sonic.md.webp", "the user's");
+
+        Assert.Null(await store.SaveAsync("megadrive", "Sonic.md", MediaKinds.Cover, ScrapeBed.Png("cover"), ct));
+        Assert.Null(await store.SaveAsync("megadrive", "Sonic.md", MediaKinds.Logo, ScrapeBed.Png("logo"), ct));
+        var label = await store.SaveAsync("megadrive", "Sonic.md", MediaKinds.Label, ScrapeBed.Png("label"), ct);
+
+        Assert.Equal(("the user's", "the user's"), (File.ReadAllText(shared), File.ReadAllText(own)));
+        Assert.Equal(["Sonic.jpg", "Sonic.md.webp"], Directory.EnumerateFiles(dir.Combine("media/megadrive"), "*", SearchOption.AllDirectories)
+            .Where(f => !f.Contains("label", StringComparison.Ordinal)).Select(Path.GetFileName).Order());
+        Assert.Equal("media/megadrive/label/Sonic.md.png", label!.RelativePath);
+        Assert.Null(await store.SaveAsync("megadrive", "Sonic.md", MediaKinds.Label, ScrapeBed.Png("another"), ct));
     }
 
     [Fact]
@@ -507,7 +527,7 @@ public sealed class DerivativeServiceTests : IAsyncLifetime
 
         Assert.Equal((1, 1, 0), (first.Images, first.Baked, first.Failed));
         var row = (await _bed.Library.GetGamesAsync("megadrive", Ct)).Games.Single();
-        var old = TextureDerivatives.PathFor(_bed.Paths.CacheDir, MediaRoot.Config, row.CoverPath!, row.CoverSizeBytes, row.CoverMtimeMs);
+        var old = TextureDerivatives.PathFor(_bed.Paths.CacheDir, row.CoverPath!, row.CoverSizeBytes, row.CoverMtimeMs);
         Assert.Equal(Bc7DdsWriter.FileLength, new FileInfo(old).Length);
         Assert.Equal(1, (await service.Derivatives.BakeMissingAsync(null, Ct)).AlreadyBaked);
 
@@ -518,7 +538,7 @@ public sealed class DerivativeServiceTests : IAsyncLifetime
         var second = await service.Derivatives.BakeMissingAsync(null, Ct);
 
         row = (await _bed.Library.GetGamesAsync("megadrive", Ct)).Games.Single();
-        var fresh = TextureDerivatives.PathFor(_bed.Paths.CacheDir, MediaRoot.Config, row.CoverPath!, row.CoverSizeBytes, row.CoverMtimeMs);
+        var fresh = TextureDerivatives.PathFor(_bed.Paths.CacheDir, row.CoverPath!, row.CoverSizeBytes, row.CoverMtimeMs);
         Assert.NotEqual(old, fresh);
         Assert.Equal((1, 1), (second.Baked, second.Pruned));
         Assert.True(File.Exists(fresh));

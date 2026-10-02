@@ -77,16 +77,70 @@ public sealed class ScrapeServiceTests : IAsyncLifetime
         Assert.DoesNotContain(_bed.Http.Requests, r => r.Query("media") == "box-2D(us)");
         foreach (var kind in (string[])["cover", "label", "spine"])
         {
-            var path = MediaStore.RelativePathFor(Key(Sonic), kind, ".png");
-            Assert.True(File.Exists(Path.Combine(_bed.Paths.DataDir, path)), kind);
-            Assert.Equal("screenscraper", _bed.Query<string>("SELECT source FROM media WHERE kind = $kind", ("$kind", kind)));
+            // In the media folder, named after the ROM as the user's own art is, and indexed as a scan would.
+            var file = _bed.MediaFile(Sonic, kind, ".png");
+            Assert.True(File.Exists(file), kind);
+            Assert.Equal($"media/megadrive/{kind}/Sonic the Hedgehog 3 (Europe).md.png", _bed.Query<string>("SELECT path FROM media WHERE kind = $kind", ("$kind", kind)));
+            Assert.Equal("screenscraper", _bed.SuppliedBy(Key(Sonic), kind));
         }
 
         // Nothing was missing, so the fallbacks weren't asked (and IGDB needed no token).
         Assert.Equal(0, _bed.Http.Count("igdb"));
         Assert.Equal(0, _bed.Http.Count("twitch"));
         Assert.Equal(0, _bed.Http.Count("steamgriddb"));
-        Assert.True(File.Exists(ScrapedResponses.FullPath(_bed.Paths.DataDir, "screenscraper", Key(Sonic))));
+
+        // Responses are saved only with --save-responses.
+        Assert.False(Directory.Exists(Path.Combine(_bed.Paths.DataDir, ScrapedResponses.ScrapedFolder)));
+    }
+
+    [Fact]
+    public async Task Responses_are_saved_only_when_asked_and_redacted()
+    {
+        _bed.Rom(Sonic);
+        await _bed.ScanAsync();
+        using var service = _bed.Service(saveResponses: true);
+
+        await service.ScrapeGameAsync(Key(Sonic), Ct);
+
+        var saved = ScrapedResponses.Load(_bed.Paths.DataDir, "screenscraper", Key(Sonic))!;
+        Assert.Equal(("ok", "1187", "hash"), (saved.Status, saved.GameId, saved.Method));
+        Assert.Equal(["cover", "label", "spine"], saved.Media.Select(m => m.Kind).Order());
+        Assert.All(saved.Media, m => Assert.True(File.Exists(Path.Combine(_bed.Paths.DataDir, m.Path)), m.Path));
+        Assert.DoesNotContain(ScrapeBed.DevPassword, saved.Response!, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_scrape_fills_only_kinds_with_no_file_and_never_replaces_one()
+    {
+        _bed.Rom(Sonic);
+        var own = _bed.Dir.File("user/media/megadrive/cover/Sonic the Hedgehog 3 (Europe).jpg");
+        var ownBytes = TestImages.Jpeg(30, 40);
+        File.WriteAllBytes(own, ownBytes);
+        await _bed.ScanAsync();
+        using var service = _bed.Service();
+
+        await service.ScrapeGameAsync(Key(Sonic), Ct);
+
+        // The cover the user put there (shared by the ROM's name, without its extension) stays, and isn't asked for.
+        Assert.Equal(ownBytes, File.ReadAllBytes(own));
+        Assert.False(File.Exists(_bed.MediaFile(Sonic, "cover", ".png")));
+        Assert.DoesNotContain(_bed.Http.Requests, r => r.Query("media") is { } m && m.StartsWith("box-2D(", StringComparison.Ordinal));
+        Assert.Equal("media/megadrive/cover/Sonic the Hedgehog 3 (Europe).jpg", _bed.Query<string>("SELECT path FROM media WHERE kind = 'cover'"));
+        Assert.Equal(["label", "spine"], _bed.Scraped[Key(Sonic)].Media.Order());
+
+        // A rescrape downloads nothing: every kind has its file.
+        var label = File.ReadAllBytes(_bed.MediaFile(Sonic, "label", ".png"));
+        var downloads = _bed.Http.Count("mediaJeu.php");
+        await service.ScrapeGameAsync(Key(Sonic), Ct);
+        Assert.Equal(downloads, _bed.Http.Count("mediaJeu.php"));
+        Assert.Equal(label, File.ReadAllBytes(_bed.MediaFile(Sonic, "label", ".png")));
+
+        // A file deleted (and the folder rescanned) is filled again by the next scrape.
+        File.Delete(_bed.MediaFile(Sonic, "label", ".png"));
+        await _bed.ScanAsync();
+        await service.ScrapeGameAsync(Key(Sonic), Ct);
+        Assert.True(File.Exists(_bed.MediaFile(Sonic, "label", ".png")));
+        Assert.Equal(["label"], _bed.Scraped[Key(Sonic)].Media);
     }
 
     [Fact]
@@ -111,8 +165,8 @@ public sealed class ScrapeServiceTests : IAsyncLifetime
         Assert.Equal("1", metadata.Players);
         Assert.Equal(0.7, metadata.Rating!.Value, 3);
         Assert.Equal("screenscraper,igdb", metadata.Source);
-        Assert.Equal("igdb", _bed.Query<string>("SELECT source FROM media WHERE kind = 'cover'"));
-        Assert.Equal("screenscraper", _bed.Query<string>("SELECT source FROM media WHERE kind = 'screenshot'"));
+        Assert.Equal("igdb", _bed.SuppliedBy(Key(Ecco), "cover"));
+        Assert.Equal("screenscraper", _bed.SuppliedBy(Key(Ecco), "screenshot"));
 
         // In order: ScreenScraper, then IGDB; SteamGridDB had nothing left to add, so it wasn't asked.
         var requests = _bed.Http.Requests.ToList();
@@ -137,10 +191,10 @@ public sealed class ScrapeServiceTests : IAsyncLifetime
         Assert.Equal("1-2", metadata.Players);              // the Mega Drive's multiplayer mode, not another platform's
         Assert.Equal(0.845, metadata.Rating!.Value, 3);
         Assert.Equal("igdb", metadata.Source);
-        Assert.Equal("igdb", _bed.Query<string>("SELECT source FROM media WHERE kind = 'cover'"));
+        Assert.Equal("igdb", _bed.SuppliedBy(Key(Sonic), "cover"));
 
         // ScreenScraper was still asked, for the support texture IGDB doesn't have.
-        Assert.Equal("screenscraper", _bed.Query<string>("SELECT source FROM media WHERE kind = 'label'"));
+        Assert.Equal("screenscraper", _bed.SuppliedBy(Key(Sonic), "label"));
     }
 
     [Fact]
@@ -156,7 +210,7 @@ public sealed class ScrapeServiceTests : IAsyncLifetime
         Assert.True((1, 0) == (result.Done, result.Failed), string.Join(" | ", _bed.Log.Lines));
         foreach (var kind in MediaKinds.Scrapable)
         {
-            Assert.Equal("screenscraper", _bed.Query<string>("SELECT source FROM media WHERE kind = $kind", ("$kind", kind)));
+            Assert.Equal("screenscraper", _bed.SuppliedBy(Key(Sonic), kind));
         }
 
         Assert.Equal(MediaKinds.Scrapable.Count, (int)_bed.Query<long>("SELECT COUNT(*) FROM media"));   // no box texture
@@ -174,8 +228,8 @@ public sealed class ScrapeServiceTests : IAsyncLifetime
         Assert.Contains("box-2D-back(eu)", asked);
         Assert.Contains("fanart", asked);
 
-        // The video is an .mp4 with no size; it survives an offline rebuild and goes with a clear.
-        var video = Path.Combine(_bed.Paths.DataDir, MediaStore.RelativePathFor(Key(Sonic), MediaKinds.Video, ".mp4"));
+        // The video is an .mp4 with no size; a rebuild indexes it from the media folder, and it goes with a clear.
+        var video = _bed.MediaFile(Sonic, MediaKinds.Video, ".mp4");
         Assert.True(File.Exists(video));
         Assert.Equal(1L, _bed.Query<long>("SELECT COUNT(*) FROM media WHERE kind = 'video' AND width IS NULL AND height IS NULL"));
         _bed.Http.Offline = true;
@@ -551,7 +605,7 @@ public sealed class ScrapeServiceTests : IAsyncLifetime
                 using var command = c.CreateCommand();
                 command.CommandText = """
                     INSERT INTO scrape_state (game_id, status, scraped_at) SELECT game_id, $status, 1 FROM games WHERE path_key = $key;
-                    INSERT INTO media (game_id, kind, path, source) SELECT game_id, 'cover', 'x.png', 'screenscraper' FROM games WHERE path_key = $key AND $cover;
+                    INSERT INTO media (game_id, kind, path) SELECT game_id, 'cover', 'x.png' FROM games WHERE path_key = $key AND $cover;
                     """;
                 command.Parameters.AddWithValue("$status", status);
                 command.Parameters.AddWithValue("$key", name.ToLowerInvariant() + ".md");
@@ -616,11 +670,11 @@ public sealed class ScrapeServiceTests : IAsyncLifetime
         Assert.Equal(new MetadataOverride(Genre: "Mine", Rating: 0.5), edit.Overrides);
         Assert.Null(await _bed.Library.GetMetadataEditAsync(new GameKey("megadrive", "gone.md"), Ct));
 
-        // The game's media, with where each came from.
+        // The game's media, each a file in the media folder.
         var game = await _bed.Game("megadrive", "Sonic the Hedgehog 3 (Europe).md");
         var media = await _bed.Library.GetGameMediaInfoAsync(game.GameId, Ct);
         Assert.Equal(["cover", "label", "spine"], media.Select(m => m.Kind));
-        Assert.All(media, m => Assert.Equal("screenscraper", m.Source));
+        Assert.All(media, m => Assert.Equal($"media/megadrive/{m.Kind}/Sonic the Hedgehog 3 (Europe).md.png", m.Media.Path));
     }
 
     [Fact]
@@ -664,7 +718,7 @@ public sealed class ScrapeServiceTests : IAsyncLifetime
         _bed.Rom(Odd);
         await _bed.ScanAsync();
         _bed.Execute("INSERT INTO manual_matches VALUES ('megadrive', 'zz unknown prototype.md', 'screenscraper', '1187', 1)");
-        using var service = _bed.Service(ScrapeBed.Accounts(igdb: false, steamGridDb: false));
+        using var service = _bed.Service(ScrapeBed.Accounts(igdb: false, steamGridDb: false), saveResponses: true);
 
         await service.ScrapeGameAsync(Key(Odd), Ct);
 
@@ -688,11 +742,36 @@ public sealed class ScrapeServiceTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task A_rebuild_with_the_network_off_restores_metadata_matches_and_media_links()
+    public async Task A_rebuild_without_saved_responses_keeps_the_media_but_not_the_scraped_metadata()
     {
         _bed.Rom(Sonic);
         await _bed.ScanAsync();
         using (var service = _bed.Service())
+        {
+            await service.ScrapeGameAsync(Key(Sonic), Ct);
+        }
+
+        var coverBefore = (await _bed.Library.GetGamesAsync("megadrive", Ct)).Games.Single();
+        _bed.Http.Offline = true;
+
+        await _bed.Library.RebuildAsync(null, Ct);
+
+        // The media folder is indexed like any other files; what only the network knew needs a scrape.
+        var coverAfter = (await _bed.Library.GetGamesAsync("megadrive", Ct)).Games.Single();
+        Assert.Equal((coverBefore.CoverPath, coverBefore.CoverAspect, coverBefore.CoverSizeBytes), (coverAfter.CoverPath, coverAfter.CoverAspect, coverAfter.CoverSizeBytes));
+        Assert.Equal(3L, _bed.Query<long>("SELECT COUNT(*) FROM media"));
+        var after = await _bed.Game("megadrive", "Sonic the Hedgehog 3 (Europe).md");
+        Assert.Null(after.Metadata);
+        Assert.Null(after.Scrape);
+        Assert.Equal(0L, _bed.Query<long>("SELECT COUNT(*) FROM scraper_matches"));
+    }
+
+    [Fact]
+    public async Task A_rebuild_with_the_network_off_restores_metadata_and_matches_from_saved_responses()
+    {
+        _bed.Rom(Sonic);
+        await _bed.ScanAsync();
+        using (var service = _bed.Service(saveResponses: true))
         {
             await service.ScrapeGameAsync(Key(Sonic), Ct);
         }
@@ -723,7 +802,7 @@ public sealed class ScrapeServiceTests : IAsyncLifetime
     {
         _bed.Rom(Sonic);
         await _bed.ScanAsync();
-        using (var service = _bed.Service())
+        using (var service = _bed.Service(saveResponses: true))
         {
             await service.ScrapeGameAsync(Key(Sonic), Ct);
         }
@@ -752,7 +831,7 @@ public sealed class ScrapeServiceTests : IAsyncLifetime
         SteamFirst();
         _bed.Rom(Portal, "[InternetShortcut]\nURL=steam://rungameid/400\n");     // the shortcut names Portal (400), not Portal 2
         await _bed.ScanAsync();
-        using var service = _bed.Service();
+        using var service = _bed.Service(saveResponses: true);
 
         var result = await service.ScrapeGameAsync(Key(Portal), Ct);
 
@@ -773,7 +852,7 @@ public sealed class ScrapeServiceTests : IAsyncLifetime
         Assert.Equal(("620", "search"), (_bed.Query<string>("SELECT scraper_game_id FROM scraper_matches"), _bed.Query<string>("SELECT method FROM scraper_matches")));
         foreach (var kind in (string[])["cover", "hero", "logo", "screenshot"])
         {
-            Assert.Equal("steam", _bed.Query<string>("SELECT source FROM media WHERE kind = $kind", ("$kind", kind)));
+            Assert.Equal("steam", _bed.SuppliedBy(Key(Portal), kind));
         }
 
         Assert.Contains(_bed.Http.Requests, r => r.Method == "GET" && r.Uri.AbsolutePath.EndsWith("/apps/620/library_600x900_2x.jpg", StringComparison.Ordinal));
@@ -781,14 +860,14 @@ public sealed class ScrapeServiceTests : IAsyncLifetime
         Assert.Equal(1, _bed.Http.Count("jeuInfos.php"));                                // ScreenScraper for the genre and players Steam hasn't
         Assert.Equal(0, _bed.Http.Count("steamgriddb"));                                 // no media left for SteamGridDB
 
-        // A rebuild with the network off gets it all back from the saved response.
+        // A rebuild with the network off gets it all back from the saved response and the media folder.
         var requests = _bed.Http.Requests.Count;
         _bed.Http.Offline = true;
         await _bed.Library.RebuildAsync(null, Ct);
         Assert.Equal(requests, _bed.Http.Requests.Count);
         var rebuilt = await _bed.Game("steam", "Portal 2.url");
         Assert.Equal((game.Title, game.Metadata), (rebuilt.Title, rebuilt.Metadata));
-        Assert.Equal(4L, _bed.Query<long>("SELECT COUNT(*) FROM media WHERE source = 'steam'"));
+        Assert.Equal(4L, _bed.Query<long>("SELECT COUNT(*) FROM media"));
     }
 
     [Fact]
@@ -819,8 +898,8 @@ public sealed class ScrapeServiceTests : IAsyncLifetime
 
         await service.ScrapeGameAsync(Key(Portal), Ct);
 
-        Assert.Equal("steam", _bed.Query<string>("SELECT source FROM media WHERE kind = 'cover'"));
-        Assert.Equal("steamgriddb", _bed.Query<string>("SELECT source FROM media WHERE kind = 'logo'"));
+        Assert.Equal("steam", _bed.SuppliedBy(Key(Portal), "cover"));
+        Assert.Equal("steamgriddb", _bed.SuppliedBy(Key(Portal), "logo"));
         Assert.Equal(0, _bed.Http.Count("/api/v2/grids/"));                             // SteamGridDB was asked for the logo alone
         Assert.DoesNotContain(_bed.Http.Requests, r => r.Method == "GET" && r.Uri.AbsolutePath.EndsWith("/logo.png", StringComparison.Ordinal));
     }
@@ -866,12 +945,12 @@ public sealed class ScrapeServiceTests : IAsyncLifetime
         await _bed.Library.SetFavouriteAsync(key, true, Ct);
         await _bed.Library.SetEmulatorOverrideAsync(key, "blastem", Ct);
         _bed.Execute("INSERT INTO manual_matches VALUES ('megadrive', 'sonic the hedgehog 3 (europe).md', 'igdb', '1234', 1)");
-        using var service = _bed.Service(derivatives: true);
+        using var service = _bed.Service(derivatives: true, saveResponses: true);
         await service.ScrapeGameAsync(key, Ct);
-        var cover = Path.Combine(_bed.Paths.DataDir, MediaStore.RelativePathFor(key, "cover", ".png"));
+        var cover = _bed.MediaFile(Sonic, "cover", ".png");
         var response = ScrapedResponses.FullPath(_bed.Paths.DataDir, "screenscraper", key);
         var row = (await _bed.Library.GetGamesAsync("megadrive", Ct)).Games.Single();
-        var derivative = TextureDerivatives.PathFor(_bed.Paths.CacheDir, MediaRoot.Data, row.CoverPath!, row.CoverSizeBytes, row.CoverMtimeMs);
+        var derivative = TextureDerivatives.PathFor(_bed.Paths.CacheDir, row.CoverPath!, row.CoverSizeBytes, row.CoverMtimeMs);
         Assert.True(File.Exists(cover) && File.Exists(response));
         if (service.Derivatives.CanBake)
         {
@@ -885,7 +964,7 @@ public sealed class ScrapeServiceTests : IAsyncLifetime
         Assert.False(File.Exists(response));
         Assert.False(File.Exists(derivative));
         Assert.False(File.Exists(art));                                            // the user's own art for it, as asked
-        Assert.Empty(Directory.EnumerateFiles(Path.Combine(_bed.Paths.DataDir, "scraped", "media"), "*", SearchOption.AllDirectories));
+        Assert.Empty(Directory.EnumerateFiles(Path.Combine(_bed.Paths.DataDir, MediaScanner.FolderName), "*", SearchOption.AllDirectories));
         var game = await _bed.Game("megadrive", "Sonic the Hedgehog 3 (Europe).md");
         Assert.Null(game.Scrape);                                                  // never scraped
         Assert.Null(game.Metadata);
@@ -920,7 +999,7 @@ public sealed class ScrapeServiceTests : IAsyncLifetime
     public async Task Clearing_removes_the_games_own_model_and_its_processed_copy()
     {
         _bed.Rom(Sonic);
-        var model = _bed.Dir.File($"user/models/games/{Sonic}.glb");
+        var model = _bed.Dir.File("user/media/megadrive/model/Sonic the Hedgehog 3 (Europe).md.glb");
         File.WriteAllBytes(model, Launcher.Core.Tests.Models.ModelFixtures.Model(100));
         await _bed.ScanAsync();
         var cache = new Launcher.Core.Models.ModelCache(_bed.Paths.CacheDir, null, null);
@@ -947,7 +1026,7 @@ public sealed class ScrapeServiceTests : IAsyncLifetime
         _bed.Rom(Sonic);
         _bed.Rom(Ecco);
         await _bed.ScanAsync();
-        using (var service = _bed.Service())
+        using (var service = _bed.Service(saveResponses: true))
         {
             await service.ScrapeSystemAsync("megadrive", Ct);
         }

@@ -1,14 +1,13 @@
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
-using Launcher.Core.Library;
 
 namespace Launcher.Core.Media;
 
 /// <summary>
 /// Where the grid's baked cover derivatives live (A3): <c>CacheDir/textures/&lt;key&gt;.dds</c>, one canonical size
-/// (BC7, 512², full mips) keyed by the source's root, path, size and modification time, so a changed source gets a
-/// new derivative and a stale one is never shown.
+/// (BC7, 512², full mips) keyed by the source's path (relative to DataDir), size and modification time, so a changed
+/// source gets a new derivative and a stale one is never shown.
 /// <para>
 /// The whole source image is scaled to the square, whatever its aspect ratio. The cover shader crops it to the
 /// face at draw time, using the source's aspect from <c>media.width</c> and <c>media.height</c>, so one derivative
@@ -25,13 +24,13 @@ public static class TextureDerivatives
 
     /// <summary>
     /// The derivative's file name. Pure; the key is the first 128 bits of a SHA-256, as hex, over a versioned string
-    /// of the four inputs.
+    /// of the three inputs.
     /// </summary>
-    public static string FileName(MediaRoot root, string relPath, long sizeBytes, long mtimeMs)
+    public static string FileName(string relPath, long sizeBytes, long mtimeMs)
     {
         ArgumentNullException.ThrowIfNull(relPath);
         Span<char> name = stackalloc char[KeyLength + Extension.Length];
-        WriteFileName(root, relPath, sizeBytes, mtimeMs, name);
+        WriteFileName(relPath, sizeBytes, mtimeMs, name);
         return new string(name);
     }
 
@@ -39,7 +38,7 @@ public static class TextureDerivatives
     /// The derivative's absolute path for a source whose size and time are known (as indexed in <c>media</c>):
     /// pure, and one string allocation, so the texture workers can call it for every cover.
     /// </summary>
-    public static string PathFor(string cacheDir, MediaRoot root, string relPath, long sizeBytes, long mtimeMs)
+    public static string PathFor(string cacheDir, string relPath, long sizeBytes, long mtimeMs)
     {
         ArgumentNullException.ThrowIfNull(cacheDir);
         ArgumentNullException.ThrowIfNull(relPath);
@@ -52,44 +51,36 @@ public static class TextureDerivatives
         FolderName.CopyTo(path[at..]);
         at += FolderName.Length;
         path[at++] = Path.DirectorySeparatorChar;
-        WriteFileName(root, relPath, sizeBytes, mtimeMs, path[at..]);
+        WriteFileName(relPath, sizeBytes, mtimeMs, path[at..]);
         return new string(path);
     }
 
     /// <summary>The derivative's absolute path. Does file I/O (reads the source's size and time): never on the main thread.</summary>
     /// <returns>Null when the source doesn't exist.</returns>
-    public static string? PathFor(string cacheDir, string rootDir, MediaRoot root, string relPath)
+    public static string? PathFor(string cacheDir, string dataDir, string relPath)
     {
         ArgumentNullException.ThrowIfNull(cacheDir);
-        ArgumentNullException.ThrowIfNull(rootDir);
-        var source = new FileInfo(Path.Combine(rootDir, relPath));
+        ArgumentNullException.ThrowIfNull(dataDir);
+        var source = new FileInfo(Path.Combine(dataDir, relPath));
         if (!source.Exists)
         {
             return null;
         }
 
-        return PathFor(cacheDir, root, relPath, source.Length, new DateTimeOffset(source.LastWriteTimeUtc).ToUnixTimeMilliseconds());
+        return PathFor(cacheDir, relPath, source.Length, new DateTimeOffset(source.LastWriteTimeUtc).ToUnixTimeMilliseconds());
     }
 
     private const int KeyLength = 32;
 
     /// <summary>Writes the 32 hex digits and the extension into <paramref name="destination"/>, without allocating.</summary>
-    private static void WriteFileName(MediaRoot root, string relPath, long sizeBytes, long mtimeMs, Span<char> destination)
+    private static void WriteFileName(string relPath, long sizeBytes, long mtimeMs, Span<char> destination)
     {
-        var rootName = root switch
-        {
-            MediaRoot.Config => "Config",
-            MediaRoot.Data => "Data",
-            _ => "None",
-        };
-        var textLength = 3 + rootName.Length + 1 + relPath.Length + 1 + 20 + 1 + 20;
+        // v2 (2026-10-02): every source is in DataDir, so the key no longer names a root.
+        var textLength = 3 + relPath.Length + 1 + 20 + 1 + 20;
         Span<char> text = textLength <= 1024 ? stackalloc char[textLength] : new char[textLength];
         var n = 0;
-        "v1\n".CopyTo(text);
+        "v2\n".CopyTo(text);
         n += 3;
-        rootName.CopyTo(text[n..]);
-        n += rootName.Length;
-        text[n++] = '\n';
         for (var i = 0; i < relPath.Length; i++)
         {
             text[n++] = relPath[i] == '\\' ? '/' : relPath[i];

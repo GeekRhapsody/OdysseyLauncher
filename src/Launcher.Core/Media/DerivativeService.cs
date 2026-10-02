@@ -14,7 +14,7 @@ public sealed record BakeSummary(int Images, int Baked, int AlreadyBaked, int Fa
 /// Bakes the grid's derivatives (A3) off the main thread: on its own worker threads at below-normal priority, so a
 /// bake never competes with the render loop or holds a thread-pool thread for its ~0.2 s. Every image kind gets one,
 /// since a theme's template can show any of them in a slot (M6). Scraping bakes each new image as it's saved;
-/// <see cref="BakeMissingAsync"/> bakes every image in the library that has no derivative (the user's own art too),
+/// <see cref="BakeMissingAsync"/> bakes every image in the library that has no derivative (one the user put there too),
 /// and deletes derivatives nothing uses any more. A derivative's name includes its source's size and time, so a
 /// changed source gets a new one.
 /// </summary>
@@ -46,20 +46,20 @@ public sealed class DerivativeService : IDisposable
     /// <summary>False when this platform has no image decoder.</summary>
     public bool CanBake => _baker is not null;
 
-    /// <summary>The derivative's path for a media row.</summary>
-    public string PathFor(MediaRoot root, string relPath, long sizeBytes, long mtimeMs) =>
-        TextureDerivatives.PathFor(_paths.CacheDir, root, relPath, sizeBytes, mtimeMs);
+    /// <summary>The derivative's path for a media row (its path relative to DataDir).</summary>
+    public string PathFor(string relPath, long sizeBytes, long mtimeMs) =>
+        TextureDerivatives.PathFor(_paths.CacheDir, relPath, sizeBytes, mtimeMs);
 
     /// <summary>Bakes one derivative (unless it exists). False when it couldn't be (the reason is logged).</summary>
-    public Task<bool> BakeAsync(MediaRoot root, string relPath, long sizeBytes, long mtimeMs, CancellationToken cancellationToken)
+    public Task<bool> BakeAsync(string relPath, long sizeBytes, long mtimeMs, CancellationToken cancellationToken)
     {
         if (_baker is null)
         {
             return Task.FromResult(false);
         }
 
-        var destination = PathFor(root, relPath, sizeBytes, mtimeMs);
-        var source = Path.Combine(root == MediaRoot.Config ? _paths.ConfigDir : _paths.DataDir, relPath.Replace('/', Path.DirectorySeparatorChar));
+        var destination = PathFor(relPath, sizeBytes, mtimeMs);
+        var source = Path.Combine(_paths.DataDir, relPath.Replace('/', Path.DirectorySeparatorChar));
         var completion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         _work.Add(() =>
         {
@@ -104,10 +104,10 @@ public sealed class DerivativeService : IDisposable
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
         var images = await _library.ReadAsync(c => ScrapeStore.MediaOfKinds(c, MediaKinds.Images), cancellationToken).ConfigureAwait(false);
         var wanted = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var missing = new List<(MediaRoot Root, string Path, long Size, long Mtime)>();
+        var missing = new List<(string Path, long Size, long Mtime)>();
         foreach (var image in images)
         {
-            var path = PathFor(image.Root, image.Path, image.SizeBytes, image.MtimeMs);
+            var path = PathFor(image.Path, image.SizeBytes, image.MtimeMs);
             if (wanted.Add(Path.GetFileName(path)) && !File.Exists(path))
             {
                 missing.Add(image);
@@ -120,7 +120,7 @@ public sealed class DerivativeService : IDisposable
         {
             var tasks = missing.Select(async m =>
             {
-                var ok = await BakeAsync(m.Root, m.Path, m.Size, m.Mtime, cancellationToken).ConfigureAwait(false);
+                var ok = await BakeAsync(m.Path, m.Size, m.Mtime, cancellationToken).ConfigureAwait(false);
                 Interlocked.Increment(ref ok ? ref baked : ref failed);
                 progress?.Report(new JobProgress("bake", Interlocked.Increment(ref done), missing.Count));
             }).ToList();

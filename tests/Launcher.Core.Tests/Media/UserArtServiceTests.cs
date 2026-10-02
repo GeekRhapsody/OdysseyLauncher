@@ -1,7 +1,6 @@
 using Launcher.Core.Library;
 using Launcher.Core.Media;
 using Launcher.Core.Platform;
-using Launcher.Core.Scraping;
 using Launcher.Core.Tests.Scraping;
 
 namespace Launcher.Core.Tests.Media;
@@ -62,15 +61,14 @@ public sealed class UserArtServiceTests : IAsyncLifetime
 
         Assert.Equal(UserArtStatus.Set, result.Status);
         Assert.Equal("media/megadrive/back/Sonic the Hedgehog 3 (Europe).md.png", result.Path);
-        Assert.True(File.Exists(Path.Combine(_bed.Paths.ConfigDir, "media", "megadrive", "back", "Sonic the Hedgehog 3 (Europe).md.png")));
+        Assert.True(File.Exists(Path.Combine(_bed.Paths.DataDir, "media", "megadrive", "back", "Sonic the Hedgehog 3 (Europe).md.png")));
         var back = (await Media(MediaKinds.Back))!;
-        Assert.True(back.IsUsers);
         Assert.Equal(result.Path, back.Media.Path);
         Assert.Equal((24, 32), (back.Width, back.Height));
         Assert.Equal([Key], Assert.Single(_changes)!);
         if (_derivatives.CanBake)
         {
-            Assert.True(File.Exists(_derivatives.PathFor(MediaRoot.Config, back.Media.Path, back.Media.SizeBytes, back.Media.MtimeMs)));
+            Assert.True(File.Exists(_derivatives.PathFor(back.Media.Path, back.Media.SizeBytes, back.Media.MtimeMs)));
         }
 
         // Only this game: Ecco has no back.
@@ -86,7 +84,7 @@ public sealed class UserArtServiceTests : IAsyncLifetime
         var result = await _service.SetAsync(Key, MediaKinds.Cover, Download("b.jpg", TestSupport.TestImages.Jpeg(40, 56)), Ct);
 
         Assert.Equal("media/megadrive/cover/Sonic the Hedgehog 3 (Europe).md.jpg", result.Path);
-        Assert.False(File.Exists(Path.Combine(_bed.Paths.ConfigDir, "media", "megadrive", "cover", "Sonic the Hedgehog 3 (Europe).md.png")));
+        Assert.False(File.Exists(Path.Combine(_bed.Paths.DataDir, "media", "megadrive", "cover", "Sonic the Hedgehog 3 (Europe).md.png")));
         var cover = (await Media(MediaKinds.Cover))!;
         Assert.Equal(result.Path, cover.Media.Path);
         Assert.Equal((40, 56), (cover.Width, cover.Height));
@@ -104,45 +102,55 @@ public sealed class UserArtServiceTests : IAsyncLifetime
         Assert.Equal(UserArtStatus.NotAnImage, fake.Status);
         Assert.Equal(UserArtStatus.NotInLibrary, missing.Status);
         Assert.Null(await Media(MediaKinds.Cover));
-        Assert.False(Directory.Exists(Path.Combine(_bed.Paths.ConfigDir, "media")));
+        Assert.False(Directory.Exists(Path.Combine(_bed.Paths.DataDir, "media")));
         Assert.Throws<ArgumentException>(() => _service.SetAsync(Key, MediaKinds.Model, "x.glb", Ct).GetAwaiter().GetResult());
     }
 
     [Fact]
-    public async Task Removing_the_users_image_shows_the_scraped_one_again()
+    public async Task A_chosen_image_replaces_a_scraped_one_and_removing_it_empties_the_slot_until_the_next_scrape()
+    {
+        using var scraper = _bed.Service();
+        await scraper.ScrapeGameAsync(Key, Ct);
+        var scraped = (await Media(MediaKinds.Cover))!;
+        Assert.Equal("media/megadrive/cover/Sonic the Hedgehog 3 (Europe).md.png", scraped.Media.Path);
+
+        // One file per kind: the user's replaces the scraped one, whatever its format.
+        await _service.SetAsync(Key, MediaKinds.Cover, Download("mine.jpg", TestSupport.TestImages.Jpeg(40, 56)), Ct);
+        Assert.Equal("media/megadrive/cover/Sonic the Hedgehog 3 (Europe).md.jpg", (await Media(MediaKinds.Cover))!.Media.Path);
+        Assert.False(File.Exists(Path.Combine(_bed.Paths.DataDir, scraped.Media.Path)));
+
+        // A scrape leaves it alone.
+        await scraper.ScrapeGameAsync(Key, Ct);
+        Assert.Equal("media/megadrive/cover/Sonic the Hedgehog 3 (Europe).md.jpg", (await Media(MediaKinds.Cover))!.Media.Path);
+        _changes.Clear();
+
+        var result = await _service.RemoveAsync(Key, MediaKinds.Cover, Ct);
+
+        Assert.Equal(UserArtStatus.Removed, result.Status);
+        Assert.Null(await Media(MediaKinds.Cover));
+        Assert.Contains(_changes, c => c is not null && c.Contains(Key));
+        Assert.Equal(UserArtStatus.None, (await _service.RemoveAsync(Key, MediaKinds.Cover, Ct)).Status);
+
+        // The next scrape fills the empty slot.
+        await scraper.ScrapeGameAsync(Key, Ct);
+        Assert.Equal(scraped.Media.Path, (await Media(MediaKinds.Cover))!.Media.Path);
+    }
+
+    [Fact]
+    public async Task Removing_a_scraped_image_deletes_its_file()
     {
         using (var scraper = _bed.Service())
         {
             await scraper.ScrapeGameAsync(Key, Ct);
         }
 
-        var scraped = (await Media(MediaKinds.Cover))!;
-        Assert.Equal("screenscraper", scraped.Source);
-        await _service.SetAsync(Key, MediaKinds.Cover, Download("mine.png", ScrapeBed.Png("mine")), Ct);
-        Assert.True((await Media(MediaKinds.Cover))!.IsUsers);
-        Assert.True(File.Exists(Path.Combine(_bed.Paths.DataDir, scraped.Media.Path)));     // the scraped file stays
-        _changes.Clear();
+        var spine = (await Media(MediaKinds.Spine))!;
 
-        var result = await _service.RemoveAsync(Key, MediaKinds.Cover, Ct);
+        var result = await _service.RemoveAsync(Key, MediaKinds.Spine, Ct);
 
-        Assert.Equal(UserArtStatus.Removed, result.Status);
-        Assert.Equal("screenscraper", result.RestoredFrom);
-        var back = (await Media(MediaKinds.Cover))!;
-        Assert.Equal(("screenscraper", scraped.Media.Path), (back.Source, back.Media.Path));
-        Assert.Contains(_changes, c => c is not null && c.Contains(Key));
-        Assert.Equal(UserArtStatus.None, (await _service.RemoveAsync(Key, MediaKinds.Cover, Ct)).Status);
-    }
-
-    [Fact]
-    public async Task Removing_an_image_the_game_never_had_scraped_leaves_the_slot_empty()
-    {
-        await _service.SetAsync(Key, MediaKinds.Label, Download("label.webp", TestSupport.TestImages.WebPLossy(30, 30)), Ct);
-
-        var result = await _service.RemoveAsync(Key, MediaKinds.Label, Ct);
-
-        Assert.Equal(UserArtStatus.Removed, result.Status);
-        Assert.Null(result.RestoredFrom);
-        Assert.Null(await Media(MediaKinds.Label));
+        Assert.Equal((UserArtStatus.Removed, spine.Media.Path), (result.Status, result.Path));
+        Assert.False(File.Exists(Path.Combine(_bed.Paths.DataDir, spine.Media.Path)));
+        Assert.Null(await Media(MediaKinds.Spine));
     }
 
     [Fact]
@@ -168,6 +176,6 @@ public sealed class UserArtServiceTests : IAsyncLifetime
 
         await _bed.Library.RebuildAsync(null, Ct);
 
-        Assert.True((await Media(MediaKinds.Spine))!.IsUsers);
+        Assert.Equal("media/megadrive/spine/Sonic the Hedgehog 3 (Europe).md.png", (await Media(MediaKinds.Spine))!.Media.Path);
     }
 }

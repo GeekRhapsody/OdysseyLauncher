@@ -338,4 +338,16 @@ public class DebugOptionsTests
         Assert.Contains("doesn't take a value", Assert.Single(DebugOptions.Parse(["--no-overlay=yes"]).Errors), StringComparison.Ordinal);
         Assert.Null(DebugOptions.Parse([]).Options.Theme);
     }
+
+    [Fact]
+    public void Saving_scraping_responses_is_a_one_off_switch_and_off_by_default()
+    {
+        var result = DebugOptions.Parse(["--save-responses"]);
+
+        Assert.True(result.IsValid, string.Join("; ", result.Errors));
+        Assert.True(result.Options.SaveResponses);
+        Assert.False(result.Options.IsActive);
+        Assert.False(DebugOptions.Parse([]).Options.SaveResponses);
+        Assert.Contains("doesn't take a value", Assert.Single(DebugOptions.Parse(["--save-responses=1"]).Errors), StringComparison.Ordinal);
+    }
 }

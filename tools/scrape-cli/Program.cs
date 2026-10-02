@@ -1,7 +1,8 @@
 // odyssey-scrape: every M4 scraping operation from the command line, for testing live with your own credentials,
 // and (M6) importing, inspecting and removing a game's own 3D model. It uses the app's config, library, queue, media
-// and model folders (or a portable folder with --user-dir), so what it scrapes or imports shows in the launcher. Credentials come from ConfigDir/secrets.toml or ODYSSEY_* variables, never from
-// the command line, and nothing it prints contains them. Ctrl+C pauses: `resume` carries on.
+// folder (or a portable folder with --user-dir), so what it scrapes or imports shows in the launcher. Credentials come
+// from ConfigDir/secrets.toml or ODYSSEY_* variables, never from the command line, and nothing it prints contains them.
+// Ctrl+C pauses: `resume` carries on.
 
 using System.Globalization;
 using Launcher.Core.Config;
@@ -14,7 +15,10 @@ using Launcher.Core.Scanning;
 using Launcher.Core.Scraping;
 
 const string Usage = """
-    odyssey-scrape [--user-dir=<folder>] <command> [argument]
+    odyssey-scrape [--user-dir=<folder>] [--save-responses] <command> [argument]
+
+    --save-responses saves each provider's response (credentials redacted) in DataDir/scraped/responses/, to debug
+    a scrape. Off by default.
 
     Commands:
       providers                   Each provider's state: credentials, and ScreenScraper's account limits
@@ -48,12 +52,18 @@ Console.OutputEncoding = System.Text.Encoding.UTF8;
 var arguments = args.ToList();
 string? userDir = null;
 string? from = null;
+var saveResponses = false;
 var kind = ModelKind.PerGame;
 foreach (var argument in arguments.ToList())
 {
     if (argument.StartsWith("--user-dir=", StringComparison.Ordinal))
     {
         userDir = Path.GetFullPath(argument["--user-dir=".Length..]);
+        arguments.Remove(argument);
+    }
+    else if (argument == "--save-responses")
+    {
+        saveResponses = true;
         arguments.Remove(argument);
     }
     else if (argument.StartsWith("--from=", StringComparison.Ordinal))
@@ -100,7 +110,7 @@ Console.CancelKeyPress += (_, e) =>
 };
 
 using var library = await LibraryService.OpenAsync(loaded.Config, paths.DataDir, null, CancellationToken.None);
-library.ConfigDir = paths.ConfigDir;
+library.IndexMedia = true;
 var log = new ConsoleLog();
 var service = new ScrapeService(new ScrapeServiceOptions
 {
@@ -109,13 +119,14 @@ var service = new ScrapeService(new ScrapeServiceOptions
     Accounts = accounts.Accounts,
     Log = log,
     ImageDecoder = PlatformServices.CreateImageDecoder(),
+    SaveResponses = saveResponses,
 });
 service.ProviderNotice += (_, e) => Console.WriteLine($"  ! {e.Notice.Message}");
 service.GameScraped += (_, e) =>
 {
     var r = e.Result;
     var providers = r.Providers.Count == 0 ? "-" : string.Join(',', r.Providers);
-    var media = r.Media.Count == 0 ? "no media" : string.Join(", ", r.Media);
+    var media = r.Media.Count == 0 ? "no media" : string.Join(", ", r.Media.Select(k => r.MediaSources.TryGetValue(k, out var p) ? $"{k} from {p}" : k));
     Console.WriteLine($"  {r.Game.SystemId}/{r.Game.PathKey}: {r.Status} ({providers}; {media})");
     foreach (var entry in r.Log.Where(l => l.Detail is not null))
     {
@@ -295,7 +306,7 @@ async Task<int> ImportModel(GameKey key, string file)
     var result = await Models().ImportGameModelAsync(key, file, stop.Token);
     Console.WriteLine(result.Status switch
     {
-        ModelImportStatus.Imported => $"Imported{(result.Converted ? " (converted from OBJ)" : string.Empty)}: {Path.Combine(paths.ConfigDir, result.ModelPath!.Replace('/', Path.DirectorySeparatorChar))}",
+        ModelImportStatus.Imported => $"Imported{(result.Converted ? " (converted from OBJ)" : string.Empty)}: {Path.Combine(paths.DataDir, result.ModelPath!.Replace('/', Path.DirectorySeparatorChar))}",
         ModelImportStatus.Rejected => "Rejected: nothing was changed.",
         ModelImportStatus.Unsupported => "Not imported:",
         _ => "Not imported: the game isn't in the library.",
@@ -393,9 +404,8 @@ async Task<int> Show(GameKey key)
     var row = (await library.GetGamesAsync(key.SystemId, stop.Token)).Games.FirstOrDefault(g => g.GameId == game.GameId);
     if (row.CoverPath is not null)
     {
-        var root = row.CoverRoot == MediaRoot.Config ? paths.ConfigDir : paths.DataDir;
-        var derivative = TextureDerivatives.PathFor(paths.CacheDir, row.CoverRoot, row.CoverPath, row.CoverSizeBytes, row.CoverMtimeMs);
-        Console.WriteLine($"  Cover: {Path.Combine(root, row.CoverPath)} (derivative {(File.Exists(derivative) ? "baked" : "missing")})");
+        var derivative = TextureDerivatives.PathFor(paths.CacheDir, row.CoverPath, row.CoverSizeBytes, row.CoverMtimeMs);
+        Console.WriteLine($"  Cover: {Path.Combine(paths.DataDir, row.CoverPath)} (derivative {(File.Exists(derivative) ? "baked" : "missing")})");
     }
 
     return 0;

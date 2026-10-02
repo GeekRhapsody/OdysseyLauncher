@@ -19,7 +19,7 @@ public enum ModelState
 
 /// <summary>
 /// Loads model candidates into <see cref="ItemTemplate"/>s without file I/O on the main thread (A3, A7). A user's model
-/// (per-game, <c>ConfigDir/models/</c>, a user theme's) comes from <see cref="ModelCache"/>, which inspects it against
+/// (per-game, in the media folder; the user's per-system ones, <c>ConfigDir/models/</c>; a user theme's) comes from <see cref="ModelCache"/>, which inspects it against
 /// its budget, scales its textures down and remembers the result, so a bad file is caught before Godot parses it and
 /// only processed once; a built-in theme's is read from the PCK. Every model is then parsed by
 /// <see cref="GltfDocument"/> and converted on its own worker, so they load in parallel, and the main thread only

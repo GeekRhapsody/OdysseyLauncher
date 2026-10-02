@@ -6,6 +6,7 @@ namespace Launcher.Core.Tests.Theming;
 public sealed class ModelResolverTests
 {
     private const string ConfigDir = "C:/config";
+    private const string DataDir = "C:/data";
 
     /// <summary>A user theme with a template for PS2, a default template, and a card model for PS2.</summary>
     private static Theme Active => ThemeFixtures.Parse("""
@@ -43,7 +44,7 @@ public sealed class ModelResolverTests
     private static ModelResolver Resolver(Theme? active = null, UserModels? user = null, AppConfig? config = null)
     {
         var builtIn = ThemeFixtures.BuiltIn;
-        return new ModelResolver(active ?? builtIn, builtIn, user ?? UserModels.None(ConfigDir), config ?? Config());
+        return new ModelResolver(active ?? builtIn, builtIn, user ?? UserModels.None(ConfigDir), config ?? Config(), DataDir);
     }
 
     private static string Describe(IReadOnlyList<ModelCandidate> candidates) =>
@@ -111,10 +112,10 @@ public sealed class ModelResolverTests
     [Fact]
     public void A_per_game_model_is_the_users_indexed_file()
     {
-        var candidate = Resolver().PerGame("models/games/ps2/Sub/Game.glb");
+        var candidate = Resolver().PerGame("media/ps2/model/Sub/Game.glb");
 
         Assert.Equal((ModelLevel.UserGame, ThemeOrigin.User), (candidate.Level, candidate.Origin));
-        Assert.Equal(Path.GetFullPath(Path.Combine(ConfigDir, "models", "games", "ps2", "Sub", "Game.glb")), candidate.Path);
+        Assert.Equal(Path.GetFullPath(Path.Combine(DataDir, "media", "ps2", "model", "Sub", "Game.glb")), candidate.Path);
         Assert.Equal(SlotChain.Default(MediaSlots.Back), candidate.ChainFor(MediaSlots.Back, systemCard: false));
     }
 

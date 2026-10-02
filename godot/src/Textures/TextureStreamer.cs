@@ -64,7 +64,6 @@ public sealed class TextureStreamer : IDisposable
 
     private readonly object _gate = new();
     private string _cacheDir = string.Empty;
-    private string _configDir = string.Empty;
     private string _dataDir = string.Empty;
 
     // Per request unit: cell × Channels + channel.
@@ -73,7 +72,6 @@ public sealed class TextureStreamer : IDisposable
     private readonly int[] _row;
     private readonly bool[] _large;
     private readonly int[] _layer;
-    private readonly MediaRoot[] _root;
     private readonly string?[] _relPath;
     private readonly long[] _size;
     private readonly long[] _mtime;
@@ -83,8 +81,7 @@ public sealed class TextureStreamer : IDisposable
     // A plain array under its own lock: ConcurrentStack allocates a node per push, and the main thread recycles.
     private readonly Image?[] _images = new Image?[PoolLimit];
     private int _pooled;
-    private readonly ConcurrentDictionary<string, string?> _configPaths = new(StringComparer.Ordinal);
-    private readonly ConcurrentDictionary<string, string?> _dataPaths = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, string?> _derivativePaths = new(StringComparer.Ordinal);
     private Texture2DArray? _largeArray;
     private Texture2DArray? _smallArray;
     private bool _stopping;
@@ -106,7 +103,6 @@ public sealed class TextureStreamer : IDisposable
         _row = new int[units];
         _large = new bool[units];
         _layer = new int[units];
-        _root = new MediaRoot[units];
         _relPath = new string?[units];
         _size = new long[units];
         _mtime = new long[units];
@@ -119,13 +115,12 @@ public sealed class TextureStreamer : IDisposable
         }
     }
 
-    /// <summary>Where derivatives and their sources are. Main thread, before any request.</summary>
-    public void SetFolders(string cacheDir, string configDir, string dataDir)
+    /// <summary>Where derivatives and their sources (DataDir's media folder) are. Main thread, before any request.</summary>
+    public void SetFolders(string cacheDir, string dataDir)
     {
         lock (_gate)
         {
             _cacheDir = cacheDir;
-            _configDir = configDir;
             _dataDir = dataDir;
         }
     }
@@ -317,7 +312,6 @@ public sealed class TextureStreamer : IDisposable
             _row[unit] = row;
             _large[unit] = Layout.IsLarge(channel);
             _layer[unit] = Layout.LayerOf(cell, channel);
-            _root[unit] = media.Root;
             _relPath[unit] = media.Path;
             _size[unit] = media.SizeBytes;
             _mtime[unit] = media.MtimeMs;
@@ -560,10 +554,9 @@ public sealed class TextureStreamer : IDisposable
         {
             int unit;
             int generation;
-            MediaRoot root;
             string relPath;
             string cacheDir;
-            string rootDir;
+            string dataDir;
             long size;
             long mtime;
             bool large;
@@ -582,10 +575,9 @@ public sealed class TextureStreamer : IDisposable
                 unit = PickNearest();
                 _state[unit] = Loading;
                 generation = _generation[unit];
-                root = _root[unit];
                 relPath = _relPath[unit]!;
                 cacheDir = _cacheDir;
-                rootDir = root == MediaRoot.Config ? _configDir : _dataDir;
+                dataDir = _dataDir;
                 size = _size[unit];
                 mtime = _mtime[unit];
                 large = _large[unit];
@@ -601,16 +593,12 @@ public sealed class TextureStreamer : IDisposable
                 string? path;
                 if (size > 0)
                 {
-                    path = TextureDerivatives.PathFor(cacheDir, root, relPath, size, mtime);
+                    path = TextureDerivatives.PathFor(cacheDir, relPath, size, mtime);
                 }
-                else
+                else if (!_derivativePaths.TryGetValue(relPath, out path))
                 {
-                    var paths = root == MediaRoot.Config ? _configPaths : _dataPaths;
-                    if (!paths.TryGetValue(relPath, out path))
-                    {
-                        path = TextureDerivatives.PathFor(cacheDir, rootDir, root, relPath);
-                        paths[relPath] = path;
-                    }
+                    path = TextureDerivatives.PathFor(cacheDir, dataDir, relPath);
+                    _derivativePaths[relPath] = path;
                 }
 
                 if (path is not null)

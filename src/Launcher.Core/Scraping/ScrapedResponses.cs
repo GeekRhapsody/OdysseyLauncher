@@ -7,13 +7,14 @@ using Launcher.Core.Media;
 namespace Launcher.Core.Scraping;
 
 /// <summary>A media file one provider supplied, as saved with its response.</summary>
-/// <param name="Path">Relative to DataDir (<see cref="MediaStore.RelativePathFor"/>).</param>
+/// <param name="Path">Relative to DataDir (<see cref="MediaStore.RelativePathFor"/>): the file the download was saved as.</param>
 public sealed record SavedMedia(string Kind, string Path, int Width, int Height);
 
 /// <summary>
 /// One provider's last answer for one game: <c>scraped/responses/&lt;provider&gt;/&lt;system&gt;/&lt;path_key&gt;.json</c>
-/// (ARCHITECTURE.md A4). It carries the matched id and how it was matched, so a rebuild recovers matches offline,
-/// and the raw response (credentials redacted), which the provider's parser reads back.
+/// (ARCHITECTURE.md A4), saved only when asked for (<see cref="ScrapeServiceOptions.SaveResponses"/>), to debug a
+/// scrape. It carries the matched id and how it was matched, and the raw response (credentials redacted), which the
+/// provider's parser reads back, so a rebuild recovers the game's metadata and matches offline if it's there.
 /// </summary>
 /// <param name="Status">'ok' or 'not_found'.</param>
 /// <param name="Response">The raw response, redacted; null when not found.</param>
@@ -30,11 +31,14 @@ public sealed record SavedScrape(
 /// <summary>Reads and writes <see cref="SavedScrape"/> files. Does file I/O: never on the main thread.</summary>
 public static class ScrapedResponses
 {
+    /// <summary>DataDir's folder for what scraping keeps besides media.</summary>
+    public const string ScrapedFolder = "scraped";
+
     public const string Folder = "responses";
     public const int Format = 1;
 
     public static string RelativePath(string provider, GameKey game) =>
-        $"{MediaStore.ScrapedFolder}/{Folder}/{provider}/{game.SystemId}/{game.PathKey}.json";
+        $"{ScrapedFolder}/{Folder}/{provider}/{game.SystemId}/{game.PathKey}.json";
 
     public static string FullPath(string dataDir, string provider, GameKey game) =>
         Path.Combine(dataDir, RelativePath(provider, game).Replace('/', Path.DirectorySeparatorChar));

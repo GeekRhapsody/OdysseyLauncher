@@ -71,6 +71,9 @@ public sealed class AppServices : IDisposable
     /// </summary>
     public ThemePlan? Theme { get; set; }
 
+    /// <summary><c>--save-responses</c>: scraping saves each provider's response for this run, to debug it (A4).</summary>
+    public bool SaveResponses { get; private init; }
+
     /// <summary>The app's own themes, read once at boot, for theme switches.</summary>
     public IReadOnlyList<Launcher.Core.Theming.ThemeSource> BuiltInThemes { get; }
 
@@ -136,9 +139,6 @@ public sealed class AppServices : IDisposable
         }
     });
 
-    /// <summary>The root folder a media path is relative to.</summary>
-    public string RootOf(MediaRoot root) => root == MediaRoot.Config ? Paths.ConfigDir : Paths.DataDir;
-
     /// <summary>
     /// Thread pool only. <paramref name="themeResolved"/> is called (on the thread pool) as soon as the theme is, before
     /// the library opens, so the main thread can start loading its models while the DB opens. Null skips the theme
@@ -186,7 +186,7 @@ public sealed class AppServices : IDisposable
         }
 
         var library = await LibraryService.OpenAsync(config.Config, paths.DataDir, null, cancellationToken).ConfigureAwait(false);
-        library.ConfigDir = paths.ConfigDir;
+        library.IndexMedia = true;
         var libraryMs = stopwatch.Elapsed.TotalMilliseconds;
         DebugHooks.Timeline.Mark(BootMarks.LibraryOpened);
         try
@@ -212,7 +212,7 @@ public sealed class AppServices : IDisposable
                 GD.Print($"Boot: closed {library.ClosedOrphanSessions} play session(s) left open by a crash.");
             }
 
-            return new AppServices(paths, config, library, systems, theme, builtInThemes);
+            return new AppServices(paths, config, library, systems, theme, builtInThemes) { SaveResponses = options.SaveResponses };
         }
         catch
         {

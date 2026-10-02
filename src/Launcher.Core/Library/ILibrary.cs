@@ -8,23 +8,11 @@ public readonly record struct GameKey(string SystemId, string PathKey);
 /// <summary>A row of the systems grid, for boot.</summary>
 public sealed record SystemSummary(string SystemId, string Name, int GameCount, DateTimeOffset? ScannedAt);
 
-/// <summary>Which root a media path is relative to.</summary>
-public enum MediaRoot
-{
-    None,
-
-    /// <summary>DataDir: scraped media.</summary>
-    Data,
-
-    /// <summary>ConfigDir: the user's own art.</summary>
-    Config,
-}
-
 /// <summary>
 /// One cell of a games grid: only what the grid draws, plus the id to ask for more
 /// (<see cref="ILibrary.GetGameAsync"/>).
 /// </summary>
-/// <param name="CoverPath">Relative to the folder <paramref name="CoverRoot"/> names; null when the game has no cover.</param>
+/// <param name="CoverPath">Relative to DataDir; null when the game has no cover.</param>
 /// <param name="CoverAspect">The cover's width over its height, which the grid crops it by; 0 when unknown.</param>
 /// <param name="CoverSizeBytes">The cover file's size when it was indexed, for its derivative's key; 0 when unknown.</param>
 /// <param name="CoverMtimeMs">The cover file's modification time (unix ms) when it was indexed; 0 when unknown.</param>
@@ -32,18 +20,17 @@ public readonly record struct GameRow(
     long GameId,
     string Title,
     string? CoverPath,
-    MediaRoot CoverRoot,
     bool IsFavourite,
     float CoverAspect = 0,
     long CoverSizeBytes = 0,
     long CoverMtimeMs = 0);
 
 /// <summary>One indexed media file: what the grid needs to name its derivative and crop it.</summary>
-/// <param name="Path">Relative to the folder <paramref name="Root"/> names.</param>
+/// <param name="Path">Relative to DataDir (<c>media/&lt;system&gt;/&lt;kind&gt;/...</c>).</param>
 /// <param name="Aspect">Width over height; 0 when unknown (models, and images whose header wasn't read).</param>
 /// <param name="SizeBytes">The file's size when it was indexed; 0 when unknown.</param>
 /// <param name="MtimeMs">The file's modification time (unix ms) when it was indexed; 0 when unknown.</param>
-public readonly record struct MediaRef(MediaRoot Root, string Path, float Aspect, long SizeBytes, long MtimeMs);
+public readonly record struct MediaRef(string Path, float Aspect, long SizeBytes, long MtimeMs);
 
 /// <summary>A game's media of one kind (<see cref="ILibrary.GetGameMediaAsync(string, IReadOnlyList{string}, CancellationToken)"/>).</summary>
 public readonly record struct GameMediaRow(long GameId, string Kind, MediaRef Media);
@@ -112,13 +99,9 @@ public sealed record GameMetadata(
     double? Rating,
     string Source);
 
-/// <summary>One of a game's media rows with where it came from, for the game options panel (M7).</summary>
-/// <param name="Source">'user' for the user's own file, else the provider that supplied it ('screenscraper').</param>
-/// <param name="Width">From the image's header; null for a model or an image whose header wasn't read.</param>
-public sealed record GameMediaInfo(string Kind, MediaRef Media, string Source, int? Width, int? Height)
-{
-    public bool IsUsers => Source == "user";
-}
+/// <summary>One of a game's media rows, for the game options panel (M7).</summary>
+/// <param name="Width">From the image's header; null for a model, a video or an image whose header wasn't read.</param>
+public sealed record GameMediaInfo(string Kind, MediaRef Media, int? Width, int? Height);
 
 /// <summary>
 /// A game's title and metadata with the scraped values and the user's own apart, for editing them (M7). The grid and

@@ -10,7 +10,7 @@ namespace Launcher.Core.Scraping;
 /// <param name="FileTitle">The cleaned file-name title (not a scraped one).</param>
 /// <param name="StoredMatches">Automatic matches in library.db: provider → (id, method).</param>
 /// <param name="ManualMatches">Manual matches in userdata.db, which win: provider → id.</param>
-/// <param name="Media">Current media rows: kind → (source, path, size, mtime).</param>
+/// <param name="Media">Current media rows: kind → (path, size, mtime).</param>
 /// <param name="TitleOverride">The user's title for the game (userdata.db), or null.</param>
 public sealed record GameContext(
     GameKey Key,
@@ -23,7 +23,7 @@ public sealed record GameContext(
     RomHashes? Hashes,
     IReadOnlyDictionary<string, (string Id, string Method)> StoredMatches,
     IReadOnlyDictionary<string, string> ManualMatches,
-    IReadOnlyDictionary<string, (string Source, string Path, long? SizeBytes, long? MtimeMs)> Media,
+    IReadOnlyDictionary<string, (string Path, long? SizeBytes, long? MtimeMs)> Media,
     string? TitleOverride = null)
 {
     /// <summary>The providers with a manual match, the most recently chosen first: they're asked first, in this order.</summary>
@@ -41,7 +41,7 @@ public sealed record ProviderLog(string Provider, string Status, string? Detail)
 public sealed record ScrapeWrite(
     MergedMetadata? Metadata,
     IReadOnlyDictionary<string, (string Id, string Method)> Matches,
-    IReadOnlyList<(string Kind, string Source, StoredMedia Media)> Media,
+    IReadOnlyList<(string Kind, StoredMedia Media)> Media,
     IReadOnlyList<ProviderLog> Log,
     string Status,
     IReadOnlyList<string> Providers,
@@ -103,16 +103,16 @@ internal static class ScrapeStore
         var manualOrder = ManualMatches(connection, key);
         var manual = manualOrder.ToDictionary(m => m.Provider, m => m.Id, StringComparer.Ordinal);
 
-        var media = new Dictionary<string, (string, string, long?, long?)>(StringComparer.Ordinal);
+        var media = new Dictionary<string, (string, long?, long?)>(StringComparer.Ordinal);
         using (var command = connection.CreateCommand())
         {
-            command.CommandText = "SELECT kind, source, path, size_bytes, mtime_ms FROM media WHERE game_id = $id";
+            command.CommandText = "SELECT kind, path, size_bytes, mtime_ms FROM media WHERE game_id = $id";
             command.Parameters.AddWithValue("$id", gameId);
             using var reader = command.ExecuteReader();
             while (reader.Read())
             {
-                media[reader.GetString(0)] = (reader.GetString(1), reader.GetString(2),
-                    reader.IsDBNull(3) ? null : reader.GetInt64(3), reader.IsDBNull(4) ? null : reader.GetInt64(4));
+                media[reader.GetString(0)] = (reader.GetString(1),
+                    reader.IsDBNull(2) ? null : reader.GetInt64(2), reader.IsDBNull(3) ? null : reader.GetInt64(3));
             }
         }
 
@@ -215,7 +215,7 @@ internal static class ScrapeStore
 
     /// <summary>
     /// Writes a scrape in one transaction, keyed by <see cref="GameKey"/> (never a cached game id, which a rebuild
-    /// can change). The user's own art rows and every userdata.db override are left alone.
+    /// can change). Media rows are written as a scan would index the files (A4); every userdata.db override is left alone.
     /// Returns false when the game is no longer in the library.
     /// </summary>
     public static bool Save(SqliteConnection connection, GameKey key, ScrapeWrite write) =>
@@ -304,22 +304,20 @@ internal static class ScrapeStore
                 match.ExecuteNonQuery();
             }
 
-            foreach (var (kind, source, stored) in write.Media)
+            foreach (var (kind, stored) in write.Media)
             {
-                // The user's own art beats scraped art (A4): never replace a 'user' row.
+                // A download is the game's own file (its whole ROM name), which a scan matches before a shared one.
                 using var media = Command("""
-                    INSERT INTO media (game_id, kind, path, width, height, source, size_bytes, mtime_ms)
-                    VALUES ($id, $kind, $path, $width, $height, $source, $size, $mtime)
+                    INSERT INTO media (game_id, kind, path, width, height, size_bytes, mtime_ms)
+                    VALUES ($id, $kind, $path, $width, $height, $size, $mtime)
                     ON CONFLICT (game_id, kind) DO UPDATE SET path = excluded.path, width = excluded.width, height = excluded.height,
-                        source = excluded.source, size_bytes = excluded.size_bytes, mtime_ms = excluded.mtime_ms
-                    WHERE media.source <> 'user'
+                        size_bytes = excluded.size_bytes, mtime_ms = excluded.mtime_ms
                     """);
                 media.Parameters.AddWithValue("$id", gameId);
                 media.Parameters.AddWithValue("$kind", kind);
                 media.Parameters.AddWithValue("$path", stored.RelativePath);
                 media.Parameters.AddWithValue("$width", stored.Width > 0 ? stored.Width : DBNull.Value);    // a video has no size
                 media.Parameters.AddWithValue("$height", stored.Height > 0 ? stored.Height : DBNull.Value);
-                media.Parameters.AddWithValue("$source", source);
                 media.Parameters.AddWithValue("$size", stored.SizeBytes);
                 media.Parameters.AddWithValue("$mtime", stored.MtimeMs);
                 media.ExecuteNonQuery();
@@ -370,18 +368,17 @@ internal static class ScrapeStore
     /// <summary>
     /// <see cref="Save"/>, then everything the <paramref name="replaced"/> providers had supplied that this scrape
     /// didn't supply again goes, in the same transaction: the providers whose manual match answered, so a match the
-    /// user corrected leaves nothing of the wrong game behind. Goes: their matches and log rows not just written, their
-    /// scraped media rows of kinds not just saved (except <paramref name="keepKinds"/>, whose downloads failed), and
-    /// the metadata row when nothing was found and only they had supplied it (the title goes back to the file name's).
-    /// Returns the media rows removed, for their files, or null when the game isn't in the library.
+    /// user corrected leaves none of the wrong game's metadata behind. Goes: their matches and log rows not just
+    /// written, and the metadata row when nothing was found and only they had supplied it (the title goes back to the
+    /// file name's). Media files aren't the providers' to take back (A4): what's in the media folder stays.
+    /// Returns false when the game isn't in the library.
     /// </summary>
-    public static List<(string Path, long? SizeBytes, long? MtimeMs)>? SaveReplacing(
-        SqliteConnection connection, GameKey key, ScrapeWrite write, IReadOnlySet<string> replaced, IReadOnlySet<string> keepKinds)
+    public static bool SaveReplacing(SqliteConnection connection, GameKey key, ScrapeWrite write, IReadOnlySet<string> replaced)
     {
         using var transaction = connection.BeginTransaction();
         if (!Save(connection, transaction, key, write))
         {
-            return null;
+            return false;
         }
 
         SqliteCommand Command(string sql)
@@ -404,8 +401,6 @@ internal static class ScrapeStore
             relPath = reader.GetString(1);
         }
 
-        var removed = new List<(string, long?, long?)>();
-        var savedKinds = write.Media.Select(m => m.Kind).ToHashSet(StringComparer.Ordinal);
         var logged = write.Log.Select(l => l.Provider).ToHashSet(StringComparer.Ordinal);
         foreach (var provider in replaced)
         {
@@ -423,32 +418,6 @@ internal static class ScrapeStore
                 log.Parameters.AddWithValue("$id", gameId);
                 log.Parameters.AddWithValue("$scraper", provider);
                 log.ExecuteNonQuery();
-            }
-
-            var kinds = new List<(string Kind, string Path, long? Size, long? Mtime)>();
-            using (var select = Command("SELECT kind, path, size_bytes, mtime_ms FROM media WHERE game_id = $id AND source = $scraper"))
-            {
-                select.Parameters.AddWithValue("$id", gameId);
-                select.Parameters.AddWithValue("$scraper", provider);
-                using var reader = select.ExecuteReader();
-                while (reader.Read())
-                {
-                    kinds.Add((reader.GetString(0), reader.GetString(1), reader.IsDBNull(2) ? null : reader.GetInt64(2), reader.IsDBNull(3) ? null : reader.GetInt64(3)));
-                }
-            }
-
-            foreach (var (kind, path, size, mtime) in kinds)
-            {
-                if (savedKinds.Contains(kind) || keepKinds.Contains(kind))
-                {
-                    continue;
-                }
-
-                using var delete = Command("DELETE FROM media WHERE game_id = $id AND kind = $kind");
-                delete.Parameters.AddWithValue("$id", gameId);
-                delete.Parameters.AddWithValue("$kind", kind);
-                delete.ExecuteNonQuery();
-                removed.Add((path, size, mtime));
             }
         }
 
@@ -479,18 +448,19 @@ internal static class ScrapeStore
         }
 
         transaction.Commit();
-        return removed;
+        return true;
     }
 
     /// <summary>What <see cref="Clear"/> removed from the DB, so the caller can delete the files.</summary>
-    /// <param name="Media">Every media row the game had: (root, path, size, mtime), for its file and derivative.</param>
-    /// <param name="SharedUserArt">User art files another game also uses (matched by stem): their rows went, but the files stay.</param>
-    public sealed record Cleared(bool Found, IReadOnlyList<(MediaRoot Root, string Path, long? SizeBytes, long? MtimeMs)> Media, IReadOnlyList<string> SharedUserArt);
+    /// <param name="RelPath">The game's <c>rel_path</c>, which its own media files are named after; null if it isn't in the library.</param>
+    /// <param name="Media">Every media row the game had: (kind, path, size, mtime), for its file and derivative.</param>
+    /// <param name="Shared">Media files another game also uses (matched by stem): their rows went, but the files stay.</param>
+    public sealed record Cleared(bool Found, string? RelPath, IReadOnlyList<(string Kind, string Path, long? SizeBytes, long? MtimeMs)> Media, IReadOnlyList<string> Shared);
 
     /// <summary>
     /// Clears everything scraped and every metadata override: metadata, scrape state and log, every match (manual
-    /// ones too), every media row (the user's own art too), and the title back to the file name. The emulator
-    /// override, hidden flag, favourite and play history stay.
+    /// ones too), every media row, and the title back to the file name. The emulator override, hidden flag,
+    /// favourite and play history stay.
     /// </summary>
     public static Cleared Clear(SqliteConnection connection, GameKey key)
     {
@@ -517,24 +487,23 @@ internal static class ScrapeStore
             }
         }
 
-        var media = new List<(MediaRoot, string, long?, long?)>();
+        var media = new List<(string, string, long?, long?)>();
         var shared = new List<string>();
         if (gameId is { } id)
         {
-            using (var select = Command("SELECT source, path, size_bytes, mtime_ms FROM media WHERE game_id = $id"))
+            using (var select = Command("SELECT kind, path, size_bytes, mtime_ms FROM media WHERE game_id = $id"))
             {
                 select.Parameters.AddWithValue("$id", id);
                 using var reader = select.ExecuteReader();
                 while (reader.Read())
                 {
-                    var root = reader.GetString(0) == "user" ? MediaRoot.Config : MediaRoot.Data;
-                    media.Add((root, reader.GetString(1), reader.IsDBNull(2) ? null : reader.GetInt64(2), reader.IsDBNull(3) ? null : reader.GetInt64(3)));
+                    media.Add((reader.GetString(0), reader.GetString(1), reader.IsDBNull(2) ? null : reader.GetInt64(2), reader.IsDBNull(3) ? null : reader.GetInt64(3)));
                 }
             }
 
-            foreach (var (root, path, _, _) in media.Where(m => m.Item1 == MediaRoot.Config).ToList())
+            foreach (var (_, path, _, _) in media)
             {
-                using var others = Command("SELECT COUNT(*) FROM media WHERE source = 'user' AND path = $path AND game_id <> $id");
+                using var others = Command("SELECT COUNT(*) FROM media WHERE path = $path AND game_id <> $id");
                 others.Parameters.AddWithValue("$path", path);
                 others.Parameters.AddWithValue("$id", id);
                 if ((long)others.ExecuteScalar()! > 0)
@@ -574,7 +543,7 @@ internal static class ScrapeStore
         }
 
         transaction.Commit();
-        return new Cleared(gameId is not null, media, shared);
+        return new Cleared(gameId is not null, relPath, media, shared);
     }
 
     // ---- Selection --------------------------------------------------------------------------------
@@ -624,9 +593,8 @@ internal static class ScrapeStore
         return keys;
     }
 
-    /// <summary>Every media row of a kind, with its root, path, size and time (for baking derivatives).</summary>
-    /// <summary>Every indexed file of the given kinds, once each (a file several games share is one entry).</summary>
-    public static List<(MediaRoot Root, string Path, long SizeBytes, long MtimeMs)> MediaOfKinds(SqliteConnection connection, IReadOnlyList<string> kinds)
+    /// <summary>Every indexed file of the given kinds, with its size and time, once each (a file several games share is one entry).</summary>
+    public static List<(string Path, long SizeBytes, long MtimeMs)> MediaOfKinds(SqliteConnection connection, IReadOnlyList<string> kinds)
     {
         using var command = connection.CreateCommand();
         var names = new string[kinds.Count];
@@ -637,14 +605,14 @@ internal static class ScrapeStore
         }
 
         command.CommandText = $"""
-            SELECT DISTINCT source = 'user', path, size_bytes, mtime_ms FROM media
+            SELECT DISTINCT path, size_bytes, mtime_ms FROM media
             WHERE kind IN ({string.Join(", ", names)}) AND size_bytes IS NOT NULL AND mtime_ms IS NOT NULL
             """;
         using var reader = command.ExecuteReader();
-        var rows = new List<(MediaRoot, string, long, long)>();
+        var rows = new List<(string, long, long)>();
         while (reader.Read())
         {
-            rows.Add((reader.GetBoolean(0) ? MediaRoot.Config : MediaRoot.Data, reader.GetString(1), reader.GetInt64(2), reader.GetInt64(3)));
+            rows.Add((reader.GetString(0), reader.GetInt64(1), reader.GetInt64(2)));
         }
 
         return rows;

@@ -35,7 +35,6 @@ public sealed class ManualMatchTests : IAsyncLifetime
         await _bed.DisposeAsync();
     }
 
-    private string MediaFile(GameKey key, string kind) => Path.Combine(_bed.Paths.DataDir, MediaStore.RelativePathFor(key, kind, ".png"));
 
     // ---- Searching ---------------------------------------------------------------------------------
 
@@ -128,7 +127,7 @@ public sealed class ManualMatchTests : IAsyncLifetime
     {
         _bed.Rom(Odd);
         await _bed.ScanAsync();
-        using var service = _bed.Service();
+        using var service = _bed.Service(saveResponses: true);
 
         var result = await service.ScrapeGameWithMatchAsync(Key(Odd), "screenscraper", "1187", Ct);
 
@@ -141,7 +140,8 @@ public sealed class ManualMatchTests : IAsyncLifetime
         Assert.Equal("ok", game.Scrape!.Status);
         Assert.Equal("1187", _bed.Query<string>("SELECT scraper_game_id FROM user.manual_matches WHERE scraper = 'screenscraper'"));
         Assert.Equal("manual", _bed.Query<string>("SELECT method FROM scraper_matches WHERE scraper = 'screenscraper'"));
-        Assert.Equal(3L, _bed.Query<long>("SELECT COUNT(*) FROM media WHERE source = 'screenscraper'"));
+        Assert.Equal(3L, _bed.Query<long>("SELECT COUNT(*) FROM media"));
+        Assert.All((string[])["cover", "label", "spine"], kind => Assert.Equal("screenscraper", _bed.SuppliedBy(Key(Odd), kind)));
 
         _bed.Http.Offline = true;
         await _bed.Library.RebuildAsync(null, Ct);
@@ -156,26 +156,32 @@ public sealed class ManualMatchTests : IAsyncLifetime
         _bed.Rom(Sonic);
         await _bed.ScanAsync();
         var key = Key(Sonic);
-        using var service = _bed.Service();
+        using var service = _bed.Service(saveResponses: true);
         await service.ScrapeGameAsync(key, Ct);                                         // ScreenScraper matches it by hash
-        Assert.Equal("screenscraper", _bed.Query<string>("SELECT source FROM media WHERE kind = 'cover'"));
+        Assert.Equal("screenscraper", _bed.SuppliedBy(key, "cover"));
+        var spine = File.ReadAllBytes(_bed.MediaFile(Sonic, "spine", ".png"));
 
-        // IGDB's game chosen: its cover and metadata win; ScreenScraper (its stored match) fills in the label and spine.
+        // The user deletes the cover and label to get them again.
+        File.Delete(_bed.MediaFile(Sonic, "cover", ".png"));
+        File.Delete(_bed.MediaFile(Sonic, "label", ".png"));
+        await _bed.ScanAsync();
+
+        // IGDB's game chosen: its cover and metadata win; ScreenScraper (its stored match) fills in the label. The
+        // spine the game has stays: a scrape never replaces a file in the media folder.
         await service.ScrapeGameWithMatchAsync(key, "igdb", "1234", Ct);
 
         Assert.Contains(_bed.Http.Requests, r => (r.Body ?? string.Empty).Contains("where id = 1234;", StringComparison.Ordinal));
         var game = await _bed.Game("megadrive", "Sonic the Hedgehog 3 (Europe).md");
         Assert.Equal("IGDB summary of Sonic the Hedgehog 3.", game.Metadata!.Description);
         Assert.Equal(["igdb", "screenscraper"], game.Scrape!.Providers);
-        Assert.Equal("igdb", _bed.Query<string>("SELECT source FROM media WHERE kind = 'cover'"));
-        Assert.Equal("screenscraper", _bed.Query<string>("SELECT source FROM media WHERE kind = 'label'"));
-        Assert.Equal("screenscraper", _bed.Query<string>("SELECT source FROM media WHERE kind = 'spine'"));
+        Assert.Equal(("igdb", "screenscraper", null), (_bed.SuppliedBy(key, "cover"), _bed.SuppliedBy(key, "label"), _bed.SuppliedBy(key, "spine")));
+        Assert.Equal(spine, File.ReadAllBytes(_bed.MediaFile(Sonic, "spine", ".png")));
 
         // A rebuild merges in the same order.
         _bed.Http.Offline = true;
         await _bed.Library.RebuildAsync(null, Ct);
         Assert.Equal("IGDB summary of Sonic the Hedgehog 3.", (await _bed.Game("megadrive", "Sonic the Hedgehog 3 (Europe).md")).Metadata!.Description);
-        Assert.Equal("igdb", _bed.Query<string>("SELECT source FROM media WHERE kind = 'cover'"));
+        Assert.Equal(3L, _bed.Query<long>("SELECT COUNT(*) FROM media"));
         _bed.Http.Offline = false;
 
         // Choosing ScreenScraper's game later puts it first.
@@ -184,31 +190,31 @@ public sealed class ManualMatchTests : IAsyncLifetime
 
         game = await _bed.Game("megadrive", "Sonic the Hedgehog 3 (Europe).md");
         Assert.Equal("Sonic and Tails race to stop Dr. Robotnik's Death Egg.", game.Metadata!.Description);
-        Assert.Equal("screenscraper", _bed.Query<string>("SELECT source FROM media WHERE kind = 'cover'"));
         Assert.Equal(2L, _bed.Query<long>("SELECT COUNT(*) FROM user.manual_matches"));
     }
 
     [Fact]
-    public async Task A_corrected_match_leaves_nothing_of_the_wrong_game_behind()
+    public async Task A_corrected_match_replaces_the_wrong_games_metadata_but_not_its_images()
     {
         _bed.Http.On("GET", u => ScrapeBed.Is(u, "screenscraper.fr", "jeuInfos.php") && u.Query.Contains("gameid=5001", StringComparison.Ordinal),
             _ => FakeHttpHandler.Json(_bed.Fill("ss_jeuinfos_nocover.json")));
         _bed.Rom(Sonic);
         await _bed.ScanAsync();
         var key = Key(Sonic);
-        using var service = _bed.Service(ScrapeBed.Accounts(igdb: false, steamGridDb: false));
+        using var service = _bed.Service(ScrapeBed.Accounts(igdb: false, steamGridDb: false), saveResponses: true);
         await service.ScrapeGameAsync(key, Ct);
         Assert.Equal(3L, _bed.Query<long>("SELECT COUNT(*) FROM media"));
 
-        // The right game (Ecco, here) has none of the three kinds: the wrong game's cover, label and spine go.
+        // The right game (Ecco, here): its metadata and match replace the wrong game's. The media folder doesn't say
+        // which files a provider brought (A4), so the images stay until the user removes them.
         await service.ScrapeGameWithMatchAsync(key, "screenscraper", "5001", Ct);
 
         var game = await _bed.Game("megadrive", "Sonic the Hedgehog 3 (Europe).md");
         Assert.Equal("Ecco the Dolphin", game.Title);
-        Assert.Equal(0L, _bed.Query<long>("SELECT COUNT(*) FROM media"));
+        Assert.Equal(3L, _bed.Query<long>("SELECT COUNT(*) FROM media"));
         foreach (var kind in (string[])["cover", "label", "spine"])
         {
-            Assert.False(File.Exists(MediaFile(key, kind)), kind);
+            Assert.True(File.Exists(_bed.MediaFile(Sonic, kind, ".png")), kind);
         }
 
         Assert.Equal("5001", _bed.Query<string>("SELECT scraper_game_id FROM scraper_matches"));
@@ -217,7 +223,7 @@ public sealed class ManualMatchTests : IAsyncLifetime
         _bed.Http.Offline = true;
         await _bed.Library.RebuildAsync(null, Ct);
         Assert.Equal("Ecco the Dolphin", (await _bed.Game("megadrive", "Sonic the Hedgehog 3 (Europe).md")).Title);
-        Assert.Equal(0L, _bed.Query<long>("SELECT COUNT(*) FROM media"));
+        Assert.Equal(3L, _bed.Query<long>("SELECT COUNT(*) FROM media"));
     }
 
     [Fact]
@@ -235,8 +241,8 @@ public sealed class ManualMatchTests : IAsyncLifetime
         var game = await _bed.Game("megadrive", "Sonic the Hedgehog 3 (Europe).md");
         Assert.Equal("error", game.Scrape!.Status);
         Assert.Equal("screenscraper", game.Metadata!.Source);
-        Assert.Equal(3L, _bed.Query<long>("SELECT COUNT(*) FROM media WHERE source = 'screenscraper'"));
-        Assert.True(File.Exists(MediaFile(key, "label")));
+        Assert.Equal(3L, _bed.Query<long>("SELECT COUNT(*) FROM media"));
+        Assert.True(File.Exists(_bed.MediaFile(Sonic, "label", ".png")));
         Assert.Equal(1L, _bed.Query<long>("SELECT COUNT(*) FROM scraper_matches WHERE scraper = 'screenscraper'"));
     }
 
@@ -257,8 +263,8 @@ public sealed class ManualMatchTests : IAsyncLifetime
         await service.ScrapeGameWithMatchAsync(key, "steamgriddb", "5170", Ct);
 
         // SteamGridDB's art first; ScreenScraper, in the order, still fills in the metadata SteamGridDB doesn't have.
-        Assert.Equal("steamgriddb", _bed.Query<string>("SELECT source FROM media WHERE kind = 'cover'"));
-        Assert.Equal("steamgriddb", _bed.Query<string>("SELECT source FROM media WHERE kind = 'hero'"));
+        Assert.Equal("steamgriddb", _bed.SuppliedBy(key, "cover"));
+        Assert.Equal("steamgriddb", _bed.SuppliedBy(key, "hero"));
         Assert.Equal("manual", _bed.Query<string>("SELECT method FROM scraper_matches WHERE scraper = 'steamgriddb'"));
         var game = await _bed.Game("megadrive", "Sonic the Hedgehog 3 (Europe).md");
         Assert.Equal("screenscraper", game.Metadata!.Source);

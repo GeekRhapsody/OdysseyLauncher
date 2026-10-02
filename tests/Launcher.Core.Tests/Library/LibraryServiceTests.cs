@@ -44,16 +44,16 @@ public sealed class LibraryServiceTests : IAsyncLifetime
     private async Task<LibraryService> Open(AppConfig config)
     {
         var library = await LibraryService.OpenAsync(config, DataDir, _clock, Ct);
-        library.ConfigDir = _dir.Combine("config");
+        library.IndexMedia = true;
         return library;
     }
 
     private string Rom(string relPath, string content = "rom", DateTime? modified = null) => _dir.File("ROMs/" + relPath, content, modified);
 
-    /// <summary>The user's own art: <c>config/media/&lt;relPath&gt;</c>.</summary>
+    /// <summary>A file in the media folder: <c>data/media/&lt;relPath&gt;</c>.</summary>
     private string Art(string relPath, byte[] content, DateTime? modified = null)
     {
-        var path = _dir.File("config/media/" + relPath);
+        var path = _dir.File("data/media/" + relPath);
         File.WriteAllBytes(path, content);
         File.SetLastWriteTimeUtc(path, modified ?? new DateTime(2020, 1, 1, 0, 0, 0, DateTimeKind.Utc));
         return path;
@@ -346,13 +346,13 @@ public sealed class LibraryServiceTests : IAsyncLifetime
 
         Assert.Empty(summary.Diagnostics);
         var a = await Game("ps2", "Game A");
-        Assert.Equal(("media/ps2/cover/Game A (USA).png", MediaRoot.Config), (a.CoverPath, a.CoverRoot));
+        Assert.Equal("media/ps2/cover/Game A (USA).png", a.CoverPath);
         Assert.Equal(0.7f, a.CoverAspect, 3);
         var b = await Game("ps2", "Game B");
         Assert.Equal("media/ps2/cover/Sub/Game B.chd.jpg", b.CoverPath);
         Assert.Equal(1f, b.CoverAspect);
         var none = await Game("ps2", "No Art");
-        Assert.Equal((null, MediaRoot.None, 0f), (none.CoverPath, none.CoverRoot, none.CoverAspect));
+        Assert.Equal((null, 0f), (none.CoverPath, none.CoverAspect));
     }
 
     [Fact]
@@ -434,7 +434,6 @@ public sealed class LibraryServiceTests : IAsyncLifetime
         Assert.Equal(
             [(a.GameId, "back", "media/snes/back/Game A.png", 0.5f), (b.GameId, "screenshot", "media/snes/screenshot/Game B.png", 640f / 480)],
             rows.Select(r => (r.GameId, r.Kind, r.Media.Path, r.Media.Aspect)).OrderBy(r => r.Kind, StringComparer.Ordinal));
-        Assert.All(rows, r => Assert.Equal(MediaRoot.Config, r.Media.Root));
         Assert.All(rows, r => Assert.True(r.Media.SizeBytes > 0 && r.Media.MtimeMs > 0));
 
         var byGame = await _library.GetGameMediaAsync([a.GameId], ["spine", "back"], Ct);
@@ -448,22 +447,41 @@ public sealed class LibraryServiceTests : IAsyncLifetime
         Rom("ps2/Game A (USA).iso");
         Rom("ps2/Sub/Game B.chd");
         Rom("ps2/Game C.iso");
-        var modelA = _dir.File("config/models/games/ps2/Game A (USA).glb", "glTF");
-        _dir.File("config/models/games/ps2/Sub/Game B.chd.glb", "glTF");
-        _dir.File("config/models/games/ps2/Game C.txt", "not a model");
+        var modelA = _dir.File("data/media/ps2/model/Game A (USA).glb", "glTF");
+        _dir.File("data/media/ps2/model/Sub/Game B.chd.glb", "glTF");
+        _dir.File("data/media/ps2/model/Game C.txt", "not a model");
 
         var summary = await _library.RescanAsync("ps2", null, Ct);
 
         Assert.Empty(summary.Diagnostics);
         var rows = await _library.GetGameMediaAsync("ps2", [Launcher.Core.Media.MediaKinds.Model], Ct);
         Assert.Equal(
-            ["models/games/ps2/Game A (USA).glb", "models/games/ps2/Sub/Game B.chd.glb"],
+            ["media/ps2/model/Game A (USA).glb", "media/ps2/model/Sub/Game B.chd.glb"],
             rows.Select(r => r.Media.Path).Order(StringComparer.Ordinal));
-        Assert.All(rows, r => Assert.Equal((MediaRoot.Config, 0f), (r.Media.Root, r.Media.Aspect)));
+        Assert.All(rows, r => Assert.Equal(0f, r.Media.Aspect));
 
         File.Delete(modelA);
         await _library.RescanAsync("ps2", null, Ct);
         Assert.Single(await _library.GetGameMediaAsync("ps2", [Launcher.Core.Media.MediaKinds.Model], Ct));
+    }
+
+    [Fact]
+    public async Task Videos_are_indexed_with_no_size_and_files_of_another_kinds_format_are_ignored()
+    {
+        Rom("snes/Game.sfc");
+        _dir.File("data/media/snes/video/Game.sfc.mp4", "an mp4");
+        _dir.File("data/media/snes/video/Game.png", "not a video");
+        _dir.File("data/media/snes/cover/Game.glb", "not an image");
+        _dir.File("config/media/snes/back/Game.png", "the old place for the user's art");
+
+        var summary = await _library.RescanAsync("snes", null, Ct);
+
+        Assert.Empty(summary.Diagnostics);
+        var game = await Game("snes", "Game");
+        var rows = await _library.GetGameMediaInfoAsync(game.GameId, Ct);
+        var video = Assert.Single(rows);
+        Assert.Equal(("video", "media/snes/video/Game.sfc.mp4", (int?)null, (int?)null), (video.Kind, video.Media.Path, video.Width, video.Height));
+        Assert.True(video.Media.SizeBytes > 0);
     }
 
     [Fact]
@@ -482,7 +500,7 @@ public sealed class LibraryServiceTests : IAsyncLifetime
         await _library.RescanAsync("snes", null, Ct);
         Assert.Empty(changes);
 
-        _dir.File("config/models/games/snes/Game B.glb", "glTF");
+        _dir.File("data/media/snes/model/Game B.glb", "glTF");
         await _library.RescanAsync("snes", null, Ct);
         Assert.Equal([new GameKey("snes", "game b.sfc")], Assert.Single(changes)!);
     }
@@ -575,7 +593,7 @@ public sealed class LibraryServiceTests : IAsyncLifetime
             """,
             "SELECT system_id, path_key, size_bytes, mtime_ms, refs FROM playlists ORDER BY system_id, path_key",
             """
-            SELECT g.system_id, g.path_key, m.kind, m.path, m.width, m.height, m.source, m.size_bytes, m.mtime_ms
+            SELECT g.system_id, g.path_key, m.kind, m.path, m.width, m.height, m.size_bytes, m.mtime_ms
             FROM media m JOIN games g ON g.game_id = m.game_id ORDER BY g.system_id, g.path_key, m.kind
             """,
         ])

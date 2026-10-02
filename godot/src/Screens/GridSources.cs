@@ -176,7 +176,7 @@ public sealed class GamesSource : IGridSource
             var row = _rows[i];
             if (row.CoverPath is not null)
             {
-                cover[i] = new MediaRef(row.CoverRoot, row.CoverPath, row.CoverAspect, row.CoverSizeBytes, row.CoverMtimeMs);
+                cover[i] = new MediaRef(row.CoverPath, row.CoverAspect, row.CoverSizeBytes, row.CoverMtimeMs);
             }
         }
 
@@ -195,7 +195,7 @@ public sealed class GamesSource : IGridSource
     /// <summary>The systems its games come from (one, except in a virtual list).</summary>
     public IReadOnlyList<string> SystemIds => _systemIds;
 
-    /// <summary>The per-game model files its games use (ConfigDir-relative), each once.</summary>
+    /// <summary>The per-game model files its games use (DataDir-relative), each once.</summary>
     public IReadOnlyList<string> ModelPaths => _modelPaths;
 
     /// <summary>Per-game model files whose size or time changed in the last <see cref="ReplaceMedia"/> (to load again).</summary>

@@ -101,6 +101,35 @@ public sealed class MigrationTests : IDisposable
     }
 
     [Fact]
+    public void The_media_folder_migration_drops_the_source_and_queues_every_system_for_a_rescan()
+    {
+        var path = _dir.Combine("library-3.db");
+        using (var connection = Sqlite.Open(path))
+        {
+            MigrationRunner.Migrate(connection, MigrationRunner.Library.Take(3).ToList(), path);
+            using var seed = connection.CreateCommand();
+            seed.CommandText = """
+                INSERT INTO systems (system_id, scanned_at, game_count) VALUES ('snes', 1000, 1);
+                INSERT INTO rom_dirs (dir_id, system_id, position, path) VALUES (1, 'snes', 0, 'C:/ROMs/snes');
+                INSERT INTO games (game_id, system_id, dir_id, rel_path, path_key, size_bytes, mtime_ms, title, sort_title)
+                VALUES (1, 'snes', 1, 'Game.sfc', 'game.sfc', 1, 1, 'Game', 'game');
+                INSERT INTO media (game_id, kind, path, source) VALUES (1, 'cover', 'scraped/media/snes/cover/game.sfc.png', 'screenscraper');
+                """;
+            seed.ExecuteNonQuery();
+        }
+
+        using (var connection = Sqlite.Open(path))
+        {
+            MigrationRunner.Migrate(connection, MigrationRunner.Library, path);
+
+            Assert.Equal("0", Scalar(connection, "SELECT COUNT(*) FROM pragma_table_info('media') WHERE name = 'source'"));
+            Assert.Equal("scraped/media/snes/cover/game.sfc.png", Scalar(connection, "SELECT path FROM media"));   // until the rescan drops it
+            Assert.Equal(string.Empty, Scalar(connection, "SELECT scanned_at FROM systems"));
+            Assert.Equal("1", Scalar(connection, "SELECT game_count FROM systems"));
+        }
+    }
+
+    [Fact]
     public void Migrating_twice_is_a_no_op()
     {
         var path = _dir.Combine("library.db");

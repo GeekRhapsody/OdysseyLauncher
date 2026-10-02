@@ -51,6 +51,7 @@ public sealed record DebugOptions
     public const string OpenArg = "--open";
     public const string OpenPathArg = "--open-path";
     public const string FakeStatusArg = "--fake-status";
+    public const string SaveResponsesArg = "--save-responses";
 
     /// <summary>
     /// What <c>--open</c> can show once the app is interactive (M7), for captures of each settings screen and shared
@@ -78,7 +79,7 @@ public sealed record DebugOptions
         CaptureArg, CaptureFrameArg, BenchArg, BenchFramesArg, BenchScenarioArg, BenchSystemArg, BenchScrollSecondsArg,
         NoTexturesArg, RenderScaleArg, UpscalerArg, UploadCapArg, StartSystemArg, StartIndexArg, NavScriptArg, LaunchArg,
         UserDirArg, QuitAfterLaunchArg, ThemeArg, NoOverlayArg, OpenArg, OpenPathArg,
-        FakeStatusArg,
+        FakeStatusArg, SaveResponsesArg,
     ];
 
     /// <summary>
@@ -99,7 +100,7 @@ public sealed record DebugOptions
     public const int NavScriptStepFrames = 30;
 
     /// <summary>Arguments that are switches, with no value.</summary>
-    private static readonly string[] FlagArgs = [QuitAfterLaunchArg, NoTexturesArg, NoOverlayArg];
+    private static readonly string[] FlagArgs = [QuitAfterLaunchArg, NoTexturesArg, NoOverlayArg, SaveResponsesArg];
 
     public static DebugOptions None { get; } = new();
 
@@ -184,6 +185,12 @@ public sealed record DebugOptions
     /// </summary>
     public DeviceStatus? FakeStatus { get; init; }
 
+    /// <summary>
+    /// <c>--save-responses</c>: save each scraping provider's response in <c>scraped/responses/</c> for this run, to
+    /// debug a scrape (A4). Off by default.
+    /// </summary>
+    public bool SaveResponses { get; init; }
+
     public bool CaptureRequested => CapturePath is not null;
 
     public bool BenchRequested => BenchPath is not null;
@@ -252,6 +259,7 @@ public sealed record DebugOptions
                 OpenArg => options with { Open = ParseOpen(value, errors) },
                 OpenPathArg => options with { OpenPath = ParsePath(name, value, null, errors) },
                 FakeStatusArg => options with { FakeStatus = ParseFakeStatus(value, errors) },
+                SaveResponsesArg => options with { SaveResponses = true },
                 _ => options,
             };
         }

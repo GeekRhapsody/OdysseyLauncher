@@ -281,7 +281,7 @@ public partial class Main : Node3D
 
     private void BuildScene(AppServices services)
     {
-        _streamer?.SetFolders(services.Paths.CacheDir, services.Paths.ConfigDir, services.Paths.DataDir);
+        _streamer?.SetFolders(services.Paths.CacheDir, services.Paths.DataDir);
 
         var clock = System.Diagnostics.Stopwatch.StartNew();
         var theme = _theme!;

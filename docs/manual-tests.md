@@ -205,10 +205,10 @@ This is the M4 acceptance's live scrape of a 50-game set, and the check of the b
    & $cli --user-dir=C:\OdysseyTest show "megadrive/<the same>"
    ```
 
-5. Scrape the whole set, timed, keeping the output:
+5. Scrape the whole set, timed, keeping the output. `--save-responses` keeps each provider's answer in `C:\OdysseyTest\scraped\responses\` (off by default), for step 9 and for debugging a wrong match:
 
    ```powershell
-   Measure-Command { & $cli --user-dir=C:\OdysseyTest system megadrive | Tee-Object C:\OdysseyTest\scrape-log.txt } | Select-Object TotalSeconds
+   Measure-Command { & $cli --user-dir=C:\OdysseyTest --save-responses system megadrive | Tee-Object C:\OdysseyTest\scrape-log.txt } | Select-Object TotalSeconds
    ```
 
 6. Resume: run `& $cli --user-dir=C:\OdysseyTest missing`, press Ctrl+C after a few games, then run `& $cli --user-dir=C:\OdysseyTest resume`. It should carry on with the games left, not start again. (With every game already found, `missing` picks only games without a cover.)
@@ -235,7 +235,7 @@ This checks what captures can't: switching themes on the real display, the look 
 2. Start the export full screen: `& .\artifacts\export\windows\OdysseyLauncher.exe --fullscreen ++ --user-dir=C:\OdysseyTest`, and use only the gamepad.
 3. **Looks.** Press A on Mega Drive: the background and lights cross-fade to Mega Drive's blue look over about a third of a second while the games come up. B cross-fades back.
 4. **Switching.** On the systems grid, press Menu, choose Theme, then Slot Showcase (from M7 the settings choose the theme; Menu used to cycle through them). The cards become square tiles, the background turns plum and teal, and nothing restarts. Close the settings and enter Mega Drive: the games are tall cases with a screenshot panel; games with no screenshot show a test card there. Choose Memory Card the same way to go back.
-5. **Your own model.** Quit, copy any `.glb` with a material named `cover` (for example `tests\themes\slot-showcase\models\templates\showcase_case.glb`) to `C:\OdysseyTest\models\games\megadrive\<a ROM's name without its extension>.glb`, start again and press F5 to rescan. Enter Mega Drive: that one game shows your model, the same height as its neighbours, with its cover on the `cover` material.
+5. **Your own model.** Quit, copy any `.glb` with a material named `cover` (for example `tests\themes\slot-showcase\models\templates\showcase_case.glb`) to `C:\OdysseyTest\media\megadrive\model\<a ROM's name without its extension>.glb`, start again and press F5 to rescan. Enter Mega Drive: that one game shows your model, the same height as its neighbours, with its cover on the `cover` material.
 
 ### Send back
 
@@ -286,7 +286,7 @@ This checks what the scripts can't: a real pad on the options panels, and a live
 
 1. **A game's options.** Enter Mega Drive, focus a game and press X. Move with the D-pad, A to choose, B to go back. With a physical keyboard, O opens them too.
 2. **Scrape this game.** Choose it: every provider's results are listed (see [Manual matching](#manual-matching)); press A on the right one. The panel says "Scraping …", then which provider found it. Press B: the game's box shows its scraped cover at once, and the details (bottom left) its metadata.
-3. **Your own images.** Images: a card per slot shows the scraped art and where it came from. Choose the front cover, pick one of your images in the picker (it shows a preview), then do the same for the back. Close the options: the box shows your cover straight away. Reopen Images, focus your cover and press Y, then Remove it: the scraped cover comes back.
+3. **Your own images.** Images: a card per slot shows the scraped art and its file. Choose the front cover, pick one of your images in the picker (it shows a preview), then do the same for the back. Close the options: the box shows your cover straight away, and `C:\OdysseyTest\media\megadrive\cover\` holds only yours. Scrape this game again: your cover stays. Reopen Images, focus your cover and press Y, then Remove it: the slot is empty. Scrape this game again: the scraped cover comes back.
 4. **Metadata.** Edit the title and metadata, then Title: type a new title on the on-screen keyboard and press Menu. The grid shows the new title when you close the options (and the game moves if it now sorts elsewhere). Try Released with nonsense: it's refused with the formats it takes. Focus a field you changed and press Y: it's the scraped value again.
 5. **Emulator and model.** Emulator: choose another profile; launch the game: it uses that one. Model: choose your `.glb`; the box becomes your model. Y on Model removes it.
 6. **Clear metadata.** Read the question (it says your images go too), then Clear it. The game shows a plain box and its file-name title, and your image files for it are gone from `C:\OdysseyTest\media\megadrive\`.

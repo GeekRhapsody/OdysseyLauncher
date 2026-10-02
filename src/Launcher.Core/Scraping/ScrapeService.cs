@@ -37,7 +37,11 @@ public sealed record ScrapeGameResult(
     string Status,
     IReadOnlyList<string> Providers,
     IReadOnlyList<string> Media,
-    IReadOnlyList<ProviderLog> Log);
+    IReadOnlyList<ProviderLog> Log)
+{
+    /// <summary>The provider each saved kind came from: only this result says, as the media folder doesn't (A4).</summary>
+    public IReadOnlyDictionary<string, string> MediaSources { get; init; } = new Dictionary<string, string>();
+}
 
 /// <summary>A batch's outcome.</summary>
 /// <param name="Paused">The service stopped (the app closed) before the batch finished: it resumes on the next start.</param>
@@ -86,7 +90,7 @@ public sealed record ProviderMatches(
 public sealed record MatchSearch(GameKey Game, string Term, IReadOnlyList<ProviderMatches> Providers);
 
 /// <summary>What clearing a game removed.</summary>
-/// <param name="KeptSharedArt">User art files another game also uses (by stem): their rows went, the files stay.</param>
+/// <param name="KeptSharedArt">Media files another game also uses (by stem): their rows went, the files stay.</param>
 public sealed record ClearResult(bool Found, int FilesDeleted, IReadOnlyList<string> KeptSharedArt);
 
 public sealed class ScrapeProgressEventArgs(long batchId, string kind, int total, int done, int failed, GameKey? current) : EventArgs
@@ -151,6 +155,12 @@ public sealed class ScrapeServiceOptions
 
     /// <summary>Games worked on at once, at most. Each provider still keeps to its own limit.</summary>
     public int MaxWorkers { get; init; } = 8;
+
+    /// <summary>
+    /// Saves each provider's response in <c>scraped/responses/</c> (credentials redacted), for debugging a scrape:
+    /// off unless the app or <c>odyssey-scrape</c> is started with <c>--save-responses</c> (A4).
+    /// </summary>
+    public bool SaveResponses { get; init; }
 }
 
 /// <summary>
@@ -160,7 +170,8 @@ public sealed class ScrapeServiceOptions
 /// limits and transient errors are retried with backoff (<see cref="ScraperHttp"/>).
 /// <para>
 /// Provider selection: <c>[scraping] provider</c> first, then each fallback in order, asked only for the fields and
-/// media still missing and only if its capability map has them. A provider with no credentials is skipped and
+/// media still missing and only if its capability map has them. Media is downloaded only for kinds the game has no
+/// file for, and never replaces one (A4). A provider with no credentials is skipped and
 /// reported (<see cref="ProviderNotice"/>), never an error. A manual match (userdata.db) beats a stored one, which
 /// beats a search; scraping never writes the user's overrides.
 /// </para>
@@ -504,9 +515,9 @@ public sealed class ScrapeService : IDisposable
     }
 
     /// <summary>
-    /// Clears a game's metadata: scraped fields, scraped media files and their derivatives, saved responses, every
-    /// match (manual ones too), the title and metadata overrides, and the user's own art files and model for it (not
-    /// a file another game also uses; the model's processed copy in the cache goes too). Its status goes back to never
+    /// Clears a game's metadata: scraped fields, its media files (scraped or the user's own, its model included, but
+    /// not a file another game also uses) and their derivatives (and the model's processed copy in the cache), saved
+    /// responses, every match (manual ones too), and the title and metadata overrides. Its status goes back to never
     /// scraped. Favourite, play history, emulator and hidden stay.
     /// </summary>
     public async Task<ClearResult> ClearGameAsync(GameKey game, CancellationToken cancellationToken)
@@ -524,28 +535,32 @@ public sealed class ScrapeService : IDisposable
                 }
             }
 
-            foreach (var (root, path, size, mtime) in cleared.Media)
+            foreach (var (kind, path, size, mtime) in cleared.Media)
             {
                 if (size is { } s && mtime is { } m)
                 {
-                    Delete(Derivatives.PathFor(root, path, s, m));
+                    Delete(Derivatives.PathFor(path, s, m));
                 }
 
-                if (root == MediaRoot.Config && !cleared.SharedUserArt.Contains(path))
+                if (!cleared.Shared.Contains(path))
                 {
-                    // The user's own art and their model for the game (M6: its processed copy in the cache goes too).
-                    var file = Path.Combine(_options.Paths.ConfigDir, path.Replace('/', Path.DirectorySeparatorChar));
+                    var file = _media.FullPath(path);
                     Delete(file);
-                    if (path.StartsWith(UserMedia.ModelsFolderName + "/", StringComparison.Ordinal))
+                    if (kind == MediaKinds.Model)
                     {
+                        // M6: the model's processed copy in the cache goes too.
                         new ModelCache(_options.Paths.CacheDir, null, null).Forget(file);
                     }
                 }
             }
 
-            foreach (var file in _media.FilesOf(game))
+            // Files named after the game that no scan has indexed yet.
+            if (cleared.RelPath is { } relPath)
             {
-                Delete(file);
+                foreach (var file in _media.FilesOf(game.SystemId, relPath))
+                {
+                    Delete(file);
+                }
             }
 
             deleted += ScrapedResponses.Delete(_library.DataDir, game);
@@ -554,7 +569,7 @@ public sealed class ScrapeService : IDisposable
                 _library.RaiseMediaChanged([game]);
             }
 
-            return new ClearResult(cleared.Found, deleted, cleared.SharedUserArt);
+            return new ClearResult(cleared.Found, deleted, cleared.Shared);
         }, cancellationToken).ConfigureAwait(false);
     }
 
@@ -980,8 +995,8 @@ public sealed class ScrapeService : IDisposable
         var order = context.ManualOrder.Concat(settings.ProviderOrder).Distinct(StringComparer.Ordinal).Where(_scrapers.ContainsKey).ToList();
         var hashes = await HashAsync(context, system, order, settings, cancellationToken).ConfigureAwait(false);
 
-        var userKinds = context.Media.Where(m => m.Value.Source == "user").Select(m => m.Key).ToHashSet(StringComparer.Ordinal);
-        var wanted = settings.Media.Where(k => !userKinds.Contains(k)).ToHashSet(StringComparer.Ordinal);
+        // A kind the game has a file for, wherever it came from, isn't downloaded again (A4).
+        var wanted = settings.Media.Where(k => !context.Media.ContainsKey(k)).ToHashSet(StringComparer.Ordinal);
         var merge = new ScrapeMerge(wanted);
         var query = new ScrapeQuery(key, system, Path.GetFileName(context.RelPath), TitleMatcher.SearchTerm(context.FileTitle),
             context.SizeBytes, hashes, wanted);
@@ -1078,14 +1093,11 @@ public sealed class ScrapeService : IDisposable
         }
 
         // Media: each kind from the first provider whose download works.
-        var saved = new List<(string Kind, string Source, StoredMedia Media)>();
+        var saved = new List<(string Kind, StoredMedia Media)>();
+        var sources = new Dictionary<string, string>(StringComparer.Ordinal);
         var savedBy = new Dictionary<string, List<SavedMedia>>(StringComparer.Ordinal);
-
-        // Kinds offered but not downloaded: the replaced providers keep what the game had of them.
-        var notDownloaded = new HashSet<string>(StringComparer.Ordinal);
         foreach (var (kind, candidates) in merge.MediaCandidates())
         {
-            notDownloaded.Add(kind);
             foreach (var (provider, media) in candidates)
             {
                 if (IsResting(provider, out _))
@@ -1096,8 +1108,14 @@ public sealed class ScrapeService : IDisposable
                 try
                 {
                     var bytes = await _scrapers[provider].DownloadAsync(media, cancellationToken).ConfigureAwait(false);
-                    var stored = await _media.SaveAsync(key, kind, bytes, cancellationToken).ConfigureAwait(false);
-                    saved.Add((kind, provider, stored));
+                    // Null: a file of that kind turned up meanwhile (the user's own), and it stays.
+                    if (await _media.SaveAsync(key.SystemId, context.RelPath, kind, bytes, cancellationToken).ConfigureAwait(false) is not { } stored)
+                    {
+                        break;
+                    }
+
+                    saved.Add((kind, stored));
+                    sources[kind] = provider;
                     if (!savedBy.TryGetValue(provider, out var list))
                     {
                         savedBy[provider] = list = [];
@@ -1108,10 +1126,9 @@ public sealed class ScrapeService : IDisposable
                     // Any image can fill a theme's slot (M6), so each gets its derivative now.
                     if (MediaKinds.Images.Contains(kind))
                     {
-                        await Derivatives.BakeAsync(MediaRoot.Data, stored.RelativePath, stored.SizeBytes, stored.MtimeMs, cancellationToken).ConfigureAwait(false);
+                        await Derivatives.BakeAsync(stored.RelativePath, stored.SizeBytes, stored.MtimeMs, cancellationToken).ConfigureAwait(false);
                     }
 
-                    notDownloaded.Remove(kind);
                     break;
                 }
                 catch (ProviderException e)
@@ -1128,59 +1145,37 @@ public sealed class ScrapeService : IDisposable
 
         var status = found.Count > 0 ? (failed ? "partial" : "ok") : (failed ? "error" : "not_found");
         var now = _clock.GetUtcNow().ToUnixTimeMilliseconds();
-        await Task.Run(() =>
+        if (_options.SaveResponses)
         {
-            foreach (var (provider, (providerStatus, response)) in responses)
+            await Task.Run(() =>
             {
-                matches.TryGetValue(provider, out var match);
-                ScrapedResponses.Save(_library.DataDir, new SavedScrape(
-                    provider, key, providerStatus, match.Id, match.Method, now,
-                    savedBy.TryGetValue(provider, out var media) ? media : [],
-                    response is null ? null : _redactor.Redact(response)));
-            }
-        }, cancellationToken).ConfigureAwait(false);
+                foreach (var (provider, (providerStatus, response)) in responses)
+                {
+                    matches.TryGetValue(provider, out var match);
+                    ScrapedResponses.Save(_library.DataDir, new SavedScrape(
+                        provider, key, providerStatus, match.Id, match.Method, now,
+                        savedBy.TryGetValue(provider, out var media) ? media : [],
+                        response is null ? null : _redactor.Redact(response)));
+                }
+            }, cancellationToken).ConfigureAwait(false);
+        }
 
         var write = new ScrapeWrite(found.Count > 0 ? merge.Metadata() : null, matches, saved, log, status, found, now);
-        var changed = saved.Count > 0;
         if (replaced.Count > 0)
         {
-            var removed = await _library.WriteAsync(c => ScrapeStore.SaveReplacing(c, key, write, replaced, notDownloaded), cancellationToken).ConfigureAwait(false);
-            if (removed is { Count: > 0 })
-            {
-                changed = true;
-                await Task.Run(() =>
-                {
-                    static void Delete(string file)
-                    {
-                        if (File.Exists(file))
-                        {
-                            File.Delete(file);
-                        }
-                    }
-
-                    foreach (var (path, size, mtime) in removed)
-                    {
-                        if (size is { } s && mtime is { } m)
-                        {
-                            Delete(Derivatives.PathFor(MediaRoot.Data, path, s, m));
-                        }
-
-                        Delete(Path.Combine(_library.DataDir, path.Replace('/', Path.DirectorySeparatorChar)));
-                    }
-                }, CancellationToken.None).ConfigureAwait(false);
-            }
+            await _library.WriteAsync(c => ScrapeStore.SaveReplacing(c, key, write, replaced), cancellationToken).ConfigureAwait(false);
         }
         else
         {
             await _library.WriteAsync(c => ScrapeStore.Save(c, key, write), cancellationToken).ConfigureAwait(false);
         }
 
-        if (changed)
+        if (saved.Count > 0)
         {
             _library.RaiseMediaChanged([key]);
         }
 
-        return new ScrapeGameResult(key, status, found, saved.Select(s => s.Kind).ToList(), log);
+        return new ScrapeGameResult(key, status, found, saved.Select(s => s.Kind).ToList(), log) { MediaSources = sources };
     }
 
     /// <summary>ScreenScraper wants a hash: small files are hashed once, and the hashes kept in the library.</summary>

@@ -188,7 +188,7 @@ The built-in theme's `big_box` (DOS) does this. To make a model for it:
 For each game and each system card, the launcher tries these candidates in order and uses the first that loads. A candidate that's missing, broken or rejected (section 7) falls through to the next one.
 
 **A game's model:**
-1. The user's own model for that game: `ConfigDir/models/games/<system>/<rel path>.glb`, where `<rel path>` is the ROM's path under its ROM folder.
+1. The user's own model for that game, in the media folder with its art: `DataDir/media/<system>/model/<rel path>.glb`, where `<rel path>` is the ROM's path under its ROM folder.
    - With the extension kept (`Game (Europe).iso.glb`), it's for that ROM only.
    - Without it (`Game (Europe).glb`), it's for every ROM of that name.
    - Users choose one in the game's options (X on the game, then Model), or import one with `odyssey-scrape import-model` (section 10).

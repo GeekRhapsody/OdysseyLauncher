@@ -5,7 +5,8 @@ namespace Launcher.Core.Theming;
 /// <summary>
 /// The user's own per-system models (A7), found by folder convention: <c>ConfigDir/models/templates/&lt;system&gt;.glb</c>
 /// (a game template for every game of the system) and <c>ConfigDir/models/systems/&lt;system&gt;.glb</c> (the system's
-/// card). Per-game models are indexed by the scanner instead (media kind <c>model</c>), since there can be thousands.
+/// card). Per-game models are in the media folder instead, indexed by the scanner (media kind <c>model</c>), since there
+/// can be thousands.
 /// </summary>
 public sealed record UserModels(string ConfigDir, IReadOnlySet<string> Templates, IReadOnlySet<string> Systems)
 {
@@ -51,7 +52,7 @@ public sealed record UserModels(string ConfigDir, IReadOnlySet<string> Templates
 /// <summary>Where a model candidate comes from, in precedence order (A7).</summary>
 public enum ModelLevel
 {
-    /// <summary><c>ConfigDir/models/games/&lt;system&gt;/&lt;rel path&gt;.glb</c>, indexed by the scanner.</summary>
+    /// <summary><c>DataDir/media/&lt;system&gt;/model/&lt;rel path&gt;.glb</c>, indexed by the scanner.</summary>
     UserGame,
 
     /// <summary><c>ConfigDir/models/templates/&lt;system&gt;.glb</c>, or for a card <c>ConfigDir/models/systems/&lt;system&gt;.glb</c>.</summary>
@@ -111,16 +112,19 @@ public sealed class ModelResolver
 {
     private readonly AppConfig _config;
     private readonly UserModels _user;
+    private readonly string _dataDir;
     private readonly List<Diagnostic> _diagnostics = [];
 
     /// <param name="active">The theme settings.toml names (or the built-in one).</param>
     /// <param name="builtIn">The built-in default theme, always the last resort.</param>
-    public ModelResolver(Theme active, Theme builtIn, UserModels user, AppConfig config)
+    /// <param name="dataDir">Where the media folder is, which per-game models' paths are relative to.</param>
+    public ModelResolver(Theme active, Theme builtIn, UserModels user, AppConfig config, string dataDir)
     {
         Active = active ?? throw new ArgumentNullException(nameof(active));
         BuiltIn = builtIn ?? throw new ArgumentNullException(nameof(builtIn));
         _user = user ?? throw new ArgumentNullException(nameof(user));
         _config = config ?? throw new ArgumentNullException(nameof(config));
+        _dataDir = dataDir ?? throw new ArgumentNullException(nameof(dataDir));
         foreach (var system in config.Systems)
         {
             if (system.GameModel is { } id && !active.Templates.ContainsKey(id) && !builtIn.Templates.ContainsKey(id))
@@ -186,12 +190,12 @@ public sealed class ModelResolver
         }
     }
 
-    /// <summary>The per-game model, from its <c>media</c> row (kind <c>model</c>, a path relative to ConfigDir).</summary>
+    /// <summary>The per-game model, from its <c>media</c> row (kind <c>model</c>, a path relative to DataDir).</summary>
     public ModelCandidate PerGame(string relativePath)
     {
         ArgumentNullException.ThrowIfNull(relativePath);
         return new ModelCandidate(ModelLevel.UserGame, ThemeOrigin.User,
-            Path.GetFullPath(Path.Combine(_user.ConfigDir, relativePath.Replace('/', Path.DirectorySeparatorChar))), null, false,
+            Path.GetFullPath(Path.Combine(_dataDir, relativePath.Replace('/', Path.DirectorySeparatorChar))), null, false,
             $"your {relativePath}");
     }
 

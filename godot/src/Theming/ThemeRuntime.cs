@@ -85,7 +85,7 @@ public sealed class ThemePlan
         var diagnostics = new List<Diagnostic>();
         var users = ThemeCatalog.UserSources(System.IO.Path.Combine(paths.ConfigDir, ThemeLoader.FolderName), diagnostics);
         var themes = ThemeCatalog.Load(builtIns, users, themeId, diagnostics, builtIn);
-        var resolver = new ModelResolver(themes.Active, themes.BuiltIn, UserModels.Find(paths.ConfigDir), config);
+        var resolver = new ModelResolver(themes.Active, themes.BuiltIn, UserModels.Find(paths.ConfigDir), config, paths.DataDir);
         diagnostics.AddRange(resolver.Diagnostics);
         return new ThemePlan(themes, resolver, diagnostics, config, paths);
     }
@@ -200,7 +200,7 @@ public sealed class ThemeRuntime
     /// <summary>A system's colour: the theme's, else one made from its id.</summary>
     public Color ColourOf(string systemId) => Palette.ForSystem(Plan.Resolver.ColourOf(systemId), systemId);
 
-    /// <summary>Main thread: starts loading a per-game model (ConfigDir-relative path) and says where it stands.</summary>
+    /// <summary>Main thread: starts loading a per-game model (DataDir-relative path) and says where it stands.</summary>
     public ModelState RequestPerGame(string relativePath) => _loader.Request(Plan.Resolver.PerGame(relativePath), systemCard: false);
 
     /// <summary>The loaded per-game model, or null.</summary>

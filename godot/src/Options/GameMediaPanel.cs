@@ -6,7 +6,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using Godot;
 using Launcher.App.Navigation;
-using Launcher.App.Settings;
 using Launcher.App.Ui;
 using Launcher.Core.Files;
 using Launcher.Core.Library;
@@ -17,10 +16,11 @@ namespace Launcher.App.Options;
 
 /// <summary>
 /// A game's images (M7 part 2): a card per media slot (front cover, back cover, spine, box texture, disc or cartridge
-/// label, screenshot, logo, hero art), each with its current image, where it came from (the user's own, scraped and by
-/// which provider, or none), and whether the game's model shows that slot. A chooses the user's own image with the
-/// image picker; Y removes it, and the scraped one shows again. The grid rebinds the game's slots as soon as a change
-/// is indexed (the library's MediaChanged), keeping its model.
+/// label, screenshot, logo, hero art), each with its current image, its file in the media folder (or none), and whether
+/// the game's model shows that slot. A chooses the user's own image with the image picker, replacing the slot's file;
+/// Y deletes the slot's file, scraped or not, so a scrape can fill it again. The media folder doesn't say where a file
+/// came from (A4). The grid rebinds the game's slots as soon as a change is indexed (the library's MediaChanged),
+/// keeping its model.
 /// </summary>
 public sealed partial class GameMediaPanel : UiPanel
 {
@@ -38,7 +38,7 @@ public sealed partial class GameMediaPanel : UiPanel
     {
         _options = options;
         _game = game;
-        Subtitle = "Choose your own for any slot; yours are kept when the game is scraped again";
+        Subtitle = "Choose your own for any slot. Scraping only fills empty slots, so it never replaces one";
 
         var grid = new GridContainer { Columns = 4, SizeFlagsVertical = SizeFlags.ExpandFill, MouseFilter = MouseFilterEnum.Ignore };
         grid.AddThemeConstantOverride("h_separation", 12);
@@ -54,7 +54,7 @@ public sealed partial class GameMediaPanel : UiPanel
             _cards[slot] = card;
         }
 
-        SetHints("A  Choose an image     Y  Remove yours     B  Back");
+        SetHints("A  Choose an image     Y  Remove it     B  Back");
         _options.Library.MediaChanged += OnMediaChanged;
         Reload();
     }
@@ -176,8 +176,7 @@ public sealed partial class GameMediaPanel : UiPanel
                     continue;
                 }
 
-                var root = row.Media.Root == MediaRoot.Config ? paths.ConfigDir : paths.DataDir;
-                var file = Path.Combine(root, row.Media.Path.Replace('/', Path.DirectorySeparatorChar));
+                var file = Path.Combine(paths.DataDir, row.Media.Path.Replace('/', Path.DirectorySeparatorChar));
                 var texture = Thumbnails.Load(file, ThumbSide, decoder, out var info);
                 options.Ui.Queue.Post(() =>
                 {
@@ -219,7 +218,7 @@ public sealed partial class GameMediaPanel : UiPanel
             PickerUses.Image,
             file => Set(kind, file),
             Filter: FileFilter.Images,
-            Subtitle: "A PNG, JPEG or WebP image. It's copied into your art folder, so the original can go",
+            Subtitle: "A PNG, JPEG or WebP image. It's copied into the media folder, so the original can go",
             Thumbnails: true));
     }
 
@@ -275,16 +274,16 @@ public sealed partial class GameMediaPanel : UiPanel
             }
         }
 
-        if (row is not { IsUsers: true })
+        if (row is null)
         {
-            ShowStatus(row is null ? $"There's no {SlotName(kind).ToLowerInvariant()} to remove." : "That one was scraped: choose your own to replace it, or Clear metadata in the game's options.", UiStyle.Dim, 5);
+            ShowStatus($"There's no {SlotName(kind).ToLowerInvariant()} to remove.", UiStyle.Dim, 5);
             return;
         }
 
         var options = _options;
         var key = _game.Key;
         ConfirmDialog.Ask(Layer, $"Remove your {SlotName(kind).ToLowerInvariant()}?",
-            $"{row.Media.Path} is deleted from your art folder. The scraped image shows again, if the game has one.",
+            $"{row.Media.Path} is deleted from the media folder. The slot stays empty until the game is scraped again.",
             "Remove it", "Keep it", yes =>
             {
                 if (!yes)
@@ -304,10 +303,9 @@ public sealed partial class GameMediaPanel : UiPanel
 
                         ShowStatus(result.Status switch
                         {
-                            UserArtStatus.Removed when result.RestoredFrom is { } provider => $"Removed: the image from {ScrapingPage.NameOf(provider)} shows again.",
-                            UserArtStatus.Removed => "Removed. It has no scraped image for that slot.",
+                            UserArtStatus.Removed => "Removed. Scraping the game can fill the slot again.",
                             UserArtStatus.Shared => $"{result.Path} is every game of that name's, so it was left alone.",
-                            _ => "There was nothing of yours to remove.",
+                            _ => "There was nothing to remove.",
                         }, result.Status == UserArtStatus.Removed ? UiStyle.Good : UiStyle.Warning, 6);
                         _cards[slot].SetImage(null, null);
                         Reload();
@@ -381,8 +379,8 @@ public sealed partial class GameMediaPanel : UiPanel
                 return;
             }
 
-            _source.Text = row.IsUsers ? "Yours" : $"Scraped from {ScrapingPage.NameOf(row.Source)}";
-            _sourceSettings.FontColor = row.IsUsers ? UiStyle.Good : UiStyle.Dim;
+            _source.Text = Path.GetFileName(row.Media.Path);
+            _sourceSettings.FontColor = UiStyle.Dim;
         }
 
         /// <summary>Main thread: the thumbnail (null clears it) and its size.</summary>

@@ -28,14 +28,14 @@ internal static class LibraryStore
         return playlists;
     }
 
-    /// <summary>The system's indexed user art, by stored path, for <see cref="UserMedia.Scan"/>'s cache.</summary>
-    public static Dictionary<string, UserMediaEntry> LoadUserMedia(SqliteConnection connection, string systemId)
+    /// <summary>The system's indexed images, by stored path, for <see cref="MediaScanner.Scan"/>'s cache.</summary>
+    public static Dictionary<string, MediaEntry> LoadMedia(SqliteConnection connection, string systemId)
     {
-        var entries = new Dictionary<string, UserMediaEntry>(StringComparer.Ordinal);
+        var entries = new Dictionary<string, MediaEntry>(StringComparer.Ordinal);
         using var command = connection.CreateCommand();
         command.CommandText = """
             SELECT m.path, m.size_bytes, m.mtime_ms, m.width, m.height FROM media m JOIN games g ON g.game_id = m.game_id
-            WHERE g.system_id = $system AND m.source = 'user' AND m.size_bytes IS NOT NULL AND m.mtime_ms IS NOT NULL
+            WHERE g.system_id = $system AND m.size_bytes IS NOT NULL AND m.mtime_ms IS NOT NULL
               AND m.width IS NOT NULL AND m.height IS NOT NULL
             """;
         command.Parameters.AddWithValue("$system", systemId);
@@ -43,7 +43,7 @@ internal static class LibraryStore
         while (reader.Read())
         {
             // A file matched by several games (by stem) has one row each; they're all the same entry.
-            entries.TryAdd(reader.GetString(0), new UserMediaEntry(reader.GetInt64(1), reader.GetInt64(2), reader.GetInt32(3), reader.GetInt32(4)));
+            entries.TryAdd(reader.GetString(0), new MediaEntry(reader.GetInt64(1), reader.GetInt64(2), reader.GetInt32(3), reader.GetInt32(4)));
         }
 
         return entries;
@@ -79,7 +79,7 @@ internal static class LibraryStore
     // The grid queries select only what a cell draws. Title order uses games_by_system when no title is
     // overridden; the COALESCE keeps overridden titles in their own place.
     private const string GamesSql = """
-        SELECT g.game_id, COALESCE(o.title, g.title), m.path, m.source, f.added_at IS NOT NULL, m.width, m.height, m.size_bytes, m.mtime_ms
+        SELECT g.game_id, COALESCE(o.title, g.title), m.path, f.added_at IS NOT NULL, m.width, m.height, m.size_bytes, m.mtime_ms
         FROM games g
         LEFT JOIN user.game_overrides o ON o.system_id = g.system_id AND o.path_key = g.path_key
         LEFT JOIN user.favourites f ON f.system_id = g.system_id AND f.path_key = g.path_key
@@ -89,7 +89,7 @@ internal static class LibraryStore
         """;
 
     private const string FavouritesSql = """
-        SELECT g.system_id, g.game_id, COALESCE(o.title, g.title), m.path, m.source, 1, m.width, m.height, m.size_bytes, m.mtime_ms
+        SELECT g.system_id, g.game_id, COALESCE(o.title, g.title), m.path, 1, m.width, m.height, m.size_bytes, m.mtime_ms
         FROM user.favourites f
         JOIN games g ON g.system_id = f.system_id AND g.path_key = f.path_key
         LEFT JOIN user.game_overrides o ON o.system_id = g.system_id AND o.path_key = g.path_key
@@ -100,7 +100,7 @@ internal static class LibraryStore
 
     // Uses the partial index play_stats_recent.
     private const string RecentSql = """
-        SELECT g.system_id, g.game_id, COALESCE(o.title, g.title), m.path, m.source, f.added_at IS NOT NULL, m.width, m.height, m.size_bytes, m.mtime_ms
+        SELECT g.system_id, g.game_id, COALESCE(o.title, g.title), m.path, f.added_at IS NOT NULL, m.width, m.height, m.size_bytes, m.mtime_ms
         FROM user.play_stats p
         JOIN games g ON g.system_id = p.system_id AND g.path_key = p.path_key
         LEFT JOIN user.game_overrides o ON o.system_id = g.system_id AND o.path_key = g.path_key
@@ -124,17 +124,16 @@ internal static class LibraryStore
                 reader.GetInt64(0),
                 reader.GetString(1),
                 reader.IsDBNull(2) ? null : reader.GetString(2),
-                reader.IsDBNull(3) ? MediaRoot.None : RootOf(reader.GetString(3)),
-                reader.GetBoolean(4),
-                Aspect(reader, 5),
-                reader.IsDBNull(7) ? 0 : reader.GetInt64(7),
-                reader.IsDBNull(8) ? 0 : reader.GetInt64(8)));
+                reader.GetBoolean(3),
+                Aspect(reader, 4),
+                reader.IsDBNull(6) ? 0 : reader.GetInt64(6),
+                reader.IsDBNull(7) ? 0 : reader.GetInt64(7)));
         }
 
         return games;
     }
 
-    private const string GameMediaColumns = "m.game_id, m.kind, m.path, m.source, m.width, m.height, m.size_bytes, m.mtime_ms";
+    private const string GameMediaColumns = "m.game_id, m.kind, m.path, m.width, m.height, m.size_bytes, m.mtime_ms";
 
     /// <summary>Through <c>games_by_system</c>, then each game's <c>media</c> rows by primary key.</summary>
     public static List<GameMediaRow> GetGameMedia(SqliteConnection connection, string systemId, IReadOnlyList<string> kinds)
@@ -174,7 +173,7 @@ internal static class LibraryStore
         return rows;
     }
 
-    /// <summary>Every media row of one game, with its source (the game options panel).</summary>
+    /// <summary>Every media row of one game (the game options panel).</summary>
     public static List<GameMediaInfo> GetGameMediaInfo(SqliteConnection connection, long gameId)
     {
         using var command = connection.CreateCommand();
@@ -186,11 +185,10 @@ internal static class LibraryStore
         {
             rows.Add(new GameMediaInfo(
                 reader.GetString(1),
-                new MediaRef(RootOf(reader.GetString(3)), reader.GetString(2), Aspect(reader, 4),
-                    reader.IsDBNull(6) ? 0 : reader.GetInt64(6), reader.IsDBNull(7) ? 0 : reader.GetInt64(7)),
-                reader.GetString(3),
-                reader.IsDBNull(4) ? null : reader.GetInt32(4),
-                reader.IsDBNull(5) ? null : reader.GetInt32(5)));
+                new MediaRef(reader.GetString(2), Aspect(reader, 3),
+                    reader.IsDBNull(5) ? 0 : reader.GetInt64(5), reader.IsDBNull(6) ? 0 : reader.GetInt64(6)),
+                reader.IsDBNull(3) ? null : reader.GetInt32(3),
+                reader.IsDBNull(4) ? null : reader.GetInt32(4)));
         }
 
         return rows;
@@ -243,11 +241,10 @@ internal static class LibraryStore
         while (reader.Read())
         {
             rows.Add(new GameMediaRow(reader.GetInt64(0), reader.GetString(1), new MediaRef(
-                RootOf(reader.GetString(3)),
                 reader.GetString(2),
-                Aspect(reader, 4),
-                reader.IsDBNull(6) ? 0 : reader.GetInt64(6),
-                reader.IsDBNull(7) ? 0 : reader.GetInt64(7))));
+                Aspect(reader, 3),
+                reader.IsDBNull(5) ? 0 : reader.GetInt64(5),
+                reader.IsDBNull(6) ? 0 : reader.GetInt64(6))));
         }
     }
 
@@ -281,11 +278,10 @@ internal static class LibraryStore
                 reader.GetInt64(1),
                 reader.GetString(2),
                 reader.IsDBNull(3) ? null : reader.GetString(3),
-                reader.IsDBNull(4) ? MediaRoot.None : RootOf(reader.GetString(4)),
-                reader.GetBoolean(5),
-                Aspect(reader, 6),
-                reader.IsDBNull(8) ? 0 : reader.GetInt64(8),
-                reader.IsDBNull(9) ? 0 : reader.GetInt64(9))));
+                reader.GetBoolean(4),
+                Aspect(reader, 5),
+                reader.IsDBNull(7) ? 0 : reader.GetInt64(7),
+                reader.IsDBNull(8) ? 0 : reader.GetInt64(8))));
         }
 
         return rows;
@@ -401,8 +397,6 @@ internal static class LibraryStore
 
     private static string? NullableString(SqliteDataReader reader, int ordinal) =>
         reader.IsDBNull(ordinal) ? null : reader.GetString(ordinal);
-
-    private static MediaRoot RootOf(string source) => source == "user" ? MediaRoot.Config : MediaRoot.Data;
 
     // ---- User data writes --------------------------------------------------------------------------
 
@@ -609,14 +603,14 @@ internal static class LibraryStore
     /// Writes scan results in one transaction: rows are inserted, updated or deleted by <c>path_key</c>, so a
     /// case-only rename keeps its game id and its user data, and unchanged rows aren't written at all.
     /// </summary>
-    /// <param name="media">The user art found for each scan, at the same index; null entries (or a null list) leave art alone.</param>
+    /// <param name="media">The media found for each scan, at the same index; null entries (or a null list) leave media alone.</param>
     /// <param name="keepOnly">When set, systems not in this set are deleted (a full rescan).</param>
     /// <param name="added">When set, collects the games this scan added (their scraped data is restored after, M4).</param>
-    /// <param name="mediaChanged">When set, collects the games whose user art or model rows changed (M6).</param>
+    /// <param name="mediaChanged">When set, collects the games whose media rows changed (M6).</param>
     public static List<SystemScanSummary> Apply(
         SqliteConnection connection,
         IReadOnlyList<SystemScan> scans,
-        IReadOnlyList<UserMediaScan?>? media,
+        IReadOnlyList<MediaScan?>? media,
         IReadOnlySet<string>? keepOnly,
         long now,
         List<GameKey>? added = null,
@@ -662,7 +656,7 @@ internal static class LibraryStore
     }
 
     private static SystemScanSummary ApplyOne(
-        SqliteConnection connection, SqliteTransaction transaction, Statements s, SystemScan scan, UserMediaScan? media, long now,
+        SqliteConnection connection, SqliteTransaction transaction, Statements s, SystemScan scan, MediaScan? media, long now,
         List<GameKey>? addedKeys, List<GameKey>? mediaChanged)
     {
         var system = scan.SystemId;
@@ -771,7 +765,7 @@ internal static class LibraryStore
         ApplyPlaylists(connection, transaction, s, system, scan.Playlists);
         if (media is not null)
         {
-            ApplyUserMedia(connection, transaction, system, media, mediaChanged);
+            ApplyMedia(connection, transaction, system, media, mediaChanged);
         }
 
         s.Bind(s.UpdateSystem, ("$system", system), ("$now", now));
@@ -779,11 +773,11 @@ internal static class LibraryStore
         return new SystemScanSummary(system, added, updated, existing.Count, unchanged, scan.FilesSeen, scan.PlaylistsRead);
     }
 
-    /// <summary>One system's user art and models alone, in a transaction of their own (no ROM scan).</summary>
-    public static void ApplyUserMediaOnly(SqliteConnection connection, string systemId, UserMediaScan media, List<GameKey> changed)
+    /// <summary>One system's media alone, in a transaction of their own (no ROM scan).</summary>
+    public static void ApplyMediaOnly(SqliteConnection connection, string systemId, MediaScan media, List<GameKey> changed)
     {
         using var transaction = connection.BeginTransaction();
-        ApplyUserMedia(connection, transaction, systemId, media, changed);
+        ApplyMedia(connection, transaction, systemId, media, changed);
         transaction.Commit();
     }
 
@@ -828,13 +822,12 @@ internal static class LibraryStore
     private readonly record struct MediaRow(string Path, long? SizeBytes, long? MtimeMs, int? Width, int? Height);
 
     /// <summary>
-    /// Makes the system's <c>source = 'user'</c> media rows match the art found on disk. A file matches the game whose
-    /// <c>path_key</c> is its match key; otherwise every game whose <c>path_key</c> is its match key plus an
-    /// extension. The user's art replaces a scraped row of the same kind; removing it leaves no row until the next
-    /// scrape (M4) restores the scraped one. Per-game models (kind <c>model</c>) are matched the same way.
+    /// Makes the system's media rows match the media folder. A file matches the game whose <c>path_key</c> is its match
+    /// key; otherwise every game whose <c>path_key</c> is its match key plus an extension. Every kind (images, videos,
+    /// per-game models) is matched the same way, whether a scrape or the user put the file there.
     /// </summary>
-    private static void ApplyUserMedia(
-        SqliteConnection connection, SqliteTransaction transaction, string system, UserMediaScan media, List<GameKey>? changed)
+    private static void ApplyMedia(
+        SqliteConnection connection, SqliteTransaction transaction, string system, MediaScan media, List<GameKey>? changed)
     {
         var existing = new Dictionary<(long GameId, string Kind), MediaRow>();
         using (var select = connection.CreateCommand())
@@ -843,7 +836,7 @@ internal static class LibraryStore
             select.CommandText = """
                 SELECT m.game_id, m.kind, m.path, m.size_bytes, m.mtime_ms, m.width, m.height
                 FROM media m JOIN games g ON g.game_id = m.game_id
-                WHERE g.system_id = $system AND m.source = 'user'
+                WHERE g.system_id = $system
                 """;
             select.Parameters.AddWithValue("$system", system);
             using var reader = select.ExecuteReader();
@@ -892,7 +885,7 @@ internal static class LibraryStore
         }
 
         // Exact matches first, so they win over a stem match of the same kind.
-        var wanted = new Dictionary<(long GameId, string Kind), UserMediaFile>();
+        var wanted = new Dictionary<(long GameId, string Kind), MediaFile>();
         foreach (var file in media.Files)
         {
             if (byKey.TryGetValue(file.MatchKey, out var id))
@@ -915,10 +908,10 @@ internal static class LibraryStore
         using var upsert = connection.CreateCommand();
         upsert.Transaction = transaction;
         upsert.CommandText = """
-            INSERT INTO media (game_id, kind, path, width, height, source, size_bytes, mtime_ms)
-            VALUES ($id, $kind, $path, $width, $height, 'user', $size, $mtime)
+            INSERT INTO media (game_id, kind, path, width, height, size_bytes, mtime_ms)
+            VALUES ($id, $kind, $path, $width, $height, $size, $mtime)
             ON CONFLICT (game_id, kind) DO UPDATE SET path = excluded.path, width = excluded.width, height = excluded.height,
-                source = excluded.source, size_bytes = excluded.size_bytes, mtime_ms = excluded.mtime_ms
+                size_bytes = excluded.size_bytes, mtime_ms = excluded.mtime_ms
             """;
         foreach (var ((id, kind), file) in wanted)
         {
@@ -942,7 +935,7 @@ internal static class LibraryStore
 
         using var delete = connection.CreateCommand();
         delete.Transaction = transaction;
-        delete.CommandText = "DELETE FROM media WHERE game_id = $id AND kind = $kind AND source = 'user'";
+        delete.CommandText = "DELETE FROM media WHERE game_id = $id AND kind = $kind";
         foreach (var (id, kind) in existing.Keys)
         {
             delete.Parameters.Clear();

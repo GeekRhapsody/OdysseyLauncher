@@ -57,38 +57,37 @@ public sealed class ImageHeadersTests
     [Fact]
     public void Derivative_names_are_stable_and_change_with_every_input()
     {
-        var name = TextureDerivatives.FileName(MediaRoot.Config, "media/ps2/cover/game.png", 1000, 5000);
+        var name = TextureDerivatives.FileName("media/ps2/cover/game.png", 1000, 5000);
 
-        Assert.Equal(name, TextureDerivatives.FileName(MediaRoot.Config, "media\\ps2\\cover\\game.png", 1000, 5000));
+        Assert.Equal(name, TextureDerivatives.FileName("media\\ps2\\cover\\game.png", 1000, 5000));
         Assert.Matches("^[0-9a-f]{32}\\.dds$", name);
-        Assert.NotEqual(name, TextureDerivatives.FileName(MediaRoot.Data, "media/ps2/cover/game.png", 1000, 5000));
-        Assert.NotEqual(name, TextureDerivatives.FileName(MediaRoot.Config, "media/ps2/cover/Game.png", 1000, 5000));
-        Assert.NotEqual(name, TextureDerivatives.FileName(MediaRoot.Config, "media/ps2/cover/game.png", 1001, 5000));
-        Assert.NotEqual(name, TextureDerivatives.FileName(MediaRoot.Config, "media/ps2/cover/game.png", 1000, 5001));
+        Assert.NotEqual(name, TextureDerivatives.FileName("media/ps2/cover/Game.png", 1000, 5000));
+        Assert.NotEqual(name, TextureDerivatives.FileName("media/ps2/cover/game.png", 1001, 5000));
+        Assert.NotEqual(name, TextureDerivatives.FileName("media/ps2/cover/game.png", 1000, 5001));
     }
 
     [Fact]
     public void A_derivative_path_from_indexed_stamps_matches_one_from_the_file()
     {
         var cache = Path.Combine(Path.GetTempPath(), "cache");
-        var name = TextureDerivatives.FileName(MediaRoot.Data, "media/snes/cover/Zelda ü.png", 123_456, 1_700_000_000_000);
+        var name = TextureDerivatives.FileName("media/snes/cover/Zelda ü.png", 123_456, 1_700_000_000_000);
 
-        Assert.Equal(Path.Combine(cache, "textures", name), TextureDerivatives.PathFor(cache, MediaRoot.Data, "media/snes/cover/Zelda ü.png", 123_456, 1_700_000_000_000));
-        Assert.Equal(Path.Combine(cache, "textures", name), TextureDerivatives.PathFor(cache + Path.DirectorySeparatorChar, MediaRoot.Data, @"media\snes\cover\Zelda ü.png", 123_456, 1_700_000_000_000));
+        Assert.Equal(Path.Combine(cache, "textures", name), TextureDerivatives.PathFor(cache, "media/snes/cover/Zelda ü.png", 123_456, 1_700_000_000_000));
+        Assert.Equal(Path.Combine(cache, "textures", name), TextureDerivatives.PathFor(cache + Path.DirectorySeparatorChar, @"media\snes\cover\Zelda ü.png", 123_456, 1_700_000_000_000));
     }
 
     [Fact]
     public void A_derivative_path_follows_its_source_file()
     {
         using var dir = new TempDir();
-        var source = dir.File("config/media/ps2/cover/game.png", "x", new DateTime(2025, 1, 2, 3, 4, 5, DateTimeKind.Utc));
+        var source = dir.File("data/media/ps2/cover/game.png", "x", new DateTime(2025, 1, 2, 3, 4, 5, DateTimeKind.Utc));
 
-        var path = TextureDerivatives.PathFor(dir.Combine("cache"), dir.Combine("config"), MediaRoot.Config, "media/ps2/cover/game.png");
+        var path = TextureDerivatives.PathFor(dir.Combine("cache"), dir.Combine("data"), "media/ps2/cover/game.png");
 
-        var expected = TextureDerivatives.FileName(MediaRoot.Config, "media/ps2/cover/game.png", 1,
+        var expected = TextureDerivatives.FileName("media/ps2/cover/game.png", 1,
             new DateTimeOffset(2025, 1, 2, 3, 4, 5, TimeSpan.Zero).ToUnixTimeMilliseconds());
         Assert.Equal(dir.Combine("cache", "textures", expected), path);
         File.Delete(source);
-        Assert.Null(TextureDerivatives.PathFor(dir.Combine("cache"), dir.Combine("config"), MediaRoot.Config, "media/ps2/cover/game.png"));
+        Assert.Null(TextureDerivatives.PathFor(dir.Combine("cache"), dir.Combine("data"), "media/ps2/cover/game.png"));
     }
 }

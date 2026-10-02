@@ -19,8 +19,8 @@ namespace Launcher.App.Options;
 /// <summary>
 /// One game's options (M7 part 2), opened with X on the game: the emulator it launches with, its own model, its
 /// title and metadata, its images (one per media slot, the user's own or scraped), "scrape this game" and "clear
-/// metadata". Every change is saved at once (userdata.db for edits and the emulator, files in ConfigDir for images
-/// and the model) and shows in the grid without a restart.
+/// metadata". Every change is saved at once (userdata.db for edits and the emulator, files in the media folder for
+/// images and the model) and shows in the grid without a restart.
 /// </summary>
 public sealed partial class GameOptionsPanel : ListPanel
 {
@@ -174,12 +174,10 @@ public sealed partial class GameOptionsPanel : ListPanel
             _model.Value = "Change";
         }
 
-        var users = _mediaRows.Count(m => m.IsUsers && m.Kind != MediaKinds.Model);
-        var scraped = _mediaRows.Count(m => !m.IsUsers && m.Kind != MediaKinds.Model);
-        var counts = users == 0 ? $"{scraped} scraped" : scraped == 0 ? $"{users} yours" : $"{users} yours, {scraped} scraped";
-        _media.Detail = users + scraped == 0
+        var images = _mediaRows.Count(m => m.Kind != MediaKinds.Model);
+        _media.Detail = images == 0
             ? "None yet: scrape it, or choose your own"
-            : counts + " · " + string.Join(", ", MediaKinds.Images.Append(MediaKinds.Video).Where(k => _mediaRows.Any(m => m.Kind == k)).Select(GameMediaPanel.SlotName));
+            : images.ToString(CultureInfo.InvariantCulture) + " · " + string.Join(", ", MediaKinds.Images.Append(MediaKinds.Video).Where(k => _mediaRows.Any(m => m.Kind == k)).Select(GameMediaPanel.SlotName));
 
         var metadata = _game.Metadata;
         var filled = metadata is null ? 0 : new[] { metadata.Description, metadata.ReleaseDate, metadata.Developer, metadata.Publisher, metadata.Genre, metadata.Players }

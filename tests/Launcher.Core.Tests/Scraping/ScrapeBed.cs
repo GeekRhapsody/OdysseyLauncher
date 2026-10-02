@@ -94,7 +94,7 @@ public sealed class ScrapeBed : IAsyncDisposable
         bed.Paths = PlatformPaths.InOneFolder(bed.Dir.Combine("user"), bed.Dir.Path);
         bed.Config = bed.LoadConfig(scraping);
         bed.Library = await LibraryService.OpenAsync(bed.Config, bed.Paths.DataDir, bed.Clock, TestContext.Current.CancellationToken);
-        bed.Library.ConfigDir = bed.Paths.ConfigDir;
+        bed.Library.IndexMedia = true;
         bed.DefaultRoutes();
         return bed;
     }
@@ -143,9 +143,31 @@ public sealed class ScrapeBed : IAsyncDisposable
         return ProviderAccounts.FromValues(values);
     }
 
-    /// <summary>A service over the bed's library. Waits advance the clock and are recorded, so nothing sleeps.</summary>
-    public ScrapeService Service(ProviderAccounts? accounts = null, bool derivatives = false, RetryPolicy? retry = null) =>
-        new(new ScrapeServiceOptions
+    /// <summary>Every game a service of the bed's scraped, its latest result.</summary>
+    public ConcurrentDictionary<GameKey, ScrapeGameResult> Scraped { get; } = new();
+
+    /// <summary>
+    /// The provider the game's last scrape took <paramref name="kind"/> from, or null if it saved none: the media
+    /// folder doesn't record it (A4), so this asks the scrape's result.
+    /// </summary>
+    public string? SuppliedBy(GameKey game, string kind) =>
+        Scraped.TryGetValue(game, out var result) && result.MediaSources.TryGetValue(kind, out var provider) ? provider : null;
+
+    /// <summary>A game's own file of a kind in the media folder, absolute: <c>media/&lt;system&gt;/&lt;kind&gt;/&lt;rel path&gt;&lt;ext&gt;</c>.</summary>
+    public string MediaFile(string systemAndRelPath, string kind, string extension)
+    {
+        var slash = systemAndRelPath.IndexOf('/', StringComparison.Ordinal);
+        return Path.Combine(Paths.DataDir, MediaStore.RelativePathFor(systemAndRelPath[..slash], systemAndRelPath[(slash + 1)..], kind, extension)
+            .Replace('/', Path.DirectorySeparatorChar));
+    }
+
+    /// <summary>
+    /// A service over the bed's library. Waits advance the clock and are recorded, so nothing sleeps.
+    /// <paramref name="saveResponses"/> is <c>--save-responses</c>, off as in the app.
+    /// </summary>
+    public ScrapeService Service(ProviderAccounts? accounts = null, bool derivatives = false, RetryPolicy? retry = null, bool saveResponses = false)
+    {
+        var service = new ScrapeService(new ScrapeServiceOptions
         {
             Library = Library,
             Paths = Paths,
@@ -162,7 +184,11 @@ public sealed class ScrapeBed : IAsyncDisposable
             Retry = retry ?? new RetryPolicy(4, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(30)),
             Log = Log,
             ImageDecoder = derivatives ? PlatformServices.CreateImageDecoder() : null,
+            SaveResponses = saveResponses,
         });
+        service.GameScraped += (_, e) => Scraped[e.Result.Game] = e.Result;
+        return service;
+    }
 
     /// <summary>Closes the library and opens it again, as the next run would; optionally deleting library.db first.</summary>
     public async Task ReopenAsync(bool deleteLibrary)
@@ -175,7 +201,7 @@ public sealed class ScrapeBed : IAsyncDisposable
         }
 
         Library = await LibraryService.OpenAsync(Config, Paths.DataDir, Clock, TestContext.Current.CancellationToken);
-        Library.ConfigDir = Paths.ConfigDir;
+        Library.IndexMedia = true;
     }
 
     public string Rom(string relPath, string content = "rom data") => Dir.File("ROMs/" + relPath, content);
