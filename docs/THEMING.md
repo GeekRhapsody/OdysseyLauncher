@@ -163,7 +163,8 @@ label = ["logo", "generated"]                               # the stand's plate:
 ### How art fits a face
 
 - **UVs:** a slot's first UV map (TEXCOORD_0) must span 0 to 1 across the face, upright as seen from outside. Sampling is clamped.
-- **Cropping:** art is centre-cropped to fill the face. The face's aspect ratio (width over height) comes from the material's custom property `aspect`. If a material has none, it's measured from the slot mesh's bounds, which works for flat, upright faces. For a curved or tilted face, set `aspect` (section 9).
+- **A logo on the spine:** when a `spine` slot shows the game's `logo` (`spine = ["logo", "generated"]`), the logo isn't cropped. It's drawn whole, turned to read top to bottom like a spine's title, with a margin, over the slot's fallback, using the logo's transparency. A `generated` fallback is the cover's main colour darkened to a deep shade, without the title; an `authored` one is the material's own texture. The built-in theme's `generic_box_logo` does this.
+- **Cropping:** every other slot's art is centre-cropped to fill the face. The face's aspect ratio (width over height) comes from the material's custom property `aspect`. If a material has none, it's measured from the slot mesh's bounds, which works for flat, upright faces. For a curved or tilted face, set `aspect` (section 9).
 - **Colour:** make each slot material's base colour **white**, because it multiplies the art. Its base colour texture, if it has one, is what `authored` shows.
 - **Resolution:** art is streamed at 512² for the cover and 256² for every other slot, whatever the source's size. Only the slots whose chains name a media kind stream anything, so an unused slot costs nothing.
 
@@ -177,7 +178,7 @@ Box art doesn't come in one size: DOS big boxes alone range from tall to square 
 - **The grid's cells** fit the widest and tallest box in the list being shown, so a list of tall boxes keeps tight columns.
 - **The `cover`, `back` and `spine` faces** take the new proportions. The back's art is cropped to the cover's shape.
 
-The built-in theme's `big_box` (DOS) does this. To make a model for it:
+The built-in theme's `generic_box_spine` (DOS) and `generic_box_logo` (Windows and Steam: the same box with the logo on its spine) do this. Its front and back bevels are part of the `cover` and `back` faces, showing the art's edge, so no plain band frames the art. The depth still comes from the `spine` image when the spine shows a logo. To make a model for it:
 - **It must have a `cover` material**, or the key is ignored, with a warning.
 - **The launcher moves each half of the model**, left and right, top and bottom (split at half the height), front and back, by however much the box grows or shrinks. Nothing is stretched, so corners and bevels keep their size. So keep vertices off the centre planes (x = 0, z = 0, and half the height), keep corner and bevel detail near the edges, and make `cover`, `back` and `spine` whole faces of the box.
 - **A model with animation clips keeps its own shape**, with a warning: the launcher reshapes a template's one merged mesh, not a node tree.

@@ -29,7 +29,9 @@ public sealed class ThemeLoaderTests
         Assert.Empty(result.Diagnostics);
         var theme = result.Theme!;
         Assert.Equal(("memory-card", "Memory Card", ThemeOrigin.BuiltIn), (theme.Id, theme.Name, theme.Origin));
-        Assert.Equal(["big_box", "cartridge_box", "clamshell", "dvd_case", "gameboy_box", "jewel_case", "umd_case"], theme.Templates.Keys.Order(StringComparer.Ordinal));
+        Assert.Equal(
+            ["cartridge_box", "clamshell", "dvd_case", "gameboy_box", "generic_box_logo", "generic_box_spine", "jewel_case", "umd_case"],
+            theme.Templates.Keys.Order(StringComparer.Ordinal));
         Assert.Equal(("models/systems/generic.glb", true, "dvd_case"), (theme.Defaults.SystemModel, theme.Defaults.TintSystemModel, theme.Defaults.GameTemplate));
 
         // The look of A6, exactly.
@@ -55,9 +57,17 @@ public sealed class ThemeLoaderTests
         Assert.Equal("clamshell", theme.Systems["megadrive"].GameTemplate);
         Assert.Equal("umd_case", theme.Systems["psp"].GameTemplate);
         Assert.Equal("gameboy_box", theme.Systems["gb"].GameTemplate);
-        Assert.Equal("big_box", theme.Systems["dos"].GameTemplate);
-        Assert.True(theme.Templates["big_box"].ShapeFromMedia);
-        Assert.Single(theme.Templates.Values, t => t.ShapeFromMedia);
+        Assert.Equal("generic_box_spine", theme.Systems["dos"].GameTemplate);
+        Assert.Equal("generic_box_logo", theme.Systems["windows"].GameTemplate);
+        Assert.Equal("generic_box_logo", theme.Systems["steam"].GameTemplate);
+
+        // Two templates of one box: its own spine art, or the game's logo along the spine.
+        var spine = theme.Templates["generic_box_spine"];
+        var logo = theme.Templates["generic_box_logo"];
+        Assert.Equal(spine.Model, logo.Model);
+        Assert.Equal("spine = [\"spine\", \"generated\"]", spine.ChainFor(MediaSlots.Spine).ToString());
+        Assert.Equal("spine = [\"logo\", \"generated\"]", logo.ChainFor(MediaSlots.Spine).ToString());
+        Assert.Equal(["generic_box_logo", "generic_box_spine"], theme.Templates.Values.Where(t => t.ShapeFromMedia).Select(t => t.Id).Order(StringComparer.Ordinal));
     }
 
     [Fact]

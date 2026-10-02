@@ -52,11 +52,14 @@ public partial class BoxTemplateGenerator : Node
         new("gameboy_box", 125, 125, 18.2f, SpineRadius: 0.5f, OpeningRadius: 0.5f, Bevel: 0.4f,
             CaseColour: new Color("#C4C6C8"), CaseRoughness: 0.85f, ArtRoughness: 0.7f, PrintedOpeningSide: true),
 
-        // DOS: a PC big box, printed on both sides. Big boxes came in every size, so the theme gives it shape = "media"
-        // (A6) and each game's box takes its cover's proportions and its spine's depth; 190 x 240 x 50 is only the shape
-        // of a box with no art. Small corners and bevels, so the box can shrink a long way before they meet.
-        new("big_box", 190, 240, 50, SpineRadius: 0.8f, OpeningRadius: 0.8f, Bevel: 0.6f,
-            CaseColour: new Color("#CFC8B8"), CaseRoughness: 0.85f, ArtRoughness: 0.7f, PrintedOpeningSide: true),
+        // DOS, Windows and Steam: a PC big box, printed on both sides and over its bevels. Big boxes came in every size,
+        // so the theme gives it shape = "media" (A6) and each game's box takes its cover's proportions and its spine's
+        // depth; 190 x 240 x 50 is only the shape of a box with no art. Small corners and bevels, so the box can shrink
+        // a long way before they meet. The top and bottom are dark, so they don't show as light edges round the art.
+        // The theme's generic_box_spine and generic_box_logo templates both use it.
+        new("generic_box", 190, 240, 50, SpineRadius: 0.8f, OpeningRadius: 0.8f, Bevel: 0.6f,
+            CaseColour: new Color("#26262A"), CaseRoughness: 0.85f, ArtRoughness: 0.7f, PrintedOpeningSide: true,
+            PrintedBevels: true),
 
         // Mega Drive (and Master System): the European plastic clamshell, 136 x 190 x 24, with a thick rim.
         new("clamshell", 136, 190, 24, SpineRadius: 3, OpeningRadius: 6, Bevel: 2.5f,

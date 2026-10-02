@@ -15,16 +15,19 @@ public sealed class BuiltInModelTests
 {
     private static readonly string[] Slots = [.. MediaSlots.Names];
 
-    /// <summary>Every game template of the built-in theme and the test theme, as (theme folder, model path).</summary>
+    /// <summary>
+    /// Every game template's model in the built-in theme and the test theme, as (theme folder, model path), once each
+    /// (two templates can share a model).
+    /// </summary>
     public static TheoryData<string, string> Templates()
     {
         var data = new TheoryData<string, string>();
         foreach (var folder in (string[])[ThemeFixtures.BuiltInFolder, ThemeFixtures.SlotShowcaseFolder])
         {
             var theme = ThemeFixtures.Load(folder);
-            foreach (var template in theme.Templates.Values)
+            foreach (var model in theme.Templates.Values.Select(t => t.Model).Distinct(StringComparer.Ordinal))
             {
-                data.Add(folder, template.Model);
+                data.Add(folder, model);
             }
         }
 

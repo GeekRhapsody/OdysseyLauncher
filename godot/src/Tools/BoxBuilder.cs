@@ -33,6 +33,10 @@ public enum FrontSplit
 /// height; for <see cref="FrontSplit.LowerPanel"/>, the lower slot's height.
 /// </param>
 /// <param name="PrintedOpeningSide">The opening side shows the spine art too (a cardboard box printed on both sides).</param>
+/// <param name="PrintedBevels">
+/// The front and back chamfers belong to the front and back slots, showing the art's edge, so a printed box has no
+/// band of plain case round its faces. Only for a whole front (<see cref="FrontSplit.None"/>).
+/// </param>
 /// <param name="LowerSlot">For <see cref="FrontSplit.LowerPanel"/>, the lower part's slot.</param>
 /// <param name="TestCardOnLowerSlot">Give the lower slot's material an authored texture (a test card), its last fallback.</param>
 public sealed record BoxSpec(
@@ -52,6 +56,7 @@ public sealed record BoxSpec(
     FrontSplit Split = FrontSplit.None,
     float SplitAt = 0,
     bool PrintedOpeningSide = false,
+    bool PrintedBevels = false,
     string? LowerSlot = null,
     bool TestCardOnLowerSlot = false);
 
@@ -108,9 +113,16 @@ public sealed class BoxBuilder
         FrontCap(inner, halfDepth);
         BackCap(inner, -halfDepth);
 
-        // The chamfers from each cap out to the sides.
-        Ring(inner, halfDepth, outer, halfDepth - s.Bevel, +1);
-        Ring(outer, -halfDepth + s.Bevel, inner, -halfDepth, -1);
+        // The chamfers from each cap out to the sides: plain case, or on a printed box the art's edge, each point taking
+        // the UV of the cap's edge next to it.
+        var left = -s.Width / 2;
+        var right = s.Width / 2;
+        var printFront = s.PrintedBevels && s.Split == FrontSplit.None;
+        var printBack = s.PrintedBevels && s.HasBackSlot;
+        Ring(inner, halfDepth, outer, halfDepth - s.Bevel, +1,
+            printFront ? s.FrontSlot : "case", printFront ? i => PlanarUv(inner[i].Position, left, right, 0, s.Height) : null);
+        Ring(outer, -halfDepth + s.Bevel, inner, -halfDepth, -1,
+            printBack ? "back" : "case", printBack ? i => PlanarUv(inner[i].Position, right, left, 0, s.Height) : null);
 
         // The sides.
         Walls(outer, halfDepth - s.Bevel, -halfDepth + s.Bevel);
@@ -289,20 +301,26 @@ public sealed class BoxBuilder
 
     // ---- Chamfers and sides ----------------------------------------------------------------------------
 
-    /// <summary>A band between two outlines of the same length, the first nearer the front.</summary>
-    private void Ring(List<OutlinePoint> front, float frontZ, List<OutlinePoint> back, float backZ, float facing)
+    /// <summary>
+    /// A band between two outlines of the same length, the first nearer the front. With <paramref name="uv"/>, both
+    /// rows of outline point i take its UV; without, each quad spans 0..1.
+    /// </summary>
+    private void Ring(List<OutlinePoint> front, float frontZ, List<OutlinePoint> back, float backZ, float facing, string material, Func<int, Vector2>? uv)
     {
-        var surface = SurfaceFor("case");
+        var surface = SurfaceFor(material);
         for (var i = 0; i < front.Count; i++)
         {
             var j = (i + 1) % front.Count;
             var n0 = new Vector3(front[i].Normal.X, front[i].Normal.Y, facing).Normalized();
             var n1 = new Vector3(front[j].Normal.X, front[j].Normal.Y, facing).Normalized();
+            var (uvI0, uvJ0, uvJ1, uvI1) = uv is null
+                ? (new Vector2(0, 0), new Vector2(1, 0), new Vector2(1, 1), new Vector2(0, 1))
+                : (uv(i), uv(j), uv(j), uv(i));
             var v = surface.Vertices.Count;
-            surface.Add(Metres(front[i].Position.X, front[i].Position.Y, frontZ), n0, new Vector2(0, 0));
-            surface.Add(Metres(front[j].Position.X, front[j].Position.Y, frontZ), n1, new Vector2(1, 0));
-            surface.Add(Metres(back[j].Position.X, back[j].Position.Y, backZ), n1, new Vector2(1, 1));
-            surface.Add(Metres(back[i].Position.X, back[i].Position.Y, backZ), n0, new Vector2(0, 1));
+            surface.Add(Metres(front[i].Position.X, front[i].Position.Y, frontZ), n0, uvI0);
+            surface.Add(Metres(front[j].Position.X, front[j].Position.Y, frontZ), n1, uvJ0);
+            surface.Add(Metres(back[j].Position.X, back[j].Position.Y, backZ), n1, uvJ1);
+            surface.Add(Metres(back[i].Position.X, back[i].Position.Y, backZ), n0, uvI1);
 
             // Front outline runs counter-clockwise seen from the front; seen from outside the band, i -> j is to the right.
             surface.Triangle(v, v + 3, v + 2);
