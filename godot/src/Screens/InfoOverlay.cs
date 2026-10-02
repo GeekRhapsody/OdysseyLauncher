@@ -38,6 +38,9 @@ public sealed partial class InfoOverlay : CanvasLayer
         Name = "Overlay";
     }
 
+    /// <summary>The games' titles, shown in the list layout (left), with the focused game's model beside them.</summary>
+    public TitleList List { get; } = new();
+
     /// <summary>0 = hidden, 1 = shown; for transitions.</summary>
     public float Opacity
     {
@@ -59,6 +62,9 @@ public sealed partial class InfoOverlay : CanvasLayer
 
         _root.AddChild(Scrim(top: true));
         _root.AddChild(Scrim(top: false));
+
+        // The games' titles for the list layout, under the heading and the other text.
+        _root.AddChild(List);
 
         var glow = new Color(0.35f, 0.5f, 1.0f, 0.55f);
         var heading = new VBoxContainer { MouseFilter = Control.MouseFilterEnum.Ignore };

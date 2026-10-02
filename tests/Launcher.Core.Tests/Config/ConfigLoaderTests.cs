@@ -718,6 +718,150 @@ public class ConfigLoaderTests
         Assert.Equal(new UiSettings(true, true, true), bad.Config.Settings.Ui);
     }
 
+    [Fact]
+    public void Layouts_default_to_automatic_grids()
+    {
+        var display = Load().Config.Settings.Display;
+        Assert.Equal(SystemsLayout.Grid, display.SystemsLayout);
+        Assert.Equal(GamesLayout.Grid, display.GamesLayout);
+        Assert.True(display.SystemsGrid.IsAutomatic);
+        Assert.True(display.GamesGrid.IsAutomatic);
+        Assert.True(display.GamesGridFor(null).IsAutomatic);
+    }
+
+    [Fact]
+    public void Layouts_and_grid_sizes_are_read_from_the_display_settings()
+    {
+        var result = Load(settings: """
+            [display]
+            systems_layout = "single"
+            systems_columns = 4
+            games_layout = "list"
+            games_columns = 6
+            games_rows = 2
+            """);
+
+        Assert.Empty(result.Diagnostics);
+        var display = result.Config.Settings.Display;
+        Assert.Equal(SystemsLayout.Single, display.SystemsLayout);
+        Assert.Equal(new GridSize(4, 0), display.SystemsGrid);
+        Assert.Equal(GamesLayout.List, display.GamesLayout);
+        Assert.Equal(new GridSize(6, 2), display.GamesGrid);
+    }
+
+    [Fact]
+    public void A_bad_layout_or_size_is_an_error_and_the_default_is_used()
+    {
+        var result = Load(settings: """
+            [display]
+            systems_layout = "list"
+            games_layout = "carousell"
+            games_columns = 10
+            systems_rows = -1
+            """);
+
+        var systems = Assert.Single(result.Diagnostics, d => d.Key == "display.systems_layout");
+        Assert.True(systems.IsError);
+        Assert.Contains("'list' isn't a layout for this screen", systems.Message, StringComparison.Ordinal);
+        Assert.Contains("grid, carousel, single", systems.Message, StringComparison.Ordinal);
+        var games = Assert.Single(result.Diagnostics, d => d.Key == "display.games_layout");
+        Assert.Contains("did you mean 'carousel'?", games.Message, StringComparison.Ordinal);
+        Assert.Single(result.Diagnostics, d => d.IsError && d.Key == "display.games_columns");
+        Assert.Single(result.Diagnostics, d => d.IsError && d.Key == "display.systems_rows");
+
+        var display = result.Config.Settings.Display;
+        Assert.Equal(SystemsLayout.Grid, display.SystemsLayout);
+        Assert.Equal(GamesLayout.Grid, display.GamesLayout);
+        Assert.True(display.SystemsGrid.IsAutomatic);
+        Assert.True(display.GamesGrid.IsAutomatic);
+    }
+
+    [Fact]
+    public void A_system_can_have_its_own_games_grid_size()
+    {
+        var result = Load(
+            settings: """
+                [display]
+                games_columns = 7
+                games_rows = 3
+                """,
+            systems: """
+                [systems.megadrive]
+                games_columns = 4
+
+                [systems.snes]
+                games_columns = 0
+                games_rows = 2
+                """);
+
+        Assert.Empty(result.Diagnostics);
+        var config = result.Config;
+        var display = config.Settings.Display;
+        Assert.Equal(new GridSize(4, 3), display.GamesGridFor(config.FindSystem("megadrive")));
+        Assert.Equal(new GridSize(0, 2), display.GamesGridFor(config.FindSystem("snes")));
+        Assert.Equal(new GridSize(7, 3), display.GamesGridFor(config.FindSystem("psx")));
+        Assert.Equal(new GridSize(7, 3), display.GamesGridFor(null));
+    }
+
+    [Fact]
+    public void A_system_can_have_its_own_games_layout_and_follows_the_display_setting_without_one()
+    {
+        var result = Load(
+            settings: """
+                [display]
+                games_layout = "carousel"
+                """,
+            systems: """
+                [systems.megadrive]
+                games_layout = "list"
+
+                [systems.snes]
+                games_layout = "grid"
+                """);
+
+        Assert.Empty(result.Diagnostics);
+        var config = result.Config;
+        var display = config.Settings.Display;
+        Assert.Equal(GamesLayout.List, config.FindSystem("megadrive")!.GamesLayout);
+        Assert.Equal(GamesLayout.List, display.GamesLayoutFor(config.FindSystem("megadrive")));
+        Assert.Equal(GamesLayout.Grid, display.GamesLayoutFor(config.FindSystem("snes")));
+        Assert.Null(config.FindSystem("psx")!.GamesLayout);
+        Assert.Equal(GamesLayout.Carousel, display.GamesLayoutFor(config.FindSystem("psx")));
+        Assert.Equal(GamesLayout.Carousel, display.GamesLayoutFor(null));
+    }
+
+    [Fact]
+    public void A_bad_games_layout_on_a_system_is_a_warning_and_the_display_setting_is_used()
+    {
+        foreach (var (value, expected) in ((string, string)[])[("\"single\"", "unknown layout 'single'"), ("\"lists\"", "did you mean 'list'?"), ("2", "expected a string")])
+        {
+            var result = Load(systems: $"[systems.megadrive]\ngames_layout = {value}\n");
+            var warning = Assert.Single(result.Diagnostics);
+            Assert.Equal(Severity.Warning, warning.Severity);
+            Assert.Equal("systems.megadrive.games_layout", warning.Key);
+            Assert.Contains(expected, warning.Message, StringComparison.Ordinal);
+            Assert.Null(result.Config.FindSystem("megadrive")!.GamesLayout);
+        }
+    }
+
+    [Fact]
+    public void A_bad_games_grid_size_on_a_system_is_a_warning_and_the_system_stays_enabled()
+    {
+        var result = Load(systems: """
+            [systems.megadrive]
+            games_columns = 12
+            games_rows = "two"
+            """);
+
+        Assert.DoesNotContain(result.Diagnostics, d => d.IsError);
+        var columns = Assert.Single(result.Diagnostics, d => d.Key == "systems.megadrive.games_columns");
+        Assert.Contains("12 is out of range", columns.Message, StringComparison.Ordinal);
+        Assert.Single(result.Diagnostics, d => d.Key == "systems.megadrive.games_rows" && d.Severity == Severity.Warning);
+        var system = result.Config.FindSystem("megadrive")!;
+        Assert.Null(system.GamesColumns);
+        Assert.Null(system.GamesRows);
+    }
+
     // ---- The built-in catalogue (every ES-DE system) ---------------------------------------------
 
     [Fact]

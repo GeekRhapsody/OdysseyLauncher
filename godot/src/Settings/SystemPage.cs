@@ -19,7 +19,8 @@ namespace Launcher.App.Settings;
 /// One system's options (M7): its ROM folders (several are allowed, scanned in order; the default is the first of
 /// <c>{rom_root}/&lt;id&gt;</c> and its aliases that exists), the emulator it launches with, its models (its own card for
 /// the systems grid, and the template its games use: one of the theme's, or the user's own <c>.glb</c>), and
-/// "scrape this system", which says how many games it will take on first. The settings screen opens it from ROM
+/// how its games are shown (its own layout, and its grid's columns and rows, or the Layout page's), and "scrape this system", which says how many games it
+/// will take on first. The settings screen opens it from ROM
 /// folders, and X on a system in the grid opens it too. Saving folders rescans the system; a model change reloads the
 /// theme, so the grid shows it without a restart.
 /// </summary>
@@ -34,6 +35,9 @@ public sealed partial class SystemPage : ListPanel
     private SettingRow? _card;
     private SettingRow? _template;
     private SettingRow? _scrape;
+    private SettingRow? _view;
+    private SettingRow? _columns;
+    private SettingRow? _rows;
     private ModelReport? _ownCard;
     private ModelReport? _ownTemplate;
     private SystemScrapeCount? _count;
@@ -107,6 +111,16 @@ public sealed partial class SystemPage : ListPanel
             AddNote($"Also suggested for {system.Name}: {string.Join(", ", system.AltEmulators.Select(id => config.Emulators.TryGetValue(id, out var e) ? e.Name : id))}.");
         }
 
+        AddSection("Games view");
+        var display = config.Settings.Display;
+        _view = AddViewRow(system.GamesLayout, display.GamesLayout);
+        _columns = AddGridRow("Columns", "games_columns", DisplaySettings.MaxColumns, system.GamesColumns, display.GamesGrid.Columns);
+        _rows = AddGridRow("Rows", "games_rows", DisplaySettings.MaxRows, system.GamesRows, display.GamesGrid.Rows);
+        if (display.GamesLayoutFor(system) != GamesLayout.Grid)
+        {
+            AddNote("Columns and rows are for the grid view.");
+        }
+
         if (Options is null)
         {
             _card = _template = _scrape = null;
@@ -139,6 +153,18 @@ public sealed partial class SystemPage : ListPanel
                 RemoveFolder(index);
                 return true;
             }
+        }
+
+        if (focused is not null && focused == _view)
+        {
+            SaveView(null);
+            return true;
+        }
+
+        if (focused is not null && (focused == _columns || focused == _rows))
+        {
+            SaveGrid(focused == _columns ? "games_columns" : "games_rows", null);
+            return true;
         }
 
         if (focused is not null && focused == _card)
@@ -233,6 +259,96 @@ public sealed partial class SystemPage : ListPanel
             .ToList();
         Layer.Push(new ChoicePanel($"Emulator for {system.Name}", "Games can still choose their own", choices, system.Emulator, choice =>
             _settings.Save(this, [new ConfigEdit(ConfigFileKind.Systems, ["systems", _systemId, "emulator"], choice.Id)], $"{system.Name} now launches with {choice.Title}.")));
+    }
+
+    // ---- Games view ------------------------------------------------------------------------------------
+
+    /// <summary>
+    /// How the system's games are shown: its own <c>games_layout</c>, or the Layout page's when unset (the default).
+    /// A chooses, left and right step through Default, Grid, Carousel and List, Y goes back to the default.
+    /// </summary>
+    private SettingRow AddViewRow(GamesLayout? own, GamesLayout settings)
+    {
+        var inherited = LayoutPage.GamesTitle(settings).ToLowerInvariant();
+        var row = AddRow("View", own is null ? $"As in Settings: {inherited}" : $"Its own · Y goes back to the default ({inherited})",
+            own is { } value ? LayoutPage.GamesTitle(value) : "Default", () =>
+        {
+            var choices = new List<Choice> { new(string.Empty, "As in Settings", $"{LayoutPage.GamesTitle(settings)}, the Layout page's") };
+            foreach (var layout in Enum.GetValues<GamesLayout>())
+            {
+                choices.Add(new Choice(Layouts.Name(layout), LayoutPage.GamesTitle(layout), LayoutPage.GamesDetail(layout)));
+            }
+
+            Layer.Push(new ChoicePanel("How its games are shown", $"Saved as systems.{_systemId}.games_layout", choices,
+                own is { } current ? Layouts.Name(current) : string.Empty,
+                choice => SaveView(Layouts.TryParse(choice.Id, out GamesLayout chosen) ? chosen : null)));
+        });
+
+        // Left and right step through Default, then each layout.
+        row.Adjuster = direction =>
+        {
+            var at = own is { } current ? (int)current + 1 : 0;
+            var next = Math.Clamp(at + Math.Sign(direction), 0, Enum.GetValues<GamesLayout>().Length);
+            if (next != at)
+            {
+                SaveView(next == 0 ? null : (GamesLayout)(next - 1));
+            }
+        };
+        return row;
+    }
+
+    /// <summary>Saves the system's own games layout (null: the Layout page's again).</summary>
+    private void SaveView(GamesLayout? layout)
+    {
+        var name = _settings.Services.Config.FindSystem(_systemId)?.Name ?? _systemId;
+        _settings.Save(this, [new ConfigEdit(ConfigFileKind.Systems, ["systems", _systemId, "games_layout"], layout is { } l ? Layouts.Name(l) : null)],
+            layout is { } chosen ? $"{name}'s games: {LayoutPage.GamesTitle(chosen).ToLowerInvariant()}." : $"{name}'s games: as in Settings.");
+    }
+
+    /// <summary>
+    /// The system's games grid columns or rows: its own (<c>games_columns</c>, <c>games_rows</c>; 0 automatic), or
+    /// the Layout page's when unset. A chooses, left and right step (from the Layout page's value), Y goes back to it.
+    /// </summary>
+    private SettingRow AddGridRow(string title, string key, int max, int? own, int settings)
+    {
+        var what = key == "games_rows" ? "rows" : "columns";
+        var inherited = $"As in Settings: {LayoutPage.SizeText(settings).ToLowerInvariant()}";
+        var row = AddRow(title, own is null ? inherited : $"{SystemName()}'s own · Y goes back to the default ({LayoutPage.SizeText(settings).ToLowerInvariant()})",
+            own is { } value ? LayoutPage.SizeText(value) : "Default", () =>
+        {
+            var choices = LayoutPage.SizeChoices(max, what);
+            choices.Insert(0, new Choice(string.Empty, "As in Settings", $"{LayoutPage.SizeText(settings)}, the Layout page's"));
+            Layer.Push(new ChoicePanel($"{title} of {SystemName()}'s games", $"Saved as systems.{_systemId}.{key}", choices,
+                own?.ToString(CultureInfo.InvariantCulture) ?? string.Empty,
+                choice => SaveGrid(key, choice.Id.Length == 0 ? null : int.Parse(choice.Id, CultureInfo.InvariantCulture))));
+        });
+        row.Adjuster = direction =>
+        {
+            var current = own ?? settings;
+            var next = Math.Clamp(current + Math.Sign(direction), 0, max);
+            if (next != current || own is null)
+            {
+                SaveGrid(key, next);
+            }
+        };
+        return row;
+
+        string SystemName() => _settings.Services.Config.FindSystem(_systemId)?.Name ?? _systemId;
+    }
+
+    /// <summary>Saves the system's own games grid columns or rows (null: the Layout page's again).</summary>
+    private void SaveGrid(string key, int? value)
+    {
+        var name = _settings.Services.Config.FindSystem(_systemId)?.Name ?? _systemId;
+        var what = key == "games_rows" ? "rows" : "columns";
+        _settings.Save(this, [new ConfigEdit(ConfigFileKind.Systems, ["systems", _systemId, key], value is { } v ? (long)v : null)],
+            value switch
+            {
+                null => $"{name}'s games grid: {what} as in Settings.",
+                0 => $"{name}'s games grid: automatic {what}.",
+                1 => $"{name}'s games grid: 1 {what[..^1]}.",
+                _ => $"{name}'s games grid: {value} {what}.",
+            });
     }
 
     // ---- Models ----------------------------------------------------------------------------------------

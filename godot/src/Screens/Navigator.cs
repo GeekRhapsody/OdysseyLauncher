@@ -12,13 +12,16 @@ using Launcher.App.Models;
 using Launcher.App.Navigation;
 using Launcher.App.Textures;
 using Launcher.App.Theming;
+using Launcher.Core.Config;
+using Launcher.Core.Diagnostics;
 using Launcher.Core.Library;
 
 namespace Launcher.App.Screens;
 
 /// <summary>
 /// The screens (A1 Screens): Systems → Games → Launching, and back, with animated transitions between the two
-/// grids, each system's look cross-faded in (A6), focus memory per system, the focused system's details in the
+/// grids (each laid out as settings.toml's <c>[display]</c> says: a grid, a carousel, one system at a time, or a list
+/// of games with the focused one's model beside it), each system's look cross-faded in (A6), focus memory per system, the focused system's details in the
 /// overlay (a game's are on its details screen, Y), favourites, rescans, the power menu, launching, and themes (M6):
 /// switching one at run time, per-game models, and
 /// rebinding a game's media when it changes. Library calls run on the thread pool and their results come back
@@ -152,6 +155,18 @@ public sealed partial class Navigator : Node
     /// <summary>The theme the grids show (the options panels say which model each system uses).</summary>
     public ThemeRuntime Theme => _theme;
 
+    /// <summary><c>--layout</c>: this run's layouts instead of settings.toml's, or null.</summary>
+    public LayoutOverride? LayoutOverride { get; set; }
+
+    /// <summary>The display settings the grids are laid out by: settings.toml's, with <c>--layout</c> over them.</summary>
+    private DisplaySettings Display =>
+        LayoutOverride?.ApplyTo(_services.Config.Settings.Display) ?? _services.Config.Settings.Display;
+
+    private GridLayout SystemsLayout() => GridLayout.Systems(Display);
+
+    /// <summary>A list's layout: the games layout, with the system's own grid size (Favourites and Recently played use settings.toml's).</summary>
+    private GridLayout GamesLayout(string id) => GridLayout.Games(Display, _services.Config.FindSystem(id));
+
     /// <summary>The media streamer, for evicting textures while a game runs and for a theme's layout.</summary>
     public TextureStreamer? Streamer { get; set; }
 
@@ -185,7 +200,9 @@ public sealed partial class Navigator : Node
     public void ShowSystems()
     {
         _systems = new SystemsSource(BuildEntries(_services.Systems), _systemsGrid.Templates.Count);
+        _systemsGrid.Layout = SystemsLayout();
         _systemsGrid.Bind(_systems, FirstRealSystem());
+        DebugHooks.Layout = $"{_systemsGrid.Layout}/{GridLayout.Games(Display, null)}";
         _systemsGrid.Fade = 0;
         _gamesGrid.Fade = 1;
         _overlay.SetHints(SystemsHints);
@@ -228,6 +245,11 @@ public sealed partial class Navigator : Node
         if (_pendingTheme is { } pending)
         {
             PollTheme(pending);
+        }
+
+        if (_overlay.List.Visible)
+        {
+            _overlay.List.Update(_gamesGrid.ScrollPosition, _gamesGrid.FocusIndex);
         }
 
         if (_titlesDue >= 0 && _clock >= _titlesDue)
@@ -277,14 +299,17 @@ public sealed partial class Navigator : Node
         }
 
         var grid = _screen == Screen.Systems ? _systemsGrid : _gamesGrid;
+
+        // A page is four rows of a grid, a carousel's width, or the titles a list shows.
+        var page = grid == _gamesGrid && _overlay.List.Visible ? _overlay.List.RowsShown : grid.PageStep;
         var moved = command switch
         {
-            NavCommand.Up => grid.MoveFocus(-grid.Columns),
-            NavCommand.Down => grid.MoveFocus(grid.Columns),
-            NavCommand.Left => grid.MoveFocus(-1),
-            NavCommand.Right => grid.MoveFocus(1),
-            NavCommand.PageUp => Jump(grid, grid.FocusIndex - grid.Columns * 4),
-            NavCommand.PageDown => Jump(grid, grid.FocusIndex + grid.Columns * 4),
+            NavCommand.Up => grid.Move(0, -1),
+            NavCommand.Down => grid.Move(0, 1),
+            NavCommand.Left => grid.Move(-1, 0),
+            NavCommand.Right => grid.Move(1, 0),
+            NavCommand.PageUp => Jump(grid, grid.FocusIndex - page),
+            NavCommand.PageDown => Jump(grid, grid.FocusIndex + page),
             NavCommand.First => Jump(grid, 0),
             NavCommand.Last => Jump(grid, grid.Count - 1),
             NavCommand.LetterNext => _screen == Screen.Games && _games is not null && Jump(grid, _games.NextLetter(grid.FocusIndex)),
@@ -607,7 +632,7 @@ public sealed partial class Navigator : Node
         var focus = focusIndex
             ?? (focusGame is { } game ? Math.Max(0, source.IndexOf(game))
             : _lastGame.TryGetValue(source.Id, out var gameId) ? Math.Max(0, source.IndexOf(gameId)) : 0);
-        _gamesGrid.Bind(source, focus);
+        BindGames(source, focus);
         if (reloading)
         {
             OnFocusChanged();
@@ -663,6 +688,7 @@ public sealed partial class Navigator : Node
         _screen = Screen.Systems;
         _games = null;
         _entering = null;
+        _overlay.List.Bind(null, false);
         _perGameLoading.Clear();
         _gamesAnimation.Start(Shown, GamesHidden, TransitionSeconds);
         _systemsAnimation.Start(SystemsHidden, Shown, TransitionSeconds);
@@ -670,6 +696,16 @@ public sealed partial class Navigator : Node
         _overlay.SetStatus(null);
         _overlay.SetHints(SystemsHints);
         OnFocusChanged();
+    }
+
+    /// <summary>Binds a list to the games grid in its layout, with the list of titles beside it in the list layout.</summary>
+    private void BindGames(GamesSource source, int focus)
+    {
+        var layout = GamesLayout(source.Id);
+        _gamesGrid.Layout = layout;
+        _gamesGrid.Bind(source, focus);
+        _overlay.List.Bind(layout.Shape == GridShape.List ? source : null, source.SystemIds.Count > 1 || source.Id is FavouritesId or RecentlyPlayedId);
+        DebugHooks.Layout = $"{SystemsLayout()}/{layout}";
     }
 
     // ---- Per-game models (A7) ----------------------------------------------------------------------
@@ -941,6 +977,7 @@ public sealed partial class Navigator : Node
 
                     if (changed.Count > 0)
                     {
+                        _overlay.List.RefreshTitles();
                         GD.Print($"Titles: {changed.Count} game(s) in {source.Id} renamed in place.");
                     }
                 });
@@ -1046,6 +1083,7 @@ public sealed partial class Navigator : Node
 
         var systemsFocus = _systemsGrid.FocusIndex;
         _systems = new SystemsSource(BuildEntries(_services.Systems), _systemsGrid.Templates.Count);
+        _systemsGrid.Layout = SystemsLayout();
         _systemsGrid.Bind(_systems, Math.Max(0, systemsFocus));
         var shownEntry = _games is { } shown ? FindEntry(shown.Id) : null;
         _stage.Show(theme.LookFor(shownEntry is { Virtual: VirtualKind.None } ? shownEntry.Id : null), theme.TransitionSeconds);
@@ -1062,7 +1100,7 @@ public sealed partial class Navigator : Node
             var focusIndex = Math.Max(0, _gamesGrid.FocusIndex);
             var focusGame = focusIndex < games.Count ? games.Row(focusIndex).GameId : 0;
             games.BindTemplates(theme.GameTemplateOf, _gamesGrid.Templates.Count);
-            _gamesGrid.Bind(games, focusIndex);
+            BindGames(games, focusIndex);
             LoadGames(shownEntry, null, focusGame);
         }
 
@@ -1257,6 +1295,7 @@ public sealed partial class Navigator : Node
         _systems = new SystemsSource(BuildEntries(systems), _systemsGrid.Templates.Count);
         if (_screen == Screen.Systems)
         {
+            _systemsGrid.Layout = SystemsLayout();
             _systemsGrid.Bind(_systems, focus);
             OnFocusChanged();
         }
@@ -1264,7 +1303,8 @@ public sealed partial class Navigator : Node
 
     /// <summary>
     /// Main thread: the settings screen saved config (M7). The systems grid is built again with it (names, emulators,
-    /// folders in the details); ROM folder changes are rescanned by the settings screen, which refreshes it again.
+    /// folders in the details, its layout); ROM folder changes are rescanned by the settings screen, which refreshes it
+    /// again. The games shown are laid out again if their layout changed, keeping the focus.
     /// </summary>
     public void OnConfigChanged()
     {
@@ -1273,7 +1313,13 @@ public sealed partial class Navigator : Node
         _systems = new SystemsSource(BuildEntries(_services.Systems), _systemsGrid.Templates.Count);
         if (_screen == Screen.Systems)
         {
+            _systemsGrid.Layout = SystemsLayout();
             _systemsGrid.Bind(_systems, Math.Max(0, focus));
+            OnFocusChanged();
+        }
+        else if (_screen == Screen.Games && _games is { } games && GamesLayout(games.Id) != _gamesGrid.Layout)
+        {
+            BindGames(games, Math.Max(0, _gamesGrid.FocusIndex));
             OnFocusChanged();
         }
     }
@@ -1372,6 +1418,12 @@ public sealed partial class Navigator : Node
             {
                 _gamesGrid.UnbindAll();
             }
+        }
+
+        // The list of titles fades with the games grid.
+        if (_overlay.List.Visible && _overlay.List.Modulate.A != 1 - _gamesGrid.Fade)
+        {
+            _overlay.List.Modulate = new Color(1, 1, 1, 1 - _gamesGrid.Fade);
         }
 
         // The overlay dips while a transition swaps its text.

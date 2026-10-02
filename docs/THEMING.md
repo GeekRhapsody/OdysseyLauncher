@@ -335,6 +335,7 @@ godot --path godot -- --user-dir=<absolute folder> --theme=neon-arcade
 - `--nav-script=right,right,accept` presses buttons for you. `accept` launches the focused game; with no emulator installed, the launch clip plays and the launch then fails harmlessly.
 - `--capture=<absolute path>.png --capture-frame=150 --fixed-fps 60` saves a screenshot at that frame and quits.
 - `--no-overlay` hides the text, so you can check the background corners.
+- `--layout=single/list` shows a system's card, and a game's model, about half the screen's height (the user can choose these layouts in the settings: Look, Layout), so it's the closest look at your models' detail; `--layout=carousel/carousel` turns the items beside the focused one towards it.
 
 The console shows the theme's diagnostics as it loads (section 3), and `logs/models.log` in the user folder shows each model's report.
 

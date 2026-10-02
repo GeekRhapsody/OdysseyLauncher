@@ -322,6 +322,7 @@ public partial class Main : Node3D
         _navigator = new Navigator(services, _queue, _systemsGrid, _gamesGrid, _overlay!, _look, _loader, theme)
         {
             Streamer = _streamer,
+            LayoutOverride = _options.Layout,
         };
         AddChild(_navigator);
         _navigator.ShowSystems();

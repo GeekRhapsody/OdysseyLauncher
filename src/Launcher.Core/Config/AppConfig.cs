@@ -37,7 +37,104 @@ public sealed record Settings(
 public sealed record ScanningSettings(IReadOnlyList<string> Exclude);
 
 /// <param name="HideEmptySystems">The systems grid leaves out systems with no games (like ES-DE), so the built-in catalogue only shows what the user has.</param>
-public sealed record DisplaySettings(string Theme, bool Fullscreen, bool HideEmptySystems = true);
+public sealed record DisplaySettings(string Theme, bool Fullscreen, bool HideEmptySystems = true)
+{
+    /// <summary>The most columns a grid can have (<c>systems_columns</c>, <c>games_columns</c>).</summary>
+    public const int MaxColumns = 9;
+
+    /// <summary>The most rows a grid can fit on screen (<c>systems_rows</c>, <c>games_rows</c>).</summary>
+    public const int MaxRows = 6;
+
+    /// <summary><c>systems_layout</c>: how the systems are shown.</summary>
+    public SystemsLayout SystemsLayout { get; init; }
+
+    /// <summary><c>systems_columns</c> and <c>systems_rows</c>: the systems grid's size; 0 is automatic.</summary>
+    public GridSize SystemsGrid { get; init; }
+
+    /// <summary><c>games_layout</c>: how a system's games are shown, unless the system has its own (<see cref="GamesLayoutFor"/>).</summary>
+    public GamesLayout GamesLayout { get; init; }
+
+    /// <summary><c>games_columns</c> and <c>games_rows</c>: the games grid's size; 0 is automatic. A system can have its own.</summary>
+    public GridSize GamesGrid { get; init; }
+
+    /// <summary>How a system's games are shown: its own <c>games_layout</c>, else these settings'. Null: Favourites and Recently played.</summary>
+    public GamesLayout GamesLayoutFor(SystemConfig? system) => system?.GamesLayout ?? GamesLayout;
+
+    /// <summary>The games grid's size for a system: its own columns and rows where it sets them, else these settings'.</summary>
+    public GridSize GamesGridFor(SystemConfig? system) =>
+        new(system?.GamesColumns ?? GamesGrid.Columns, system?.GamesRows ?? GamesGrid.Rows);
+}
+
+/// <summary>How the systems are shown (<c>[display] systems_layout</c>).</summary>
+public enum SystemsLayout
+{
+    /// <summary><c>"grid"</c>: rows and columns of cards (the default).</summary>
+    Grid,
+
+    /// <summary><c>"carousel"</c>: one row, the focused card in the middle.</summary>
+    Carousel,
+
+    /// <summary><c>"single"</c>: one card at a time, filling the screen; left and right move to the next.</summary>
+    Single,
+}
+
+/// <summary>How a system's games are shown (<c>[display] games_layout</c>).</summary>
+public enum GamesLayout
+{
+    /// <summary><c>"grid"</c>: rows and columns of games (the default).</summary>
+    Grid,
+
+    /// <summary><c>"carousel"</c>: one row, the focused game in the middle.</summary>
+    Carousel,
+
+    /// <summary><c>"list"</c>: the titles in a list, with the focused game's model beside it.</summary>
+    List,
+}
+
+/// <summary>A grid's columns and the rows that fit the screen's height; 0 for either is automatic.</summary>
+public readonly record struct GridSize(int Columns, int Rows)
+{
+    public bool IsAutomatic => Columns == 0 && Rows == 0;
+}
+
+/// <summary>The names config uses for the layouts.</summary>
+public static class Layouts
+{
+    public static IReadOnlyList<string> SystemsNames { get; } = ["grid", "carousel", "single"];
+
+    public static IReadOnlyList<string> GamesNames { get; } = ["grid", "carousel", "list"];
+
+    public static string Name(SystemsLayout layout) => SystemsNames[(int)layout];
+
+    public static string Name(GamesLayout layout) => GamesNames[(int)layout];
+
+    public static bool TryParse(string name, out SystemsLayout layout)
+    {
+        var index = IndexOf(SystemsNames, name);
+        layout = (SystemsLayout)Math.Max(index, 0);
+        return index >= 0;
+    }
+
+    public static bool TryParse(string name, out GamesLayout layout)
+    {
+        var index = IndexOf(GamesNames, name);
+        layout = (GamesLayout)Math.Max(index, 0);
+        return index >= 0;
+    }
+
+    private static int IndexOf(IReadOnlyList<string> names, string name)
+    {
+        for (var i = 0; i < names.Count; i++)
+        {
+            if (string.Equals(names[i], name, StringComparison.Ordinal))
+            {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+}
 
 /// <summary><c>[ui]</c>: the status indicators top right, each on or off.</summary>
 /// <param name="ShowClock">The time, in the user's regional short-time format.</param>
@@ -89,6 +186,9 @@ public enum RomDirSource
 /// <c>game_model</c>: a game template id the user chose for this system, looked up in the active theme and then the
 /// built-in one (A7). Null when unset: the theme decides.
 /// </param>
+/// <param name="GamesLayout"><c>games_layout</c>: how this system's games are shown; null uses <c>[display] games_layout</c>.</param>
+/// <param name="GamesColumns"><c>games_columns</c>: the system's games grid's columns (0 automatic); null uses <c>[display] games_columns</c>.</param>
+/// <param name="GamesRows"><c>games_rows</c>: the rows of its games grid that fit the screen (0 automatic); null uses <c>[display] games_rows</c>.</param>
 public sealed record SystemConfig(
     string Id,
     string Name,
@@ -105,7 +205,10 @@ public sealed record SystemConfig(
     bool Recursive,
     IReadOnlyList<string> Exclude,
     IReadOnlyList<int>? IgdbPlatforms = null,
-    bool SteamStore = false);
+    bool SteamStore = false,
+    int? GamesColumns = null,
+    int? GamesRows = null,
+    GamesLayout? GamesLayout = null);
 
 /// <summary>An <c>[emulators.&lt;id&gt;]</c> entry.</summary>
 /// <param name="Executable">Expanded absolute path, with no placeholders left.</param>

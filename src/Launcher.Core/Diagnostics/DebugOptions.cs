@@ -1,4 +1,5 @@
 using System.Globalization;
+using Launcher.Core.Config;
 using Launcher.Core.Platform;
 
 namespace Launcher.Core.Diagnostics;
@@ -52,6 +53,7 @@ public sealed record DebugOptions
     public const string OpenPathArg = "--open-path";
     public const string FakeStatusArg = "--fake-status";
     public const string SaveResponsesArg = "--save-responses";
+    public const string LayoutArg = "--layout";
 
     /// <summary>
     /// What <c>--open</c> can show once the app is interactive (M7), for captures of each settings screen and shared
@@ -79,7 +81,7 @@ public sealed record DebugOptions
         CaptureArg, CaptureFrameArg, BenchArg, BenchFramesArg, BenchScenarioArg, BenchSystemArg, BenchScrollSecondsArg,
         NoTexturesArg, RenderScaleArg, UpscalerArg, UploadCapArg, StartSystemArg, StartIndexArg, NavScriptArg, LaunchArg,
         UserDirArg, QuitAfterLaunchArg, ThemeArg, NoOverlayArg, OpenArg, OpenPathArg,
-        FakeStatusArg, SaveResponsesArg,
+        FakeStatusArg, SaveResponsesArg, LayoutArg,
     ];
 
     /// <summary>
@@ -191,6 +193,12 @@ public sealed record DebugOptions
     /// </summary>
     public bool SaveResponses { get; init; }
 
+    /// <summary>
+    /// <c>--layout=&lt;systems&gt;[:&lt;columns&gt;x&lt;rows&gt;]/&lt;games&gt;[:&lt;columns&gt;x&lt;rows&gt;]</c>: the layouts (and
+    /// grid sizes) for this run instead of settings.toml's <c>[display]</c> ones, for captures; null for those.
+    /// </summary>
+    public LayoutOverride? Layout { get; init; }
+
     public bool CaptureRequested => CapturePath is not null;
 
     public bool BenchRequested => BenchPath is not null;
@@ -260,6 +268,7 @@ public sealed record DebugOptions
                 OpenPathArg => options with { OpenPath = ParsePath(name, value, null, errors) },
                 FakeStatusArg => options with { FakeStatus = ParseFakeStatus(value, errors) },
                 SaveResponsesArg => options with { SaveResponses = true },
+                LayoutArg => options with { Layout = ParseLayout(value, errors) },
                 _ => options,
             };
         }
@@ -365,6 +374,44 @@ public sealed record DebugOptions
 
         errors.Add($"{FakeStatusArg} needs <battery>/<network>, e.g. {Example(FakeStatusArg)}: the battery none, a percentage, or a percentage and + (plugged in); the network off, lan or wifi0 to wifi3. Got '{value}'.");
         return null;
+    }
+
+    /// <summary><c>grid:4x2/list</c>: the systems' layout and the games', each with an optional size (0 is automatic).</summary>
+    private static LayoutOverride? ParseLayout(string value, List<string> errors)
+    {
+        var parts = value.ToLowerInvariant().Split('/');
+        if (parts.Length == 2
+            && Split(parts[0], out var systemsName, out var systemsGrid) && Layouts.TryParse(systemsName, out SystemsLayout systems)
+            && Split(parts[1], out var gamesName, out var gamesGrid) && Layouts.TryParse(gamesName, out GamesLayout games))
+        {
+            return new LayoutOverride(systems, systemsGrid, games, gamesGrid);
+        }
+
+        errors.Add($"{LayoutArg} needs <systems>/<games>, each optionally with :<columns>x<rows> (0 automatic), e.g. {Example(LayoutArg)}: " +
+            $"the systems {string.Join(", ", Layouts.SystemsNames)}; the games {string.Join(", ", Layouts.GamesNames)}. Got '{value}'.");
+        return null;
+
+        static bool Split(string part, out string name, out GridSize? size)
+        {
+            size = null;
+            var colon = part.IndexOf(':', StringComparison.Ordinal);
+            name = colon < 0 ? part : part[..colon];
+            if (colon < 0)
+            {
+                return true;
+            }
+
+            var dimensions = part[(colon + 1)..].Split('x');
+            if (dimensions.Length != 2
+                || !int.TryParse(dimensions[0], NumberStyles.None, CultureInfo.InvariantCulture, out var columns) || columns > DisplaySettings.MaxColumns
+                || !int.TryParse(dimensions[1], NumberStyles.None, CultureInfo.InvariantCulture, out var rows) || rows > DisplaySettings.MaxRows)
+            {
+                return false;
+            }
+
+            size = new GridSize(columns, rows);
+            return true;
+        }
     }
 
     private static string? ParseOpen(string value, List<string> errors)
@@ -486,8 +533,32 @@ public sealed record DebugOptions
         OpenArg => $"{OpenArg}=settings",
         OpenPathArg => $"{OpenPathArg}=C:/Games",
         FakeStatusArg => $"{FakeStatusArg}=42+/wifi2",
+        LayoutArg => $"{LayoutArg}=grid:4x2/list",
         _ => $"{BenchFramesArg}={DefaultBenchFrames}",
     };
+}
+
+/// <summary><c>--layout</c>: the layouts for one run, and the grid sizes it names (null keeps settings.toml's).</summary>
+public sealed record LayoutOverride(SystemsLayout Systems, GridSize? SystemsGrid, GamesLayout Games, GridSize? GamesGrid)
+{
+    /// <summary>The display settings with this run's layouts. A system's own games layout and grid size still win (<see cref="DisplaySettings.GamesLayoutFor"/>).</summary>
+    public DisplaySettings ApplyTo(DisplaySettings display)
+    {
+        ArgumentNullException.ThrowIfNull(display);
+        return display with
+        {
+            SystemsLayout = Systems,
+            SystemsGrid = SystemsGrid ?? display.SystemsGrid,
+            GamesLayout = Games,
+            GamesGrid = GamesGrid ?? display.GamesGrid,
+        };
+    }
+
+    public override string ToString() =>
+        $"{Layouts.Name(Systems)}{Size(SystemsGrid)}/{Layouts.Name(Games)}{Size(GamesGrid)}";
+
+    private static string Size(GridSize? size) =>
+        size is { } s ? string.Create(CultureInfo.InvariantCulture, $":{s.Columns}x{s.Rows}") : string.Empty;
 }
 
 /// <summary>Result of <see cref="DebugOptions.Parse"/>: the options, or the reasons they were rejected.</summary>

@@ -106,6 +106,39 @@ public sealed class ConfigWriterTests : IDisposable
     }
 
     [Fact]
+    public void Layouts_and_a_systems_own_games_grid_size_are_written_and_removed_again()
+    {
+        var writer = Writer();
+        var saved = writer.Save(
+        [
+            new ConfigEdit(ConfigFileKind.Settings, ["display", "games_layout"], "list"),
+            new ConfigEdit(ConfigFileKind.Settings, ["display", "systems_columns"], 4L),
+            new ConfigEdit(ConfigFileKind.Systems, ["systems", "snes", "games_columns"], 0L),
+            new ConfigEdit(ConfigFileKind.Systems, ["systems", "snes", "games_layout"], "carousel"),
+        ]);
+
+        Assert.True(saved.Saved, saved.Problem);
+        Assert.EndsWith("[display]\ngames_layout = \"list\"\nsystems_columns = 4\n", File.ReadAllText(ConfigFile("settings.toml")), StringComparison.Ordinal);
+        Assert.EndsWith("[systems.snes]\ngames_columns = 0\ngames_layout = \"carousel\"\n", File.ReadAllText(ConfigFile("systems.toml")), StringComparison.Ordinal);
+        var config = saved.Config!.Config;
+        Assert.Equal(GamesLayout.List, config.Settings.Display.GamesLayout);
+        Assert.Equal(new GridSize(4, 0), config.Settings.Display.SystemsGrid);
+        Assert.Equal(0, config.FindSystem("snes")!.GamesColumns);
+        Assert.Equal(GamesLayout.Carousel, config.Settings.Display.GamesLayoutFor(config.FindSystem("snes")));
+
+        // A system's 0 (automatic) is its own choice, so only null takes it back to [display]'s.
+        var removed = writer.Save(
+        [
+            new ConfigEdit(ConfigFileKind.Systems, ["systems", "snes", "games_columns"], null),
+            new ConfigEdit(ConfigFileKind.Systems, ["systems", "snes", "games_layout"], null),
+        ]);
+        Assert.True(removed.Saved, removed.Problem);
+        Assert.Null(removed.Config!.Config.FindSystem("snes")!.GamesColumns);
+        Assert.Null(removed.Config!.Config.FindSystem("snes")!.GamesLayout);
+        Assert.DoesNotContain("games_", File.ReadAllText(ConfigFile("systems.toml")), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Null_removes_a_key_so_the_default_applies_again()
     {
         Write("systems.toml", "[systems.snes]\nrom_dirs = [\"E:/SNES\"]\nrecursive = false\n");

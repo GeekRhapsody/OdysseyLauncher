@@ -102,7 +102,8 @@ public sealed record BenchGc(
 /// <param name="NoTextures">The no-texture control: covers aren't streamed.</param>
 /// <param name="Theme">The active theme's id (M6).</param>
 /// <param name="MediaSlots">The games grid's media slots, with their standard sizes: "cover (512²), spine (256²)".</param>
-public sealed record BenchOptions(double RenderScale, string Upscaler, int UploadCap, bool NoTextures, string? Theme = null, string? MediaSlots = null);
+/// <param name="Layout">The systems' and the games' layouts: "grid/grid", "carousel/list", "grid 4x2/grid".</param>
+public sealed record BenchOptions(double RenderScale, string Upscaler, int UploadCap, bool NoTextures, string? Theme = null, string? MediaSlots = null, string? Layout = null);
 
 /// <param name="Systems">Systems in the systems grid, virtual ones included.</param>
 /// <param name="Games">Games across every system.</param>

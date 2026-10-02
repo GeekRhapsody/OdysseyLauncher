@@ -26,6 +26,7 @@ public sealed partial class SettingsHome : ListPanel
     private readonly SettingRow _roms;
     private readonly SettingRow _emulators;
     private readonly SettingRow _theme;
+    private readonly SettingRow _layout;
     private readonly SettingRow _clock;
     private readonly SettingRow _battery;
     private readonly SettingRow _network;
@@ -49,6 +50,7 @@ public sealed partial class SettingsHome : ListPanel
 
         AddSection("Look");
         _theme = AddRow("Theme", activated: ChooseTheme);
+        _layout = AddRow("Layout", activated: () => Layer.Push(new LayoutPage(_settings)));
 
         AddSection("UI");
         _clock = AddIndicatorRow("Clock", "The time, top right, in your Windows time format", "show_clock", ui => ui.ShowClock);
@@ -96,6 +98,8 @@ public sealed partial class SettingsHome : ListPanel
         _emulators.Detail = $"{config.Emulators.Count} profiles; the programs your systems use";
         var active = services.Theme?.Active;
         _theme.Detail = active is null ? config.Settings.Display.Theme : $"{active.Name} ({active.Id})";
+        var display = config.Settings.Display;
+        _layout.Detail = $"Systems: {LayoutPage.SystemsTitle(display.SystemsLayout)}{SizeOf(display.SystemsLayout == SystemsLayout.Grid, display.SystemsGrid)} · Games: {LayoutPage.GamesTitle(display.GamesLayout)}{SizeOf(display.GamesLayout == GamesLayout.Grid, display.GamesGrid)}";
         var scraping = config.Settings.Scraping;
         _scraping.Detail = scraping.Fallback.Count == 0
             ? $"{ScrapingPage.NameOf(scraping.Provider)} only"
@@ -119,6 +123,15 @@ public sealed partial class SettingsHome : ListPanel
         _problems.Value = problems == 0 ? null : problems.ToString(CultureInfo.InvariantCulture);
         _problems.ValueColour = UiStyle.Warning;
     }
+
+    /// <summary>A grid's size after its layout's name, when it isn't automatic: " (5 columns, automatic rows)".</summary>
+    private static string SizeOf(bool grid, GridSize size) =>
+        !grid || size.IsAutomatic
+            ? string.Empty
+            : $" ({Count(size.Columns, "column")}, {Count(size.Rows, "row")})";
+
+    private static string Count(int value, string what) =>
+        value == 0 ? $"automatic {what}s" : value == 1 ? $"1 {what}" : $"{value} {what}s";
 
     // ---- UI -----------------------------------------------------------------------------------------
 

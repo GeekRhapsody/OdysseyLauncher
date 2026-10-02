@@ -4,6 +4,7 @@ using Godot;
 using Launcher.App.Models;
 using Launcher.App.Textures;
 using Launcher.App.Theming;
+using Launcher.Core.Config;
 using Launcher.Core.Library;
 using Launcher.Core.Models;
 using Launcher.Core.Theming;
@@ -71,7 +72,7 @@ public interface IGridSource
 public sealed partial class ItemGrid : Node3D, ITextureSink
 {
     public const int MinColumns = 3;
-    public const int MaxColumns = 9;
+    public const int MaxColumns = DisplaySettings.MaxColumns;
     public const int PreferredColumns = 5;
 
     private const float PitchXFactor = 1.42f;
@@ -84,6 +85,32 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
     private const float ClipBlendSeconds = 0.25f;
     private const float LaunchFallbackSeconds = 0.7f;
     private const int Slots = MediaSlots.Count;
+
+    // A grid whose rows are set fits them between the overlay's heading and its details, these shares of the view's
+    // height from the top and the bottom.
+    private const float RowsBandTop = 0.15f;
+    private const float RowsBandBottom = 0.18f;
+
+    // The carousel: rows of its items that would fit the view's height (their size), at least this many items across,
+    // the spacing over an item's width, and how much an item a place from the middle shrinks, turns to face the middle
+    // and steps back (more places step back further).
+    private const float CarouselRows = 2.1f;
+    private const float CarouselShown = 5.5f;
+    private const float CarouselPitchFactor = 1.3f;
+    private const float CarouselShrink = 0.2f;
+    private const float CarouselTurn = 0.32f;
+    private const float CarouselDepth = 0.3f;
+
+    // One at a time (Single) and beside the list (List): the item's share of the view's height and width at most, and
+    // where the list's item stands across the view (from the middle, as a share of its width).
+    private const float SingleHeight = 0.52f;
+    private const float SingleWidth = 0.42f;
+    private const float ListHeight = 0.56f;
+    private const float ListWidth = 0.34f;
+    private const float ListCentre = 0.22f;
+
+    // A big item (carousel, single, list) comes this far towards the camera when focused, in world units, at most.
+    private const float BigFocusLift = 0.45f;
 
     // The slot-state texture's two columns after the slots: a reshaped box's growth, and its faces' aspects (item.gdshader).
     private const int ShapeColumn = Slots;
@@ -120,6 +147,7 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
     private readonly float[] _cellFit;
     private readonly float[] _cellPhase;
     private readonly Color[] _cellPlain;
+    private readonly float[] _cellCurve;
     private readonly Transform3D[] _cellBase;
     private readonly MeshInstance3D[] _cellMesh;
     private readonly SceneInstance?[] _cellScene;
@@ -136,12 +164,23 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
     private int[] _boundRow = [];
 
     private IGridSource? _source;
+    private GridLayout _layout;
+    private bool _horizontal;
+    private bool _curved;
     private int _count;
     private int _columns = 1;
     private int _poolRows = 1;
     private int _rows;
     private float _pitchX = 1;
     private float _pitchY = 1;
+
+    // The distance between lines (rows, or a carousel's items) along the scroll, and a column's place across the view
+    // (the list's), in world units before the grid's scale.
+    private float _linePitch = 1;
+    private float _crossOffset;
+    private float _rootX;
+    private float _focusLift = FocusLift;
+    private float _curveScroll = float.NaN;
     private float _cellWidth = 1;
     private float _itemHeight = 1;
     private float _scale = 1;
@@ -202,6 +241,7 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
         _cellFit = new float[maxCells];
         _cellPhase = new float[maxCells];
         _cellPlain = new Color[maxCells];
+        _cellCurve = new float[maxCells];
         _cellBase = new Transform3D[maxCells];
         _cellMesh = new MeshInstance3D[maxCells];
         _cellScene = new SceneInstance?[maxCells];
@@ -215,6 +255,7 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
         _media = new MediaRef[maxCells * Slots];
         Array.Fill(_cellItem, -1);
         Array.Fill(_cellTemplate, -1);
+        Array.Fill(_cellCurve, 1f);
 
         // A node per cell for the items drawn on their own (per-game models), made now so binding one allocates nothing.
         for (var cell = 0; cell < maxCells; cell++)
@@ -239,7 +280,26 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
 
     public int FocusIndex => _focus;
 
+    /// <summary>The lines the items are laid out in: rows, or a carousel's, single's or list's items.</summary>
     public int Rows => _rows;
+
+    /// <summary>The layout the next <see cref="Bind"/> uses (each bind keeps it: a resize, a theme).</summary>
+    public GridLayout Layout
+    {
+        get => _layout;
+        set => _layout = value;
+    }
+
+    /// <summary>Where the scroll is, in lines (the list of titles beside a <see cref="GridShape.List"/> follows it).</summary>
+    public float ScrollPosition => _scroll;
+
+    /// <summary>How far LB and RB move the focus: four rows of a grid, a carousel's width, or 5 items.</summary>
+    public int PageStep => _layout.Shape switch
+    {
+        GridShape.Grid => _columns * 4,
+        GridShape.Carousel => Math.Max(1, (int)(_viewHeight * _viewAspect / (_linePitch * _scale))),
+        _ => 5,
+    };
 
     /// <summary>The source currently bound, or null.</summary>
     public IGridSource? Source => _source;
@@ -600,34 +660,73 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
         }
 
         _cellWidth = width;
+        _itemHeight = height;
         _pitchX = width * PitchXFactor;
         _pitchY = height * PitchYFactor;
-        _itemHeight = height;
+        _horizontal = _layout.Shape is GridShape.Carousel or GridShape.Single;
+        _curved = _layout.Shape == GridShape.Carousel;
+        _crossOffset = 0;
+        var viewWidth = _viewHeight * _viewAspect;
+        float linesShown;
+        switch (_layout.Shape)
+        {
+            case GridShape.Carousel:
+                // Sized so CarouselRows of its items would fit the height, unless fewer than CarouselShown fit across.
+                _columns = 1;
+                _linePitch = width * CarouselPitchFactor;
+                _scale = Math.Min(_viewHeight / (CarouselRows * _pitchY), viewWidth / (CarouselShown * _linePitch));
+                _focusLine = _viewHeight * 0.02f;
+                linesShown = viewWidth / (_linePitch * _scale) + 2;
+                break;
+            case GridShape.Single:
+                // The next item is a screen to the right, so one shows at a time and moving slides it in.
+                _columns = 1;
+                _scale = Math.Min(_viewHeight * SingleHeight / height, viewWidth * SingleWidth / width);
+                _linePitch = viewWidth / _scale;
+                _focusLine = 0;
+                linesShown = 2;
+                break;
+            case GridShape.List:
+                // A column on the right, an item a screen apart: the titles' list is on the left.
+                _columns = 1;
+                _scale = Math.Min(_viewHeight * ListHeight / height, viewWidth * ListWidth / width);
+                _linePitch = _viewHeight / _scale;
+                _crossOffset = viewWidth * ListCentre;
+                _focusLine = _viewHeight * 0.02f;
+                linesShown = 2;
+                break;
+            default:
+                // The focused row sits a little above the middle; the overlay's title is above it and its details below.
+                _linePitch = _pitchY;
+                _focusLine = _viewHeight * 0.12f;
+                linesShown = SizeGrid(viewWidth);
+                break;
+        }
 
-        // Items are sized so RowsVisible rows fit the height, unless that leaves fewer than PreferredColumns across
-        // (wide templates such as jewel cases): then they're sized to fit those columns, and more rows show.
-        var usableWidth = _viewHeight * _viewAspect * 0.9f;
-        _scale = Math.Min(_viewHeight / (_rowsVisible * _pitchY), usableWidth / (PreferredColumns * _pitchX));
-        var rowsShown = _viewHeight / (_pitchY * _scale);
-        var fit = (int)(usableWidth / (_pitchX * _scale));
-        _columns = Math.Clamp(fit, MinColumns, MaxColumns);
+        _focusLift = _layout.Shape == GridShape.Grid ? FocusLift : Math.Min(FocusLift, BigFocusLift / _scale);
         _rows = (_count + _columns - 1) / _columns;
 
-        // The pool covers the visible rows plus a margin, or every row when there are fewer; a full pool that
-        // doesn't fit the cells gives up columns.
-        _poolRows = Math.Max(1, Math.Min(Mathf.CeilToInt(rowsShown) + 3, _rows));
-        while (_columns > MinColumns && _columns * _poolRows > _maxCells)
+        // The pool covers the visible rows plus a margin, or every row when there are fewer. A full pool that doesn't
+        // fit the cells gives up spare rows when the columns were chosen (keeping one ahead of the scroll), then columns.
+        var spare = 3;
+        _poolRows = Math.Max(1, Math.Min(Mathf.CeilToInt(linesShown) + spare, _rows));
+        while (_layout.Columns > 0 && spare > 1 && _columns * _poolRows > _maxCells)
+        {
+            spare--;
+            _poolRows = Math.Max(1, Math.Min(Mathf.CeilToInt(linesShown) + spare, _rows));
+        }
+
+        var fewestColumns = _layout.Shape == GridShape.Grid && _layout.Columns == 0 && _layout.Rows == 0 ? MinColumns : 1;
+        while (_columns > fewestColumns && _columns * _poolRows > _maxCells)
         {
             _columns--;
             _rows = (_count + _columns - 1) / _columns;
-            _poolRows = Math.Max(1, Math.Min(Mathf.CeilToInt(rowsShown) + 3, _rows));
+            _poolRows = Math.Max(1, Math.Min(Mathf.CeilToInt(linesShown) + spare, _rows));
         }
 
         _boundRow = new int[_poolRows];
         Array.Fill(_boundRow, -1);
 
-        // The focused row sits a little above the middle; the overlay's title is above it and its details below.
-        _focusLine = _viewHeight * 0.12f;
         _focus = _count == 0 ? -1 : Math.Clamp(focus, 0, _count - 1);
         _targetScroll = _scroll = _focus < 0 ? 0 : _focus / _columns;
         _scrollVelocity = 0;
@@ -636,7 +735,49 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
         _launchTime = -1;
         VisibleTextured = false;
         _rootDirty = true;
+        _curveScroll = _scroll;
         BindVisibleRows();
+    }
+
+    /// <summary>
+    /// A grid's scale and columns (<see cref="GridLayout.Columns"/> and <see cref="GridLayout.Rows"/>, 0 automatic);
+    /// returns the rows that show. Automatic: items are sized so <see cref="RowsVisible"/> rows fit the height, unless
+    /// that leaves fewer than <see cref="PreferredColumns"/> across (wide templates such as jewel cases): then they're
+    /// sized to fit those columns, and more rows show. Set rows fit between the overlay's heading and its details (the
+    /// focused row in the middle one, or the upper of the two middle ones), with as many columns as fit across; set
+    /// columns fill the width, unless the set rows leave less room (or, rows automatic, one row wouldn't fit there).
+    /// </summary>
+    private float SizeGrid(float viewWidth)
+    {
+        var usableWidth = viewWidth * 0.9f;
+        var band = _viewHeight * (1 - RowsBandTop - RowsBandBottom);
+        if (_layout.Columns > 0)
+        {
+            _scale = Math.Min(usableWidth / (_layout.Columns * _pitchX),
+                band / (Math.Max(_layout.Rows, 1) * _pitchY));
+            _columns = _layout.Columns;
+        }
+        else if (_layout.Rows > 0)
+        {
+            _scale = Math.Min(band / (_layout.Rows * _pitchY), usableWidth / _pitchX);
+            _columns = Math.Clamp((int)(usableWidth / (_pitchX * _scale)), 1, MaxColumns);
+        }
+        else
+        {
+            _scale = Math.Min(_viewHeight / (_rowsVisible * _pitchY), usableWidth / (PreferredColumns * _pitchX));
+            _columns = Math.Clamp((int)(usableWidth / (_pitchX * _scale)), MinColumns, MaxColumns);
+        }
+
+        // A size that was set lays the rows out in the band: the focused one in the middle of those that fit (the upper
+        // of the two middle ones).
+        if (_layout.Rows > 0 || _layout.Columns > 0)
+        {
+            var row = _pitchY * _scale;
+            var fitting = _layout.Rows > 0 ? _layout.Rows : Math.Max(1, (int)(band / row + 0.001f));
+            _focusLine = _viewHeight / 2 - _viewHeight * RowsBandTop - ((fitting - 1) / 2 + 0.5f) * row;
+        }
+
+        return _viewHeight / (_pitchY * _scale);
     }
 
     /// <summary>Main thread: hides every item and drops every media request.</summary>
@@ -673,9 +814,8 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
         var model = info.Model ?? _templates[template];
         if (model != _cellModel[cell])
         {
-            var origin = _cellBase[cell].Origin;
             ShowModel(cell, template, model);
-            _cellBase[cell] = BaseTransform(cell, origin);
+            _cellBase[cell] = RestTransform(cell);
             SetCellTransform(cell, _cellBase[cell]);
             WriteCustom(cell);
             if (cell == _focusCell)
@@ -685,6 +825,29 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
         }
 
         ResolveSlots(cell, item, refresh: true);
+    }
+
+    /// <summary>
+    /// Main thread: moves the focus one place left or right (<paramref name="dx"/>) or up or down (<paramref name="dy"/>)
+    /// as the layout lays the items out: a grid's rows and columns; a carousel's or single's items left and right; a
+    /// list's up and down.
+    /// </summary>
+    public bool Move(int dx, int dy)
+    {
+        if (_layout.Shape == GridShape.Grid)
+        {
+            return dx != 0 ? MoveFocus(dx) : dy != 0 && MoveFocus(dy * _columns);
+        }
+
+        var step = _horizontal ? dx : dy;
+        var target = _focus + step;
+        if (step == 0 || _count == 0 || target < 0 || target >= _count)
+        {
+            return false;
+        }
+
+        SetFocus(target);
+        return true;
     }
 
     /// <summary>Main thread: moves the focus by <paramref name="step"/> items, stopping at the ends of a row for ±1.</summary>
@@ -879,6 +1042,7 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
             SmoothScroll(dt);
             UpdateRoot();
             BindVisibleRows();
+            UpdateCurve();
             UpdateFocus(dt);
             AnimateFades(dt);
             MeasureTexturing();
@@ -939,9 +1103,19 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
 
     private void VisibleRange(out int first, out int last)
     {
-        var rowWorld = _pitchY * _scale * _zoom;
-        var above = (_viewHeight / 2 - _focusLine) / rowWorld + 0.5f;
-        var below = (_viewHeight / 2 + _focusLine) / rowWorld + 0.5f;
+        var rowWorld = _linePitch * _scale * _zoom;
+        float above, below;
+        if (_horizontal)
+        {
+            // The carousel's curve draws its far items in, so one more shows each side.
+            above = below = _viewHeight * _viewAspect / 2 / rowWorld + (_curved ? 1.5f : 0.5f);
+        }
+        else
+        {
+            above = (_viewHeight / 2 - _focusLine) / rowWorld + 0.5f;
+            below = (_viewHeight / 2 + _focusLine) / rowWorld + 0.5f;
+        }
+
         first = Math.Max(0, (int)MathF.Floor(_scroll - above));
         last = Math.Min(_rows - 1, (int)MathF.Ceiling(_scroll + below));
     }
@@ -995,10 +1169,7 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
             _cellPhase[cell] = item * 2.39996f % Mathf.Tau;
             ShowModel(cell, template, info.Model ?? _templates[template]);
 
-            // A grid of one part-filled row is centred; otherwise rows fill from the left.
-            var shown = _rows == 1 ? _count : _columns;
-            var x = (column - (shown - 1) / 2.0f) * _pitchX;
-            _cellBase[cell] = BaseTransform(cell, new Vector3(x, -row * _pitchY - _itemHeight / 2, 0));
+            _cellBase[cell] = RestTransform(cell);
             SetCellTransform(cell, _cellBase[cell]);
             WriteCustom(cell);
             _atlas.SetTitle(cell, info.Title);
@@ -1459,10 +1630,76 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
         return _boundRow[poolRow] == row ? poolRow * _columns + item % _columns : -1;
     }
 
-    private Transform3D BaseTransform(int cell, Vector3 origin)
+    /// <summary>Where the bound cell's item stands, before the carousel's curve: its line along the scroll, and its column.</summary>
+    private Vector3 FlatOrigin(int cell)
     {
+        var item = _cellItem[cell];
+        var row = item / _columns;
+        if (_horizontal)
+        {
+            return new Vector3(row * _linePitch, -_itemHeight / 2, 0);
+        }
+
+        // A grid of one part-filled row is centred; otherwise rows fill from the left.
+        var shown = _rows == 1 ? _count : _columns;
+        var x = (item % _columns - (shown - 1) / 2.0f) * _pitchX;
+        return new Vector3(x, -row * _linePitch - _itemHeight / 2, 0);
+    }
+
+    /// <summary>The bound cell's resting transform: fitted, and on a carousel's curve.</summary>
+    private Transform3D RestTransform(int cell)
+    {
+        var origin = FlatOrigin(cell);
+        if (_curved)
+        {
+            return CurvedTransform(cell, origin);
+        }
+
+        _cellCurve[cell] = 1;
         var fit = _cellFit[cell];
         return new Transform3D(Basis.Identity.Scaled(new Vector3(fit, fit, fit)), origin);
+    }
+
+    /// <summary>
+    /// A carousel's item, by its places from the middle: within a place it shrinks to the size of its neighbours, and
+    /// it turns towards the middle and steps back the further away it is (its centre staying on the line).
+    /// </summary>
+    private Transform3D CurvedTransform(int cell, Vector3 origin)
+    {
+        var places = origin.X / _linePitch - _scroll;
+        var away = MathF.Abs(places);
+        var curve = 1 - CarouselShrink * Math.Min(away, 1);
+        _cellCurve[cell] = curve;
+        var fit = _cellFit[cell] * curve;
+        var turn = -Math.Clamp(places, -1.5f, 1.5f) * CarouselTurn;
+        var back = -CarouselDepth * Math.Min(away, 3) * _itemHeight;
+        return new Transform3D(
+            new Basis(Vector3.Up, turn).Scaled(new Vector3(fit, fit, fit)),
+            new Vector3(origin.X, origin.Y + _itemHeight / 2 * (1 - curve), back));
+    }
+
+    /// <summary>A carousel's items take their places on its curve again whenever it scrolls (the focused ones follow in <see cref="UpdateFocus"/>).</summary>
+    private void UpdateCurve()
+    {
+        if (!_curved || _scroll == _curveScroll)
+        {
+            return;
+        }
+
+        _curveScroll = _scroll;
+        for (var cell = 0; cell < _maxCells; cell++)
+        {
+            if (_cellItem[cell] < 0)
+            {
+                continue;
+            }
+
+            _cellBase[cell] = CurvedTransform(cell, FlatOrigin(cell));
+            if (cell != _focusCell && cell != _previousCell)
+            {
+                SetCellTransform(cell, _cellBase[cell]);
+            }
+        }
     }
 
     // ---- Motion ---------------------------------------------------------------------------------
@@ -1500,7 +1737,10 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
 
         _rootDirty = false;
         var scale = _scale * _zoom;
-        var origin = _offset + new Vector3(0, _focusLine + _scroll * _pitchY * scale, 0);
+        var origin = _horizontal
+            ? _offset + new Vector3(-_scroll * _linePitch * scale, _focusLine, 0)
+            : _offset + new Vector3(_crossOffset, _focusLine + _scroll * _linePitch * scale, 0);
+        _rootX = origin.X;
         _root.Transform = new Transform3D(Basis.Identity.Scaled(new Vector3(scale, scale, scale)), origin);
     }
 
@@ -1573,25 +1813,27 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
     private Transform3D FocusTransform(int cell, float blend, float time, float launch)
     {
         var model = _cellModel[cell];
+        var rest = _cellBase[cell];
         var eased = blend * blend * (3 - 2 * blend);
         var scale = 1 + (FocusScale - 1) * eased;
         var angle = model?.HasClip(ModelClip.Focused) == true ? 0 : (0.3f + 0.3f * MathF.Sin(time * 1.1f)) * eased;
-        var lift = FocusLift * eased;
+        var lift = _focusLift * eased;
         if (launch > 0 && model?.HasClip(ModelClip.Launch) != true)
         {
             var e = launch * launch;
             angle += e * Mathf.Tau * 1.5f;
-            lift += e * 2.2f;
+            lift += e * 2.2f * _focusLift / FocusLift;
             scale += e * 0.3f;
         }
 
-        var fit = _cellFit[cell];
-        var basis = new Basis(Vector3.Up, angle).Scaled(new Vector3(scale * fit, scale * fit, scale * fit));
+        var basis = new Basis(Vector3.Up, angle) * rest.Basis.Scaled(new Vector3(scale, scale, scale));
         // Coming towards the camera, an item would drift outwards in perspective (off screen at the edge columns), so
         // it's pulled in to stay where it was on screen; launching, it flies towards the middle.
-        var toCamera = Math.Clamp(1 - lift * _scale * _zoom / _cameraDistance, 0.2f, 1);
-        var baseOrigin = _cellBase[cell].Origin;
-        var origin = new Vector3(baseOrigin.X * toCamera, baseOrigin.Y + _itemHeight / 2 * (1 - scale), baseOrigin.Z + lift);
+        var rootScale = _scale * _zoom;
+        var toCamera = Math.Clamp(1 - lift * rootScale / _cameraDistance, 0.2f, 1);
+        var restOrigin = rest.Origin;
+        var x = ((_rootX + restOrigin.X * rootScale) * toCamera - _rootX) / rootScale;
+        var origin = new Vector3(x, restOrigin.Y + _itemHeight / 2 * _cellCurve[cell] * (1 - scale), restOrigin.Z + lift);
         return new Transform3D(basis, origin);
     }
 
@@ -1634,9 +1876,11 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
     private void MeasureTexturing()
     {
         // The rows whose centre is on screen.
-        var rowWorld = _pitchY * _scale * _zoom;
-        var first = Math.Max(0, (int)MathF.Ceiling(_scroll - (_viewHeight / 2 - _focusLine) / rowWorld));
-        var last = Math.Min(_rows - 1, (int)MathF.Floor(_scroll + (_viewHeight / 2 + _focusLine) / rowWorld));
+        var rowWorld = _linePitch * _scale * _zoom;
+        var before = _horizontal ? _viewHeight * _viewAspect / 2 : _viewHeight / 2 - _focusLine;
+        var after = _horizontal ? before : _viewHeight / 2 + _focusLine;
+        var first = Math.Max(0, (int)MathF.Ceiling(_scroll - before / rowWorld));
+        var last = Math.Min(_rows - 1, (int)MathF.Floor(_scroll + after / rowWorld));
         var wanting = 0;
         var textured = 0;
         for (var row = first; row <= last; row++)

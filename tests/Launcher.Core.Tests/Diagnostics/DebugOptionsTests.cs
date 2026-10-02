@@ -1,3 +1,4 @@
+using Launcher.Core.Config;
 using Launcher.Core.Diagnostics;
 using Launcher.Core.Platform;
 
@@ -63,6 +64,33 @@ public class DebugOptionsTests
             var result = DebugOptions.Parse([$"--fake-status={bad}"]);
             Assert.False(result.IsValid, bad);
             Assert.Contains("--fake-status needs <battery>/<network>", Assert.Single(result.Errors), StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
+    public void Layout_overrides_the_display_settings_for_the_run()
+    {
+        Assert.Null(DebugOptions.Parse([]).Options.Layout);
+
+        var result = DebugOptions.Parse(["--layout=grid:4x2/List"]);
+        Assert.True(result.IsValid, string.Join("; ", result.Errors));
+        var layout = result.Options.Layout!;
+        Assert.Equal(new LayoutOverride(SystemsLayout.Grid, new GridSize(4, 2), GamesLayout.List, null), layout);
+        Assert.Equal("grid:4x2/list", layout.ToString());
+
+        // The sizes it names replace settings.toml's; the others stay, and so do a system's own.
+        var display = new DisplaySettings("memory-card", true) { GamesGrid = new GridSize(6, 3) };
+        var applied = layout.ApplyTo(display);
+        Assert.Equal(SystemsLayout.Grid, applied.SystemsLayout);
+        Assert.Equal(new GridSize(4, 2), applied.SystemsGrid);
+        Assert.Equal(GamesLayout.List, applied.GamesLayout);
+        Assert.Equal(new GridSize(6, 3), applied.GamesGrid);
+
+        foreach (var bad in (string[])["grid", "list/grid", "grid/single", "grid:4/grid", "grid:10x2/grid", "grid/grid:3x7", "grid:-1x2/grid", "grid/grid/grid"])
+        {
+            var rejected = DebugOptions.Parse([$"--layout={bad}"]);
+            Assert.False(rejected.IsValid, bad);
+            Assert.Contains("--layout needs <systems>/<games>", Assert.Single(rejected.Errors), StringComparison.Ordinal);
         }
     }
 

@@ -23,6 +23,18 @@ fullscreen = true
 # The systems grid leaves out systems with no games, so the long built-in list only shows what you have.
 # false shows every enabled system, empty or not.
 hide_empty_systems = true
+# How the systems are shown: "grid", "carousel" (one row, the focused system in the middle) or "single" (one at a
+# time, filling the screen; left and right move to the next).
+systems_layout = "grid"
+# The grid's columns (1 to 9) and the rows that fit the screen's height (1 to 6); 0 is automatic: as many as fit.
+systems_columns = 0
+systems_rows = 0
+# How a system's games are shown: "grid", "carousel" or "list" (the titles, with the focused game's model beside them).
+# A system can have its own: games_layout in systems.toml.
+games_layout = "grid"
+# The games grid's columns and rows, as above. A system can have its own: games_columns and games_rows in systems.toml.
+games_columns = 0
+games_rows = 0
 
 [ui]
 # The status indicators, top right: the time (in your Windows time format), the battery's charge (only on a

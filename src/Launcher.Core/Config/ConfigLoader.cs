@@ -30,7 +30,11 @@ public sealed class ConfigLoader : IConfigLoader
     private static readonly string[] SystemsRootKeys = ["format", "systems"];
     private static readonly string[] EmulatorsRootKeys = ["format", "emulators"];
     private static readonly string[] PathsKeys = ["rom_root"];
-    private static readonly string[] DisplayKeys = ["theme", "fullscreen", "hide_empty_systems"];
+    private static readonly string[] DisplayKeys =
+    [
+        "theme", "fullscreen", "hide_empty_systems",
+        "systems_layout", "systems_columns", "systems_rows", "games_layout", "games_columns", "games_rows",
+    ];
     private static readonly string[] UiKeys = ["show_clock", "show_battery", "show_network"];
     private static readonly string[] ScrapingKeys = ["provider", "fallback", "regions", "languages", "media", "hash_limit_mb"];
     private static readonly string[] ScanningKeys = ["exclude"];
@@ -39,6 +43,7 @@ public sealed class ConfigLoader : IConfigLoader
     [
         "enabled", "name", "manufacturer", "year", "aliases", "extensions", "emulator", "alt_emulators",
         "game_model", "screenscraper_id", "igdb_platforms", "steam_store", "rom_dirs", "recursive", "exclude",
+        "games_layout", "games_columns", "games_rows",
     ];
 
     private static readonly string[] SystemRequiredKeys = ["name", "extensions", "emulator"];
@@ -207,6 +212,14 @@ public sealed class ConfigLoader : IConfigLoader
             var theme = SettingString(tree, defaults, "display", "theme")?.Value ?? "memory-card";
             var fullscreen = SettingBool(tree, defaults, "display", "fullscreen") ?? true;
             var hideEmptySystems = SettingBool(tree, defaults, "display", "hide_empty_systems") ?? true;
+            var systemsLayout = SettingLayout(tree, defaults, "systems_layout", Layouts.SystemsNames, Layouts.GamesNames);
+            var gamesLayout = SettingLayout(tree, defaults, "games_layout", Layouts.GamesNames, Layouts.SystemsNames);
+            var systemsGrid = new GridSize(
+                (int)(SettingInteger(tree, defaults, "display", "systems_columns", 0, DisplaySettings.MaxColumns) ?? 0),
+                (int)(SettingInteger(tree, defaults, "display", "systems_rows", 0, DisplaySettings.MaxRows) ?? 0));
+            var gamesGrid = new GridSize(
+                (int)(SettingInteger(tree, defaults, "display", "games_columns", 0, DisplaySettings.MaxColumns) ?? 0),
+                (int)(SettingInteger(tree, defaults, "display", "games_rows", 0, DisplaySettings.MaxRows) ?? 0));
             var uiSettings = new UiSettings(
                 SettingBool(tree, defaults, "ui", "show_clock") ?? true,
                 SettingBool(tree, defaults, "ui", "show_battery") ?? true,
@@ -261,13 +274,66 @@ public sealed class ConfigLoader : IConfigLoader
                 SupportedFormat,
                 _romRoot,
                 variables,
-                new DisplaySettings(theme, fullscreen, hideEmptySystems),
+                new DisplaySettings(theme, fullscreen, hideEmptySystems)
+                {
+                    SystemsLayout = (SystemsLayout)systemsLayout,
+                    SystemsGrid = systemsGrid,
+                    GamesLayout = (GamesLayout)gamesLayout,
+                    GamesGrid = gamesGrid,
+                },
                 new ScrapingSettings(provider, fallback, regions, languages, media, hashLimitMb * 1024 * 1024),
                 new ScanningSettings(_globalExcludes),
                 uiSettings);
         }
 
         private readonly record struct Located(string Value, TomlNode Node);
+
+        /// <summary>
+        /// A <c>[display]</c> layout: its index in <paramref name="names"/>. A bad one is an error and the default is used;
+        /// one of the other screen's layouts says which screen it's for.
+        /// </summary>
+        private int SettingLayout(TomlTableNode tree, TomlTableNode defaults, string key, IReadOnlyList<string> names, IReadOnlyList<string> others)
+        {
+            foreach (var source in (ReadOnlySpan<TomlTableNode>)[tree, defaults])
+            {
+                if (!TryGetSetting(source, "display", key, out var node))
+                {
+                    continue;
+                }
+
+                if (node is not TomlScalar { Kind: TomlKind.String, Value: string value })
+                {
+                    Error(node, $"display.{key}", $"expected a string, found {TomlNode.KindName(node.Kind)}. Using the default");
+                    continue;
+                }
+
+                var index = IndexOf(names, value);
+                if (index >= 0)
+                {
+                    return index;
+                }
+
+                var why = IndexOf(others, value) >= 0
+                    ? $"'{value}' isn't a layout for this screen"
+                    : $"unknown layout '{value}'{Suggest(value, names)}";
+                Error(node, $"display.{key}", $"{why}. The layouts are {string.Join(", ", names)}. Using the default");
+            }
+
+            return 0;
+
+            static int IndexOf(IReadOnlyList<string> list, string value)
+            {
+                for (var i = 0; i < list.Count; i++)
+                {
+                    if (list[i] == value)
+                    {
+                        return i;
+                    }
+                }
+
+                return -1;
+            }
+        }
 
         private Located? SettingString(TomlTableNode tree, TomlTableNode defaults, string section, string key)
         {
@@ -987,6 +1053,12 @@ public sealed class ConfigLoader : IConfigLoader
                     gameModel = null;
                 }
 
+                // The system's own games grid size: a bad one is only a warning (it's a matter of taste, so the system
+                // stays enabled), and [display]'s is used.
+                var gamesLayout = LayoutOverride(entry, prefix);
+                var gamesColumns = GridOverride(entry, prefix, "games_columns", DisplaySettings.MaxColumns);
+                var gamesRows = GridOverride(entry, prefix, "games_rows", DisplaySettings.MaxRows);
+
                 var romDirs = new List<string>();
                 var romDirSource = RomDirSource.Default;
                 if (entry.TryGet("rom_dirs", out var dirsNode) && StringArray(dirsNode, prefix + ".rom_dirs", string.Empty) is { } rawDirs)
@@ -1040,7 +1112,7 @@ public sealed class ConfigLoader : IConfigLoader
 
                 result.Add(new SystemConfig(
                     id, name, manufacturer, (int?)year, aliases, extensions, emulator, altEmulators, gameModel,
-                    (int?)screenScraperId, romDirs, romDirSource, recursive, exclude, igdbPlatforms, steamStore));
+                    (int?)screenScraperId, romDirs, romDirSource, recursive, exclude, igdbPlatforms, steamStore, gamesColumns, gamesRows, gamesLayout));
             }
 
             return result;
@@ -1146,6 +1218,45 @@ public sealed class ConfigLoader : IConfigLoader
             }
 
             return value;
+        }
+
+        /// <summary>A system's <c>games_layout</c>; anything but a games layout warns and is ignored.</summary>
+        private GamesLayout? LayoutOverride(TomlTableNode table, string prefix)
+        {
+            if (!table.TryGet("games_layout", out var node))
+            {
+                return null;
+            }
+
+            if (node is TomlScalar { Kind: TomlKind.String, Value: string name } && Layouts.TryParse(name, out GamesLayout layout))
+            {
+                return layout;
+            }
+
+            var why = node is TomlScalar { Kind: TomlKind.String, Value: string other }
+                ? $"unknown layout '{other}'{Suggest(other, Layouts.GamesNames)}. The layouts are {string.Join(", ", Layouts.GamesNames)}"
+                : $"expected a string, found {TomlNode.KindName(node.Kind)}";
+            Warning(node, $"{prefix}.games_layout", why + ", so [display] games_layout is used");
+            return null;
+        }
+
+        /// <summary>A system's <c>games_columns</c> or <c>games_rows</c>, 0 to <paramref name="max"/>; anything else warns and is ignored.</summary>
+        private int? GridOverride(TomlTableNode table, string prefix, string key, int max)
+        {
+            if (!table.TryGet(key, out var node))
+            {
+                return null;
+            }
+
+            if (node is TomlScalar { Kind: TomlKind.Integer, Value: long value } && value >= 0 && value <= max)
+            {
+                return (int)value;
+            }
+
+            Warning(node, $"{prefix}.{key}", node is TomlScalar { Kind: TomlKind.Integer, Value: long outOfRange }
+                ? $"{outOfRange} is out of range (0, automatic, to {max}), so [display] {key} is used"
+                : $"expected an integer, found {TomlNode.KindName(node.Kind)}, so [display] {key} is used");
+            return null;
         }
 
         private List<string>? StringArray(TomlNode node, string key, string suffix)
