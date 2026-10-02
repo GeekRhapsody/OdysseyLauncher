@@ -5,7 +5,8 @@ namespace Launcher.App.Tools;
 
 /// <summary>
 /// Generates the built-in models procedurally and exports each with Godot's glTF exporter (A7): the built-in theme's
-/// box templates in <c>res://themes/memory-card/models/templates/</c> and its generic system model in
+/// box templates and its arcade cabinet (<see cref="ArcadeCabinetBuilder"/>) in
+/// <c>res://themes/memory-card/models/templates/</c> and its generic system model in
 /// <c>res://themes/memory-card/models/systems/</c>, and the M6 test theme's models in
 /// <c>tests/themes/slot-showcase/models/</c>, and the sample theme's in <c>samples/themes/retro-tv/models/</c>
 /// (<see cref="RetroTvBuilder"/>; both outside the project, so Godot doesn't import them: a user theme's models are
@@ -118,6 +119,7 @@ public partial class BoxTemplateGenerator : Node
             ok &= Export(spec, $"{TemplatesDir}/{spec.Id}.glb");
         }
 
+        ok &= ExportMesh(ArcadeCabinetBuilder.Build(out var cabinetTriangles), "arcade_cabinet", cabinetTriangles, $"{TemplatesDir}/arcade_cabinet.glb");
         ok &= Export(GenericSystem, $"{SystemsDir}/{GenericSystem.Id}.glb");
 
         var testTheme = System.IO.Path.GetFullPath(System.IO.Path.Combine(ProjectSettings.GlobalizePath("res://"), TestThemeDir));
@@ -178,10 +180,14 @@ public partial class BoxTemplateGenerator : Node
     }
 
     /// <param name="path">A <c>res://</c> path, or an absolute one.</param>
-    private static bool Export(BoxSpec spec, string path)
+    private static bool Export(BoxSpec spec, string path) =>
+        ExportMesh(BoxBuilder.Build(spec, out var triangles), spec.Id, triangles, path);
+
+    /// <summary>One mesh, exported as a model with one node; one in the project gets the "keep file" import.</summary>
+    /// <param name="path">A <c>res://</c> path, or an absolute one.</param>
+    private static bool ExportMesh(ArrayMesh mesh, string id, int triangles, string path)
     {
-        var mesh = BoxBuilder.Build(spec, out var triangles);
-        var root = new Node3D { Name = spec.Id };
+        var root = new Node3D { Name = id };
         root.AddChild(new MeshInstance3D { Name = "box", Mesh = mesh });
         try
         {

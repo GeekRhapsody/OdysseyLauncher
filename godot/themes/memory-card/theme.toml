@@ -71,6 +71,13 @@ model = "models/templates/clamshell.glb"
 [templates.umd_case]               # PSP: 104 x 180 x 14 mm
 model = "models/templates/umd_case.glb"
 
+[templates.arcade_cabinet]         # Arcade: the top half of an upright cabinet, its marquee and screen the slots
+model = "models/templates/arcade_cabinet.glb"
+
+[templates.arcade_cabinet.slots]
+label = ["logo", "generated"]      # the marquee: the logo, whole, over a deep shade; else the title, printed
+# The screen keeps the default chain: the screenshot, else the model's own switched-off screen.
+
 # Each system: its colour (its card and its plain boxes), its game template, and the look while its games are shown.
 # A system's look block replaces the theme's block of the same name whole.
 
@@ -456,7 +463,7 @@ game_template = "dvd_case"
 
 [systems.arcade]                       # Arcade
 colour = "#5C9E61"
-game_template = "dvd_case"
+game_template = "arcade_cabinet"
 
 [systems.arcadia]                       # Emerson Arcadia 2001
 colour = "#9E905C"
@@ -512,7 +519,7 @@ game_template = "cartridge_box"
 
 [systems.atomiswave]                       # Atomiswave
 colour = "#9E855C"
-game_template = "dvd_case"
+game_template = "arcade_cabinet"
 
 [systems.bbcmicro]                       # Acorn Computers BBC Micro
 colour = "#769E5C"
@@ -548,23 +555,23 @@ game_template = "cartridge_box"
 
 [systems.consolearcade]                       # Console Arcade Systems
 colour = "#655C9E"
-game_template = "dvd_case"
+game_template = "arcade_cabinet"
 
 [systems.cps]                       # Capcom Play System
 colour = "#7D5C9E"
-game_template = "dvd_case"
+game_template = "arcade_cabinet"
 
 [systems.cps1]                       # Capcom Play System I
 colour = "#5C9E61"
-game_template = "dvd_case"
+game_template = "arcade_cabinet"
 
 [systems.cps2]                       # Capcom Play System II
 colour = "#975C9E"
-game_template = "dvd_case"
+game_template = "arcade_cabinet"
 
 [systems.cps3]                       # Capcom Play System III
 colour = "#5C9E6F"
-game_template = "dvd_case"
+game_template = "arcade_cabinet"
 
 [systems.crvision]                       # CreatiVision
 colour = "#5C9E6D"
@@ -572,7 +579,7 @@ game_template = "cartridge_box"
 
 [systems.daphne]                       # Daphne / LaserDisc
 colour = "#9E5C6A"
-game_template = "dvd_case"
+game_template = "arcade_cabinet"
 
 [systems.doom]                       # Doom
 colour = "#9E825C"
@@ -596,7 +603,7 @@ game_template = "cartridge_box"
 
 [systems.fbneo]                       # FinalBurn Neo
 colour = "#8A9E5C"
-game_template = "dvd_case"
+game_template = "arcade_cabinet"
 
 [systems.fds]                       # Famicom Disk System
 colour = "#9E5C5E"
@@ -668,7 +675,7 @@ game_template = "dvd_case"
 
 [systems.mame]                       # MAME
 colour = "#5C6A9E"
-game_template = "dvd_case"
+game_template = "arcade_cabinet"
 
 [systems.megaduck]                       # Mega Duck
 colour = "#729E5C"
@@ -680,11 +687,11 @@ game_template = "dvd_case"
 
 [systems.model2]                       # Model 2
 colour = "#5C739E"
-game_template = "dvd_case"
+game_template = "arcade_cabinet"
 
 [systems.model3]                       # Model 3
 colour = "#5C7A9E"
-game_template = "dvd_case"
+game_template = "arcade_cabinet"
 
 [systems.moto]                       # Thomson MO/TO Series
 colour = "#5C8F9E"
@@ -724,15 +731,15 @@ game_template = "clamshell"
 
 [systems.naomi]                       # NAOMI
 colour = "#5C729E"
-game_template = "dvd_case"
+game_template = "arcade_cabinet"
 
 [systems.naomi2]                       # NAOMI 2
 colour = "#5C769E"
-game_template = "dvd_case"
+game_template = "arcade_cabinet"
 
 [systems.naomigd]                       # NAOMI GD-ROM
 colour = "#5C6B9E"
-game_template = "jewel_case"
+game_template = "arcade_cabinet"
 
 [systems.nds]                       # Nintendo DS
 colour = "#9E665C"
@@ -740,7 +747,7 @@ game_template = "umd_case"
 
 [systems.neogeo]                       # Neo Geo
 colour = "#9E815C"
-game_template = "dvd_case"
+game_template = "arcade_cabinet"
 
 [systems.neogeocd]                       # Neo Geo CD
 colour = "#9E875C"
@@ -788,7 +795,7 @@ game_template = "dvd_case"
 
 [systems.pcarcade]                       # PC Arcade Systems
 colour = "#9E5C87"
-game_template = "dvd_case"
+game_template = "arcade_cabinet"
 
 [systems.pcengine]                       # PC Engine / TurboGrafx-16
 colour = "#9E865C"
@@ -880,7 +887,7 @@ game_template = "generic_box_logo"
 
 [systems.stv]                       # Titan Video Game System
 colour = "#5C719E"
-game_template = "dvd_case"
+game_template = "arcade_cabinet"
 
 [systems.sufami]                       # SuFami Turbo
 colour = "#9E5C71"
@@ -924,7 +931,7 @@ game_template = "dvd_case"
 
 [systems.triforce]                       # Namco-Sega-Nintendo Triforce
 colour = "#9E5C89"
-game_template = "dvd_case"
+game_template = "arcade_cabinet"
 
 [systems.trs-80]                       # Tandy TRS-80
 colour = "#9E915C"

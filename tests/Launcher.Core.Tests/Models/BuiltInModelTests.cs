@@ -36,12 +36,13 @@ public sealed class BuiltInModelTests
 
     [Theory]
     [MemberData(nameof(Templates))]
-    public void Every_box_template_follows_the_model_spec(string folder, string modelPath)
+    public void Every_game_template_follows_the_model_spec(string folder, string modelPath)
     {
         var id = Path.GetFileNameWithoutExtension(modelPath);
         var model = Load(folder, modelPath);
 
-        Assert.Contains("cover", model.Materials);
+        // No slot is required (A7), but a built-in template shows some art: a box its cover, the arcade cabinet its screen.
+        Assert.Contains(model.Materials, Slots.Contains);
         Assert.True(model.Materials.Count <= 4, $"{id} has {model.Materials.Count} materials; the budget is 4.");
         Assert.True(model.Triangles <= 2000, $"{id} has {model.Triangles} triangles; the budget is 2,000.");
         AssertShape(id, model);

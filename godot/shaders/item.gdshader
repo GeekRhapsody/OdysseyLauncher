@@ -14,7 +14,7 @@ render_mode cull_back, depth_draw_opaque;
 //   b: the idle phase, or -1 when focused
 //   a: 1 when an idle clip animates it, so it doesn't bob as well
 // and slot_state holds, per cell (y) and media slot (x): what the slot shows without media (1 generated,
-// 0 authored; plus 2 when the spine shows a logo, drawn whole along it over that), the media's aspect (0 when none is
+// 0 authored; plus 2 when the slot shows a logo, drawn whole over that), the media's aspect (0 when none is
 // wanted), its fade in, and its layer. Two more columns per cell reshape a box to its game's art (A6 shape = "media"):
 // SHAPE_COLUMN = (half the width's growth, the height's, half the depth's, the height where the top half starts; all 0
 // for every other model), then (the front and back faces' aspect, the spine's).
@@ -147,9 +147,10 @@ void vertex() {
 		VERTEX.y += sin(TIME * 1.3 + custom.b) * 0.012;
 	}
 
-	// A generated spine or back takes its colour from the cover once the cover's art is there.
+	// A generated spine or back, or a logo's generated backing, takes its colour from the cover once the cover's art
+	// is there.
 	v_dominant = v_plain;
-	if ((v_slot == SLOT_SPINE || v_slot == SLOT_BACK) && mod(v_state.x, 2.0) > 0.5 && v_cover.y > 0.0 && v_cover.z > 0.0) {
+	if ((v_slot == SLOT_SPINE || v_slot == SLOT_BACK || v_state.x > 1.5) && mod(v_state.x, 2.0) > 0.5 && v_cover.y > 0.0 && v_cover.z > 0.0) {
 		v_dominant = mix(v_plain, dominant_colour(v_cover.w), v_cover.z);
 	}
 	v_ink = luminance(v_dominant) > 0.3 ? vec3(0.02) : vec3(0.92);
@@ -214,19 +215,22 @@ vec3 media(vec2 uv, float face_aspect) {
 	return v_slot == SLOT_COVER ? texture(slots_large, coord).rgb : texture(slots_small, coord).rgb;
 }
 
-// A logo on the spine: whole, reading top to bottom like the spine's title, over the spine's fallback: its authored
-// texture, or for a generated fallback the cover's colour darkened to a deep shade, since logos are made to sit on
-// dark art (their light parts often have only a dark outline).
-vec3 logo_spine(vec2 uv, float face_aspect) {
+// A logo, whole, over the slot's fallback: its authored texture, or for a generated fallback the cover's colour
+// darkened to a deep shade, since logos are made to sit on dark art (their light parts often have only a dark
+// outline). On a spine it reads top to bottom like the spine's title; anywhere else (a marquee, a plate) it's upright.
+vec3 logo_whole(vec2 uv, float face_aspect) {
 	vec3 base = authored(uv);
 	if (mod(v_state.x, 2.0) > 0.5) {
 		base = v_dominant * min(0.9, 0.04 / max(luminance(v_dominant), 0.001));
 	}
 
-	// Along the spine, with a margin: the logo fills at most 90% of its length and 76% of its depth.
-	const vec2 FILL = vec2(0.9, 0.76);
-	vec2 p = (vec2(uv.y, 1.0 - uv.x) - 0.5) / FILL;
-	float box = FILL.x / (FILL.y * face_aspect);
+	// Within a margin: along a spine, at most 90% of its length and 76% of its depth; upright, 88% of the face's
+	// width and 84% of its height (logos bring transparent margins of their own). `box` is that area's aspect, in the
+	// logo's own axes.
+	bool spine = v_slot == SLOT_SPINE;
+	vec2 fill = spine ? vec2(0.9, 0.76) : vec2(0.88, 0.84);
+	vec2 p = ((spine ? vec2(uv.y, 1.0 - uv.x) : uv) - 0.5) / fill;
+	float box = spine ? fill.x / (fill.y * face_aspect) : fill.x * face_aspect / fill.y;
 	float art = max(v_state.y, 0.01);
 	if (art > box) {
 		p.y *= art / box;
@@ -237,7 +241,8 @@ vec3 logo_spine(vec2 uv, float face_aspect) {
 	if (any(lessThan(p, vec2(0.0))) || any(greaterThan(p, vec2(1.0)))) {
 		return base;
 	}
-	vec4 logo = texture(slots_small, vec3(p, v_state.w));
+	vec3 coord = vec3(p, v_state.w);
+	vec4 logo = v_slot == SLOT_COVER ? texture(slots_large, coord) : texture(slots_small, coord);
 	return mix(base, logo.rgb, logo.a);
 }
 
@@ -298,7 +303,7 @@ void fragment() {
 		vec3 fallback = mod(v_state.x, 2.0) > 0.5 ? generated(uv, face_aspect, wants_media, roughness) : authored(uv);
 		// Opaque fallback-to-media fade inside the one shader (A3): no blending, no extra variant.
 		if (wants_media) {
-			vec3 shown = v_state.x > 1.5 ? logo_spine(uv, face_aspect) : media(uv, face_aspect);
+			vec3 shown = v_state.x > 1.5 ? logo_whole(uv, face_aspect) : media(uv, face_aspect);
 			albedo = mix(fallback, shown, v_state.z);
 		} else {
 			albedo = fallback;

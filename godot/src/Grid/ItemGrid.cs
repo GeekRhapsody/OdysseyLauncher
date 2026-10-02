@@ -1252,9 +1252,9 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
 
         _textured[i] = false;
         _fade[i] = 0;
-        // Bit 0: the fallback is generated. Bit 1: a logo on the spine, drawn whole along it over the fallback.
+        // Bit 0: the fallback is generated. Bit 1: a logo, drawn whole over the fallback (along a spine, else upright).
         _fallback[i] = (byte)((resolution.Fallback == SlotSourceKind.Generated ? 1 : 0)
-            | (slot == MediaSlots.Spine && resolution.MediaSlot == MediaSlots.Logo ? 2 : 0));
+            | (resolution.MediaSlot == MediaSlots.Logo ? 2 : 0));
         _next[i] = resolution.Next;
         if (resolution.MediaSlot >= 0 && _source!.TryGetMedia(item, resolution.MediaSlot, out var media))
         {
@@ -1319,7 +1319,7 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
     }
 
     /// <summary>
-    /// One texel per cell and slot: (fallback: 1 generated, 0 authored, plus 2 for a logo along the spine; media aspect
+    /// One texel per cell and slot: (fallback: 1 generated, 0 authored, plus 2 for a logo drawn whole; media aspect
     /// or 0; fade; layer).
     /// </summary>
     private void WriteState(int cell, int slot)

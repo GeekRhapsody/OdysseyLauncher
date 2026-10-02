@@ -30,7 +30,7 @@ public sealed class ThemeLoaderTests
         var theme = result.Theme!;
         Assert.Equal(("memory-card", "Memory Card", ThemeOrigin.BuiltIn), (theme.Id, theme.Name, theme.Origin));
         Assert.Equal(
-            ["cartridge_box", "clamshell", "dvd_case", "gameboy_box", "generic_box_logo", "generic_box_spine", "jewel_case", "umd_case"],
+            ["arcade_cabinet", "cartridge_box", "clamshell", "dvd_case", "gameboy_box", "generic_box_logo", "generic_box_spine", "jewel_case", "umd_case"],
             theme.Templates.Keys.Order(StringComparer.Ordinal));
         Assert.Equal(("models/systems/generic.glb", true, "dvd_case"), (theme.Defaults.SystemModel, theme.Defaults.TintSystemModel, theme.Defaults.GameTemplate));
 
@@ -60,6 +60,9 @@ public sealed class ThemeLoaderTests
         Assert.Equal("generic_box_spine", theme.Systems["dos"].GameTemplate);
         Assert.Equal("generic_box_logo", theme.Systems["windows"].GameTemplate);
         Assert.Equal("generic_box_logo", theme.Systems["steam"].GameTemplate);
+        Assert.Equal("arcade_cabinet", theme.Systems["arcade"].GameTemplate);
+        Assert.Equal("arcade_cabinet", theme.Systems["mame"].GameTemplate);
+        Assert.Equal("label = [\"logo\", \"generated\"]", theme.Templates["arcade_cabinet"].ChainFor(MediaSlots.Label).ToString());
 
         // Two templates of one box: its own spine art, or the game's logo along the spine.
         var spine = theme.Templates["generic_box_spine"];

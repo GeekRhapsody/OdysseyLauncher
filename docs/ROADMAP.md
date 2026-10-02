@@ -590,3 +590,16 @@ Update this at the end of every milestone: the status, the date, and the evidenc
     - H.264 4:4:4 videos don't play: a decoder of our own choosing (FFmpeg as a GDExtension) would play them, and is the owner's call.
     - On Linux, videos are listed but not played (no decoder yet).
     - The sound's sync with the picture, and a real pad's L3, are the owner's manual test ([manual-tests.md](manual-tests.md#a-games-details-and-videos)).
+- **2026-10-02: an arcade cabinet template** (outside the milestones: the owner asked for it, from a 2D mock-up).
+  - **What was added:**
+    - App `Tools`: `ArcadeCabinetBuilder`, the top half of an upright cabinet (marquee, monitor tilted back in a framed bezel, a control panel with two joysticks and twelve buttons), exported by `BoxTemplateGenerator` to `godot/themes/memory-card/models/templates/arcade_cabinet.glb`: 1,402 triangles, three materials (`screenshot`, `label` and `case`, its colours from a palette texture).
+    - The built-in theme: the `arcade_cabinet` template (`label = ["logo", "generated"]`), for Arcade, MAME, FinalBurn Neo, CPS (1, 2 and 3), Neo Geo, NAOMI (1, 2 and GD-ROM), Atomiswave, Model 2 and 3, ST-V, Triforce, Daphne, and the console and PC arcade systems.
+    - The item shader and `ItemGrid`: a slot showing a logo draws it whole over its fallback (upright, or along a spine as before), where it used to crop it.
+  - **Verification:**
+    - `dotnet build`: 0 warnings. 705 tests: 701 pass. `BuiltInModelTests` checks the cabinet against the model spec (a built-in template now needs some slot, not a `cover`); `ThemeLoaderTests` lists it and checks its chain and the arcade systems. The 4 that fail are the theme tests that expect `dvd_case` as the default template, as before this change; the first of them also stops on six of the original systems having no `game_template` in the built-in theme (`gb`, `gbc`, `gba`, `snes`, `n64`, `saturn`), so its new checks don't run yet; what they check was confirmed against the manifest directly.
+    - `odyssey-scrape inspect-model --kind=template`: accepted, within every budget, slots `label` and `screenshot`.
+    - Captures were reviewed (a copy of the owner's arcade library with scraped art): the grid, focused on 3x3 Puzzle (as in the mock-up); games with no art (a printed title on the marquee, the switched-off screen); the Retro TV sample, whose plate now shows each logo whole; Windows's logo spines, unchanged.
+    - **Benches:** [perf/arcade-cabinet.md](perf/arcade-cabinet.md). The box scroll is unchanged within noise; the cabinet costs 0.75 ms more GPU time than the box, and nothing on the CPU.
+  - **Not done:**
+    - A vertical game's screenshot (Pac-Man, most shooters) is centre-cropped to the 4:3 screen, showing its middle. Showing it whole, pillarboxed as on a real horizontal monitor, needs a per-slot "fit" option.
+    - The two extra slot channels cost 16 MB of texture memory in every games grid, even with no arcade games: `SlotLayout` could be built from the templates the shown list uses, not the whole theme.
