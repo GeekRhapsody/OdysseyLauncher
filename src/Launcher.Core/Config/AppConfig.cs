@@ -293,6 +293,7 @@ public enum RomDirSource
 /// <param name="GamesRows"><c>games_rows</c>: the rows of its games grid that fit the screen (0 automatic); null uses <c>[display] games_rows</c>.</param>
 /// <param name="GamesSort"><c>games_sort</c>: what its games are sorted by; null uses <c>[display] games_sort</c>.</param>
 /// <param name="GamesSortOrder"><c>games_sort_order</c>: which way; null uses <c>[display] games_sort_order</c>.</param>
+/// <param name="Description"><c>description</c>: a paragraph about the system, shown in its details; null when there's none.</param>
 public sealed record SystemConfig(
     string Id,
     string Name,
@@ -314,7 +315,8 @@ public sealed record SystemConfig(
     int? GamesRows = null,
     GamesLayout? GamesLayout = null,
     GameSort? GamesSort = null,
-    SortOrder? GamesSortOrder = null);
+    SortOrder? GamesSortOrder = null,
+    string? Description = null);
 
 /// <summary>An <c>[emulators.&lt;id&gt;]</c> entry.</summary>
 /// <param name="Executable">Expanded absolute path, with no placeholders left.</param>

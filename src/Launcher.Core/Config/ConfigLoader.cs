@@ -42,7 +42,7 @@ public sealed class ConfigLoader : IConfigLoader
 
     private static readonly string[] SystemKeys =
     [
-        "enabled", "name", "manufacturer", "year", "aliases", "extensions", "emulator", "alt_emulators",
+        "enabled", "name", "manufacturer", "year", "description", "aliases", "extensions", "emulator", "alt_emulators",
         "game_model", "screenscraper_id", "igdb_platforms", "steam_store", "rom_dirs", "recursive", "exclude",
         "games_layout", "games_columns", "games_rows", "games_sort", "games_sort_order",
     ];
@@ -954,6 +954,7 @@ public sealed class ConfigLoader : IConfigLoader
                 var name = NonEmptyString(entry, prefix, "name") ?? id;
                 var manufacturer = String(entry, prefix, "manufacturer");
                 var year = Integer(entry, prefix, "year", 1950, 2100);
+                var description = String(entry, prefix, "description");
                 var screenScraperId = Integer(entry, prefix, "screenscraper_id", 1, int.MaxValue);
                 var igdbPlatforms = new List<int>();
                 if (entry.TryGet("igdb_platforms", out var igdbNode))
@@ -1120,7 +1121,7 @@ public sealed class ConfigLoader : IConfigLoader
                 result.Add(new SystemConfig(
                     id, name, manufacturer, (int?)year, aliases, extensions, emulator, altEmulators, gameModel,
                     (int?)screenScraperId, romDirs, romDirSource, recursive, exclude, igdbPlatforms, steamStore, gamesColumns, gamesRows, gamesLayout,
-                    gamesSort, gamesSortOrder));
+                    gamesSort, gamesSortOrder, string.IsNullOrWhiteSpace(description) ? null : description));
             }
 
             return result;

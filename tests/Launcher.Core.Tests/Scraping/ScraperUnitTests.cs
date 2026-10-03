@@ -304,7 +304,7 @@ public sealed class ScraperUnitTests
     }
 
     [Fact]
-    public void Only_windows_and_steam_are_looked_up_on_the_steam_store_unless_a_system_says_so()
+    public void Only_windows_steam_and_desktop_are_looked_up_on_the_steam_store_unless_a_system_says_so()
     {
         var result = new ConfigLoader().Load(new ConfigSources
         {
@@ -323,7 +323,7 @@ public sealed class ScraperUnitTests
         Assert.Equal("systems.megadrive.steam_store", error.Key);
         using var client = new HttpClient();
         var steam = new SteamStoreScraper(new ScraperHttp(client, TimeProvider.System, (_, _) => Task.CompletedTask, RetryPolicy.Default, new ListLog()), Settings(), new ListLog());
-        Assert.Equal(["dos", "steam", "windows"], result.Config.Systems.Where(s => s.SteamStore).Select(s => s.Id).Order(StringComparer.Ordinal));
+        Assert.Equal(["desktop", "dos", "steam", "windows"], result.Config.Systems.Where(s => s.SteamStore).Select(s => s.Id).Order(StringComparer.Ordinal));
         Assert.Null(steam.Unsupported(result.Config.FindSystem("steam")!));
         Assert.Equal("Super Nintendo Entertainment System has no steam_store in systems.toml", steam.Unsupported(result.Config.FindSystem("snes")!));
         Assert.Null(steam.Unavailable);                                                      // no credentials

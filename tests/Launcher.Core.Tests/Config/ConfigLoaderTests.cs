@@ -991,20 +991,45 @@ public class ConfigLoaderTests
     }
 
     [Fact]
-    public void Every_console_and_computer_in_the_catalogue_has_a_year()
+    public void Every_system_in_the_catalogue_has_a_year_except_the_catch_alls()
     {
         var config = Load(settings: "[display]\nhide_empty_systems = false\n").Config;
 
-        // Engines, stores and catch-all systems have no year; everything else does, so sorting by year is useful.
-        string[] undated =
-        [
-            "ags", "arcade", "chailove", "consolearcade", "easyrpg", "fbneo", "fpinball", "j2me", "lcdgames", "lowresnx", "lutro",
-            "mame", "mess", "mugen", "openbor", "pcarcade", "ports", "scummvm", "solarus", "steam", "symbian", "vircon32",
-            "vpinball", "windows", "zmachine",
-        ];
-        var missing = config.Systems.Where(s => s.Year is null && !undated.Contains(s.Id)).Select(s => s.Id).ToList();
-        Assert.Empty(missing);
+        // The years are ES-DE's theme metadata's, which gives these catch-all systems none ("Various").
+        string[] undated = ["arcade", "consolearcade", "desktop", "lcdgames", "pcarcade", "ports"];
+        Assert.Equal(undated, config.Systems.Where(s => s.Year is null).Select(s => s.Id).Order(StringComparer.Ordinal));
         Assert.All(config.Systems.Where(s => s.Year is { }), s => Assert.InRange(s.Year!.Value, 1970, 2030));
+    }
+
+    [Fact]
+    public void Every_system_in_the_catalogue_has_a_description_on_one_line()
+    {
+        var config = Load(settings: "[display]\nhide_empty_systems = false\n").Config;
+
+        Assert.All(config.Systems, s =>
+        {
+            Assert.False(string.IsNullOrWhiteSpace(s.Description), s.Id);
+            Assert.DoesNotContain('\n', s.Description!);
+        });
+        Assert.StartsWith("The Mega Drive is a 16-bit", config.FindSystem("megadrive")!.Description, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_system_s_description_can_be_replaced()
+    {
+        var result = Load(systems: """
+            [systems.megadrive]
+            description = "Sega's 16-bit console."
+
+            [systems.pocketgame]
+            name = "Pocket Game"
+            extensions = [".gg"]
+            emulator = "retroarch-genesis-plus-gx"
+            """);
+
+        Assert.DoesNotContain(result.Diagnostics, d => d.IsError);
+        Assert.Equal("Sega's 16-bit console.", result.Config.FindSystem("megadrive")!.Description);
+        Assert.Null(result.Config.FindSystem("pocketgame")!.Description);
     }
 
     // ---- The built-in catalogue (every ES-DE system) ---------------------------------------------
@@ -1028,8 +1053,8 @@ public class ConfigLoaderTests
         Assert.Contains(Path.GetFullPath("D:/ROMs/snesna"), config.FindSystem("snes")!.RomDirs);
 
         // What isn't a game system, or has nothing to launch, was left out. Windows and Steam games came back later,
-        // with their own launching (SteamGameTests).
-        foreach (var skipped in (string[])["desktop", "emulators", "kodi", "epic", "androidapps", "androidgames", "lutris", "xboxone", "psvita"])
+        // with their own launching (SteamGameTests), and desktop apps with them.
+        foreach (var skipped in (string[])["emulators", "kodi", "epic", "androidapps", "androidgames", "lutris", "xboxone", "psvita"])
         {
             Assert.Null(config.FindSystem(skipped));
         }

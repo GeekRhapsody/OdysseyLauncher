@@ -279,10 +279,10 @@ public sealed class SteamGameTests : IAsyncLifetime
     // ---- The launch service -------------------------------------------------------------------------
 
     [Fact]
-    public void Windows_and_steam_are_built_in_systems_whose_games_run_their_own_files()
+    public void Windows_steam_and_desktop_are_built_in_systems_whose_games_run_their_own_files()
     {
         var config = LoadConfig();
-        foreach (var id in new[] { "windows", "steam" })
+        foreach (var id in new[] { "windows", "steam", "desktop" })
         {
             var system = config.FindSystem(id)!;
             Assert.Equal("run-file", system.Emulator);

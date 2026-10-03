@@ -590,6 +590,10 @@ game_template = "cartridge_box"
 colour = "#9E5C6A"
 game_template = "arcade_cabinet"
 
+[systems.desktop]                       # Desktop Apps
+colour = "#5C9E80"
+game_template = "generic_box_logo"
+
 [systems.doom]                       # Doom
 colour = "#9E825C"
 game_template = "dvd_case"

@@ -68,7 +68,7 @@ public static class DetailsFormatter
         return rows;
     }
 
-    /// <summary>A system from config, with its boot summary.</summary>
+    /// <summary>A system from config, with its boot summary and its description.</summary>
     public static OverlayDetails System(long key, SystemConfig system, SystemSummary summary, AppConfig config, DateTimeOffset now)
     {
         var rows = new List<(string, string)>();
@@ -77,7 +77,7 @@ public static class DetailsFormatter
         Add(rows, "Games", summary.GameCount.ToString("N0", Uk));
         Add(rows, "Last scanned", summary.ScannedAt is { } scanned ? Relative(scanned, now) : "Never");
         Add(rows, "Emulator", config.Emulators.TryGetValue(system.Emulator, out var emulator) ? emulator.Name : system.Emulator);
-        return new OverlayDetails(key, rows, null, false);
+        return new OverlayDetails(key, rows, system.Description, false);
     }
 
     /// <summary>A virtual system, which has only a description.</summary>
