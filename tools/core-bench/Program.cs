@@ -100,6 +100,12 @@ for (var i = 0; i < 200; i++)
 }
 
 Print($"GetGamesAsync, 10,000 games: {await MedianAsync(9, async () => await Time(() => big.GetGamesAsync("snes", default))):F2}");
+foreach (var sort in Enum.GetValues<GameSort>())
+{
+    var ordering = new GamesOrdering(sort, SortOrder.Descending);
+    Print($"GetGamesAsync, 10,000 games, {Sorts.Name(sort)} descending: {await MedianAsync(9, async () => await Time(() => big.GetGamesAsync("snes", ordering, default))):F2}");
+}
+
 await big.SetTitleOverrideAsync(new GameKey("snes", "game 00005 - subtitle (usa).sfc"), "Aaa", default);
 Print($"GetGamesAsync, 10,000 games, one title override: {await MedianAsync(9, async () => await Time(() => big.GetGamesAsync("snes", default))):F2}");
 Print($"GetSystemsAsync (the boot query): {await MedianAsync(9, async () => await Time(() => big.GetSystemsAsync(default))):F2}");

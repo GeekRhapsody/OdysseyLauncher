@@ -315,6 +315,114 @@ public sealed class LibraryServiceTests : IAsyncLifetime
         Assert.Single(await _library.GetRecentlyPlayedAsync(1, Ct));
     }
 
+    // ---- Sorting a system's games ([display] games_sort) ----------------------------------------
+
+    private async Task<string[]> Titles(string system, GameSort sort, SortOrder order = SortOrder.Ascending) =>
+        (await _library.GetGamesAsync(system, new GamesOrdering(sort, order), Ct)).Games.Select(g => g.Title).ToArray();
+
+    private void UserData(string sql)
+    {
+        using var connection = Sqlite.Open(Path.Combine(DataDir, LibraryService.UserDataFileName));
+        MigrationRunner.Execute(connection, sql);
+    }
+
+    [Fact]
+    public async Task Games_sort_alphabetically_either_way_leaving_hidden_games_out()
+    {
+        Rom("snes/Alpha.sfc");
+        Rom("snes/Beta.sfc");
+        Rom("snes/Gamma.sfc");
+        await _library.RescanAsync(null, null, Ct);
+        await _library.SetHiddenAsync(new GameKey("snes", "beta.sfc"), true, Ct);
+
+        Assert.Equal(["Alpha", "Gamma"], await Titles("snes", GameSort.Alphabetical));
+        Assert.Equal(["Gamma", "Alpha"], await Titles("snes", GameSort.Alphabetical, SortOrder.Descending));
+        Assert.Equal(await Titles("snes"), await Titles("snes", GameSort.Alphabetical));
+        foreach (var sort in Enum.GetValues<GameSort>())
+        {
+            Assert.Equal(2, (await Titles("snes", sort, SortOrder.Descending)).Length);
+        }
+    }
+
+    [Fact]
+    public async Task Games_sort_by_last_played_with_games_never_played_last_either_way()
+    {
+        Rom("snes/A.sfc");
+        Rom("snes/B.sfc");
+        Rom("snes/C.sfc");
+        Rom("snes/D.sfc");
+        await _library.RescanAsync(null, null, Ct);
+        UserData("""
+            INSERT INTO play_stats (system_id, path_key, play_count, total_seconds, last_played_at) VALUES
+              ('snes', 'a.sfc', 1, 600, 300), ('snes', 'b.sfc', 2, 60, 100), ('snes', 'c.sfc', 1, 0, 200)
+            """);
+
+        Assert.Equal(["B", "C", "A", "D"], await Titles("snes", GameSort.LastPlayed));
+        Assert.Equal(["A", "C", "B", "D"], await Titles("snes", GameSort.LastPlayed, SortOrder.Descending));
+    }
+
+    [Fact]
+    public async Task Games_sort_by_play_time_and_a_game_never_played_has_none()
+    {
+        Rom("snes/A.sfc");
+        Rom("snes/B.sfc");
+        Rom("snes/C.sfc");
+        Rom("snes/D.sfc");
+        await _library.RescanAsync(null, null, Ct);
+        UserData("""
+            INSERT INTO play_stats (system_id, path_key, play_count, total_seconds, last_played_at) VALUES
+              ('snes', 'a.sfc', 1, 600, 300), ('snes', 'b.sfc', 2, 60, 100), ('snes', 'c.sfc', 1, 0, 200)
+            """);
+
+        // C (a crashed session: a play with no time) and D (never played) tie at none, so they go by title.
+        Assert.Equal(["C", "D", "B", "A"], await Titles("snes", GameSort.PlayTime));
+        Assert.Equal(["A", "B", "C", "D"], await Titles("snes", GameSort.PlayTime, SortOrder.Descending));
+    }
+
+    [Fact]
+    public async Task Games_sort_by_release_date_the_users_over_the_scraped_with_undated_games_last()
+    {
+        Rom("snes/A.sfc");
+        Rom("snes/B.sfc");
+        Rom("snes/C.sfc");
+        Rom("snes/D.sfc");
+        await _library.RescanAsync(null, null, Ct);
+        using (var connection = Sqlite.Open(Path.Combine(DataDir, LibraryService.LibraryFileName)))
+        {
+            MigrationRunner.Execute(connection, """
+                INSERT INTO metadata (game_id, release_date, source)
+                SELECT game_id, CASE path_key WHEN 'a.sfc' THEN '1994-11' WHEN 'b.sfc' THEN '1991' ELSE '1993-06-01' END, 'screenscraper'
+                FROM games WHERE path_key IN ('a.sfc', 'b.sfc', 'c.sfc')
+                """);
+        }
+
+        await _library.SetMetadataOverrideAsync(new GameKey("snes", "c.sfc"), new MetadataOverride(null, "1990", null, null, null, null, null), Ct);
+
+        Assert.Equal(["C", "B", "A", "D"], await Titles("snes", GameSort.ReleaseDate));
+        Assert.Equal(["A", "B", "C", "D"], await Titles("snes", GameSort.ReleaseDate, SortOrder.Descending));
+    }
+
+    [Fact]
+    public async Task Games_sort_by_when_their_files_arrived_and_a_file_copied_again_moves()
+    {
+        var a = Rom("snes/A.sfc");
+        var b = Rom("snes/B.sfc");
+        var c = Rom("snes/C.sfc");
+        File.SetCreationTimeUtc(a, new DateTime(2021, 3, 1, 0, 0, 0, DateTimeKind.Utc));
+        File.SetCreationTimeUtc(b, new DateTime(2019, 3, 1, 0, 0, 0, DateTimeKind.Utc));
+        File.SetCreationTimeUtc(c, new DateTime(2020, 3, 1, 0, 0, 0, DateTimeKind.Utc));
+        await _library.RescanAsync(null, null, Ct);
+
+        Assert.Equal(["B", "C", "A"], await Titles("snes", GameSort.Added));
+        Assert.Equal(["A", "C", "B"], await Titles("snes", GameSort.Added, SortOrder.Descending));
+
+        // Same content and time, but a new creation time (deleted and copied in again): a rescan updates it.
+        File.SetCreationTimeUtc(b, new DateTime(2025, 3, 1, 0, 0, 0, DateTimeKind.Utc));
+        var summary = await _library.RescanAsync(null, null, Ct);
+        Assert.Equal((0, 1, 2), (summary.Added, summary.Updated, summary.Unchanged));
+        Assert.Equal(["C", "A", "B"], await Titles("snes", GameSort.Added));
+    }
+
     [Fact]
     public async Task User_data_under_an_alias_is_rekeyed_to_the_canonical_id()
     {

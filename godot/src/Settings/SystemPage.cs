@@ -19,7 +19,7 @@ namespace Launcher.App.Settings;
 /// One system's options (M7): its ROM folders (several are allowed, scanned in order; the default is the first of
 /// <c>{rom_root}/&lt;id&gt;</c> and its aliases that exists), the emulator it launches with, its models (its own card for
 /// the systems grid, and the template its games use: one of the theme's, or the user's own <c>.glb</c>), and
-/// how its games are shown (its own layout, and its grid's columns and rows, or the Layout page's), and "scrape this system", which says how many games it
+/// how its games are shown (its own layout, its grid's columns and rows, and their order, or the Layout page's), and "scrape this system", which says how many games it
 /// will take on first. The settings screen opens it from ROM
 /// folders, and X on a system in the grid opens it too. Saving folders rescans the system; a model change reloads the
 /// theme, so the grid shows it without a restart.
@@ -38,6 +38,8 @@ public sealed partial class SystemPage : ListPanel
     private SettingRow? _view;
     private SettingRow? _columns;
     private SettingRow? _rows;
+    private SettingRow? _sort;
+    private SettingRow? _order;
     private ModelReport? _ownCard;
     private ModelReport? _ownTemplate;
     private SystemScrapeCount? _count;
@@ -121,6 +123,12 @@ public sealed partial class SystemPage : ListPanel
             AddNote("Columns and rows are for the grid view.");
         }
 
+        var sortedBy = display.GamesSortFor(system).Sort;
+        _sort = AddSortRow("Sort by", "games_sort", Sorts.GamesNames, (int?)system.GamesSort, (int)display.GamesSort.Sort,
+            i => LayoutPage.GamesSortTitle((GameSort)i), i => LayoutPage.GamesSortDetail((GameSort)i));
+        _order = AddSortRow("Order", "games_sort_order", Sorts.OrderNames, (int?)system.GamesSortOrder, (int)display.GamesSort.Order,
+            i => LayoutPage.OrderTitle((SortOrder)i), i => LayoutPage.GamesOrderDetail(sortedBy, (SortOrder)i));
+
         if (Options is null)
         {
             _card = _template = _scrape = null;
@@ -164,6 +172,12 @@ public sealed partial class SystemPage : ListPanel
         if (focused is not null && (focused == _columns || focused == _rows))
         {
             SaveGrid(focused == _columns ? "games_columns" : "games_rows", null);
+            return true;
+        }
+
+        if (focused is not null && (focused == _sort || focused == _order))
+        {
+            SaveSort(focused == _sort ? "games_sort" : "games_sort_order", null, null);
             return true;
         }
 
@@ -349,6 +363,51 @@ public sealed partial class SystemPage : ListPanel
                 1 => $"{name}'s games grid: 1 {what[..^1]}.",
                 _ => $"{name}'s games grid: {value} {what}.",
             });
+    }
+
+    /// <summary>
+    /// What the system's games are sorted by, or which way: its own (<c>games_sort</c>, <c>games_sort_order</c>), or the
+    /// Layout page's when unset. A chooses, left and right step through Default and each value, Y goes back to the default.
+    /// </summary>
+    private SettingRow AddSortRow(string title, string key, IReadOnlyList<string> names, int? own, int settings, Func<int, string> titleOf, Func<int, string> detailOf)
+    {
+        var inherited = titleOf(settings);
+        var row = AddRow(title, own is null ? $"As in Settings: {inherited.ToLowerInvariant()}" : $"Its own · Y goes back to the default ({inherited.ToLowerInvariant()})",
+            own is { } value ? titleOf(value) : "Default", () =>
+        {
+            var choices = new List<Choice> { new(string.Empty, "As in Settings", $"{inherited}, the Layout page's") };
+            for (var i = 0; i < names.Count; i++)
+            {
+                choices.Add(new Choice(names[i], titleOf(i), detailOf(i)));
+            }
+
+            Layer.Push(new ChoicePanel(key == "games_sort" ? "Sort its games by" : "Its games' order", $"Saved as systems.{_systemId}.{key}", choices,
+                own is { } current ? names[current] : string.Empty,
+                choice => SaveSort(key, choice.Id.Length == 0 ? null : choice.Id, choice.Id.Length == 0 ? null : choice.Title)));
+        });
+
+        // Left and right step through Default, then each value.
+        row.Adjuster = direction =>
+        {
+            var at = own is { } current ? current + 1 : 0;
+            var next = Math.Clamp(at + Math.Sign(direction), 0, names.Count);
+            if (next != at)
+            {
+                SaveSort(key, next == 0 ? null : names[next - 1], next == 0 ? null : titleOf(next - 1));
+            }
+        };
+        return row;
+    }
+
+    /// <summary>Saves the system's own <paramref name="key"/> (null: the Layout page's again).</summary>
+    private void SaveSort(string key, string? name, string? title)
+    {
+        var system = _settings.Services.Config.FindSystem(_systemId)?.Name ?? _systemId;
+        var what = key == "games_sort" ? "sorted" : "order";
+        _settings.Save(this, [new ConfigEdit(ConfigFileKind.Systems, ["systems", _systemId, key], name)],
+            title is null
+                ? $"{system}'s games: {what} as in Settings."
+                : key == "games_sort" ? $"{system}'s games: sorted by {title.ToLowerInvariant()}." : $"{system}'s games: {title.ToLowerInvariant()}.");
     }
 
     // ---- Models ----------------------------------------------------------------------------------------

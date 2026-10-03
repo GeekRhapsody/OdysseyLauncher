@@ -172,8 +172,14 @@ public interface ILibrary
     /// <summary>Boot: one small indexed query. Enabled systems in config order, with their game counts.</summary>
     Task<IReadOnlyList<SystemSummary>> GetSystemsAsync(CancellationToken cancellationToken);
 
-    /// <summary>Entering a system: one indexed query of compact, pre-sorted rows.</summary>
+    /// <summary>Entering a system: one indexed query of compact, pre-sorted rows, in title order.</summary>
     Task<GameList> GetGamesAsync(string systemId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Entering a system: its games in <paramref name="ordering"/>'s order (<see cref="DisplaySettings.GamesSortFor"/>).
+    /// Title order is the indexed query; the others sort in SQLite (A4 Grid queries).
+    /// </summary>
+    Task<GameList> GetGamesAsync(string systemId, GamesOrdering ordering, CancellationToken cancellationToken);
 
     /// <summary>
     /// A system's media of the given kinds, for the slots a theme's templates use (M6): one row per game and kind that

@@ -167,6 +167,9 @@ public sealed partial class Navigator : Node
     /// <summary>A list's layout: the games layout, with the system's own grid size (Favourites and Recently played use settings.toml's).</summary>
     private GridLayout GamesLayout(string id) => GridLayout.Games(Display, _services.Config.FindSystem(id));
 
+    /// <summary>A system's games' order: its own <c>games_sort</c>, else settings.toml's (Favourites and Recently played have their own).</summary>
+    private GamesOrdering GamesSort(string id) => Display.GamesSortFor(_services.Config.FindSystem(id));
+
     /// <summary>The media streamer, for evicting textures while a game runs and for a theme's layout.</summary>
     public TextureStreamer? Streamer { get; set; }
 
@@ -543,7 +546,8 @@ public sealed partial class Navigator : Node
         _overlay.ClearDetails();
         _stage.Show(_theme.LookFor(entry.Virtual == VirtualKind.None ? entry.Id : null), _theme.TransitionSeconds);
 
-        var cached = entry.Virtual == VirtualKind.None ? _cache.Find(s => s.Id == entry.Id) : null;
+        var ordering = GamesSort(entry.Id);
+        var cached = entry.Virtual == VirtualKind.None ? _cache.Find(s => s.Id == entry.Id && s.Ordering == ordering) : null;
         if (cached is not null)
         {
             var theme = _theme;
@@ -562,6 +566,7 @@ public sealed partial class Navigator : Node
         var theme = _theme;
         var kinds = theme.Layout.MediaKinds;
         var nameOf = _systemNameOf;
+        var ordering = GamesSort(entry.Id);
         _ = Task.Run(async () =>
         {
             try
@@ -569,9 +574,9 @@ public sealed partial class Navigator : Node
                 GamesSource source;
                 if (entry.Virtual == VirtualKind.None)
                 {
-                    var list = await library.GetGamesAsync(entry.Id, token).ConfigureAwait(false);
+                    var list = await library.GetGamesAsync(entry.Id, ordering, token).ConfigureAwait(false);
                     var media = await library.GetGameMediaAsync(entry.Id, kinds, token).ConfigureAwait(false);
-                    source = GamesSource.ForSystem(entry.Id, entry.Name, list, media, kinds, theme.ColourOf);
+                    source = GamesSource.ForSystem(entry.Id, entry.Name, list, media, kinds, theme.ColourOf, ordering);
                 }
                 else
                 {
@@ -909,7 +914,8 @@ public sealed partial class Navigator : Node
 
     /// <summary>
     /// Reads the shown list again and updates the titles in place when its games are still in the same order; a title
-    /// that moved a game (an edited title sorts in its own place) binds the list again, keeping the focus on its game.
+    /// that moved a game (an edited title sorts in its own place, as does a scraped release date or a play when the list
+    /// is sorted by them) binds the list again, keeping the focus on its game.
     /// </summary>
     private void RefreshTitles()
     {
@@ -930,6 +936,7 @@ public sealed partial class Navigator : Node
 
         var library = _services.Library;
         var token = _shutdown.Token;
+        var ordering = source.Ordering;
         _ = Task.Run(async () =>
         {
             try
@@ -937,7 +944,7 @@ public sealed partial class Navigator : Node
                 GameRow[] rows;
                 if (entry.Virtual == VirtualKind.None)
                 {
-                    rows = [.. (await library.GetGamesAsync(entry.Id, token).ConfigureAwait(false)).Games];
+                    rows = [.. (await library.GetGamesAsync(entry.Id, ordering, token).ConfigureAwait(false)).Games];
                 }
                 else
                 {
@@ -1308,8 +1315,9 @@ public sealed partial class Navigator : Node
 
     /// <summary>
     /// Main thread: the settings screen saved config (M7). The systems grid is built again with it (names, emulators,
-    /// folders in the details, its layout); ROM folder changes are rescanned by the settings screen, which refreshes it
-    /// again. The games shown are laid out again if their layout changed, keeping the focus.
+    /// folders in the details, its layout and order); ROM folder changes are rescanned by the settings screen, which
+    /// refreshes it again. The games shown are read again if their order changed, or laid out again if their layout
+    /// did, keeping the focus on the same game.
     /// </summary>
     public void OnConfigChanged()
     {
@@ -1322,9 +1330,15 @@ public sealed partial class Navigator : Node
             _systemsGrid.Bind(_systems, Math.Max(0, focus));
             OnFocusChanged();
         }
-        else if (_screen == Screen.Games && _games is { } games && GamesLayout(games.Id) != _gamesGrid.Layout)
+        else if (_screen == Screen.Games && _games is { } games && FindEntry(games.Id) is { Virtual: VirtualKind.None } entry
+                 && GamesSort(games.Id) != games.Ordering)
         {
-            BindGames(games, Math.Max(0, _gamesGrid.FocusIndex));
+            var focusIndex = Math.Max(0, _gamesGrid.FocusIndex);
+            LoadGames(entry, null, focusIndex < games.Count ? games.Row(focusIndex).GameId : 0);
+        }
+        else if (_screen == Screen.Games && _games is { } shown && GamesLayout(shown.Id) != _gamesGrid.Layout)
+        {
+            BindGames(shown, Math.Max(0, _gamesGrid.FocusIndex));
             OnFocusChanged();
         }
     }
@@ -1389,8 +1403,22 @@ public sealed partial class Navigator : Node
             GD.PrintErr($"Launch failed: {failure}");
         }
 
-        // Play statistics changed, and Recently played with them.
+        // Play statistics changed, and Recently played with them, and a list sorted by plays: the shown one is read
+        // again shortly (keeping the focus on the game), and cached ones are dropped.
         _detailsDue = _clock;
+        _cache.RemoveAll(static list => list.Ordering.FollowsPlays);
+        if (_games is { Ordering.FollowsPlays: true } games)
+        {
+            foreach (var system in games.SystemIds)
+            {
+                _titleSystems.Add(system);
+            }
+
+            if (_titlesDue < 0)
+            {
+                _titlesDue = _clock + TitlesDelay;
+            }
+        }
     }
 
     /// <summary>A game is starting: free the media textures for the emulator (A1 Starting).</summary>
@@ -1454,6 +1482,7 @@ public sealed partial class Navigator : Node
             new(RecentlyPlayedId, "Recently played", "Newest first", Palette.RecentlyPlayed, null, null, VirtualKind.RecentlyPlayed, virtualCard),
         };
         var hideEmpty = _services.Config.Settings.Display.HideEmptySystems;
+        var systems = new List<SystemEntry>(summaries.Count);
         foreach (var summary in summaries)
         {
             if (hideEmpty && summary.GameCount == 0)
@@ -1463,11 +1492,14 @@ public sealed partial class Navigator : Node
 
             if (_services.Config.FindSystem(summary.SystemId) is { } system)
             {
-                entries.Add(new SystemEntry(system.Id, system.Name, DetailsFormatter.SystemSubtitle(system, summary.GameCount),
+                systems.Add(new SystemEntry(system.Id, system.Name, DetailsFormatter.SystemSubtitle(system, summary.GameCount),
                     _theme.ColourOf(system.Id), system, summary, VirtualKind.None, _theme.CardTemplateOf(system.Id)));
             }
         }
 
+        // Favourites and Recently played stay first, whatever the systems' order.
+        SystemOrder.Sort(systems, static entry => entry.System!, _services.Config.Settings.Display.SystemsSort);
+        entries.AddRange(systems);
         return entries;
     }
 

@@ -34,6 +34,7 @@ public sealed class ConfigLoader : IConfigLoader
     [
         "theme", "fullscreen", "hide_empty_systems",
         "systems_layout", "systems_columns", "systems_rows", "games_layout", "games_columns", "games_rows",
+        "systems_sort", "systems_sort_order", "games_sort", "games_sort_order",
     ];
     private static readonly string[] UiKeys = ["show_clock", "show_battery", "show_network"];
     private static readonly string[] ScrapingKeys = ["provider", "fallback", "regions", "languages", "media", "hash_limit_mb"];
@@ -43,7 +44,7 @@ public sealed class ConfigLoader : IConfigLoader
     [
         "enabled", "name", "manufacturer", "year", "aliases", "extensions", "emulator", "alt_emulators",
         "game_model", "screenscraper_id", "igdb_platforms", "steam_store", "rom_dirs", "recursive", "exclude",
-        "games_layout", "games_columns", "games_rows",
+        "games_layout", "games_columns", "games_rows", "games_sort", "games_sort_order",
     ];
 
     private static readonly string[] SystemRequiredKeys = ["name", "extensions", "emulator"];
@@ -214,6 +215,12 @@ public sealed class ConfigLoader : IConfigLoader
             var hideEmptySystems = SettingBool(tree, defaults, "display", "hide_empty_systems") ?? true;
             var systemsLayout = SettingLayout(tree, defaults, "systems_layout", Layouts.SystemsNames, Layouts.GamesNames);
             var gamesLayout = SettingLayout(tree, defaults, "games_layout", Layouts.GamesNames, Layouts.SystemsNames);
+            var systemsSort = new SystemsOrdering(
+                (SystemSort)SettingName(tree, defaults, "systems_sort", Sorts.SystemsNames, Sorts.GamesNames, "sort", "sorts games, not systems"),
+                (SortOrder)SettingName(tree, defaults, "systems_sort_order", Sorts.OrderNames, [], "order", string.Empty));
+            var gamesSort = new GamesOrdering(
+                (GameSort)SettingName(tree, defaults, "games_sort", Sorts.GamesNames, Sorts.SystemsNames, "sort", "sorts systems, not games"),
+                (SortOrder)SettingName(tree, defaults, "games_sort_order", Sorts.OrderNames, [], "order", string.Empty));
             var systemsGrid = new GridSize(
                 (int)(SettingInteger(tree, defaults, "display", "systems_columns", 0, DisplaySettings.MaxColumns) ?? 0),
                 (int)(SettingInteger(tree, defaults, "display", "systems_rows", 0, DisplaySettings.MaxRows) ?? 0));
@@ -280,6 +287,8 @@ public sealed class ConfigLoader : IConfigLoader
                     SystemsGrid = systemsGrid,
                     GamesLayout = (GamesLayout)gamesLayout,
                     GamesGrid = gamesGrid,
+                    SystemsSort = systemsSort,
+                    GamesSort = gamesSort,
                 },
                 new ScrapingSettings(provider, fallback, regions, languages, media, hashLimitMb * 1024 * 1024),
                 new ScanningSettings(_globalExcludes),
@@ -292,7 +301,16 @@ public sealed class ConfigLoader : IConfigLoader
         /// A <c>[display]</c> layout: its index in <paramref name="names"/>. A bad one is an error and the default is used;
         /// one of the other screen's layouts says which screen it's for.
         /// </summary>
-        private int SettingLayout(TomlTableNode tree, TomlTableNode defaults, string key, IReadOnlyList<string> names, IReadOnlyList<string> others)
+        private int SettingLayout(TomlTableNode tree, TomlTableNode defaults, string key, IReadOnlyList<string> names, IReadOnlyList<string> others) =>
+            SettingName(tree, defaults, key, names, others, "layout", "isn't a layout for this screen");
+
+        /// <summary>
+        /// A <c>[display]</c> value that is one of <paramref name="names"/> (a layout, a sort, an order): its index. A bad
+        /// one is an error and the default is used; one of <paramref name="others"/> (the other screen's) says why with
+        /// <paramref name="otherWhy"/>.
+        /// </summary>
+        private int SettingName(
+            TomlTableNode tree, TomlTableNode defaults, string key, IReadOnlyList<string> names, IReadOnlyList<string> others, string what, string otherWhy)
         {
             foreach (var source in (ReadOnlySpan<TomlTableNode>)[tree, defaults])
             {
@@ -307,32 +325,19 @@ public sealed class ConfigLoader : IConfigLoader
                     continue;
                 }
 
-                var index = IndexOf(names, value);
+                var index = Layouts.IndexOf(names, value);
                 if (index >= 0)
                 {
                     return index;
                 }
 
-                var why = IndexOf(others, value) >= 0
-                    ? $"'{value}' isn't a layout for this screen"
-                    : $"unknown layout '{value}'{Suggest(value, names)}";
-                Error(node, $"display.{key}", $"{why}. The layouts are {string.Join(", ", names)}. Using the default");
+                var why = Layouts.IndexOf(others, value) >= 0
+                    ? $"'{value}' {otherWhy}"
+                    : $"unknown {what} '{value}'{Suggest(value, names)}";
+                Error(node, $"display.{key}", $"{why}. The {what}s are {string.Join(", ", names)}. Using the default");
             }
 
             return 0;
-
-            static int IndexOf(IReadOnlyList<string> list, string value)
-            {
-                for (var i = 0; i < list.Count; i++)
-                {
-                    if (list[i] == value)
-                    {
-                        return i;
-                    }
-                }
-
-                return -1;
-            }
         }
 
         private Located? SettingString(TomlTableNode tree, TomlTableNode defaults, string section, string key)
@@ -1058,6 +1063,8 @@ public sealed class ConfigLoader : IConfigLoader
                 var gamesLayout = LayoutOverride(entry, prefix);
                 var gamesColumns = GridOverride(entry, prefix, "games_columns", DisplaySettings.MaxColumns);
                 var gamesRows = GridOverride(entry, prefix, "games_rows", DisplaySettings.MaxRows);
+                var gamesSort = NameOverride(entry, prefix, "games_sort", Sorts.GamesNames, "sort", out var sortIndex) ? (GameSort?)sortIndex : null;
+                var gamesSortOrder = NameOverride(entry, prefix, "games_sort_order", Sorts.OrderNames, "order", out var orderIndex) ? (SortOrder?)orderIndex : null;
 
                 var romDirs = new List<string>();
                 var romDirSource = RomDirSource.Default;
@@ -1112,7 +1119,8 @@ public sealed class ConfigLoader : IConfigLoader
 
                 result.Add(new SystemConfig(
                     id, name, manufacturer, (int?)year, aliases, extensions, emulator, altEmulators, gameModel,
-                    (int?)screenScraperId, romDirs, romDirSource, recursive, exclude, igdbPlatforms, steamStore, gamesColumns, gamesRows, gamesLayout));
+                    (int?)screenScraperId, romDirs, romDirSource, recursive, exclude, igdbPlatforms, steamStore, gamesColumns, gamesRows, gamesLayout,
+                    gamesSort, gamesSortOrder));
             }
 
             return result;
@@ -1238,6 +1246,28 @@ public sealed class ConfigLoader : IConfigLoader
                 : $"expected a string, found {TomlNode.KindName(node.Kind)}";
             Warning(node, $"{prefix}.games_layout", why + ", so [display] games_layout is used");
             return null;
+        }
+
+        /// <summary>A system's <c>games_sort</c> or <c>games_sort_order</c>: one of <paramref name="names"/>; anything else warns and is ignored.</summary>
+        private bool NameOverride(TomlTableNode table, string prefix, string key, IReadOnlyList<string> names, string what, out int index)
+        {
+            index = 0;
+            if (!table.TryGet(key, out var node))
+            {
+                return false;
+            }
+
+            if (node is TomlScalar { Kind: TomlKind.String, Value: string name } && Layouts.IndexOf(names, name) is var found and >= 0)
+            {
+                index = found;
+                return true;
+            }
+
+            var why = node is TomlScalar { Kind: TomlKind.String, Value: string other }
+                ? $"unknown {what} '{other}'{Suggest(other, names)}. The {what}s are {string.Join(", ", names)}"
+                : $"expected a string, found {TomlNode.KindName(node.Kind)}";
+            Warning(node, $"{prefix}.{key}", $"{why}, so [display] {key} is used");
+            return false;
         }
 
         /// <summary>A system's <c>games_columns</c> or <c>games_rows</c>, 0 to <paramref name="max"/>; anything else warns and is ignored.</summary>

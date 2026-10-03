@@ -77,16 +77,61 @@ internal static class LibraryStore
     }
 
     // The grid queries select only what a cell draws. Title order uses games_by_system when no title is
-    // overridden; the COALESCE keeps overridden titles in their own place.
-    private const string GamesSql = """
+    // overridden; the COALESCE keeps overridden titles in their own place. Another order (A4 Grid queries) joins what
+    // it sorts by, and sorts in a temporary B-tree.
+    private const string GamesSelect = """
         SELECT g.game_id, COALESCE(o.title, g.title), m.path, f.added_at IS NOT NULL, m.width, m.height, m.size_bytes, m.mtime_ms
         FROM games g
         LEFT JOIN user.game_overrides o ON o.system_id = g.system_id AND o.path_key = g.path_key
         LEFT JOIN user.favourites f ON f.system_id = g.system_id AND f.path_key = g.path_key
         LEFT JOIN media m ON m.game_id = g.game_id AND m.kind = 'cover'
-        WHERE g.system_id = $system AND COALESCE(o.hidden, 0) = 0
-        ORDER BY COALESCE(o.sort_title, g.sort_title), g.game_id
         """;
+
+    private const string GamesWhere = "WHERE g.system_id = $system AND COALESCE(o.hidden, 0) = 0";
+    private const string TitleKey = "COALESCE(o.sort_title, g.sort_title)";
+    private const string PlayStatsJoin = "LEFT JOIN user.play_stats p ON p.system_id = g.system_id AND p.path_key = g.path_key";
+    private const string ReleaseDate = "NULLIF(COALESCE(o.release_date, mt.release_date), '')";
+
+    /// <summary>
+    /// A system's games query in <paramref name="ordering"/>'s order. Descending reverses what the sort names; ties go
+    /// by title, A to Z (then by id, so the order is stable); a game without a date the sort needs (never played, no
+    /// release date, a creation time never read) comes last either way. A game never played has no play time.
+    /// </summary>
+    internal static string GamesSql(GamesOrdering ordering)
+    {
+        var direction = ordering.Order == SortOrder.Descending ? " DESC" : string.Empty;
+        return ordering.Sort switch
+        {
+            GameSort.LastPlayed => $"""
+                {GamesSelect}
+                {PlayStatsJoin}
+                {GamesWhere}
+                ORDER BY p.last_played_at IS NULL, p.last_played_at{direction}, {TitleKey}, g.game_id
+                """,
+            GameSort.PlayTime => $"""
+                {GamesSelect}
+                {PlayStatsJoin}
+                {GamesWhere}
+                ORDER BY COALESCE(p.total_seconds, 0){direction}, {TitleKey}, g.game_id
+                """,
+            GameSort.Added => $"""
+                {GamesSelect}
+                {GamesWhere}
+                ORDER BY g.added_ms IS NULL, g.added_ms{direction}, {TitleKey}, g.game_id
+                """,
+            GameSort.ReleaseDate => $"""
+                {GamesSelect}
+                LEFT JOIN metadata mt ON mt.game_id = g.game_id
+                {GamesWhere}
+                ORDER BY {ReleaseDate} IS NULL, {ReleaseDate}{direction}, {TitleKey}, g.game_id
+                """,
+            _ => $"""
+                {GamesSelect}
+                {GamesWhere}
+                ORDER BY {TitleKey}{direction}, g.game_id{direction}
+                """,
+        };
+    }
 
     private const string FavouritesSql = """
         SELECT g.system_id, g.game_id, COALESCE(o.title, g.title), m.path, 1, m.width, m.height, m.size_bytes, m.mtime_ms
@@ -111,10 +156,10 @@ internal static class LibraryStore
         LIMIT $limit
         """;
 
-    public static List<GameRow> GetGames(SqliteConnection connection, string systemId, int capacityHint)
+    public static List<GameRow> GetGames(SqliteConnection connection, string systemId, GamesOrdering ordering, int capacityHint)
     {
         using var command = connection.CreateCommand();
-        command.CommandText = GamesSql;
+        command.CommandText = GamesSql(ordering);
         command.Parameters.AddWithValue("$system", systemId);
         using var reader = command.ExecuteReader();
         var games = new List<GameRow>(capacityHint);
@@ -597,7 +642,7 @@ internal static class LibraryStore
 
     // ---- Scan results ----------------------------------------------------------------------------
 
-    private sealed record Existing(long GameId, long DirId, string RelPath, long SizeBytes, long MtimeMs);
+    private sealed record Existing(long GameId, long DirId, string RelPath, long SizeBytes, long MtimeMs, long? AddedMs);
 
     /// <summary>
     /// Writes scan results in one transaction: rows are inserted, updated or deleted by <c>path_key</c>, so a
@@ -700,7 +745,8 @@ internal static class LibraryStore
             while (reader.Read())
             {
                 existing[reader.GetString(1)] = new Existing(
-                    reader.GetInt64(0), reader.GetInt64(2), reader.GetString(3), reader.GetInt64(4), reader.GetInt64(5));
+                    reader.GetInt64(0), reader.GetInt64(2), reader.GetString(3), reader.GetInt64(4), reader.GetInt64(5),
+                    reader.IsDBNull(6) ? null : reader.GetInt64(6));
             }
         }
 
@@ -708,12 +754,13 @@ internal static class LibraryStore
         foreach (var game in scan.Games)
         {
             var dirId = dirIds[game.DirIndex];
+            long? addedMs = game.CreatedMs > 0 ? game.CreatedMs : null;
             if (!existing.Remove(game.PathKey, out var old))
             {
                 var title = TitleParser.Parse(FileStem(game.RelPath));
                 s.Bind(s.InsertGame,
                     ("$system", system), ("$dir", dirId), ("$rel", game.RelPath), ("$key", game.PathKey),
-                    ("$size", game.SizeBytes), ("$mtime", game.MtimeMs));
+                    ("$size", game.SizeBytes), ("$mtime", game.MtimeMs), ("$added", addedMs));
                 BindTitle(s, s.InsertGame, title);
                 s.InsertGame.ExecuteNonQuery();
                 added++;
@@ -723,7 +770,7 @@ internal static class LibraryStore
 
             var renamed = !string.Equals(old.RelPath, game.RelPath, StringComparison.Ordinal);
             var contentChanged = old.SizeBytes != game.SizeBytes || old.MtimeMs != game.MtimeMs;
-            if (!renamed && !contentChanged && old.DirId == dirId)
+            if (!renamed && !contentChanged && old.DirId == dirId && old.AddedMs == addedMs)
             {
                 unchanged++;
                 continue;
@@ -731,7 +778,7 @@ internal static class LibraryStore
 
             s.Bind(s.UpdateGame,
                 ("$id", old.GameId), ("$dir", dirId), ("$rel", game.RelPath), ("$size", game.SizeBytes),
-                ("$mtime", game.MtimeMs), ("$changed", contentChanged ? 1 : 0));
+                ("$mtime", game.MtimeMs), ("$added", addedMs), ("$changed", contentChanged ? 1 : 0));
             s.UpdateGame.ExecuteNonQuery();
             if (renamed)
             {
@@ -1004,15 +1051,15 @@ internal static class LibraryStore
             InsertDir = Make("INSERT INTO rom_dirs (system_id, position, path) VALUES ($system, $position, $path) RETURNING dir_id");
             UpdateDirPosition = Make("UPDATE rom_dirs SET position = $position WHERE dir_id = $id");
             DeleteDir = Make("DELETE FROM rom_dirs WHERE dir_id = $id");
-            SelectGames = Make("SELECT game_id, path_key, dir_id, rel_path, size_bytes, mtime_ms FROM games WHERE system_id = $system");
+            SelectGames = Make("SELECT game_id, path_key, dir_id, rel_path, size_bytes, mtime_ms, added_ms FROM games WHERE system_id = $system");
             InsertGame = Make("""
-                INSERT INTO games (system_id, dir_id, rel_path, path_key, size_bytes, mtime_ms,
+                INSERT INTO games (system_id, dir_id, rel_path, path_key, size_bytes, mtime_ms, added_ms,
                                    title, sort_title, region, languages, revision, disc, tags)
-                VALUES ($system, $dir, $rel, $key, $size, $mtime, $title, $sort, $region, $languages, $revision, $disc, $tags)
+                VALUES ($system, $dir, $rel, $key, $size, $mtime, $added, $title, $sort, $region, $languages, $revision, $disc, $tags)
                 """);
             // New content invalidates the hashes.
             UpdateGame = Make("""
-                UPDATE games SET dir_id = $dir, rel_path = $rel, size_bytes = $size, mtime_ms = $mtime,
+                UPDATE games SET dir_id = $dir, rel_path = $rel, size_bytes = $size, mtime_ms = $mtime, added_ms = $added,
                     crc32 = CASE WHEN $changed THEN NULL ELSE crc32 END,
                     md5 = CASE WHEN $changed THEN NULL ELSE md5 END,
                     sha1 = CASE WHEN $changed THEN NULL ELSE sha1 END

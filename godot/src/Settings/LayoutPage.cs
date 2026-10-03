@@ -8,9 +8,10 @@ namespace Launcher.App.Settings;
 
 /// <summary>
 /// How the systems and the games are shown (<c>[display]</c> in settings.toml): the systems as a grid, a carousel or one
-/// at a time; the games as a grid, a carousel or a list with the focused game's model beside it; and each grid's
-/// columns and rows (automatic, or a number). A changes a row through a list; left and right step through its values.
-/// Each change is saved at once, and the grid behind shows it. A system's own games grid size is on its page (X on it).
+/// at a time; the games as a grid, a carousel or a list with the focused game's model beside it; each grid's columns
+/// and rows (automatic, or a number); and the order of each (what they're sorted by, and which way). A changes a row
+/// through a list; left and right step through its values. Each change is saved at once, and the grid behind shows
+/// it. A system's own games view, grid size and order are on its page (X on it).
 /// </summary>
 public sealed partial class LayoutPage : ListPanel
 {
@@ -21,6 +22,10 @@ public sealed partial class LayoutPage : ListPanel
     private readonly SettingRow _games;
     private readonly SettingRow _gamesColumns;
     private readonly SettingRow _gamesRows;
+    private readonly SettingRow _systemsSort;
+    private readonly SettingRow _systemsOrder;
+    private readonly SettingRow _gamesSort;
+    private readonly SettingRow _gamesOrder;
 
     // Values saved but not yet applied, so presses in quick succession step on from each other.
     private readonly Dictionary<string, object> _pending = new(StringComparer.Ordinal);
@@ -36,13 +41,20 @@ public sealed partial class LayoutPage : ListPanel
         _systems.Adjuster = direction => StepLayout("systems_layout", Layouts.SystemsNames, direction);
         _systemsColumns = AddSizeRow("Columns", "systems_columns", DisplaySettings.MaxColumns);
         _systemsRows = AddSizeRow("Rows", "systems_rows", DisplaySettings.MaxRows);
+        _systemsSort = AddSortRow("Sort by", "systems_sort", "Sort systems by", Sorts.SystemsNames, () => SystemsSortChoices());
+        _systemsOrder = AddSortRow("Order", "systems_sort_order", "Systems' order", Sorts.OrderNames,
+            () => OrderChoices(sort => SystemsOrderDetail((SystemSort)Current("systems_sort", (int)Display.SystemsSort.Sort), sort)));
+        AddNote("Favourites and Recently played always come first.");
 
         AddSection("Games");
         _games = AddRow("Games view", activated: () => ChooseLayout("games_layout", "Games view", GamesChoices()));
         _games.Adjuster = direction => StepLayout("games_layout", Layouts.GamesNames, direction);
         _gamesColumns = AddSizeRow("Columns", "games_columns", DisplaySettings.MaxColumns);
         _gamesRows = AddSizeRow("Rows", "games_rows", DisplaySettings.MaxRows);
-        AddNote("A system can have its own view, columns and rows: press X on it in the systems view, or choose it in ROM folders.");
+        _gamesSort = AddSortRow("Sort by", "games_sort", "Sort games by", Sorts.GamesNames, () => GamesSortChoices());
+        _gamesOrder = AddSortRow("Order", "games_sort_order", "Games' order", Sorts.OrderNames,
+            () => OrderChoices(sort => GamesOrderDetail((GameSort)Current("games_sort", (int)Display.GamesSort.Sort), sort)));
+        AddNote("A system can have its own view, columns, rows and order: press X on it in the systems view, or choose it in ROM folders.");
 
         SetHints("A  Choose     Left Right  Change     B  Back");
         _settings.ConfigApplied += OnConfigApplied;
@@ -72,6 +84,18 @@ public sealed partial class LayoutPage : ListPanel
         ShowSize(_systemsRows, Current("systems_rows", display.SystemsGrid.Rows), systems == SystemsLayout.Grid, "rows");
         ShowSize(_gamesColumns, Current("games_columns", display.GamesGrid.Columns), games == GamesLayout.Grid, "columns");
         ShowSize(_gamesRows, Current("games_rows", display.GamesGrid.Rows), games == GamesLayout.Grid, "rows");
+        var systemsSort = (SystemSort)Current("systems_sort", (int)display.SystemsSort.Sort);
+        var systemsOrder = (SortOrder)Current("systems_sort_order", (int)display.SystemsSort.Order);
+        _systemsSort.Value = SystemsSortTitle(systemsSort);
+        _systemsSort.Detail = SystemsSortDetail(systemsSort);
+        _systemsOrder.Value = OrderTitle(systemsOrder);
+        _systemsOrder.Detail = SystemsOrderDetail(systemsSort, systemsOrder);
+        var gamesSort = (GameSort)Current("games_sort", (int)display.GamesSort.Sort);
+        var gamesOrder = (SortOrder)Current("games_sort_order", (int)display.GamesSort.Order);
+        _gamesSort.Value = GamesSortTitle(gamesSort);
+        _gamesSort.Detail = GamesSortDetail(gamesSort);
+        _gamesOrder.Value = OrderTitle(gamesOrder);
+        _gamesOrder.Detail = GamesOrderDetail(gamesSort, gamesOrder);
     }
 
     private int Current(string key, int saved) => _pending.TryGetValue(key, out var value) ? Convert.ToInt32(value, CultureInfo.InvariantCulture) : saved;
@@ -165,6 +189,143 @@ public sealed partial class LayoutPage : ListPanel
         key == "systems_layout"
             ? Layouts.TryParse(name, out SystemsLayout systems) ? (int)systems : 0
             : Layouts.TryParse(name, out GamesLayout games) ? (int)games : 0;
+
+    // ---- Sorting --------------------------------------------------------------------------------------
+
+    public static string SystemsSortTitle(SystemSort sort) => sort switch
+    {
+        SystemSort.Manufacturer => "Manufacturer",
+        SystemSort.ReleaseYear => "Release year",
+        SystemSort.ManufacturerYear => "Manufacturer, then year",
+        _ => "Alphabetical",
+    };
+
+    public static string SystemsSortDetail(SystemSort sort) => sort switch
+    {
+        SystemSort.Manufacturer => "Each manufacturer's systems together, by name",
+        SystemSort.ReleaseYear => "By the year each came out; those without one come last",
+        SystemSort.ManufacturerYear => "Each manufacturer's systems together, by the year each came out",
+        _ => "By name",
+    };
+
+    public static string GamesSortTitle(GameSort sort) => sort switch
+    {
+        GameSort.LastPlayed => "Last played",
+        GameSort.PlayTime => "Time played",
+        GameSort.Added => "Date added",
+        GameSort.ReleaseDate => "Release date",
+        _ => "Alphabetical",
+    };
+
+    public static string GamesSortDetail(GameSort sort) => sort switch
+    {
+        GameSort.LastPlayed => "When each was last played; games never played come last",
+        GameSort.PlayTime => "The time spent playing each one",
+        GameSort.Added => "When each game's file arrived in the ROM folder",
+        GameSort.ReleaseDate => "Scraped or your own; games without one come last",
+        _ => "By title",
+    };
+
+    public static string OrderTitle(SortOrder order) => order == SortOrder.Descending ? "Descending" : "Ascending";
+
+    public static string SystemsOrderDetail(SystemSort sort, SortOrder order) => (sort, order) switch
+    {
+        (SystemSort.ReleaseYear, SortOrder.Descending) => "Newest first",
+        (SystemSort.ReleaseYear, _) => "Oldest first",
+        (SystemSort.ManufacturerYear, SortOrder.Descending) => "Manufacturers Z to A, newest first",
+        (SystemSort.ManufacturerYear, _) => "Manufacturers A to Z, oldest first",
+        (_, SortOrder.Descending) => "Z to A",
+        _ => "A to Z",
+    };
+
+    public static string GamesOrderDetail(GameSort sort, SortOrder order) => (sort, order) switch
+    {
+        (GameSort.LastPlayed, SortOrder.Descending) => "Most recently played first",
+        (GameSort.LastPlayed, _) => "Played longest ago first",
+        (GameSort.PlayTime, SortOrder.Descending) => "Most played first",
+        (GameSort.PlayTime, _) => "Least played first",
+        (GameSort.Added or GameSort.ReleaseDate, SortOrder.Descending) => "Newest first",
+        (GameSort.Added or GameSort.ReleaseDate, _) => "Oldest first",
+        (_, SortOrder.Descending) => "Z to A",
+        _ => "A to Z",
+    };
+
+    public static List<Choice> SystemsSortChoices()
+    {
+        var choices = new List<Choice>();
+        foreach (var sort in Enum.GetValues<SystemSort>())
+        {
+            choices.Add(new Choice(Sorts.Name(sort), SystemsSortTitle(sort), SystemsSortDetail(sort)));
+        }
+
+        return choices;
+    }
+
+    public static List<Choice> GamesSortChoices()
+    {
+        var choices = new List<Choice>();
+        foreach (var sort in Enum.GetValues<GameSort>())
+        {
+            choices.Add(new Choice(Sorts.Name(sort), GamesSortTitle(sort), GamesSortDetail(sort)));
+        }
+
+        return choices;
+    }
+
+    /// <param name="detail">What each order means for the sort chosen.</param>
+    public static List<Choice> OrderChoices(Func<SortOrder, string> detail)
+    {
+        var choices = new List<Choice>();
+        foreach (var order in Enum.GetValues<SortOrder>())
+        {
+            choices.Add(new Choice(Sorts.Name(order), OrderTitle(order), detail(order)));
+        }
+
+        return choices;
+    }
+
+    /// <summary>A sort or an order: A chooses from a list, left and right step through the values.</summary>
+    private SettingRow AddSortRow(string title, string key, string pickerTitle, IReadOnlyList<string> names, Func<List<Choice>> choices)
+    {
+        var row = AddRow(title, activated: () =>
+            Layer.Push(new ChoicePanel(pickerTitle, $"Saved as [display] {key}", choices(), names[SortOf(key)], choice =>
+                Save(key, IndexOf(names, choice.Id), choice.Id, $"{pickerTitle}: {choice.Title}."))));
+        row.Adjuster = direction =>
+        {
+            var current = SortOf(key);
+            var next = Math.Clamp(current + Math.Sign(direction), 0, names.Count - 1);
+            if (next != current)
+            {
+                Save(key, next, names[next], $"{pickerTitle}: {choices()[next].Title}.");
+            }
+        };
+        return row;
+    }
+
+    private int SortOf(string key)
+    {
+        var display = Display;
+        return Current(key, key switch
+        {
+            "systems_sort" => (int)display.SystemsSort.Sort,
+            "systems_sort_order" => (int)display.SystemsSort.Order,
+            "games_sort" => (int)display.GamesSort.Sort,
+            _ => (int)display.GamesSort.Order,
+        });
+    }
+
+    private static int IndexOf(IReadOnlyList<string> names, string name)
+    {
+        for (var i = 0; i < names.Count; i++)
+        {
+            if (names[i] == name)
+            {
+                return i;
+            }
+        }
+
+        return 0;
+    }
 
     // ---- Sizes ----------------------------------------------------------------------------------------
 

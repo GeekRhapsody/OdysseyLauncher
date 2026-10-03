@@ -130,10 +130,13 @@ public sealed class LibraryService : ILibrary, IPlayHistory, IDisposable
         return _readers.RunAsync<IReadOnlyList<SystemSummary>>(c => LibraryStore.GetSystems(c, config), cancellationToken);
     }
 
-    public Task<GameList> GetGamesAsync(string systemId, CancellationToken cancellationToken)
+    public Task<GameList> GetGamesAsync(string systemId, CancellationToken cancellationToken) =>
+        GetGamesAsync(systemId, default, cancellationToken);
+
+    public Task<GameList> GetGamesAsync(string systemId, GamesOrdering ordering, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(systemId);
-        return _readers.RunAsync(c => new GameList(systemId, LibraryStore.GetGames(c, systemId, 256)), cancellationToken);
+        return _readers.RunAsync(c => new GameList(systemId, LibraryStore.GetGames(c, systemId, ordering, 256)), cancellationToken);
     }
 
     public Task<IReadOnlyList<GameMediaRow>> GetGameMediaAsync(string systemId, IReadOnlyList<string> kinds, CancellationToken cancellationToken)

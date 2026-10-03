@@ -36,6 +36,17 @@ games_layout = "grid"
 # The games grid's columns and rows, as above. A system can have its own: games_columns and games_rows in systems.toml.
 games_columns = 0
 games_rows = 0
+# The systems' order: "alphabetical" (by name), "manufacturer", "release_year" or "manufacturer_year" (by
+# manufacturer, then year); ties go by name. Favourites and Recently played always come first.
+systems_sort = "alphabetical"
+# "ascending" (A to Z, oldest first) or "descending". Systems without a manufacturer or year come last either way.
+systems_sort_order = "ascending"
+# A system's games' order: "alphabetical" (by title), "last_played", "play_time", "added" (when the file arrived in
+# the ROM folder) or "release_date"; ties go by title. A system can have its own: games_sort in systems.toml.
+games_sort = "alphabetical"
+# "ascending" (A to Z, oldest first, least played first) or "descending". Games never played (by last played) or
+# without a release date come last either way. A system can have its own: games_sort_order in systems.toml.
+games_sort_order = "ascending"
 
 [ui]
 # The status indicators, top right: the time (in your Windows time format), the battery's charge (only on a

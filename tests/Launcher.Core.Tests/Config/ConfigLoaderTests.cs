@@ -862,6 +862,151 @@ public class ConfigLoaderTests
         Assert.Null(system.GamesRows);
     }
 
+    // ---- Sorting ----------------------------------------------------------------------------------
+
+    [Fact]
+    public void Systems_and_games_sort_alphabetically_ascending_by_default()
+    {
+        var result = Load();
+        Assert.Empty(result.Diagnostics);
+        var display = result.Config.Settings.Display;
+        Assert.Equal(new SystemsOrdering(SystemSort.Alphabetical, SortOrder.Ascending), display.SystemsSort);
+        Assert.Equal(new GamesOrdering(GameSort.Alphabetical, SortOrder.Ascending), display.GamesSort);
+        Assert.Equal(display.GamesSort, display.GamesSortFor(result.Config.FindSystem("snes")));
+        Assert.Equal(display.GamesSort, display.GamesSortFor(null));
+    }
+
+    [Fact]
+    public void Sorts_and_orders_are_read_from_the_display_settings()
+    {
+        var result = Load(settings: """
+            [display]
+            systems_sort = "manufacturer_year"
+            systems_sort_order = "descending"
+            games_sort = "release_date"
+            games_sort_order = "descending"
+            """);
+
+        Assert.Empty(result.Diagnostics);
+        var display = result.Config.Settings.Display;
+        Assert.Equal(new SystemsOrdering(SystemSort.ManufacturerYear, SortOrder.Descending), display.SystemsSort);
+        Assert.Equal(new GamesOrdering(GameSort.ReleaseDate, SortOrder.Descending), display.GamesSort);
+    }
+
+    [Fact]
+    public void Every_sort_name_round_trips()
+    {
+        foreach (var sort in Enum.GetValues<SystemSort>())
+        {
+            Assert.True(Sorts.TryParse(Sorts.Name(sort), out SystemSort parsed));
+            Assert.Equal(sort, parsed);
+        }
+
+        foreach (var sort in Enum.GetValues<GameSort>())
+        {
+            Assert.True(Sorts.TryParse(Sorts.Name(sort), out GameSort parsed));
+            Assert.Equal(sort, parsed);
+        }
+
+        foreach (var order in Enum.GetValues<SortOrder>())
+        {
+            Assert.True(Sorts.TryParse(Sorts.Name(order), out SortOrder parsed));
+            Assert.Equal(order, parsed);
+        }
+
+        Assert.False(Sorts.TryParse("by_name", out SystemSort _));
+    }
+
+    [Fact]
+    public void A_bad_sort_or_order_is_an_error_and_the_default_is_used()
+    {
+        var result = Load(settings: """
+            [display]
+            systems_sort = "play_time"
+            systems_sort_order = "up"
+            games_sort = "last_playd"
+            games_sort_order = 1
+            """);
+
+        var systems = Assert.Single(result.Diagnostics, d => d.Key == "display.systems_sort");
+        Assert.True(systems.IsError);
+        Assert.Contains("'play_time' sorts games, not systems", systems.Message, StringComparison.Ordinal);
+        Assert.Contains("alphabetical, manufacturer, release_year, manufacturer_year", systems.Message, StringComparison.Ordinal);
+        var order = Assert.Single(result.Diagnostics, d => d.Key == "display.systems_sort_order");
+        Assert.Contains("unknown order 'up'", order.Message, StringComparison.Ordinal);
+        var games = Assert.Single(result.Diagnostics, d => d.Key == "display.games_sort");
+        Assert.Contains("did you mean 'last_played'?", games.Message, StringComparison.Ordinal);
+        Assert.Single(result.Diagnostics, d => d.IsError && d.Key == "display.games_sort_order");
+
+        var display = result.Config.Settings.Display;
+        Assert.Equal(default, display.SystemsSort);
+        Assert.Equal(default, display.GamesSort);
+    }
+
+    [Fact]
+    public void A_system_can_have_its_own_games_sort_and_order_and_follows_the_display_setting_without_them()
+    {
+        var result = Load(
+            settings: """
+                [display]
+                games_sort = "added"
+                games_sort_order = "descending"
+                """,
+            systems: """
+                [systems.megadrive]
+                games_sort = "play_time"
+
+                [systems.snes]
+                games_sort_order = "ascending"
+                """);
+
+        Assert.Empty(result.Diagnostics);
+        var config = result.Config;
+        var display = config.Settings.Display;
+        Assert.Equal(GameSort.PlayTime, config.FindSystem("megadrive")!.GamesSort);
+        Assert.Null(config.FindSystem("megadrive")!.GamesSortOrder);
+        Assert.Equal(new GamesOrdering(GameSort.PlayTime, SortOrder.Descending), display.GamesSortFor(config.FindSystem("megadrive")));
+        Assert.Equal(new GamesOrdering(GameSort.Added, SortOrder.Ascending), display.GamesSortFor(config.FindSystem("snes")));
+        Assert.Equal(new GamesOrdering(GameSort.Added, SortOrder.Descending), display.GamesSortFor(config.FindSystem("psx")));
+    }
+
+    [Fact]
+    public void A_bad_games_sort_on_a_system_is_a_warning_and_the_display_setting_is_used()
+    {
+        var result = Load(systems: """
+            [systems.megadrive]
+            games_sort = "manufacturer"
+            games_sort_order = "descendng"
+            """);
+
+        Assert.DoesNotContain(result.Diagnostics, d => d.IsError);
+        var sort = Assert.Single(result.Diagnostics, d => d.Key == "systems.megadrive.games_sort");
+        Assert.Contains("unknown sort 'manufacturer'", sort.Message, StringComparison.Ordinal);
+        Assert.Contains("[display] games_sort is used", sort.Message, StringComparison.Ordinal);
+        var order = Assert.Single(result.Diagnostics, d => d.Key == "systems.megadrive.games_sort_order");
+        Assert.Contains("did you mean 'descending'?", order.Message, StringComparison.Ordinal);
+        var system = result.Config.FindSystem("megadrive")!;
+        Assert.Null(system.GamesSort);
+        Assert.Null(system.GamesSortOrder);
+    }
+
+    [Fact]
+    public void Every_console_and_computer_in_the_catalogue_has_a_year()
+    {
+        var config = Load(settings: "[display]\nhide_empty_systems = false\n").Config;
+
+        // Engines, stores and catch-all systems have no year; everything else does, so sorting by year is useful.
+        string[] undated =
+        [
+            "ags", "arcade", "chailove", "consolearcade", "easyrpg", "fbneo", "fpinball", "j2me", "lcdgames", "lowresnx", "lutro",
+            "mame", "mess", "mugen", "openbor", "pcarcade", "ports", "scummvm", "solarus", "steam", "symbian", "vircon32",
+            "vpinball", "windows", "zmachine",
+        ];
+        var missing = config.Systems.Where(s => s.Year is null && !undated.Contains(s.Id)).Select(s => s.Id).ToList();
+        Assert.Empty(missing);
+        Assert.All(config.Systems.Where(s => s.Year is { }), s => Assert.InRange(s.Year!.Value, 1970, 2030));
+    }
+
     // ---- The built-in catalogue (every ES-DE system) ---------------------------------------------
 
     [Fact]

@@ -192,6 +192,9 @@ public sealed class GamesSource : IGridSource
     /// <summary>The media kinds this list was loaded with (the theme's, when it was built).</summary>
     public IReadOnlyList<string> Kinds { get; }
 
+    /// <summary>The order a system's list was read in (<c>games_sort</c>); a virtual list's own order is fixed.</summary>
+    public GamesOrdering Ordering { get; private init; }
+
     /// <summary>The systems its games come from (one, except in a virtual list).</summary>
     public IReadOnlyList<string> SystemIds => _systemIds;
 
@@ -220,8 +223,10 @@ public sealed class GamesSource : IGridSource
         return ids;
     }
 
+    /// <param name="ordering">The order the list was read in, so a change of sort can tell it's stale.</param>
     public static GamesSource ForSystem(
-        string id, string name, GameList list, IReadOnlyList<GameMediaRow> media, IReadOnlyList<string> kinds, Func<string, Color> colourOf)
+        string id, string name, GameList list, IReadOnlyList<GameMediaRow> media, IReadOnlyList<string> kinds, Func<string, Color> colourOf,
+        GamesOrdering ordering = default)
     {
         var rows = new (string, GameRow)[list.Games.Count];
         for (var i = 0; i < rows.Length; i++)
@@ -229,7 +234,7 @@ public sealed class GamesSource : IGridSource
             rows[i] = (list.SystemId, list.Games[i]);
         }
 
-        return new GamesSource(id, name, rows, media, kinds, colourOf, _ => name);
+        return new GamesSource(id, name, rows, media, kinds, colourOf, _ => name) { Ordering = ordering };
     }
 
     public static GamesSource ForVirtual(

@@ -117,3 +117,18 @@ Overall, an unchanged rescan dropped from 13.6 s to 1.4 s, and a full scan from 
 Locally, the same changes cost nothing. On the 10,000-file tree, ExportRelease .NET 8: full scan 222–234 ms (was 275–281), rescan with nothing changed 70 ms (was 65–71), rebuild 208–212 ms (was 237–249).
 
 Excluding a folder saves its whole listing. Excluding a file by name (`gamelist.xml`) only drops it after it's listed, so it saves no network time; it's there so such files never count as games.
+
+## Sorted games queries (added 2026-10-03)
+
+`[display] games_sort` (ARCHITECTURE.md A4 Grid queries) reads a system's games in other orders. core-bench's 10,000-game system, ExportRelease on .NET 8, on the development machine, medians of 9 in two invocations, against a build of the commit before (no play history or release dates, so the sorts compare NULLs; the join and the B-tree sort are the cost):
+
+| `GetGamesAsync`, 10,000 games | Before (ms) | After (ms) |
+|---|---|---|
+| Title order (the default; the same SQL) | 20.3–20.9 | 21.1–21.7 |
+| Title, descending | | 19.6–21.4 |
+| Last played, descending (joins `play_stats`) | | 21.7–26.4 |
+| Time played, descending (joins `play_stats`) | | 21.6–27.1 |
+| Added, descending (`games.added_ms`) | | 24.2–27.2 |
+| Release date, descending (joins `metadata`) | | 23.3–26.1 |
+
+All are well inside the 50 ms target. The scans, which now write each file's creation time, were within run-to-run noise: full scan 236–309 ms before and 261–262 after, unchanged rescan 65–71 and 70–73, rebuild 214–218 and 215–252.

@@ -5,7 +5,8 @@ namespace Launcher.Core.Scanning;
 
 /// <summary>A file the scanner kept, before multi-file grouping decides whether it's a game.</summary>
 /// <param name="DirIndex">Index into <see cref="SystemScan.RomDirs"/>.</param>
-public sealed record ScannedFile(int DirIndex, string RelPath, string PathKey, long SizeBytes, long MtimeMs);
+/// <param name="CreatedMs">The file's creation time (unix ms): when it arrived in the folder, for sorting games by "added". 0 when unknown.</param>
+public sealed record ScannedFile(int DirIndex, string RelPath, string PathKey, long SizeBytes, long MtimeMs, long CreatedMs = 0);
 
 /// <summary>A parsed <c>.m3u</c>, <c>.cue</c> or <c>.gdi</c>, cached so an unchanged one isn't read again.</summary>
 /// <param name="Refs">The <c>path_key</c>s it references, in order.</param>
@@ -173,7 +174,8 @@ public sealed class RomScanner
                     relPath,
                     PathKeys.ToPathKey(relPath),
                     entry.Length,
-                    entry.LastWriteTimeUtc.ToUnixTimeMilliseconds());
+                    entry.LastWriteTimeUtc.ToUnixTimeMilliseconds(),
+                    CreatedMs(ref entry));
             },
             options)
         {
@@ -194,6 +196,16 @@ public sealed class RomScanner
             diagnostics.Add(new Diagnostic(Severity.Warning, root, 0, 0, string.Empty, $"couldn't be read: {e.Message}"));
             return [];
         }
+    }
+
+    /// <summary>
+    /// The entry's creation time, which Windows' folder listing carries (no extra call per file). 0 when the file
+    /// system reports none (the epoch, or before it).
+    /// </summary>
+    private static long CreatedMs(ref FileSystemEntry entry)
+    {
+        var ms = entry.CreationTimeUtc.ToUnixTimeMilliseconds();
+        return ms > 0 ? ms : 0;
     }
 
     private static string RelativePath(ref FileSystemEntry entry)

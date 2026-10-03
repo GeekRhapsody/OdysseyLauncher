@@ -63,6 +63,108 @@ public sealed record DisplaySettings(string Theme, bool Fullscreen, bool HideEmp
     /// <summary>The games grid's size for a system: its own columns and rows where it sets them, else these settings'.</summary>
     public GridSize GamesGridFor(SystemConfig? system) =>
         new(system?.GamesColumns ?? GamesGrid.Columns, system?.GamesRows ?? GamesGrid.Rows);
+
+    /// <summary><c>systems_sort</c> and <c>systems_sort_order</c>: the systems' order (Favourites and Recently played always come first).</summary>
+    public SystemsOrdering SystemsSort { get; init; }
+
+    /// <summary><c>games_sort</c> and <c>games_sort_order</c>: a system's games' order, unless the system has its own (<see cref="GamesSortFor"/>).</summary>
+    public GamesOrdering GamesSort { get; init; }
+
+    /// <summary>A system's games' order: its own <c>games_sort</c> and <c>games_sort_order</c> where it sets them, else these settings'.</summary>
+    public GamesOrdering GamesSortFor(SystemConfig? system) =>
+        new(system?.GamesSort ?? GamesSort.Sort, system?.GamesSortOrder ?? GamesSort.Order);
+}
+
+/// <summary>What the systems are sorted by (<c>[display] systems_sort</c>). Ties are broken by name, A to Z.</summary>
+public enum SystemSort
+{
+    /// <summary><c>"alphabetical"</c>: by name (the default).</summary>
+    Alphabetical,
+
+    /// <summary><c>"manufacturer"</c>: by manufacturer, then name.</summary>
+    Manufacturer,
+
+    /// <summary><c>"release_year"</c>: by the year it came out, then name.</summary>
+    ReleaseYear,
+
+    /// <summary><c>"manufacturer_year"</c>: by manufacturer, then the year it came out, then name.</summary>
+    ManufacturerYear,
+}
+
+/// <summary>What a system's games are sorted by (<c>[display] games_sort</c>). Ties are broken by title, A to Z.</summary>
+public enum GameSort
+{
+    /// <summary><c>"alphabetical"</c>: by title (the default).</summary>
+    Alphabetical,
+
+    /// <summary><c>"last_played"</c>: by when it was last played; games never played come last either way.</summary>
+    LastPlayed,
+
+    /// <summary><c>"play_time"</c>: by the time spent playing it (a game never played has none).</summary>
+    PlayTime,
+
+    /// <summary><c>"added"</c>: by when its file arrived in the ROM folder (the file's creation time).</summary>
+    Added,
+
+    /// <summary><c>"release_date"</c>: by its release date (scraped, or the user's); games without one come last either way.</summary>
+    ReleaseDate,
+}
+
+/// <summary><c>systems_sort_order</c> and <c>games_sort_order</c>.</summary>
+public enum SortOrder
+{
+    /// <summary><c>"ascending"</c>: A to Z, oldest first, least first (the default).</summary>
+    Ascending,
+
+    /// <summary><c>"descending"</c>: Z to A, newest first, most first.</summary>
+    Descending,
+}
+
+/// <summary>The systems' order: what they're sorted by, and which way.</summary>
+public readonly record struct SystemsOrdering(SystemSort Sort, SortOrder Order);
+
+/// <summary>A list of games' order: what they're sorted by, and which way.</summary>
+public readonly record struct GamesOrdering(GameSort Sort, SortOrder Order)
+{
+    /// <summary>The order changes when a game is played.</summary>
+    public bool FollowsPlays => Sort is GameSort.LastPlayed or GameSort.PlayTime;
+}
+
+/// <summary>The names config uses for the sorts and their orders.</summary>
+public static class Sorts
+{
+    public static IReadOnlyList<string> SystemsNames { get; } = ["alphabetical", "manufacturer", "release_year", "manufacturer_year"];
+
+    public static IReadOnlyList<string> GamesNames { get; } = ["alphabetical", "last_played", "play_time", "added", "release_date"];
+
+    public static IReadOnlyList<string> OrderNames { get; } = ["ascending", "descending"];
+
+    public static string Name(SystemSort sort) => SystemsNames[(int)sort];
+
+    public static string Name(GameSort sort) => GamesNames[(int)sort];
+
+    public static string Name(SortOrder order) => OrderNames[(int)order];
+
+    public static bool TryParse(string name, out SystemSort sort)
+    {
+        var index = Layouts.IndexOf(SystemsNames, name);
+        sort = (SystemSort)Math.Max(index, 0);
+        return index >= 0;
+    }
+
+    public static bool TryParse(string name, out GameSort sort)
+    {
+        var index = Layouts.IndexOf(GamesNames, name);
+        sort = (GameSort)Math.Max(index, 0);
+        return index >= 0;
+    }
+
+    public static bool TryParse(string name, out SortOrder order)
+    {
+        var index = Layouts.IndexOf(OrderNames, name);
+        order = (SortOrder)Math.Max(index, 0);
+        return index >= 0;
+    }
 }
 
 /// <summary>How the systems are shown (<c>[display] systems_layout</c>).</summary>
@@ -122,7 +224,7 @@ public static class Layouts
         return index >= 0;
     }
 
-    private static int IndexOf(IReadOnlyList<string> names, string name)
+    internal static int IndexOf(IReadOnlyList<string> names, string name)
     {
         for (var i = 0; i < names.Count; i++)
         {
@@ -189,6 +291,8 @@ public enum RomDirSource
 /// <param name="GamesLayout"><c>games_layout</c>: how this system's games are shown; null uses <c>[display] games_layout</c>.</param>
 /// <param name="GamesColumns"><c>games_columns</c>: the system's games grid's columns (0 automatic); null uses <c>[display] games_columns</c>.</param>
 /// <param name="GamesRows"><c>games_rows</c>: the rows of its games grid that fit the screen (0 automatic); null uses <c>[display] games_rows</c>.</param>
+/// <param name="GamesSort"><c>games_sort</c>: what its games are sorted by; null uses <c>[display] games_sort</c>.</param>
+/// <param name="GamesSortOrder"><c>games_sort_order</c>: which way; null uses <c>[display] games_sort_order</c>.</param>
 public sealed record SystemConfig(
     string Id,
     string Name,
@@ -208,7 +312,9 @@ public sealed record SystemConfig(
     bool SteamStore = false,
     int? GamesColumns = null,
     int? GamesRows = null,
-    GamesLayout? GamesLayout = null);
+    GamesLayout? GamesLayout = null,
+    GameSort? GamesSort = null,
+    SortOrder? GamesSortOrder = null);
 
 /// <summary>An <c>[emulators.&lt;id&gt;]</c> entry.</summary>
 /// <param name="Executable">Expanded absolute path, with no placeholders left.</param>
