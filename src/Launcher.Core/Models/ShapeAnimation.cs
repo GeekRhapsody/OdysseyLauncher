@@ -187,7 +187,8 @@ public sealed class ShapeAnimation
 
     /// <summary>
     /// The axis flips (a rotation by a half turn, or none) that take the first frame onto the OBJ, or null if none
-    /// does. ps2iodb's OBJs are the PS2's frame turned about Z (x and y negated), since the PS2's y points down.
+    /// does. ps2iodb's OBJs are the PS2's frame turned about Z (x and y negated), since the PS2's y points down, and
+    /// the converter turns them about Y as well to face +Z, so the PS2's frame reaches the model turned about X.
     /// </summary>
     private static Vector3? AxesOf(float[] first, IReadOnlyList<Vector3> positions)
     {

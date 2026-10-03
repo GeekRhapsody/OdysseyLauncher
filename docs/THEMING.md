@@ -334,7 +334,7 @@ Blender 4.x's glTF exporter produces everything the launcher needs.
 | Animation | tick **Animation**; mode **Actions** (each action becomes a clip named after it) |
 | Compression | **off** (Draco isn't supported) |
 
-**Other formats:** users can import a Wavefront OBJ model (a zip of the `.obj`, its `.mtl` and its textures) as a game's own model. The launcher converts it to glTF, keeping the material names, so an OBJ material named `cover` is still a slot. OBJ has no clips, with one exception: a PS2 save icon converted to OBJ with its shape animation beside it (`ICON.ICO.obj` and `ICON.ICO.anim`, as the PS2 icon database's zips have them) gets a `focused` clip, so it animates when it's selected. For a theme, export `.glb` from Blender.
+**Other formats:** users can import a Wavefront OBJ model (a zip of the `.obj`, its `.mtl` and its textures) as a game's own model. The launcher converts it to glTF, keeping the material names, so an OBJ material named `cover` is still a slot. OBJ has no clips, with one exception: a PS2 save icon converted to OBJ with its shape animation beside it (`ICON.ICO.obj` and `ICON.ICO.anim`, as the PS2 icon database's zips have them) gets a `focused` clip, so it animates when it's selected. Those icons face away from the viewer as exported, so the launcher turns them round; any other OBJ must face +Z, as Blender exports it. For a theme, export `.glb` from Blender.
 
 ## 10. Testing a theme
 

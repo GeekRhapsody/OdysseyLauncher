@@ -16,8 +16,9 @@ public sealed record ConvertedModelFile(byte[]? Glb, IReadOnlyList<string> Error
 /// in it is extracted, so its paths can't write anywhere. OBJ's axes are glTF's (+Y up, the front facing +Z, as
 /// Blender exports them); faces are triangulated as fans; missing normals are computed (smoothed within an
 /// <c>s</c> group, flat otherwise); texture coordinates are flipped to glTF's top-left origin. Materials keep their
-/// names, so one named <c>cover</c> or <c>screenshot</c> is a media slot. A PS2 save icon's shape animation beside
-/// the OBJ (<c>ICON.ICO.anim</c> for <c>ICON.ICO.obj</c>, <see cref="ShapeAnimation"/>) becomes morph targets and a
+/// names, so one named <c>cover</c> or <c>screenshot</c> is a media slot. A PS2 save icon (an <c>.anim</c> or an
+/// <c>iconsys.json</c> beside the OBJ) faces -Z, so it's turned a half turn about Y; its shape animation
+/// (<c>ICON.ICO.anim</c> for <c>ICON.ICO.obj</c>, <see cref="ShapeAnimation"/>) becomes morph targets and a
 /// <c>focused</c> clip. Never throws for a bad file.
 /// </summary>
 public static class ObjConverter
@@ -265,8 +266,18 @@ public static class ObjConverter
             gltfMaterials[m] = AddMaterial(builder, materials[m]);
         }
 
+        // A PS2 save icon (ps2iodb's zips: an .anim beside the OBJ, an iconsys.json) is the PS2's frame turned a half
+        // turn about Z, so it stands up but faces -Z, as the PS2 browser's camera looks along +Z. A half turn about Y
+        // faces it +Z (A7) without mirroring it; the animation's frames are matched to the turned OBJ.
         var animationName = Path.ChangeExtension(objName, ".anim");
-        var animation = open(animationName) is { } animationFile
+        var animationBytes = open(animationName);
+        if (animationBytes is not null || open(FolderOf(objName) + "iconsys.json") is not null)
+        {
+            TurnAboutY(positions);
+            TurnAboutY(normals);
+        }
+
+        var animation = animationBytes is { } animationFile
             ? ShapeAnimation.Read(animationFile, positions, Path.GetFileName(animationName), warnings)
             : null;
 
@@ -495,6 +506,15 @@ public static class ObjConverter
         }
 
         return new GltfPrimitive([.. outPositions], [.. outNormals], hasUvs ? [.. outUvs] : null, [.. indices], gltfMaterial, targets);
+    }
+
+    /// <summary>A half turn about +Y: x and z negated. A rotation, so faces keep their winding.</summary>
+    private static void TurnAboutY(List<Vector3> vectors)
+    {
+        for (var i = 0; i < vectors.Count; i++)
+        {
+            vectors[i] = new Vector3(-vectors[i].X, vectors[i].Y, -vectors[i].Z);
+        }
     }
 
     /// <summary>Newell's method, so a polygon that isn't quite flat still gets a sensible normal.</summary>

@@ -183,7 +183,8 @@ public sealed class ModelProcessingTests : IDisposable
         Assert.Equal(1, ModelInspector.Inspect(converted.Glb!, ModelKind.PerGame).Report.Textures);
     }
 
-    // A PS2 save icon as ps2iodb exports it: the OBJ is the first frame turned about Z (the PS2's y points down).
+    // A PS2 save icon as ps2iodb exports it: the OBJ is the first frame turned about Z (the PS2's y points down);
+    // the converter turns it about Y as well.
     private const string IconObj = "v 0 0 0\nv -1 0 0\nv 0 -1 0\nvt 0 0\nvt 1 0\nvt 0 1\nf 1/1 2/2 3/3\n";
 
     // Three frames over 20 frames at half speed: the second moves the first vertex, the third is the first again.
@@ -210,19 +211,41 @@ public sealed class ModelProcessingTests : IDisposable
         var json = file!.Json;
         var target = (int)json["meshes"]![0]!["primitives"]![0]!["targets"]![0]!["POSITION"]!;
         var offsets = Floats(file, target);
-        Assert.Equal([0f, 0, 2, 0, 0, 0, 0, 0, 0], offsets);    // z is kept when x and y are turned
+        Assert.Equal([0f, 0, -2, 0, 0, 0, 0, 0, 0], offsets);   // the PS2's frame turned about X: z negated
 
         var sampler = json["animations"]![0]!["samplers"]![0]!;
         Assert.Equal("weights", (string)json["animations"]![0]!["channels"]![0]!["target"]!["path"]!);
         Assert.Equal([0f, 1f / 3, 0.5f, 2f / 3], Floats(file, (int)sampler["input"]!));    // frames at 30 Hz (60 at half speed)
         Assert.Equal([0f, 1, 0, 0], Floats(file, (int)sampler["output"]!));
+    }
 
-        static float[] Floats(GlbFile file, int accessor)
+    [Fact]
+    public void A_ps2_icon_is_turned_about_y_to_face_the_viewer_and_any_other_obj_is_not()
+    {
+        // ps2iodb's icons face -Z: an .anim or an iconsys.json beside the OBJ marks one.
+        const string Facing = "v 0 0 0\nv 1 0 1\nv 0 1 0\nvn 0 0 -1\nf 1//1 2//1 3//1\n";
+        float[] turned = [0, 0, 0, -1, 0, -1, 0, 1, 0];
+
+        Assert.Equal(turned, PositionsAndNormal(Zip(("BASLUS-21693/list.ico.obj", Text(Facing)), ("BASLUS-21693/iconsys.json", Text("{}")))).Positions);
+        Assert.Equal([0f, 0, 1], PositionsAndNormal(Zip(("list.ico.obj", Text(Facing)), ("iconsys.json", Text("{}")))).Normal);
+        Assert.Equal(turned, PositionsAndNormal(Zip(("ICON.ICO.obj", Text(Facing)), ("ICON.ICO.anim", Text("{}")))).Positions);
+        var plain = PositionsAndNormal(Zip(("model.obj", Text(Facing))));
+        Assert.Equal([0f, 0, 0, 1, 0, 1, 0, 1, 0], plain.Positions);
+        Assert.Equal([0f, 0, -1], plain.Normal);
+
+        (float[] Positions, float[] Normal) PositionsAndNormal(byte[] zip)
         {
-            var view = (int)file.Json["accessors"]![accessor]!["bufferView"]!;
-            var bytes = ModelInspector.ViewBytes(file, view).ToArray();
-            return [.. Enumerable.Range(0, bytes.Length / 4).Select(i => BitConverter.ToSingle(bytes, i * 4))];
+            Assert.True(GlbFile.TryRead(ObjConverter.FromZip(new MemoryStream(zip), null, Scratch).Glb, out var file, out _));
+            var attributes = file!.Json["meshes"]![0]!["primitives"]![0]!["attributes"]!;
+            return (Floats(file, (int)attributes["POSITION"]!), Floats(file, (int)attributes["NORMAL"]!)[..3]);
         }
+    }
+
+    private static float[] Floats(GlbFile file, int accessor)
+    {
+        var view = (int)file.Json["accessors"]![accessor]!["bufferView"]!;
+        var bytes = ModelInspector.ViewBytes(file, view).ToArray();
+        return [.. Enumerable.Range(0, bytes.Length / 4).Select(i => BitConverter.ToSingle(bytes, i * 4))];
     }
 
     [Fact]
