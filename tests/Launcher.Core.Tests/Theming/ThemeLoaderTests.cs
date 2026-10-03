@@ -633,23 +633,26 @@ public sealed class ThemeLoaderTests
 
         Assert.Empty(result.Diagnostics);
         var console = result.Theme!;
-        Assert.Equal(("console", "Console", ThemeOrigin.BuiltIn), (console.Id, console.Name, console.Origin));
+        Assert.Equal(("console", ThemeOrigin.BuiltIn), (console.Id, console.Origin));
         Assert.All(console.Systems.Values, system => Assert.True(File.Exists(console.PathOf(system.Model!)), system.Id));
+        Assert.All(console.Templates.Values, template => Assert.True(File.Exists(console.PathOf(template.Model)), template.Id));
 
-        // Its cards fall back to the base's slab, and its games to the base's templates, but the Mega Drive's games,
-        // which are on its own cartridge.
+        // It builds on the base: it sets no default card or game template of its own, so what it doesn't name resolves
+        // to the base's. Which systems and templates it names is the theme's to change, so none is checked by name.
         Assert.Null(console.Defaults.SystemModel);
         Assert.Null(console.Defaults.GameTemplate);
         var baseTheme = ThemeFixtures.Base;
         var config = new ConfigLoader().Load(new ConfigSources { HomeDir = "C:/home", ConfigDir = "C:/config", FileExists = null }).Config;
         var resolver = new ModelResolver(console, baseTheme, UserModels.None("C:/config"), config, "C:/data");
-        Assert.Equal(console.PathOf("models/systems/gb.glb"), resolver.SystemModels("gb")[0].Path);
-        Assert.Equal(baseTheme.PathOf(baseTheme.Defaults.SystemModel!), resolver.SystemModels("saturn")[0].Path);
-        var ps2 = resolver.GameTemplates("ps2")[0];
-        Assert.Equal((ModelLevel.BaseSystem, "memory-card"), (ps2.Level, ps2.Template!.ThemeId));
-        Assert.True(File.Exists(ps2.Path));
-        var megadrive = resolver.GameTemplates("megadrive")[0];
-        Assert.Equal((ModelLevel.ThemeSystem, "console", "megadrive_cartridge"), (megadrive.Level, megadrive.Template!.ThemeId, megadrive.Template.Id));
-        Assert.Equal(console.PathOf("models/templates/megadrive_cartridge.glb"), megadrive.Path);
+        foreach (var system in config.Systems.Select(s => s.Id))
+        {
+            var card = resolver.SystemModels(system)[0];
+            Assert.True(File.Exists(card.Path), $"{system}: {card.Path}");
+            var game = resolver.GameTemplates(system)[0];
+            Assert.True(File.Exists(game.Path), $"{system}: {game.Path}");
+        }
+
+        var unnamed = config.Systems.Select(s => s.Id).First(system => !console.Systems.ContainsKey(system));
+        Assert.Equal(baseTheme.PathOf(baseTheme.Defaults.SystemModel!), resolver.SystemModels(unnamed)[0].Path);
     }
 }
