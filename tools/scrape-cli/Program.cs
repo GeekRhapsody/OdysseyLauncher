@@ -432,6 +432,17 @@ async Task<int> ScreenScraperSystems()
         }
     }
 
+    // What no system uses, so a system without an id (or with a wrong one) can be given one.
+    var used = loaded.Config.Systems.Select(system => system.ScreenScraperId).OfType<int>().ToHashSet();
+    Console.WriteLine("Not used by any system:");
+    foreach (var (id, names) in systems)
+    {
+        if (!used.Contains(id))
+        {
+            Console.WriteLine($"  {id,4}  {string.Join(" / ", names)}");
+        }
+    }
+
     return problems == 0 ? 0 : 1;
 }
 
