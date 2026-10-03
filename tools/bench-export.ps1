@@ -49,6 +49,12 @@ if (-not $SkipExport) {
         $output | ForEach-Object { Write-Host "    $_" }
         throw "Export failed with exit code $code."
     }
+
+    # The app's themes go beside the executable, not in the PCK (the odyssey_export addon copies them).
+    if (-not (Test-Path (Join-Path (Split-Path -Parent $exe) 'themes\memory-card\theme.toml'))) {
+        $output | ForEach-Object { Write-Host "    $_" }
+        throw "The export has no themes folder: the odyssey_export addon didn't run (build the C# solution, then export again)."
+    }
 }
 
 if (-not (Test-Path $exe)) {

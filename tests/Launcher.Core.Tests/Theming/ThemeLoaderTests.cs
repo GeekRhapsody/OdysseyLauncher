@@ -24,7 +24,7 @@ public sealed class ThemeLoaderTests
     [Fact]
     public void The_built_in_theme_loads_cleanly_with_a_look_and_colour_for_every_built_in_system_and_only_templates_it_has()
     {
-        var result = ThemeFixtures.LoadResult(ThemeFixtures.BuiltInFolder);
+        var result = ThemeFixtures.LoadResult(ThemeFixtures.BaseFolder);
 
         Assert.Empty(result.Diagnostics);
         var theme = result.Theme!;
@@ -132,7 +132,7 @@ public sealed class ThemeLoaderTests
         var error = Single(result, Severity.Error);
         Assert.Equal(("look.background.top_left", 4), (error.Key, error.Line));
         Assert.Contains("'#12345' isn't a colour", error.Message, StringComparison.Ordinal);
-        Assert.Equal(ThemeFixtures.BuiltIn.Look.Background, result.Theme!.Look.Background);
+        Assert.Equal(ThemeFixtures.Base.Look.Background, result.Theme!.Look.Background);
     }
 
     [Fact]
@@ -176,8 +176,8 @@ public sealed class ThemeLoaderTests
     public void The_built_in_theme_itself_must_have_a_complete_look()
     {
         var result = ThemeLoader.Load(
-            new ThemeSource("memory-card", new ConfigFile("built-in/theme.toml", "name = \"Broken\"\n"), ThemeOrigin.BuiltIn, "res://themes/memory-card", new FakeThemeFiles()),
-            fallback: null);
+            new ThemeSource("memory-card", new ConfigFile("built-in/theme.toml", "name = \"Broken\"\n"), ThemeOrigin.BuiltIn, "C:/app/themes/memory-card", new FakeThemeFiles()),
+            baseTheme: null);
 
         Assert.Null(result.Theme);
         Assert.Equal("look", Single(result, Severity.Error).Key);
@@ -455,14 +455,197 @@ public sealed class ThemeLoaderTests
     [Fact]
     public void Theme_paths_resolve_inside_the_theme_folder()
     {
-        var builtIn = ThemeFixtures.BuiltIn;
-        var template = builtIn.Templates[builtIn.Defaults.GameTemplate!];
-        Assert.Equal($"{ThemeFixtures.BuiltInFolder}/{template.Model}", builtIn.PathOf(template.Model));
+        var baseTheme = ThemeFixtures.Base;
+        var template = baseTheme.Templates[baseTheme.Defaults.GameTemplate!];
+        Assert.Equal(Path.Combine(ThemeFixtures.BaseFolder, template.Model.Replace('/', Path.DirectorySeparatorChar)), baseTheme.PathOf(template.Model));
+        Assert.True(File.Exists(baseTheme.PathOf(template.Model)));
 
         var user = ThemeFixtures.Load(ThemeFixtures.SlotShowcaseFolder);
         Assert.Equal(
             Path.Combine(ThemeFixtures.SlotShowcaseFolder, "models", "templates", "showcase_case.glb"),
             user.PathOf(user.Templates["showcase_case"].Model));
         Assert.True(File.Exists(user.PathOf(user.Templates["showcase_case"].Model)));
+    }
+
+    // ---- What a theme leaves out is the base theme's ------------------------------------------------
+
+    /// <summary>
+    /// A stand-in base theme: a box shaped by its art whose back shows a screenshot and whose cover is drawn whole, and
+    /// a slower cross-fade.
+    /// </summary>
+    private static Theme InlineBase => ThemeFixtures.ParseBase("""
+        format = 1
+        name = "Base"
+        look_transition_ms = 750
+
+        [look.background]
+        top_left = "#1B1F4A"
+        top_right = "#1B1F4A"
+        bottom_left = "#04040C"
+        bottom_right = "#0B0B24"
+
+        [look.ambient]
+        colour = "#303038"
+
+        [[look.lights]]
+        direction = [-0.5, -0.4, -0.75]
+
+        [defaults]
+        game_template = "box"
+
+        [templates.box]
+        model = "models/box.glb"
+        shape = "media"
+
+        [templates.box.slots]
+        back = ["screenshot", "generated"]
+
+        [templates.box.fit]
+        cover = "whole"
+
+        [templates.jewel_case]
+        model = "models/jewel_case.glb"
+        """, new FakeThemeFiles().Model("models/box.glb", "cover", "back", "spine", "case").Model("models/jewel_case.glb", "cover", "case"));
+
+    [Fact]
+    public void A_theme_can_name_the_base_themes_templates()
+    {
+        var result = ThemeFixtures.Parse("""
+            name = "Borrows"
+
+            [defaults]
+            game_template = "jewel_case"
+
+            [systems.snes]
+            game_template = "box"
+            """, baseTheme: InlineBase);
+
+        Assert.Empty(result.Diagnostics);
+        var theme = result.Theme!;
+        Assert.Equal("jewel_case", theme.Defaults.GameTemplate);
+        Assert.Equal("box", theme.Systems["snes"].GameTemplate);
+
+        // They stay the base's: nothing is copied into the theme.
+        Assert.Empty(theme.Templates);
+    }
+
+    [Fact]
+    public void A_template_id_neither_theme_has_is_an_error_suggesting_from_both()
+    {
+        var result = ThemeFixtures.Parse("""
+            name = "Typo"
+
+            [systems.snes]
+            game_template = "jewel_cas"
+            """, baseTheme: InlineBase);
+
+        var error = Single(result, Severity.Error);
+        Assert.Equal("systems.snes.game_template", error.Key);
+        Assert.Contains("no template 'jewel_cas' in this theme or the base theme (did you mean 'jewel_case'?)", error.Message, StringComparison.Ordinal);
+        Assert.Null(result.Theme!.Systems["snes"].GameTemplate);
+    }
+
+    [Fact]
+    public void A_template_with_a_base_templates_id_extends_it_key_by_key()
+    {
+        var result = ThemeFixtures.Parse("""
+            name = "Extends"
+
+            [templates.box.slots]
+            spine = ["logo", "generated"]
+
+            [templates.box.fit]
+            cover = "crop"
+            """, baseTheme: InlineBase, id: "extends");
+
+        Assert.Empty(result.Diagnostics);
+        var box = result.Theme!.Templates["box"];
+
+        // The model and shape are the base's; the back's chain is the base's, the spine's the theme's; the cover is
+        // cropped again.
+        Assert.Equal(("models/box.glb", true, true, "extends"), (box.Model, box.ModelFromBase, box.ShapeFromMedia, box.ThemeId));
+        Assert.Equal([SlotSource.Media(MediaSlots.Screenshot), SlotSource.Generated], box.ChainFor(MediaSlots.Back).Sources);
+        Assert.Equal([SlotSource.Media(MediaSlots.Logo), SlotSource.Generated], box.ChainFor(MediaSlots.Spine).Sources);
+        Assert.False(box.ShowsWhole(MediaSlots.Cover));
+    }
+
+    [Fact]
+    public void A_template_extending_the_bases_with_its_own_model_keeps_the_rest_of_the_base_template()
+    {
+        var result = ThemeFixtures.Parse("""
+            name = "Own model"
+
+            [templates.box]
+            model = "my_box.glb"
+            shape = "model"
+            """, Box().Model("my_box.glb", "cover", "back", "case"), baseTheme: InlineBase);
+
+        Assert.Empty(result.Diagnostics);
+        var box = result.Theme!.Templates["box"];
+        Assert.Equal(("my_box.glb", false, false), (box.Model, box.ModelFromBase, box.ShapeFromMedia));
+        Assert.True(box.ShowsWhole(MediaSlots.Cover));
+        Assert.Equal([SlotSource.Media(MediaSlots.Screenshot), SlotSource.Generated], box.ChainFor(MediaSlots.Back).Sources);
+    }
+
+    [Fact]
+    public void A_new_template_still_needs_a_model()
+    {
+        var result = ThemeFixtures.Parse("""
+            name = "New"
+
+            [templates.tall_box.slots]
+            back = ["screenshot"]
+            """, baseTheme: InlineBase);
+
+        Assert.Equal("templates.tall_box.model", Single(result, Severity.Error).Key);
+        Assert.Empty(result.Theme!.Templates);
+    }
+
+    [Fact]
+    public void A_bad_model_on_an_extending_template_leaves_it_out_so_the_base_template_is_used()
+    {
+        var result = ThemeFixtures.Parse("""
+            name = "Bad"
+
+            [templates.box]
+            model = "missing.glb"
+
+            [systems.snes]
+            game_template = "box"
+            """, baseTheme: InlineBase);
+
+        Assert.Equal("templates.box.model", Single(result, Severity.Error).Key);
+        Assert.Empty(result.Theme!.Templates);
+        Assert.Equal("box", result.Theme.Systems["snes"].GameTemplate);
+    }
+
+    [Fact]
+    public void The_cross_fade_time_is_the_base_themes_unless_the_theme_sets_one()
+    {
+        Assert.Equal(750, ThemeFixtures.Parse("name = \"Plain\"\n", baseTheme: InlineBase).Theme!.LookTransitionMs);
+        Assert.Equal(200, ThemeFixtures.Parse("name = \"Quick\"\nlook_transition_ms = 200\n", baseTheme: InlineBase).Theme!.LookTransitionMs);
+    }
+
+    [Fact]
+    public void The_console_theme_loads_cleanly_over_the_base_and_takes_the_rest_from_it()
+    {
+        var result = ThemeFixtures.LoadResult(ThemeFixtures.ConsoleFolder);
+
+        Assert.Empty(result.Diagnostics);
+        var console = result.Theme!;
+        Assert.Equal(("console", "Console", ThemeOrigin.BuiltIn), (console.Id, console.Name, console.Origin));
+        Assert.All(console.Systems.Values, system => Assert.True(File.Exists(console.PathOf(system.Model!)), system.Id));
+
+        // Its cards fall back to the base's slab, and its games to the base's templates.
+        Assert.Null(console.Defaults.SystemModel);
+        Assert.Null(console.Defaults.GameTemplate);
+        var baseTheme = ThemeFixtures.Base;
+        var config = new ConfigLoader().Load(new ConfigSources { HomeDir = "C:/home", ConfigDir = "C:/config", FileExists = null }).Config;
+        var resolver = new ModelResolver(console, baseTheme, UserModels.None("C:/config"), config, "C:/data");
+        Assert.Equal(console.PathOf("models/systems/gb.glb"), resolver.SystemModels("gb")[0].Path);
+        Assert.Equal(baseTheme.PathOf(baseTheme.Defaults.SystemModel!), resolver.SystemModels("saturn")[0].Path);
+        var megadrive = resolver.GameTemplates("megadrive")[0];
+        Assert.Equal((ModelLevel.BaseSystem, "memory-card"), (megadrive.Level, megadrive.Template!.ThemeId));
+        Assert.True(File.Exists(megadrive.Path));
     }
 }

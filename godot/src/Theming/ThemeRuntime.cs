@@ -7,7 +7,6 @@ using Launcher.App.Screens;
 using Launcher.Core.Config;
 using Launcher.Core.Platform;
 using Launcher.Core.Theming;
-using ConfigFile = Launcher.Core.Config.ConfigFile;
 using Theme = Launcher.Core.Theming.Theme;
 using ThemeLook = Launcher.Core.Theming.Look;
 
@@ -54,55 +53,19 @@ public sealed class ThemePlan
 
     public Dictionary<string, IReadOnlyList<ModelCandidate>> CardCandidates { get; } = new(StringComparer.Ordinal);
 
-    /// <summary>
-    /// The built-in themes' manifests (<c>res://themes/&lt;id&gt;/theme.toml</c>), read through Godot's file access so it
-    /// works from the PCK. Thread pool only: it does file I/O.
-    /// </summary>
-    public static List<ThemeSource> BuiltInSources()
-    {
-        var sources = new List<ThemeSource>();
-        const string Root = "res://" + ThemeLoader.FolderName;
-        foreach (var id in DirAccess.GetDirectoriesAt(Root))
-        {
-            var folder = $"{Root}/{id}";
-            var manifest = $"{folder}/{ThemeLoader.ManifestFileName}";
-            if (!FileAccess.FileExists(manifest))
-            {
-                continue;
-            }
-
-            sources.Add(new ThemeSource(id, new ConfigFile($"built-in/themes/{id}/{ThemeLoader.ManifestFileName}", FileAccess.GetFileAsString(manifest)),
-                ThemeOrigin.BuiltIn, folder, new BuiltInThemeFiles()));
-        }
-
-        return sources;
-    }
-
     /// <summary>Loads and resolves the theme <paramref name="themeId"/> names. Thread pool only.</summary>
-    /// <param name="builtIn">The built-in theme, if it's already loaded (at boot, while config loads).</param>
-    public static ThemePlan Build(AppConfig config, PlatformPaths paths, string themeId, IReadOnlyList<ThemeSource> builtIns, ThemeLoadResult? builtIn = null)
+    /// <param name="builtIns">The app's own themes (<see cref="ThemeCatalog.BuiltInSources"/>), read once at boot.</param>
+    /// <param name="baseTheme">The base theme, if it's already loaded (at boot, while config loads).</param>
+    /// <param name="allowBase">Whether <paramref name="themeId"/> may be the base theme alone (<c>--theme=memory-card</c>).</param>
+    public static ThemePlan Build(
+        AppConfig config, PlatformPaths paths, string themeId, IReadOnlyList<ThemeSource> builtIns, ThemeLoadResult? baseTheme = null, bool allowBase = false)
     {
         var diagnostics = new List<Diagnostic>();
         var users = ThemeCatalog.UserSources(System.IO.Path.Combine(paths.ConfigDir, ThemeLoader.FolderName), diagnostics);
-        var themes = ThemeCatalog.Load(builtIns, users, themeId, diagnostics, builtIn);
-        var resolver = new ModelResolver(themes.Active, themes.BuiltIn, UserModels.Find(paths.ConfigDir), config, paths.DataDir);
+        var themes = ThemeCatalog.Load(builtIns, users, themeId, diagnostics, baseTheme, allowBase);
+        var resolver = new ModelResolver(themes.Active, themes.Base, UserModels.Find(paths.ConfigDir), config, paths.DataDir);
         diagnostics.AddRange(resolver.Diagnostics);
         return new ThemePlan(themes, resolver, diagnostics, config, paths);
-    }
-
-    /// <summary>
-    /// A built-in theme in the PCK. Its models aren't inspected or checked for here (a missing one fails to load and
-    /// the next candidate is used): the committed built-in theme is checked against its files by Core's tests.
-    /// </summary>
-    private sealed class BuiltInThemeFiles : IThemeFiles
-    {
-        public bool Exists(string relativePath) => true;
-
-        public IReadOnlyList<string>? MaterialsOf(string relativePath, out string? error)
-        {
-            error = null;
-            return null;
-        }
     }
 }
 
@@ -169,7 +132,7 @@ public sealed class ThemeRuntime
         Collect(Plan.CardCandidates, _cardChoice, true, _cardTemplates, _cardTemplateOf);
         if (_gameTemplates.Count == 0 || _cardTemplates.Count == 0)
         {
-            throw new InvalidOperationException($"No model of the theme '{Plan.Active.Id}' or the built-in theme could be loaded (see the warnings above).");
+            throw new InvalidOperationException($"No model of the theme '{Plan.Active.Id}' or the base theme could be loaded (see the warnings above).");
         }
 
         Layout = new SlotLayout(_gameTemplates);

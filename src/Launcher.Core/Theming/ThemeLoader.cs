@@ -16,20 +16,27 @@ public interface IThemeFiles
 }
 
 /// <summary>A theme folder on disk. Does file I/O: never on the main thread.</summary>
-public sealed class FolderThemeFiles(string folder) : IThemeFiles
+/// <param name="inspect">
+/// Whether its models' materials are read when the manifest loads: false for a built-in theme, whose models Core's
+/// tests check instead.
+/// </param>
+public sealed class FolderThemeFiles(string folder, bool inspect = true) : IThemeFiles
 {
     public string Folder { get; } = folder;
 
     public bool Exists(string relativePath) => File.Exists(PathOf(relativePath));
 
-    public IReadOnlyList<string>? MaterialsOf(string relativePath, out string? error) =>
-        GlbInfo.TryReadMaterials(PathOf(relativePath), out var materials, out error) ? materials : null;
+    public IReadOnlyList<string>? MaterialsOf(string relativePath, out string? error)
+    {
+        error = null;
+        return inspect && GlbInfo.TryReadMaterials(PathOf(relativePath), out var materials, out error) ? materials : null;
+    }
 
     private string PathOf(string relativePath) => Path.Combine(Folder, relativePath.Replace('/', Path.DirectorySeparatorChar));
 }
 
 /// <summary>One theme to load: its manifest's text and where its files are.</summary>
-/// <param name="Folder">For <see cref="Theme.Folder"/>: <c>res://themes/&lt;id&gt;</c> or an absolute path.</param>
+/// <param name="Folder">For <see cref="Theme.Folder"/>: an absolute path.</param>
 public sealed record ThemeSource(string Id, ConfigFile Manifest, ThemeOrigin Origin, string Folder, IThemeFiles Files);
 
 /// <param name="Theme">Null when the manifest can't be used at all (a syntax error, an unsupported format, or no usable look).</param>
@@ -38,7 +45,13 @@ public sealed record ThemeLoadResult(Theme? Theme, IReadOnlyList<Diagnostic> Dia
 /// <summary>
 /// Loads and validates a theme manifest (<c>themes/&lt;id&gt;/theme.toml</c>, A6). Like config, it never throws for a
 /// user mistake: every problem is a diagnostic naming the file, line, column and key, and a bad entry is left out
-/// (a template, a system's model) or falls back (a look block to the built-in theme's).
+/// (a template, a system's model) or falls back (a look block to the base theme's).
+/// <para>
+/// Every theme builds on the base theme (memory-card, <see cref="ThemeCatalog.BaseId"/>): what it leaves out is the
+/// base's. Its look blocks and <c>look_transition_ms</c> default to the base's; <c>game_template</c> may name one of
+/// the base's templates; and a <c>[templates.&lt;id&gt;]</c> with a base template's id extends it, each key it leaves
+/// out (the model, the shape, a slot's chain or fit) being the base's.
+/// </para>
 /// </summary>
 public static class ThemeLoader
 {
@@ -59,11 +72,11 @@ public static class ThemeLoader
     private static readonly string[] SystemKeys = ["model", "tint", "game_template", "colour", "look"];
     private static readonly string[] SourceKeywords = ["generated", "authored"];
 
-    /// <param name="fallback">
-    /// The look to use for blocks the theme leaves out or gets wrong: the built-in theme's. Null when loading the
-    /// built-in theme itself, whose look must be complete.
+    /// <param name="baseTheme">
+    /// The base theme, for whatever the theme leaves out or gets wrong. Null when loading the base theme itself, whose
+    /// look must be complete.
     /// </param>
-    public static ThemeLoadResult Load(ThemeSource source, Look? fallback)
+    public static ThemeLoadResult Load(ThemeSource source, Theme? baseTheme)
     {
         ArgumentNullException.ThrowIfNull(source);
         var diagnostics = new List<Diagnostic>();
@@ -75,14 +88,19 @@ public static class ThemeLoader
             return new ThemeLoadResult(null, diagnostics);
         }
 
-        var run = new Run(source, new TomlValidator(diagnostics));
-        return new ThemeLoadResult(run.Read(root, fallback), diagnostics);
+        var run = new Run(source, baseTheme, new TomlValidator(diagnostics));
+        return new ThemeLoadResult(run.Read(root), diagnostics);
     }
 
-    private sealed class Run(ThemeSource source, TomlValidator v)
+    private sealed class Run(ThemeSource source, Theme? baseTheme, TomlValidator v)
     {
-        public Theme? Read(TomlTableNode root, Look? fallback)
+        private static readonly Dictionary<string, GameTemplate> NoTemplates = new(StringComparer.Ordinal);
+
+        private IReadOnlyDictionary<string, GameTemplate> BaseTemplates => baseTheme?.Templates ?? NoTemplates;
+
+        public Theme? Read(TomlTableNode root)
         {
+            var fallback = baseTheme?.Look;
             v.WarnUnknownKeys(root, string.Empty, RootKeys);
             var errors = v.ErrorCount;
             v.CheckFormat(root, SupportedFormat);
@@ -98,12 +116,12 @@ public static class ThemeLoader
             }
 
             var author = v.String(root, string.Empty, "author");
-            var transition = (int?)v.Integer(root, string.Empty, "look_transition_ms", 0, 5000) ?? DefaultLookTransitionMs;
+            var transition = (int?)v.Integer(root, string.Empty, "look_transition_ms", 0, 5000) ?? baseTheme?.LookTransitionMs ?? DefaultLookTransitionMs;
 
             var lookTable = v.Table(root, string.Empty, "look");
             if (lookTable is null && fallback is null)
             {
-                v.Error(root, "look", "the built-in theme needs a [look] with a background, an ambient colour and lights");
+                v.Error(root, "look", "the base theme needs a [look] with a background, an ambient colour and lights");
                 return null;
             }
 
@@ -327,18 +345,27 @@ public static class ThemeLoader
                 }
 
                 v.WarnUnknownKeys(entry, prefix, TemplateKeys);
-                var model = ModelPath(entry, prefix, "model", required: true);
 
-                // A bad chain falls back to the slot's default chain; only a bad model leaves the template out.
-                var slots = new Dictionary<int, SlotChain>();
+                // A base template's id extends it: every key left out is the base's, the model included.
+                BaseTemplates.TryGetValue(id, out var extended);
+                var model = ModelPath(entry, prefix, "model", required: extended is null);
+                var modelFromBase = false;
+                if (model is null && extended is not null && !entry.Contains("model"))
+                {
+                    model = extended.Model;
+                    modelFromBase = true;
+                }
+
+                // A bad chain falls back to the slot's default chain (or the base's); only a bad model leaves the template out.
+                var slots = extended is null ? new Dictionary<int, SlotChain>() : new Dictionary<int, SlotChain>(extended.Slots);
                 var beforeSlots = v.ErrorCount;
                 if (v.Table(entry, prefix, "slots") is { } slotsTable)
                 {
                     ReadSlots(slotsTable, prefix + ".slots", slots);
                 }
 
-                // A bad fit leaves its slot cropped, as a bad chain does.
-                var whole = new HashSet<int>();
+                // A bad fit leaves its slot as it was (cropped, or the base's), as a bad chain does.
+                var whole = extended?.WholeSlots is { } baseWhole ? new HashSet<int>(baseWhole) : new HashSet<int>();
                 if (v.Table(entry, prefix, "fit") is { } fitTable)
                 {
                     ReadFit(fitTable, prefix + ".fit", whole);
@@ -346,11 +373,13 @@ public static class ThemeLoader
 
                 var slotErrors = v.ErrorCount - beforeSlots;
 
-                // A bad shape falls back to the model's own, as a bad chain does.
+                // A bad shape falls back to the model's own (or the base's), as a bad chain does.
                 var beforeShape = v.ErrorCount;
-                var shapeFromMedia = ReadShape(entry, prefix);
+                var shapeFromMedia = extended is null || entry.Contains("shape") ? ReadShape(entry, prefix) : extended.ShapeFromMedia;
                 var shapeErrors = v.ErrorCount - beforeShape;
-                if (model is not null && CheckMaterials(entry, prefix, model, slots) is { } present)
+
+                // The base's model is checked by Core's tests, not here.
+                if (model is not null && !modelFromBase && CheckMaterials(entry, prefix, model, slots) is { } present)
                 {
                     if (shapeFromMedia && !present[MediaSlots.Cover])
                     {
@@ -375,7 +404,7 @@ public static class ThemeLoader
                     continue;
                 }
 
-                templates[id] = new GameTemplate(id, model, slots, shapeFromMedia, whole.Count > 0 ? whole : null);
+                templates[id] = new GameTemplate(id, model, slots, shapeFromMedia, whole.Count > 0 ? whole : null, source.Id, modelFromBase);
             }
 
             return templates;
@@ -476,7 +505,11 @@ public static class ThemeLoader
                 {
                     whole.Add(slot);
                 }
-                else if (fit is not null and not "crop")
+                else if (fit == "crop")
+                {
+                    whole.Remove(slot);
+                }
+                else if (fit is not null)
                 {
                     v.Error(node, key, $"unknown fit '{fit}'{TomlValidator.Suggest(fit, Fits)}: use \"crop\" (fill the face) or \"whole\" (fitted inside it)");
                 }
@@ -648,7 +681,7 @@ public static class ThemeLoader
                 return null;
             }
 
-            if (templates.ContainsKey(id))
+            if (templates.ContainsKey(id) || BaseTemplates.ContainsKey(id))
             {
                 return id;
             }
@@ -665,8 +698,9 @@ public static class ThemeLoader
                 return null;
             }
 
+            var known = templates.Keys.Concat(BaseTemplates.Keys).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToList();
             v.Error(node, prefix + ".game_template",
-                $"no template '{id}' in this theme{TomlValidator.Suggest(id, templates.Keys)}; the next model in line is used");
+                $"no template '{id}' in this theme or the base theme{TomlValidator.Suggest(id, known)}; the next model in line is used");
             return null;
         }
     }

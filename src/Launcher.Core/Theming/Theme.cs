@@ -46,12 +46,19 @@ public sealed record Look(LookBackground Background, LookAmbient Ambient, IReadO
 /// <c>[templates.&lt;id&gt;.fit]</c>: the slots whose art is drawn whole, fitted inside the face over its fallback (a
 /// screen showing a tall screenshot pillarboxed), rather than centre-cropped to fill it. Null for none.
 /// </param>
+/// <param name="ThemeId">The theme that declares the template (one extending a base template by its id declares its own).</param>
+/// <param name="ModelFromBase">
+/// <see cref="Model"/> is the base theme's (relative to its folder): the template extends a base template of the same
+/// id without a model of its own.
+/// </param>
 public sealed record GameTemplate(
     string Id,
     string Model,
     IReadOnlyDictionary<int, SlotChain> Slots,
     bool ShapeFromMedia = false,
-    IReadOnlySet<int>? WholeSlots = null)
+    IReadOnlySet<int>? WholeSlots = null,
+    string ThemeId = "",
+    bool ModelFromBase = false)
 {
     public SlotChain ChainFor(int slot) => Slots.TryGetValue(slot, out var chain) ? chain : SlotChain.Default(slot);
 
@@ -62,7 +69,7 @@ public sealed record GameTemplate(
 /// <summary>What a theme says about one system (<c>[systems.&lt;id&gt;]</c>).</summary>
 /// <param name="Model">The system card's <c>.glb</c>, relative to the theme's folder; null for the theme's default.</param>
 /// <param name="Tint">Whether the card's plain materials take the system's colour; null for the theme's default.</param>
-/// <param name="GameTemplate">A template id in the same theme; null for the theme's default.</param>
+/// <param name="GameTemplate">A template id in the same theme or the base theme; null for the theme's default.</param>
 /// <param name="Colour">The system's colour: its card's tint and its plain boxes' colour. Null when the theme has none.</param>
 /// <param name="Look">The look while the system's games are shown, already layered over the theme's look.</param>
 public sealed record ThemeSystem(string Id, string? Model, bool? Tint, string? GameTemplate, Rgb? Colour, Look Look);
@@ -70,12 +77,15 @@ public sealed record ThemeSystem(string Id, string? Model, bool? Tint, string? G
 /// <summary><c>[defaults]</c>.</summary>
 /// <param name="SystemModel">The card for systems without their own model, relative to the theme's folder.</param>
 /// <param name="TintSystemModel">Whether that default card takes each system's colour.</param>
-/// <param name="GameTemplate">The template for systems the theme doesn't assign one.</param>
+/// <param name="GameTemplate">The template for systems the theme doesn't assign one: its own or the base theme's.</param>
 public sealed record ThemeDefaults(string? SystemModel, bool TintSystemModel, string? GameTemplate);
 
 public enum ThemeOrigin
 {
-    /// <summary>Shipped in the app's PCK (<c>res://themes/&lt;id&gt;/</c>), its models exported as the <c>.glb</c> files themselves.</summary>
+    /// <summary>
+    /// Shipped with the app, in the <c>themes/&lt;id&gt;/</c> folder beside its executable (outside the PCK). Trusted: its
+    /// models aren't inspected when they load, as Core's tests check them.
+    /// </summary>
     BuiltIn,
 
     /// <summary><c>ConfigDir/themes/&lt;id&gt;/</c>.</summary>
@@ -83,7 +93,7 @@ public enum ThemeOrigin
 }
 
 /// <summary>A loaded, validated theme (A6). Only valid entries are present.</summary>
-/// <param name="Folder">The theme's folder: <c>res://themes/&lt;id&gt;</c> or an absolute path.</param>
+/// <param name="Folder">The theme's folder, an absolute path.</param>
 /// <param name="LookTransitionMs">How long a cross-fade between looks takes.</param>
 public sealed record Theme(
     string Id,
@@ -101,8 +111,6 @@ public sealed record Theme(
     public Look LookFor(string? systemId) =>
         systemId is not null && Systems.TryGetValue(systemId, out var system) ? system.Look : Look;
 
-    /// <summary>A path inside the theme, as its loader opens it (a <c>res://</c> path, or an absolute file path).</summary>
-    public string PathOf(string relative) => Origin == ThemeOrigin.BuiltIn
-        ? $"{Folder.TrimEnd('/')}/{relative}"
-        : Path.GetFullPath(Path.Combine(Folder, relative.Replace('/', Path.DirectorySeparatorChar)));
+    /// <summary>A path inside the theme, as its loader opens it: an absolute file path.</summary>
+    public string PathOf(string relative) => Path.GetFullPath(Path.Combine(Folder, relative.Replace('/', Path.DirectorySeparatorChar)));
 }

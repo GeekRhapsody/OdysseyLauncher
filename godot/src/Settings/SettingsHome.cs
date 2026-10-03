@@ -175,9 +175,13 @@ public sealed partial class SettingsHome : ListPanel
         {
             // Each theme's name, from its manifest (user themes replace built-in ones with the same id).
             var names = new SortedDictionary<string, (string Name, string Where)>(StringComparer.Ordinal);
+            // The base theme isn't one to choose: every theme builds on it.
             foreach (var source in builtIns)
             {
-                names[source.Id] = (NameOf(source.Manifest.Text, source.Id), "Built in");
+                if (source.Id != ThemeCatalog.BaseId)
+                {
+                    names[source.Id] = (NameOf(source.Manifest.Text, source.Id), "Built in");
+                }
             }
 
             foreach (var source in ThemeCatalog.UserSources(themesDir, []))
@@ -185,7 +189,7 @@ public sealed partial class SettingsHome : ListPanel
                 names[source.Id] = (NameOf(source.Manifest.Text, source.Id), source.Folder);
             }
 
-            var choices = names.Select(n => new Choice(n.Key, n.Value.Name, n.Key == ThemeCatalog.BuiltInId ? "Built in; the default" : n.Value.Where)).ToList();
+            var choices = names.Select(n => new Choice(n.Key, n.Value.Name, n.Key == ThemeCatalog.DefaultId && n.Value.Where == "Built in" ? "Built in; the default" : n.Value.Where)).ToList();
             _settings.Ui.Queue.Post(() =>
             {
                 ShowStatus(null);

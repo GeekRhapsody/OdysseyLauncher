@@ -31,13 +31,13 @@ public sealed class ModelResolverTests
         tint = true
         colour = "#102030"
         """, new FakeThemeFiles().Model("tall.glb", "cover").Model("wide.glb", "cover").Model("my_clamshell.glb", "cover")
-            .Model("card.glb", "label").Model("ps2.glb", "case"), id: "active").Theme!;
+            .Model("card.glb", "label").Model("ps2.glb", "case"), Base, id: "active").Theme!;
 
     /// <summary>
-    /// The built-in theme's part, with fixed templates: the real memory-card theme's assignments change as its models
+    /// The base theme's part, with fixed templates: the real memory-card theme's assignments change as its models
     /// do, and these tests are about the resolution order, not its choices.
     /// </summary>
-    private static Theme BuiltIn => ThemeFixtures.ParseBuiltIn("""
+    private static Theme Base => ThemeFixtures.ParseBase("""
         format = 1
         name = "Built-in"
 
@@ -89,8 +89,8 @@ public sealed class ModelResolverTests
 
     private static ModelResolver Resolver(Theme? active = null, UserModels? user = null, AppConfig? config = null)
     {
-        var builtIn = BuiltIn;
-        return new ModelResolver(active ?? builtIn, builtIn, user ?? UserModels.None(ConfigDir), config ?? Config(), DataDir);
+        var baseTheme = Base;
+        return new ModelResolver(active ?? baseTheme, baseTheme, user ?? UserModels.None(ConfigDir), config ?? Config(), DataDir);
     }
 
     private static string Describe(IReadOnlyList<ModelCandidate> candidates) =>
@@ -103,7 +103,7 @@ public sealed class ModelResolverTests
         var resolver = Resolver(Active, user, Config("[systems.ps2]\ngame_model = \"clamshell\"\n"));
 
         Assert.Equal(
-            "User:ps2.glb > GameModelSetting:my_clamshell.glb > ThemeSystem:tall.glb > ThemeDefault:wide.glb > BuiltInSystem:dvd_case.glb",
+            "User:ps2.glb > GameModelSetting:my_clamshell.glb > ThemeSystem:tall.glb > ThemeDefault:wide.glb > BaseSystem:dvd_case.glb",
             Describe(resolver.GameTemplates("ps2")));
         Assert.Empty(resolver.Diagnostics);
 
@@ -120,10 +120,10 @@ public sealed class ModelResolverTests
     {
         var resolver = Resolver(Active);
 
-        Assert.Equal("ThemeDefault:wide.glb > BuiltInSystem:clamshell.glb > BuiltInDefault:dvd_case.glb", Describe(resolver.GameTemplates("megadrive")));
+        Assert.Equal("ThemeDefault:wide.glb > BaseSystem:clamshell.glb > BaseDefault:dvd_case.glb", Describe(resolver.GameTemplates("megadrive")));
 
         // A system neither theme knows (a user-defined one) falls through to the defaults.
-        Assert.Equal("ThemeDefault:wide.glb > BuiltInDefault:dvd_case.glb", Describe(resolver.GameTemplates("madeupsystem")));
+        Assert.Equal("ThemeDefault:wide.glb > BaseDefault:dvd_case.glb", Describe(resolver.GameTemplates("madeupsystem")));
     }
 
     [Fact]
@@ -145,13 +145,57 @@ public sealed class ModelResolverTests
     }
 
     [Fact]
+    public void A_theme_can_give_a_system_one_of_the_base_themes_templates_from_the_base_themes_folder()
+    {
+        var active = ThemeFixtures.Parse("""
+            name = "Borrows"
+
+            [defaults]
+            game_template = "clamshell"
+
+            [systems.snes]
+            game_template = "jewel_case"
+            """, baseTheme: Base, id: "borrows").Theme!;
+        var resolver = Resolver(active);
+
+        Assert.Equal("ThemeSystem:jewel_case.glb > ThemeDefault:clamshell.glb > BaseDefault:dvd_case.glb", Describe(resolver.GameTemplates("snes")));
+        var first = resolver.GameTemplates("snes")[0];
+        Assert.Equal(("memory-card", ThemeOrigin.BuiltIn), (first.Template!.ThemeId, first.Origin));
+        Assert.Equal(Path.GetFullPath("C:/app/themes/memory-card/models/templates/jewel_case.glb"), first.Path);
+        Assert.Equal("models/templates/jewel_case.glb", first.Template.Model);
+    }
+
+    [Fact]
+    public void A_template_extending_the_bases_uses_the_bases_model_with_its_own_chains_and_is_a_separate_template()
+    {
+        var active = ThemeFixtures.Parse("""
+            name = "Extends"
+
+            [templates.dvd_case.slots]
+            back = ["screenshot", "generated"]
+
+            [systems.ps2]
+            game_template = "dvd_case"
+            """, baseTheme: Base, id: "extends").Theme!;
+        var resolver = Resolver(active);
+
+        var candidates = resolver.GameTemplates("ps2");
+        Assert.Equal("ThemeSystem:dvd_case.glb > BaseSystem:dvd_case.glb", Describe(candidates));
+        Assert.Equal(candidates[0].Path, candidates[1].Path);
+        Assert.Equal((ThemeOrigin.BuiltIn, "extends", true), (candidates[0].Origin, candidates[0].Template!.ThemeId, candidates[0].Template!.ModelFromBase));
+        Assert.NotEqual(candidates[0].Key, candidates[1].Key);
+        Assert.Equal([SlotSource.Media(MediaSlots.Screenshot), SlotSource.Generated], candidates[0].ChainFor(MediaSlots.Back, systemCard: false).Sources);
+        Assert.Equal(SlotChain.Default(MediaSlots.Back), candidates[1].ChainFor(MediaSlots.Back, systemCard: false));
+    }
+
+    [Fact]
     public void A_game_model_no_theme_defines_is_a_warning_naming_systems_toml_and_the_key()
     {
         var resolver = Resolver(Active, config: Config("[systems.snes]\ngame_model = \"tall_box\"\n"));
 
         var warning = Assert.Single(resolver.Diagnostics);
         Assert.Equal((Severity.Warning, Path.Combine(ConfigDir, "systems.toml"), "systems.snes.game_model"), (warning.Severity, warning.Source, warning.Key));
-        Assert.Contains("no template 'tall_box' in the theme 'active' or the built-in theme", warning.Message, StringComparison.Ordinal);
+        Assert.Contains("no template 'tall_box' in the theme 'active' or the base theme", warning.Message, StringComparison.Ordinal);
         Assert.Equal(ModelLevel.ThemeDefault, resolver.GameTemplates("snes")[0].Level);
     }
 
@@ -171,13 +215,13 @@ public sealed class ModelResolverTests
         var user = new UserModels(ConfigDir, new HashSet<string>(), new HashSet<string> { "psx" });
         var resolver = Resolver(Active, user);
 
-        Assert.Equal("ThemeSystem:ps2.glb > ThemeDefault:card.glb > BuiltInDefault:generic.glb", Describe(resolver.SystemModels("ps2")));
+        Assert.Equal("ThemeSystem:ps2.glb > ThemeDefault:card.glb > BaseDefault:generic.glb", Describe(resolver.SystemModels("ps2")));
         Assert.Equal([true, true, true], resolver.SystemModels("ps2").Select(c => c.Tint));
-        Assert.Equal("User:psx.glb > ThemeDefault:card.glb > BuiltInDefault:generic.glb", Describe(resolver.SystemModels("psx")));
+        Assert.Equal("User:psx.glb > ThemeDefault:card.glb > BaseDefault:generic.glb", Describe(resolver.SystemModels("psx")));
         Assert.Equal([false, false, true], resolver.SystemModels("psx").Select(c => c.Tint));
 
         // Favourites and Recently played have no system: the default cards.
-        Assert.Equal("ThemeDefault:card.glb > BuiltInDefault:generic.glb", Describe(resolver.SystemModels(null)));
+        Assert.Equal("ThemeDefault:card.glb > BaseDefault:generic.glb", Describe(resolver.SystemModels(null)));
     }
 
     [Fact]
@@ -190,7 +234,7 @@ public sealed class ModelResolverTests
         Assert.Equal("#1F3E8C", resolver.ColourOf("megadrive").ToString());
         Assert.Null(resolver.ColourOf("madeupsystem"));
         Assert.Same(active.Look, resolver.LookFor("megadrive"));
-        Assert.Equal(ThemeFixtures.BuiltIn.Look.Background, resolver.LookFor(null).Background);
+        Assert.Equal(ThemeFixtures.Base.Look.Background, resolver.LookFor(null).Background);
     }
 
     [Fact]

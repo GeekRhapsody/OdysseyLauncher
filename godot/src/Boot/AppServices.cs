@@ -145,19 +145,25 @@ public sealed class AppServices : IDisposable
     /// (a headless run, which only launches and can quit at once: nothing here then calls into Godot).
     /// </summary>
     public static async Task<AppServices> LoadAsync(
-        DebugOptions options, string executableDir, Action<ThemePlan>? themeResolved, CancellationToken cancellationToken)
+        DebugOptions options, string executableDir, string themesDir, Action<ThemePlan>? themeResolved, CancellationToken cancellationToken)
     {
         var stopwatch = Stopwatch.StartNew();
 
-        // The built-in theme needs no config, so it's read while config loads. (Starting its models' threaded loads
+        // The base theme needs no config, so it's read while config loads. (Starting its models' threaded loads
         // from here too made them finish later, not sooner: docs/perf/m6-themes.md.)
         Task<(IReadOnlyList<Launcher.Core.Theming.ThemeSource> Sources, Launcher.Core.Theming.ThemeLoadResult Theme)>? builtIn = null;
         if (themeResolved is not null)
         {
             builtIn = Task.Run(() =>
             {
-                IReadOnlyList<Launcher.Core.Theming.ThemeSource> sources = ThemePlan.BuiltInSources();
-                return (sources, Launcher.Core.Theming.ThemeCatalog.LoadBuiltIn(sources));
+                var listing = new List<Diagnostic>();
+                IReadOnlyList<Launcher.Core.Theming.ThemeSource> sources = Launcher.Core.Theming.ThemeCatalog.BuiltInSources(themesDir, listing);
+                foreach (var diagnostic in listing)
+                {
+                    GD.Print(diagnostic.ToString());
+                }
+
+                return (sources, Launcher.Core.Theming.ThemeCatalog.LoadBase(sources));
             }, cancellationToken);
         }
 
@@ -178,7 +184,7 @@ public sealed class AppServices : IDisposable
             {
                 var clock = Stopwatch.StartNew();
                 var (builtIns, builtInTheme) = await builtIn.ConfigureAwait(false);
-                var plan = ThemePlan.Build(config.Config, paths, themeId, builtIns, builtInTheme);
+                var plan = ThemePlan.Build(config.Config, paths, themeId, builtIns, builtInTheme, allowBase: options.Theme is not null);
                 DebugHooks.Timeline.Mark(BootMarks.ThemeResolved);
                 themeResolved(plan);
                 return (builtIns, (ThemePlan?)plan, clock.Elapsed.TotalMilliseconds);

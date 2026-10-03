@@ -152,6 +152,8 @@ jobs:
           # A baked PCK is about 2.7 MB; one with no baked shaders is about 50 KB.
           $pck = Get-Item (Join-Path $out 'OdysseyLauncher.pck')
           if ($pck.Length -lt 1MB) { throw "OdysseyLauncher.pck is only $($pck.Length) bytes: the shader baker didn't run." }
+          # The app's themes go beside the executable, not in the PCK: the odyssey_export addon copies them.
+          if (-not (Test-Path (Join-Path $out 'themes\memory-card\theme.toml'))) { throw "The export has no themes folder: the odyssey_export addon didn't run." }
 
       - name: Launch smoke test of the export
         run: |

@@ -2,8 +2,9 @@
 
 This guide is for theme authors. It covers the folder and manifest, the media slots your models show, which model wins when several could, the model spec and budgets, how to make and export models in Blender, and how to test a theme. The design behind it is in [ARCHITECTURE.md](ARCHITECTURE.md) (A6 is the manifest, A7 the model spec).
 
-Two themes come with the repo:
-- **Memory Card**, the built-in theme ([`godot/themes/memory-card/`](../godot/themes/memory-card/theme.toml)). Every other theme falls back to it for anything it leaves out.
+Three themes come with the repo:
+- **Memory Card**, the base theme ([`godot/themes/memory-card/`](../godot/themes/memory-card/theme.toml)). It isn't a theme to choose: every theme builds on it, and anything a theme leaves out (a look, a template, a model, a system's colour) is Memory Card's (section 2). Its templates (the DVD case, jewel case, cartridge box and the rest) are there for every theme to use.
+- **Console**, the default theme ([`godot/themes/console/`](../godot/themes/console/theme.toml)): each system's console as its card. It's small, because everything else comes from Memory Card.
 - **Retro TV**, the sample theme ([`samples/themes/retro-tv/`](../samples/themes/retro-tv/theme.toml)). It has a CRT television as its game template, a console as its system model, and animation clips. It's the best place to start.
 
 ## Contents
@@ -46,8 +47,23 @@ neon-arcade/                      the folder name is the theme's id: lower-case 
 ```
 
 - Only `theme.toml` is required. Put models wherever you like inside the folder: the manifest names each one by its path, relative to the folder and `/`-separated. A path can't leave the folder.
-- A user theme with the same id as a built-in one replaces it. The built-in Memory Card theme stays the last resort for any system or model your theme doesn't provide, so a partial theme always works.
+- The app's own themes are in the `themes` folder beside its executable (`OdysseyLauncher.exe`), not packed inside it. A user theme with the same id as one of them (`console`, say) replaces it. `memory-card` is reserved: a user theme with that id is ignored, with a warning.
 - Models are glTF 2.0 binaries (`.glb`) only. To use OBJ or another format, convert it first (section 9).
+
+### The base theme
+
+Every theme builds on Memory Card, so a partial theme always works, and a theme can be a single `name` line. What your theme leaves out is Memory Card's:
+- **The look:** each of `[look.background]`, `[look.ambient]` and `[look.lights]` your theme doesn't write (or gets wrong) is Memory Card's. A system your theme gives no look of its own shows your theme's look, not Memory Card's look for that system.
+- **`look_transition_ms`:** Memory Card's (300) unless you set it.
+- **Templates:** `game_template` can name any of Memory Card's templates (`dvd_case`, `jewel_case`, `cartridge_box`, `gameboy_box`, `generic_box_spine`, `generic_box_logo`, `clamshell`, `umd_case`, `arcade_cabinet`) as well as your own. A `[templates.<id>]` table with one of their ids **extends** that template: each key it leaves out (`model`, `shape`, a slot's chain, a slot's `fit`) is Memory Card's. So this keeps Memory Card's DVD case and changes only what its back shows:
+
+  ```toml
+  [templates.dvd_case.slots]
+  back = ["screenshot", "generated"]
+  ```
+
+- **Which template and card a system gets:** a system your theme doesn't assign a template (and your theme has no `[defaults] game_template`) gets Memory Card's template for it; a system with no card in your theme (and no `[defaults] system_model`) gets Memory Card's slab (section 5).
+- **Colours:** a system your theme gives no `colour` takes Memory Card's.
 
 ## 3. The manifest (`theme.toml`)
 
@@ -57,7 +73,7 @@ A complete, commented example is the sample's [`theme.toml`](../samples/themes/r
 format = 1                            # optional; 1 is the only format
 name = "Neon Arcade"                  # required: shown when the theme is picked
 author = "Your name"                  # optional
-look_transition_ms = 300              # how long a cross-fade between looks takes: 0 to 5000, default 300
+look_transition_ms = 300              # how long a cross-fade between looks takes: 0 to 5000, default the base theme's (300)
 
 [look.background]                     # icon.sys-style: one sRGB colour per screen corner, all four required
 top_left     = "#1B1F4A"
@@ -77,9 +93,9 @@ energy = 1.0                          # 0 to 16, default 1
 [defaults]
 system_model = "models/systems/console.glb"   # the card for systems without their own model
 tint_system_model = true                      # its plain materials take each system's colour
-game_template = "crt_tv"                      # the template for systems the theme doesn't assign one
+game_template = "crt_tv"                      # the template for systems the theme doesn't assign one: yours, or Memory Card's
 
-[templates.crt_tv]                    # a game template: an id, a model, and optional slot chains
+[templates.crt_tv]                    # a game template: an id, a model, and optional slot chains (Memory Card's id: extends it)
 model = "models/templates/crt_tv.glb"
 shape = "model"                       # optional: "model" (its own shape, the default) or "media" (section 4)
 
@@ -94,7 +110,7 @@ screenshot = "whole"
 model = "models/systems/ps2.glb"      # its card (default: [defaults] system_model)
 tint = false                          # default false for its own model, else tint_system_model
 colour = "#2B4C9A"                    # its card's tint and the colour of its games' plain boxes
-game_template = "crt_tv"              # a template id in this theme (default: [defaults] game_template)
+game_template = "crt_tv"              # a template id in this theme or Memory Card (default: [defaults] game_template)
 
 [systems.ps2.look.background]         # the look while its games are shown; replaces the theme's block whole
 top_left     = "#1E2A4E"
@@ -113,9 +129,10 @@ bottom_right = "#100A08"
   user/themes/neon-arcade/theme.toml:12:1: error: templates.box.model: 'box.glb' doesn't exist in the theme's folder
   ```
 
-  - A TOML syntax error, or an unsupported `format`, rejects the whole theme, and the built-in one is used.
-  - A bad look block falls back to the built-in theme's.
-  - A template whose model is missing, or isn't a `.glb` inside the folder, is left out. Whatever named it falls through to the next model in line (section 5).
+  - A TOML syntax error, or an unsupported `format`, rejects the whole theme, and the default theme (Console) is used.
+  - A bad look block falls back to Memory Card's.
+  - A template whose model is missing, or isn't a `.glb` inside the folder, is left out. Whatever named it falls through to the next model in line (section 5); if it extended one of Memory Card's, Memory Card's is used.
+  - A template id that's neither yours nor Memory Card's is an error, with a "did you mean" suggestion, and the next model in line is used.
   - A bad slot chain falls back to that slot's default chain, and a bad `fit` leaves its slot cropped.
   - A bad `shape` is an error, and the template keeps its own shape.
   - Unknown keys are warnings, with a "did you mean" suggestion.
@@ -166,9 +183,9 @@ label = ["logo", "generated"]                               # the stand's plate:
 ### How art fits a face
 
 - **UVs:** a slot's first UV map (TEXCOORD_0) must span 0 to 1 across the face, upright as seen from outside. Sampling is clamped.
-- **A logo is never cropped:** when a slot shows the game's `logo` (`label = ["logo", "generated"]`, say), it's drawn whole with a margin, over the slot's fallback, using the logo's transparency. On a `spine` it's turned to read top to bottom like a spine's title; on any other slot it's upright, filling at most 88% of the face's width and 84% of its height. A `generated` fallback is the cover's main colour (or the game's plain colour, if the template has no `cover` slot) darkened to a deep shade, without the title; an `authored` one is the material's own texture. Logos are mostly about 2:1, so on a much wider face (a marquee, a plate) they fill its height and leave space at the sides. The built-in theme's `generic_box_logo` (on the spine) and `arcade_cabinet` (on its marquee) do this, and so does the sample TV's plate.
+- **A logo is never cropped:** when a slot shows the game's `logo` (`label = ["logo", "generated"]`, say), it's drawn whole with a margin, over the slot's fallback, using the logo's transparency. On a `spine` it's turned to read top to bottom like a spine's title; on any other slot it's upright, filling at most 88% of the face's width and 84% of its height. A `generated` fallback is the cover's main colour (or the game's plain colour, if the template has no `cover` slot) darkened to a deep shade, without the title; an `authored` one is the material's own texture. Logos are mostly about 2:1, so on a much wider face (a marquee, a plate) they fill its height and leave space at the sides. Memory Card's `generic_box_logo` (on the spine) and `arcade_cabinet` (on its marquee) do this, and so does the sample TV's plate.
 - **Cropping:** every other slot's art is centre-cropped to fill the face, unless the template's `fit` says otherwise (below). The face's aspect ratio (width over height) comes from the material's custom property `aspect`. If a material has none, it's measured from the slot mesh's bounds, which works for flat, upright faces. For a curved or tilted face, set `aspect` (section 9).
-- **Fitting it whole (`fit`):** a template's `[templates.<id>.fit]` table can set a slot to `"whole"`. That slot's art is then never cropped: it's fitted inside the face at its own proportions, over the slot's fallback (the material's own texture, or its `generated` face), as a television shows a tall game with bars at the sides. The built-in `arcade_cabinet` fits its screen whole, so a vertical shooter is pillarboxed on the switched-off screen. Art is fitted at its image's proportions, so a screenshot saved at an arcade board's native resolution (224 × 256, say, shown on a 3:4 monitor) looks a little wider than it did on the cabinet. `"crop"` is the default. A logo is always drawn whole, whatever `fit` says.
+- **Fitting it whole (`fit`):** a template's `[templates.<id>.fit]` table can set a slot to `"whole"`. That slot's art is then never cropped: it's fitted inside the face at its own proportions, over the slot's fallback (the material's own texture, or its `generated` face), as a television shows a tall game with bars at the sides. Memory Card's `arcade_cabinet` fits its screen whole, so a vertical shooter is pillarboxed on the switched-off screen. Art is fitted at its image's proportions, so a screenshot saved at an arcade board's native resolution (224 × 256, say, shown on a 3:4 monitor) looks a little wider than it did on the cabinet. `"crop"` is the default. A logo is always drawn whole, whatever `fit` says.
 - **Colour:** make each slot material's base colour **white**, because it multiplies the art. Its base colour texture, if it has one, is what `authored` shows.
 - **Resolution:** art is streamed at 512² for the cover and 256² for every other slot, whatever the source's size. Only the slots whose chains name a media kind stream anything, so an unused slot costs nothing.
 
@@ -182,7 +199,7 @@ Box art doesn't come in one size: DOS big boxes alone range from tall to square 
 - **The grid's cells** fit the widest and tallest box in the list being shown, so a list of tall boxes keeps tight columns.
 - **The `cover`, `back` and `spine` faces** take the new proportions. The back's art is cropped to the cover's shape.
 
-The built-in theme's `generic_box_spine` (DOS) and `generic_box_logo` (Windows and Steam: the same box with the logo on its spine) do this. Its front and back bevels are part of the `cover` and `back` faces, showing the art's edge, so no plain band frames the art. The depth still comes from the `spine` image when the spine shows a logo. To make a model for it:
+Memory Card's `generic_box_spine` (DOS) and `generic_box_logo` (Windows and Steam: the same box with the logo on its spine) do this. Its front and back bevels are part of the `cover` and `back` faces, showing the art's edge, so no plain band frames the art. The depth still comes from the `spine` image when the spine shows a logo. To make a model for it:
 - **It must have a `cover` material**, or the key is ignored, with a warning.
 - **The launcher moves each half of the model**, left and right, top and bottom (split at half the height), front and back, by however much the box grows or shrinks. Nothing is stretched, so corners and bevels keep their size. So keep vertices off the centre planes (x = 0, z = 0, and half the height), keep corner and bevel detail near the edges, and make `cover`, `back` and `spine` whole faces of the box.
 - **A model with animation clips keeps its own shape**, with a warning: the launcher reshapes a template's one merged mesh, not a node tree.
@@ -198,17 +215,17 @@ For each game and each system card, the launcher tries these candidates in order
    - Without it (`Game (Europe).glb`), it's for every ROM of that name.
    - Users choose one in the game's options (X on the game, then Model), or import one with `odyssey-scrape import-model` (section 10).
 2. The user's template for the system: `ConfigDir/models/templates/<system>.glb`. Users choose one in the system's options (X on the system, then Game template).
-3. The user's `game_model` for the system in `systems.toml`: a template id in the active theme, else in the built-in one. The system's options list your theme's templates for this.
+3. The user's `game_model` for the system in `systems.toml`: a template id in the active theme, else in Memory Card. The system's options list your theme's templates, then Memory Card's, for this.
 4. Your theme's `[systems.<system>] game_template`.
 5. Your theme's `[defaults] game_template`.
-6. The built-in theme's template for the system.
-7. The built-in theme's default template (`dvd_case`).
+6. Memory Card's template for the system.
+7. Memory Card's default template.
 
 **A system's card:**
 1. The user's `ConfigDir/models/systems/<system>.glb`, chosen in the system's options (X on the system, then System model).
 2. Your theme's `[systems.<system>] model`.
 3. Your theme's `[defaults] system_model`.
-4. The built-in theme's generic card.
+4. Memory Card's generic card (a memory-card slab with the system's name, in its colour).
 
 User models (levels 1 and 2) use the default slot chains. Nothing is looked for per game while the grid scrolls: per-game models are indexed when the library is scanned.
 
@@ -226,7 +243,7 @@ User models (levels 1 and 2) use the default slot chains. Nothing is looked for 
 | Animation | Clips named `idle`, `focused` and `launch` (section 8), with node transforms, skinning and morph targets. |
 | Ignored | Cameras, lights (the theme's lights are the only lights), extra scenes, and other clips. |
 
-Every model, whether it's the built-in theme's, yours or the user's, is drawn with the launcher's one item shader. So a model never adds a shader variant, and nothing a theme ships can slow the renderer beyond its triangles and textures.
+Every model, whether it's an app theme's, yours or the user's, is drawn with the launcher's one item shader. So a model never adds a shader variant, and nothing a theme ships can slow the renderer beyond its triangles and textures.
 
 ## 7. Budgets
 
@@ -358,7 +375,7 @@ It scrolls the biggest system from the first row to the last and reports frame t
 | You see | Why | Fix |
 |---|---|---|
 | Your theme isn't offered | The folder isn't in `ConfigDir/themes/`, or `theme.toml` has a syntax error (the console names the line) | Check the path and the first error |
-| A system uses the built-in box | Its template was left out (missing file, or a path outside the folder), or its model was rejected | Read the console and `models.log` |
+| A system uses Memory Card's box | Your theme doesn't assign it a template, or its template was left out (missing file, or a path outside the folder), or its model was rejected | Read the console and `models.log` |
 | Art is stretched or cut off badly | The face's aspect ratio is wrong | Set the material's `aspect` custom property, and export Custom Properties |
 | Art is upside down or mirrored | The slot's UVs aren't upright from outside | Flip the UV island vertically or horizontally |
 | A slot shows the plain colour, never art | The material isn't named after a slot, or the chain names kinds the library has no art for | Check the name (a `.001` suffix is fine), then the chain |

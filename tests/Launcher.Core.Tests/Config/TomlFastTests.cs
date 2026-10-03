@@ -73,7 +73,7 @@ public class TomlFastTests
     [Fact]
     public void The_built_in_theme_parses_to_the_same_tree_as_Tomlyn()
     {
-        AssertSameTree(File.ReadAllText(Path.Combine(ThemeFixtures.BuiltInFolder, "theme.toml")), "theme.toml");
+        AssertSameTree(File.ReadAllText(Path.Combine(ThemeFixtures.BaseFolder, "theme.toml")), "theme.toml");
     }
 
     [Fact]

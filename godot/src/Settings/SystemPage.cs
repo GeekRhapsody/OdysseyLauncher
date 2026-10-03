@@ -504,7 +504,7 @@ public sealed partial class SystemPage : ListPanel
             }, destructive: true);
     }
 
-    /// <summary>The theme's templates (the active theme's, then the built-in one's), or the user's own model.</summary>
+    /// <summary>The theme's templates (the active theme's, then the base theme's), or the user's own model.</summary>
     private void ChooseTemplate()
     {
         var options = Options!;
@@ -512,11 +512,11 @@ public sealed partial class SystemPage : ListPanel
         var resolver = options.Theme.Plan.Resolver;
         var choices = new List<Choice>
         {
-            new(ThemesChoice, "The theme's choice", ThemeDefault(resolver.Active, system.Id) is { } themes ? $"'{themes}' in {resolver.Active.Name}" : "Whatever the theme gives it"),
+            new(ThemesChoice, "The theme's choice", ThemeDefault(resolver, system.Id) is { } themes ? $"'{themes}' in {resolver.Active.Name}" : "Whatever the theme gives it"),
             new(OwnTemplate, "Your own model…", "A .glb (or an OBJ zip) for every game of this system"),
         };
         var seen = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var theme in (Launcher.Core.Theming.Theme[])[resolver.Active, resolver.BuiltIn])
+        foreach (var theme in (Launcher.Core.Theming.Theme[])[resolver.Active, resolver.Base])
         {
             foreach (var id in theme.Templates.Keys.Order(StringComparer.Ordinal))
             {
@@ -562,8 +562,14 @@ public sealed partial class SystemPage : ListPanel
         }));
     }
 
-    private static string? ThemeDefault(Launcher.Core.Theming.Theme theme, string systemId) =>
-        theme.Systems.TryGetValue(systemId, out var entry) && entry.GameTemplate is { } id ? id : theme.Defaults.GameTemplate;
+    /// <summary>The template the theme gives the system: the active theme's choice, else the base theme's.</summary>
+    private static string? ThemeDefault(Launcher.Core.Theming.ModelResolver resolver, string systemId)
+    {
+        return Chosen(resolver.Active) ?? Chosen(resolver.Base);
+
+        string? Chosen(Launcher.Core.Theming.Theme theme) =>
+            theme.Systems.TryGetValue(systemId, out var entry) && entry.GameTemplate is { } id ? id : theme.Defaults.GameTemplate;
+    }
 
     // ---- Scraping --------------------------------------------------------------------------------------
 

@@ -1,0 +1,45 @@
+# The default theme (A6): each system's console as its card. It builds on the base theme, memory-card, like every
+# theme: whatever it leaves out is memory-card's. Its games' templates (the boxes, the arcade cabinet), the colours,
+# and the card for systems without a console of their own (the memory-card slab) all come from there. Paths are
+# relative to this folder.
+format = 1
+name = "Console"
+author = "Claudio Filipe"
+look_transition_ms = 300
+
+# The systems grid's look, and every system's unless it has its own.
+[look.background]                  # icon.sys-style: one sRGB colour per screen corner
+top_left     = "#1B1F4A"
+top_right    = "#1B1F4A"
+bottom_left  = "#04040C"
+bottom_right = "#0B0B24"
+
+[look.ambient]
+colour = "#303038"
+energy = 1.0
+
+[[look.lights]]                    # 1-3 directional lights; directions are in view space (+Z towards the viewer)
+direction = [-0.5, -0.4, -0.75]
+colour = "#FFFFFF"
+energy = 1.0
+
+[[look.lights]]
+direction = [0.7, -0.2, -0.6]
+colour = "#8090FF"
+energy = 0.5
+
+[[look.lights]]
+direction = [0.0, 0.9, -0.4]
+colour = "#FF9060"
+energy = 0.25
+
+# System cards: the console's own model. A system's games keep memory-card's template for it unless one is named
+# here (game_template = "jewel_case", say: any of memory-card's templates, or one of this theme's).
+[systems.gamegear]
+model = "models/systems/gamegear.glb"         # built by tools/console-models/game_gear.py, turned to a three-quarter view
+
+[systems.gb]
+model = "models/systems/gb.glb"               # its normal, roughness and emissive maps stripped (tools/console-models/strip_maps.py)
+
+[systems.megadrive]
+model = "models/systems/megadrive.glb"        # a `focused` clip

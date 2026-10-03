@@ -58,7 +58,7 @@ public enum ModelLevel
     /// <summary><c>ConfigDir/models/templates/&lt;system&gt;.glb</c>, or for a card <c>ConfigDir/models/systems/&lt;system&gt;.glb</c>.</summary>
     User,
 
-    /// <summary>The user's <c>game_model</c> for the system in systems.toml: a template id in the active theme, else the built-in one.</summary>
+    /// <summary>The user's <c>game_model</c> for the system in systems.toml: a template id in the active theme, else the base theme.</summary>
     GameModelSetting,
 
     /// <summary>The active theme's <c>[systems.&lt;id&gt;]</c> entry.</summary>
@@ -67,19 +67,19 @@ public enum ModelLevel
     /// <summary>The active theme's <c>[defaults]</c>.</summary>
     ThemeDefault,
 
-    /// <summary>The built-in theme's <c>[systems.&lt;id&gt;]</c> entry (when another theme is active).</summary>
-    BuiltInSystem,
+    /// <summary>The base theme's <c>[systems.&lt;id&gt;]</c> entry (when another theme is active).</summary>
+    BaseSystem,
 
-    /// <summary>The built-in theme's <c>[defaults]</c>.</summary>
-    BuiltInDefault,
+    /// <summary>The base theme's <c>[defaults]</c>.</summary>
+    BaseDefault,
 }
 
 /// <summary>One model a game or a system card can use, if it loads.</summary>
 /// <param name="Origin">
-/// <see cref="ThemeOrigin.BuiltIn"/>: a <c>.glb</c> in the app's PCK (<c>res://</c>). <see cref="ThemeOrigin.User"/>: a
-/// <c>.glb</c> file on disk (the user's own models, and user themes'). Both are loaded at run time.
+/// <see cref="ThemeOrigin.BuiltIn"/>: a <c>.glb</c> in the app's themes folder, trusted. <see cref="ThemeOrigin.User"/>: a
+/// <c>.glb</c> the user put there (their own models, and user themes'), inspected before it loads.
 /// </param>
-/// <param name="Path">A <c>res://</c> path or an absolute file path.</param>
+/// <param name="Path">An absolute file path.</param>
 /// <param name="Template">The theme's template, with its slot chains; null for a user model (default chains).</param>
 /// <param name="Tint">For a system card: whether its plain materials take the system's colour.</param>
 /// <param name="Description">For logs: "theme 'memory-card' template 'dvd_case'".</param>
@@ -87,9 +87,10 @@ public sealed record ModelCandidate(ModelLevel Level, ThemeOrigin Origin, string
 {
     /// <summary>
     /// Two candidates are the same grid template if they load the same file with the same chains and tint: a key that
-    /// dedupes them across systems and precedence levels.
+    /// dedupes them across systems and precedence levels. A theme's template extending the base's has the same file and
+    /// id but its own chains, so the declaring theme is part of it.
     /// </summary>
-    public string Key => $"{Path}|{Template?.Id}|{(Tint ? "tint" : "plain")}";
+    public string Key => $"{Path}|{Template?.ThemeId}:{Template?.Id}|{(Tint ? "tint" : "plain")}";
 
     /// <summary>The slot's chain: the template's, or the default for a user model.</summary>
     public SlotChain ChainFor(int slot, bool systemCard) =>
@@ -102,10 +103,10 @@ public sealed record ModelCandidate(ModelLevel Level, ThemeOrigin Origin, string
 /// come from the library, so nothing is probed per item.
 /// <para>
 /// Games: the per-game model; <c>ConfigDir/models/templates/&lt;system&gt;.glb</c>; the user's <c>game_model</c>; the
-/// active theme's template for the system; its default template; then the built-in theme's two. Cards:
+/// active theme's template for the system; its default template; then the base theme's two. Cards:
 /// <c>ConfigDir/models/systems/&lt;system&gt;.glb</c>; the active theme's model for the system; its default; then the
-/// built-in theme's. The app loads candidates in order and uses the first that loads, so a broken or rejected model
-/// falls through to the next.
+/// base theme's. The app loads candidates in order and uses the first that loads, so a broken or rejected model
+/// falls through to the next. A theme's template id may be its own or the base theme's.
 /// </para>
 /// </summary>
 public sealed class ModelResolver
@@ -115,31 +116,31 @@ public sealed class ModelResolver
     private readonly string _dataDir;
     private readonly List<Diagnostic> _diagnostics = [];
 
-    /// <param name="active">The theme settings.toml names (or the built-in one).</param>
-    /// <param name="builtIn">The built-in default theme, always the last resort.</param>
+    /// <param name="active">The theme settings.toml names (or the base theme).</param>
+    /// <param name="baseTheme">The base theme, always the last resort.</param>
     /// <param name="dataDir">Where the media folder is, which per-game models' paths are relative to.</param>
-    public ModelResolver(Theme active, Theme builtIn, UserModels user, AppConfig config, string dataDir)
+    public ModelResolver(Theme active, Theme baseTheme, UserModels user, AppConfig config, string dataDir)
     {
         Active = active ?? throw new ArgumentNullException(nameof(active));
-        BuiltIn = builtIn ?? throw new ArgumentNullException(nameof(builtIn));
+        Base = baseTheme ?? throw new ArgumentNullException(nameof(baseTheme));
         _user = user ?? throw new ArgumentNullException(nameof(user));
         _config = config ?? throw new ArgumentNullException(nameof(config));
         _dataDir = dataDir ?? throw new ArgumentNullException(nameof(dataDir));
         foreach (var system in config.Systems)
         {
-            if (system.GameModel is { } id && !active.Templates.ContainsKey(id) && !builtIn.Templates.ContainsKey(id))
+            if (system.GameModel is { } id && !active.Templates.ContainsKey(id) && !baseTheme.Templates.ContainsKey(id))
             {
-                var known = active.Templates.Keys.Concat(builtIn.Templates.Keys).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToList();
+                var known = active.Templates.Keys.Concat(baseTheme.Templates.Keys).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToList();
                 _diagnostics.Add(new Diagnostic(Severity.Warning, Path.Combine(user.ConfigDir, ConfigSources.SystemsFileName), 0, 0,
                     $"systems.{system.Id}.game_model",
-                    $"no template '{id}' in the theme '{active.Id}' or the built-in theme, so the theme's choice is used. The templates are {string.Join(", ", known)}"));
+                    $"no template '{id}' in the theme '{active.Id}' or the base theme, so the theme's choice is used. The templates are {string.Join(", ", known)}"));
             }
         }
     }
 
     public Theme Active { get; }
 
-    public Theme BuiltIn { get; }
+    public Theme Base { get; }
 
     /// <summary>Problems found while resolving (a <c>game_model</c> no theme defines).</summary>
     public IReadOnlyList<Diagnostic> Diagnostics => _diagnostics;
@@ -155,34 +156,32 @@ public sealed class ModelResolver
                 $"your models/templates/{systemId}.glb"));
         }
 
-        if (_config.FindSystem(systemId)?.GameModel is { } gameModel)
+        if (_config.FindSystem(systemId)?.GameModel is { } gameModel && TemplateOf(Active, gameModel) is { } chosen)
         {
-            var owner = Active.Templates.ContainsKey(gameModel) ? Active : BuiltIn.Templates.ContainsKey(gameModel) ? BuiltIn : null;
-            if (owner is not null)
-            {
-                Add(ModelLevel.GameModelSetting, owner, owner.Templates[gameModel], $"game_model '{gameModel}'");
-            }
+            Add(ModelLevel.GameModelSetting, chosen, $"game_model '{gameModel}'");
         }
 
         foreach (var (theme, systemLevel, defaultLevel) in Themes())
         {
-            if (theme.Systems.TryGetValue(systemId, out var entry) && entry.GameTemplate is { } id)
+            if (theme.Systems.TryGetValue(systemId, out var entry) && entry.GameTemplate is { } id && TemplateOf(theme, id) is { } assigned)
             {
-                Add(systemLevel, theme, theme.Templates[id], $"[systems.{systemId}]");
+                Add(systemLevel, assigned, $"[systems.{systemId}]");
             }
 
-            if (theme.Defaults.GameTemplate is { } fallback)
+            if (theme.Defaults.GameTemplate is { } fallback && TemplateOf(theme, fallback) is { } byDefault)
             {
-                Add(defaultLevel, theme, theme.Templates[fallback], "[defaults]");
+                Add(defaultLevel, byDefault, "[defaults]");
             }
         }
 
         return candidates;
 
-        void Add(ModelLevel level, Theme theme, GameTemplate template, string where)
+        void Add(ModelLevel level, GameTemplate template, string where)
         {
-            var candidate = new ModelCandidate(level, theme.Origin, theme.PathOf(template.Model), template, false,
-                $"theme '{theme.Id}' template '{template.Id}' ({where})");
+            // The model's file is in the base theme's folder when the template is the base's, or extends it without a model.
+            var folder = template.ModelFromBase || template.ThemeId != Active.Id ? Base : Active;
+            var candidate = new ModelCandidate(level, folder.Origin, folder.PathOf(template.Model), template, false,
+                $"theme '{template.ThemeId}' template '{template.Id}' ({where})");
             if (!candidates.Exists(c => c.Key == candidate.Key))
             {
                 candidates.Add(candidate);
@@ -235,20 +234,31 @@ public sealed class ModelResolver
         }
     }
 
-    /// <summary>The system's colour (its card's tint and its plain boxes'): the active theme's, else the built-in theme's.</summary>
+    /// <summary>The system's colour (its card's tint and its plain boxes'): the active theme's, else the base theme's.</summary>
     public Rgb? ColourOf(string systemId) =>
         Active.Systems.TryGetValue(systemId, out var entry) && entry.Colour is { } colour ? colour
-        : BuiltIn.Systems.TryGetValue(systemId, out var builtIn) ? builtIn.Colour : null;
+        : Base.Systems.TryGetValue(systemId, out var inBase) ? inBase.Colour : null;
 
     /// <summary>The active theme's look for a system's games (null: the systems grid).</summary>
     public Look LookFor(string? systemId) => Active.LookFor(systemId);
 
+    /// <summary>
+    /// A template id as <paramref name="theme"/> names it: its own template (which may extend the base's), else the base
+    /// theme's; null when neither has it.
+    /// </summary>
+    public GameTemplate? TemplateOf(Theme theme, string id)
+    {
+        ArgumentNullException.ThrowIfNull(theme);
+        ArgumentNullException.ThrowIfNull(id);
+        return theme.Templates.TryGetValue(id, out var own) ? own : Base.Templates.GetValueOrDefault(id);
+    }
+
     private IEnumerable<(Theme Theme, ModelLevel System, ModelLevel Default)> Themes()
     {
         yield return (Active, ModelLevel.ThemeSystem, ModelLevel.ThemeDefault);
-        if (!ReferenceEquals(Active, BuiltIn))
+        if (!ReferenceEquals(Active, Base))
         {
-            yield return (BuiltIn, ModelLevel.BuiltInSystem, ModelLevel.BuiltInDefault);
+            yield return (Base, ModelLevel.BaseSystem, ModelLevel.BaseDefault);
         }
     }
 }

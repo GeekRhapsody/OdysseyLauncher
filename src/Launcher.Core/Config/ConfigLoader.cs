@@ -209,7 +209,7 @@ public sealed class ConfigLoader : IConfigLoader
                 WarnUnknownKeys(scanning, "scanning", ScanningKeys);
             }
 
-            var theme = SettingString(tree, defaults, "display", "theme")?.Value ?? "memory-card";
+            var theme = SettingString(tree, defaults, "display", "theme")?.Value ?? Theming.ThemeCatalog.DefaultId;
             var fullscreen = SettingBool(tree, defaults, "display", "fullscreen") ?? true;
             var hideEmptySystems = SettingBool(tree, defaults, "display", "hide_empty_systems") ?? true;
             var systemsLayout = SettingLayout(tree, defaults, "systems_layout", Layouts.SystemsNames, Layouts.GamesNames);

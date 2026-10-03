@@ -1013,6 +1013,11 @@ public sealed partial class Navigator : Node
         }
 
         var available = _theme.Plan.Themes.Available;
+        if (id is null && available.Count == 0)
+        {
+            return;
+        }
+
         var target = id ?? available[(Math.Max(0, IndexOf(available, ThemeId)) + 1) % available.Count];
         _switchingTheme = true;
         _themeRequestedAt = _clock;

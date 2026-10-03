@@ -34,6 +34,10 @@ window/stretch/aspect="expand"
 project/assembly_name="OdysseyLauncher"
 project/solution_directory=".."
 
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/odyssey_export/plugin.cfg")
+
 [gui]
 
 theme/lcd_subpixel_layout=0

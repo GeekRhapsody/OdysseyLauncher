@@ -227,7 +227,7 @@ public sealed class ModelLoader
     {
         var path = candidate.Path;
         var description = candidate.Description;
-        var inPack = candidate.Origin == ThemeOrigin.BuiltIn;
+        var builtIn = candidate.Origin == ThemeOrigin.BuiltIn;
         var cache = _cache;
         var log = _log;
         _ = Task.Run(() =>
@@ -236,15 +236,16 @@ public sealed class ModelLoader
             try
             {
                 byte[] bytes;
-                if (inPack)
+                if (builtIn)
                 {
-                    if (!Godot.FileAccess.FileExists(path))
+                    // The app's own themes are trusted: Core's tests check their models, so they're read as they are.
+                    if (!File.Exists(path))
                     {
                         _parsed.Enqueue((file, null, "the file doesn't exist", 0));
                         return;
                     }
 
-                    bytes = Godot.FileAccess.GetFileAsBytes(path);
+                    bytes = File.ReadAllBytes(path);
                 }
                 else
                 {
@@ -260,7 +261,7 @@ public sealed class ModelLoader
                 }
 
                 var model = ModelConverter.Convert(bytes, Path.GetFileNameWithoutExtension(path), out var error);
-                if (model is null && !inPack)
+                if (model is null && !builtIn)
                 {
                     log?.Write(Launcher.Core.Diagnostics.LogLevel.Error, $"{description}: Godot couldn't load it: {error}. The next model in line is used instead");
                 }

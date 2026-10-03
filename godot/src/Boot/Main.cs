@@ -100,6 +100,12 @@ public partial class Main : Node3D
             $"{RenderingServer.GetCurrentRenderingMethod()}/{RenderingServer.GetCurrentRenderingDriverName()}");
 
         var executableDir = Path.GetDirectoryName(OS.GetExecutablePath()) ?? ".";
+
+        // The app's own themes are a folder beside its executable, outside the PCK (A6 Locations); run from the editor
+        // binary, the project's.
+        var themesDir = OS.HasFeature("editor")
+            ? ProjectSettings.GlobalizePath("res://" + Launcher.Core.Theming.ThemeLoader.FolderName)
+            : Path.Combine(executableDir, Launcher.Core.Theming.ThemeLoader.FolderName);
         var options = _options;
         var token = _shutdown.Token;
         var headless = _headless;
@@ -107,7 +113,7 @@ public partial class Main : Node3D
         {
             try
             {
-                _services = await AppServices.LoadAsync(options, executableDir, headless ? null : plan => Volatile.Write(ref _plan, plan), token).ConfigureAwait(false);
+                _services = await AppServices.LoadAsync(options, executableDir, themesDir, headless ? null : plan => Volatile.Write(ref _plan, plan), token).ConfigureAwait(false);
             }
             catch (Exception e) when (e is not OperationCanceledException)
             {

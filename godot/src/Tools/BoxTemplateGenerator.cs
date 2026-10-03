@@ -6,15 +6,14 @@ namespace Launcher.App.Tools;
 /// <summary>
 /// Generates the built-in models procedurally and exports each with Godot's glTF exporter (A7): the built-in theme's
 /// box templates and its arcade cabinet (<see cref="ArcadeCabinetBuilder"/>) in
-/// <c>res://themes/memory-card/models/templates/</c> and its generic system model in
-/// <c>res://themes/memory-card/models/systems/</c>, and the M6 test theme's models in
+/// <c>godot/themes/memory-card/models/templates/</c> and its generic system model in
+/// <c>godot/themes/memory-card/models/systems/</c>, and the M6 test theme's models in
 /// <c>tests/themes/slot-showcase/models/</c>, and the sample theme's in <c>samples/themes/retro-tv/models/</c>
-/// (<see cref="RetroTvBuilder"/>; both outside the project, so Godot doesn't import them: a user theme's models are
-/// loaded from the <c>.glb</c> at run time).
+/// (<see cref="RetroTvBuilder"/>). None is imported by Godot (<c>godot/themes/</c> has a <c>.gdignore</c>): every theme's
+/// models are loaded from the <c>.glb</c> files at run time (A6 Locations).
 /// <para>
 /// Run it headless with <c>godot --headless --path godot res://scenes/tools/generate_box_templates.tscn</c> (it quits
-/// when done), or open that scene in the editor and press Generate in the inspector. Then run
-/// <c>godot --headless --path godot --import</c> and commit the <c>.glb</c> and <c>.import</c> files.
+/// when done), or open that scene in the editor and press Generate in the inspector. Then commit the <c>.glb</c> files.
 /// </para>
 /// </summary>
 [Tool]
@@ -136,21 +135,6 @@ public partial class BoxTemplateGenerator : Node
         return ok;
     }
 
-    /// <summary>
-    /// Gives a model inside the project the "keep file" import (A6 Locations): the app reads a built-in theme's
-    /// <c>.glb</c> from the PCK as a file, and Godot's default import for a new one is a scene, which the export would
-    /// pack instead, leaving the theme without the model.
-    /// </summary>
-    private static void KeepFile(string glbPath)
-    {
-        var import = glbPath + ".import";
-        if (!System.IO.File.Exists(import) || !System.IO.File.ReadAllText(import).Contains("importer=\"keep\"", StringComparison.Ordinal))
-        {
-            System.IO.File.WriteAllText(import, "[remap]\n\nimporter=\"keep\"\n");
-            GD.Print($"Box templates: {import}: set to keep the file");
-        }
-    }
-
     /// <summary>A node tree with meshes and an <see cref="AnimationPlayer"/>, exported with its clips.</summary>
     private static bool ExportScene(Node3D root, int triangles, string path)
     {
@@ -183,7 +167,7 @@ public partial class BoxTemplateGenerator : Node
     private static bool Export(BoxSpec spec, string path) =>
         ExportMesh(BoxBuilder.Build(spec, out var triangles), spec.Id, triangles, path);
 
-    /// <summary>One mesh, exported as a model with one node; one in the project gets the "keep file" import.</summary>
+    /// <summary>One mesh, exported as a model with one node.</summary>
     /// <param name="path">A <c>res://</c> path, or an absolute one.</param>
     private static bool ExportMesh(ArrayMesh mesh, string id, int triangles, string path)
     {
@@ -203,11 +187,6 @@ public partial class BoxTemplateGenerator : Node
             {
                 GD.PrintErr($"Box templates: couldn't export {path}: {error}");
                 return false;
-            }
-
-            if (path.StartsWith("res://", StringComparison.Ordinal))
-            {
-                KeepFile(ProjectSettings.GlobalizePath(path));
             }
 
             var aabb = mesh.GetAabb();

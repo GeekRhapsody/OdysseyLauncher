@@ -18,7 +18,8 @@ retroarch = "C:/RetroArch-Win64"
 emulators = "C:/Emulators"
 
 [display]
-theme = "memory-card"
+# A theme in the app's themes/ folder or in yours. memory-card is the base every theme builds on, not a theme to choose.
+theme = "console"
 fullscreen = true
 # The systems grid leaves out systems with no games, so the long built-in list only shows what you have.
 # false shows every enabled system, empty or not.

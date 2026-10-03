@@ -286,7 +286,7 @@ public class ConfigLoaderTests
 
         var error = Single(result, Severity.Error);
         Assert.Equal(3, error.Line);
-        Assert.Equal("memory-card", result.Config.Settings.Display.Theme);
+        Assert.Equal("console", result.Config.Settings.Display.Theme);
     }
 
     [Fact]

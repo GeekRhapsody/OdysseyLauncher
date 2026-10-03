@@ -22,7 +22,7 @@ public sealed class BuiltInModelTests
     public static TheoryData<string, string> Templates()
     {
         var data = new TheoryData<string, string>();
-        foreach (var folder in (string[])[ThemeFixtures.BuiltInFolder, ThemeFixtures.SlotShowcaseFolder])
+        foreach (var folder in (string[])[ThemeFixtures.BaseFolder, ThemeFixtures.SlotShowcaseFolder])
         {
             var theme = ThemeFixtures.Load(folder);
             foreach (var model in theme.Templates.Values.Select(t => t.Model).Distinct(StringComparer.Ordinal))
@@ -49,31 +49,25 @@ public sealed class BuiltInModelTests
     }
 
     [Fact]
-    public void Every_model_in_the_Godot_project_is_exported_as_the_file_itself()
+    public void The_apps_themes_are_left_out_of_the_PCK_and_copied_beside_the_executable()
     {
-        // The app reads a built-in theme's .glb from the PCK as a file (A6 Locations). Godot's default import for a new
-        // .glb is a scene, which the export packs instead of the file, so the theme can't find it and drops the
-        // template: DOS fell back to the DVD case in the export, though the editor (reading the folder) was right.
+        // The app reads its own themes from the themes folder beside its executable (A6 Locations). Godot ignores
+        // godot/themes (.gdignore), so it neither imports a model as a scene nor packs anything, and the export preset
+        // leaves the folder out; the odyssey_export addon copies it beside the executable.
         var project = Path.Combine(ThemeFixtures.RepoRoot, "godot");
-        var models = Directory.GetFiles(project, "*.glb", SearchOption.AllDirectories)
-            .Where(path => !path.Contains($"{Path.DirectorySeparatorChar}.godot{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
-            .ToList();
+        Assert.True(File.Exists(Path.Combine(ThemeFixtures.BuiltInThemesFolder, ".gdignore")), "godot/themes needs a .gdignore.");
+        Assert.Empty(Directory.GetFiles(ThemeFixtures.BuiltInThemesFolder, "*.import", SearchOption.AllDirectories));
 
-        Assert.NotEmpty(models);
-        Assert.All(models, path =>
-        {
-            var import = path + ".import";
-            Assert.True(File.Exists(import), $"{import} is missing.");
-            Assert.True(
-                File.ReadAllText(import).Contains("importer=\"keep\"", StringComparison.Ordinal),
-                $"{import} must say importer=\"keep\" (Import dock: Keep File), or the export leaves the .glb out.");
-        });
+        var preset = File.ReadAllText(Path.Combine(project, "export_presets.cfg"));
+        Assert.Matches("""(?m)^exclude_filter="[^"]*\bthemes/\*""", preset);
+        Assert.Contains("res://addons/odyssey_export/plugin.cfg", File.ReadAllText(Path.Combine(project, "project.godot")), StringComparison.Ordinal);
+        Assert.True(File.Exists(Path.Combine(project, "addons", "odyssey_export", "ThemesExportPlugin.cs")));
     }
 
     [Fact]
     public void The_generic_system_model_follows_the_model_spec()
     {
-        var model = Load(ThemeFixtures.BuiltInFolder, ThemeFixtures.Load(ThemeFixtures.BuiltInFolder).Defaults.SystemModel!);
+        var model = Load(ThemeFixtures.BaseFolder, ThemeFixtures.Load(ThemeFixtures.BaseFolder).Defaults.SystemModel!);
 
         Assert.Contains("label", model.Materials);
         Assert.True(model.Triangles <= 30_000);
