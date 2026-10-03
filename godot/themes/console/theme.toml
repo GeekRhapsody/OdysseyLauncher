@@ -47,3 +47,9 @@ model = "models/systems/gb.glb"               # its normal, roughness and emissi
 
 [systems.megadrive]
 model = "models/systems/megadrive.glb"        # built by tools/console-models/mega_drive.py, turned to a three-quarter view; its focused clip inserts a cartridge
+
+[systems.windows]
+model = "models/systems/windows.glb"          # built by tools/console-models/windows_pc.py: a gaming PC with a glass side and RGB fans, and its monitor
+
+[systems.switch]
+model = "models/systems/switch.glb"           # built by tools/console-models/switch.py, turned to a three-quarter view; its focused clip slides the right Joy-Con up its rail and back

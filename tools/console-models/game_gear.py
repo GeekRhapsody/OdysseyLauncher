@@ -267,4 +267,5 @@ def main():
         export_lights=False)
 
 
-main()
+if __name__ == "__main__":
+    main()
