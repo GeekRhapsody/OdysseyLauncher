@@ -61,6 +61,13 @@ public partial class BoxTemplateGenerator : Node
             CaseColour: new Color("#26262A"), CaseRoughness: 0.85f, ArtRoughness: 0.7f, PrintedOpeningSide: true,
             PrintedBevels: true),
 
+        // SNES and N64: the same big box, landscape, with its spine on the top and bottom, as those boxes' scraped spines
+        // are (680 x 97 against a 680 x 497 front). The theme's generic_box_top_spine shapes it by the art too; 190 x 136
+        // x 30 is a box with none.
+        new("generic_box_top", 190, 136, 30, SpineRadius: 0.8f, OpeningRadius: 0.8f, Bevel: 0.6f,
+            CaseColour: new Color("#26262A"), CaseRoughness: 0.85f, ArtRoughness: 0.7f, SpineOnTop: true,
+            PrintedBevels: true),
+
         // Mega Drive (and Master System): the European plastic clamshell, 136 x 190 x 24, with a thick rim.
         new("clamshell", 136, 190, 24, SpineRadius: 3, OpeningRadius: 6, Bevel: 2.5f,
             CaseColour: new Color("#0E0E10"), CaseRoughness: 0.45f, ArtRoughness: 0.3f),

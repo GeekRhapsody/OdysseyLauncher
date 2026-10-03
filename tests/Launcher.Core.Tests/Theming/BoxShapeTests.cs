@@ -34,6 +34,16 @@ public sealed class BoxShapeTests
     }
 
     [Fact]
+    public void A_spine_wider_than_tall_is_the_top_and_the_depth_is_its_height_over_width_times_the_boxs_width()
+    {
+        // ScreenScraper's SNES art (USA): a 680 x 497 front and a 680 x 97 spine, the box's top.
+        var snes = BoxShape.Fit(Rest, 680 / 497f, 680 / 97f, 1, 1);
+
+        Assert.Equal(1, snes.Width, Tolerance);
+        Assert.Equal(97 / 680f, snes.Depth, Tolerance);
+    }
+
+    [Fact]
     public void Without_a_cover_or_a_spine_the_rest_shape_stands_in()
     {
         var neither = BoxShape.Fit(Rest, 0, 0, 1, 1);
@@ -57,9 +67,12 @@ public sealed class BoxShapeTests
 
     [Theory]
     [InlineData(0.001f, BoxShape.MinDepthRatio)]
-    [InlineData(3f, BoxShape.MaxDepthRatio)]
+    [InlineData(0.9f, BoxShape.MaxDepthRatio)]
+    [InlineData(1000f, BoxShape.MinDepthRatio)]
+    [InlineData(1.2f, BoxShape.MaxDepthRatio)]
     public void Spine_aspects_out_of_range_are_clamped(float spine, float expected)
     {
+        // A square cover, so the depth over the height and over the width are the same.
         var size = BoxShape.Fit(Rest, 1, spine, 1, 1);
 
         Assert.Equal(expected, size.Depth / size.Height, Tolerance);

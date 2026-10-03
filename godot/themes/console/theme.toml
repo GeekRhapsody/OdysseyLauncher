@@ -1,7 +1,7 @@
 # The default theme (A6): each system's console as its card. It builds on the base theme, memory-card, like every
-# theme: whatever it leaves out is memory-card's. Its games' templates (the boxes, the arcade cabinet), the colours,
-# and the card for systems without a console of their own (the memory-card slab) all come from there. Paths are
-# relative to this folder.
+# theme: whatever it leaves out is memory-card's. Its games' templates (the boxes, the arcade cabinet) but the Mega
+# Drive's cartridge, the colours, and the card for systems without a console of their own (the memory-card slab) all
+# come from there. Paths are relative to this folder.
 format = 1
 name = "Console"
 author = "Claudio Filipe"
@@ -33,6 +33,10 @@ direction = [0.0, 0.9, -0.4]
 colour = "#FF9060"
 energy = 0.25
 
+# Game templates of this theme's own.
+[templates.megadrive_cartridge]
+model = "models/templates/megadrive_cartridge.glb"  # built by tools/console-models/mega_drive_cartridge.py: the box art on its label
+
 # System cards: the console's own model. A system's games keep memory-card's template for it unless one is named
 # here (game_template = "jewel_case", say: any of memory-card's templates, or one of this theme's).
 [systems.gamegear]
@@ -42,4 +46,4 @@ model = "models/systems/gamegear.glb"         # built by tools/console-models/ga
 model = "models/systems/gb.glb"               # its normal, roughness and emissive maps stripped (tools/console-models/strip_maps.py)
 
 [systems.megadrive]
-model = "models/systems/megadrive.glb"        # a `focused` clip
+model = "models/systems/megadrive.glb"        # built by tools/console-models/mega_drive.py, turned to a three-quarter view; its focused clip inserts a cartridge

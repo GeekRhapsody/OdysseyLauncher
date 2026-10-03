@@ -178,9 +178,10 @@ float title_block(vec2 uv, vec3 rect, float face_aspect) {
 	return texture(titles, origin + local * block_size).a;
 }
 
-// The spine strip's coverage: the text reads top to bottom, with the tops of the letters towards the front.
-float title_spine(vec2 uv) {
-	vec2 local = vec2(uv.y, 1.0 - uv.x);
+// The spine strip's coverage: the text reads top to bottom, with the tops of the letters towards the front; on a spine
+// wider than high (a box's top or bottom), left to right, upright from the front.
+float title_spine(vec2 uv, bool across) {
+	vec2 local = across ? uv : vec2(uv.y, 1.0 - uv.x);
 	int cell = int(v_cell);
 	vec2 origin = spine_origin + vec2(float(cell % spine_columns), float(cell / spine_columns)) * spine_size;
 	return texture(titles, origin + clamp(local, vec2(0.002), vec2(0.998)) * spine_size).a;
@@ -218,7 +219,8 @@ vec3 media(vec2 uv, float face_aspect) {
 // Art drawn whole, fitted inside the face over the slot's fallback: its authored texture (a screen's black, say), or
 // for a generated fallback the cover's colour darkened to a deep shade, since logos are made to sit on dark art (their
 // light parts often have only a dark outline). A logo keeps a margin, and on a spine reads top to bottom like the
-// spine's title; anything else (a screenshot on a screen whose template fits it whole) fills the face's width or height.
+// spine's title (left to right on a spine wider than high); anything else (a screenshot on a screen whose template fits
+// it whole) fills the face's width or height.
 vec3 art_whole(vec2 uv, float face_aspect) {
 	vec3 base = authored(uv);
 	if (mod(v_state.x, 2.0) > 0.5) {
@@ -230,9 +232,10 @@ vec3 art_whole(vec2 uv, float face_aspect) {
 	// in the art's own axes.
 	bool logo = v_state.x > 3.5;
 	bool spine = logo && v_slot == SLOT_SPINE;
+	bool turned = spine && face_aspect < 1.0;
 	vec2 fill = !logo ? vec2(1.0) : spine ? vec2(0.9, 0.76) : vec2(0.88, 0.84);
-	vec2 p = ((spine ? vec2(uv.y, 1.0 - uv.x) : uv) - 0.5) / fill;
-	float box = spine ? fill.x / (fill.y * face_aspect) : fill.x * face_aspect / fill.y;
+	vec2 p = ((turned ? vec2(uv.y, 1.0 - uv.x) : uv) - 0.5) / fill;
+	float box = turned ? fill.x / (fill.y * face_aspect) : fill.x * face_aspect / fill.y;
 	float art = max(v_state.y, 0.01);
 	if (art > box) {
 		p.y *= art / box;
@@ -261,10 +264,12 @@ vec3 generated(vec2 uv, float face_aspect, bool loading, out float roughness) {
 		return mix(plain, vec3(0.95), ink);
 	}
 	if (v_slot == SLOT_SPINE) {
+		// A spine wider than high is a box's top or bottom, read left to right.
+		bool across = face_aspect > 1.0;
 		vec3 base = v_dominant * 0.9;
-		// A darker band at the top, where a real spine carries the platform's logo.
-		base *= uv.y < 0.1 ? 0.3 : 1.0;
-		return mix(base, v_ink, title_spine(uv));
+		// A darker band at the top (on a box's top, the left), where a real spine carries the platform's logo.
+		base *= (across ? uv.x : uv.y) < 0.1 ? 0.3 : 1.0;
+		return mix(base, v_ink, title_spine(uv, across));
 	}
 	if (v_slot == SLOT_BACK) {
 		vec3 base = v_dominant * mix(0.6, 0.3, uv.y);

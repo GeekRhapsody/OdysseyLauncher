@@ -33,6 +33,10 @@ public enum FrontSplit
 /// height; for <see cref="FrontSplit.LowerPanel"/>, the lower slot's height.
 /// </param>
 /// <param name="PrintedOpeningSide">The opening side shows the spine art too (a cardboard box printed on both sides).</param>
+/// <param name="SpineOnTop">
+/// The spine is the top and bottom, not the left and right sides (a landscape box whose spine art is its top: SNES,
+/// N64). Both show it, read from the front; the left and right sides are plain case.
+/// </param>
 /// <param name="PrintedBevels">
 /// The front and back chamfers belong to the front and back slots, showing the art's edge, so a printed box has no
 /// band of plain case round its faces. Only for a whole front (<see cref="FrontSplit.None"/>).
@@ -56,6 +60,7 @@ public sealed record BoxSpec(
     FrontSplit Split = FrontSplit.None,
     float SplitAt = 0,
     bool PrintedOpeningSide = false,
+    bool SpineOnTop = false,
     bool PrintedBevels = false,
     string? LowerSlot = null,
     bool TestCardOnLowerSlot = false);
@@ -90,7 +95,9 @@ public sealed class BoxBuilder
     /// <summary>A face's width over its height, for a slot material's <c>extras.aspect</c>.</summary>
     public static float SlotAspect(BoxSpec spec, string slot) => slot switch
     {
-        // The spine's UVs span the straight wall: the depth less both chamfers, and the height less both corners.
+        // The spine's UVs span the straight wall: the depth less both chamfers, and the height (or on top, the width)
+        // less both corners.
+        "spine" when spec.SpineOnTop => (spec.Width - spec.SpineRadius - spec.OpeningRadius) / (spec.Depth - 2 * spec.Bevel),
         "spine" => (spec.Depth - 2 * spec.Bevel) / (spec.Height - 2 * spec.SpineRadius),
         "back" => spec.Width / spec.Height,
         _ when slot == spec.LowerSlot => spec.Width / spec.SplitAt,
@@ -341,7 +348,20 @@ public sealed class BoxBuilder
             var b = outline[j];
             string material;
             Vector2 uvA0, uvB0, uvA1, uvB1; // (point, front), (point, back)
-            if (side == Side.Spine && s.HasSpineSlot)
+            if (s.SpineOnTop && s.HasSpineSlot && side is Side.Top or Side.Bottom)
+            {
+                // Read from the front, left to right: seen from above, the front is the face's lower edge; seen from
+                // below, its upper edge.
+                material = "spine";
+                var start = -s.Width / 2 + s.SpineRadius;
+                var length = s.Width - s.SpineRadius - s.OpeningRadius;
+                var ua = (a.Position.X - start) / length;
+                var ub = (b.Position.X - start) / length;
+                var (front, back) = side == Side.Top ? (1f, 0f) : (0f, 1f);
+                (uvA0, uvA1) = (new Vector2(ua, front), new Vector2(ua, back));
+                (uvB0, uvB1) = (new Vector2(ub, front), new Vector2(ub, back));
+            }
+            else if (side == Side.Spine && s.HasSpineSlot && !s.SpineOnTop)
             {
                 // Seen from the left, the front is on the right: u runs from the back edge to the front edge.
                 material = "spine";
@@ -350,7 +370,7 @@ public sealed class BoxBuilder
                 (uvA0, uvA1) = (new Vector2(1, va), new Vector2(0, va));
                 (uvB0, uvB1) = (new Vector2(1, vb), new Vector2(0, vb));
             }
-            else if (side == Side.Opening && s.PrintedOpeningSide && s.HasSpineSlot)
+            else if (side == Side.Opening && s.PrintedOpeningSide && s.HasSpineSlot && !s.SpineOnTop)
             {
                 // Seen from the right, the front is on the left.
                 material = "spine";

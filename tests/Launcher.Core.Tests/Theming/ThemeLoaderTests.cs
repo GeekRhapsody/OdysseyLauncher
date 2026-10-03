@@ -636,7 +636,8 @@ public sealed class ThemeLoaderTests
         Assert.Equal(("console", "Console", ThemeOrigin.BuiltIn), (console.Id, console.Name, console.Origin));
         Assert.All(console.Systems.Values, system => Assert.True(File.Exists(console.PathOf(system.Model!)), system.Id));
 
-        // Its cards fall back to the base's slab, and its games to the base's templates.
+        // Its cards fall back to the base's slab, and its games to the base's templates, but the Mega Drive's games,
+        // which are on its own cartridge.
         Assert.Null(console.Defaults.SystemModel);
         Assert.Null(console.Defaults.GameTemplate);
         var baseTheme = ThemeFixtures.Base;
@@ -644,8 +645,11 @@ public sealed class ThemeLoaderTests
         var resolver = new ModelResolver(console, baseTheme, UserModels.None("C:/config"), config, "C:/data");
         Assert.Equal(console.PathOf("models/systems/gb.glb"), resolver.SystemModels("gb")[0].Path);
         Assert.Equal(baseTheme.PathOf(baseTheme.Defaults.SystemModel!), resolver.SystemModels("saturn")[0].Path);
+        var ps2 = resolver.GameTemplates("ps2")[0];
+        Assert.Equal((ModelLevel.BaseSystem, "memory-card"), (ps2.Level, ps2.Template!.ThemeId));
+        Assert.True(File.Exists(ps2.Path));
         var megadrive = resolver.GameTemplates("megadrive")[0];
-        Assert.Equal((ModelLevel.BaseSystem, "memory-card"), (megadrive.Level, megadrive.Template!.ThemeId));
-        Assert.True(File.Exists(megadrive.Path));
+        Assert.Equal((ModelLevel.ThemeSystem, "console", "megadrive_cartridge"), (megadrive.Level, megadrive.Template!.ThemeId, megadrive.Template.Id));
+        Assert.Equal(console.PathOf("models/templates/megadrive_cartridge.glb"), megadrive.Path);
     }
 }

@@ -1597,8 +1597,9 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
     /// <summary>
     /// A reshaped box's two texels (item.gdshader), from its game's cover and spine (<see cref="BoxShape"/>): how much
     /// each half of the rest mesh moves out (half the width's growth, the height's, half the depth's) and the height
-    /// above which a vertex is in the top half; then the faces' new aspects (front and back, spine). Zeros for every
-    /// other cell, which the shader leaves as it is.
+    /// above which a vertex is in the top half; then the faces' new aspects (front and back, spine: on the sides as deep
+    /// over high as the box, or for a template whose spine face is wider than high, on the top and bottom, as wide over
+    /// deep). Zeros for every other cell, which the shader leaves as it is.
     /// </summary>
     private void WriteShape(int cell)
     {
@@ -1622,7 +1623,8 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
         var size = BoxShape.Fit(rest, cover, spine, _envelopeWidth, _envelopeHeight);
         _stateImage.SetPixel(ShapeColumn, cell, new Color(
             (size.Width - rest.Width) / 2, size.Height - rest.Height, (size.Depth - rest.Depth) / 2, rest.Height / 2));
-        _stateImage.SetPixel(ShapeColumn + 1, cell, new Color(size.Width / size.Height, size.Depth / size.Height, 0, 0));
+        var spineFace = model.SlotAspect(MediaSlots.Spine) > 1 ? size.Width / size.Depth : size.Depth / size.Height;
+        _stateImage.SetPixel(ShapeColumn + 1, cell, new Color(size.Width / size.Height, spineFace, 0, 0));
         _shaped[cell] = true;
         _stateDirty = true;
     }

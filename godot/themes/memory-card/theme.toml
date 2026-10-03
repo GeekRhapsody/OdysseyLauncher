@@ -58,6 +58,10 @@ model = "models/templates/gameboy_box.glb"
 model = "models/templates/generic_box.glb"
 shape = "media"                    # the front takes the cover's proportions, the depth the spine's (A6)
 
+[templates.generic_box_top_spine]  # SNES, N64: a landscape big box whose spine is its top and bottom; 190 x 136 x 30 mm without any
+model = "models/templates/generic_box_top.glb"
+shape = "media"                    # the depth from the spine's height over its width, times the box's width (A7)
+
 [templates.generic_box_logo]       # Windows, Steam: the same box, with the game's logo along its spine
 model = "models/templates/generic_box.glb"
 shape = "media"
@@ -158,7 +162,7 @@ energy = 0.25
 
 [systems.nes]                      # NES
 colour = "#A8232E"
-game_template = "cartridge_box"
+game_template = "generic_box_spine"
 
 [systems.nes.look.background]
 top_left     = "#4C191D"
@@ -183,6 +187,7 @@ energy = 0.25
 
 [systems.snes]                     # SNES
 colour = "#6C5BA6"
+game_template = "generic_box_top_spine"
 
 [systems.snes.look.background]
 top_left     = "#362F4C"
@@ -207,6 +212,7 @@ energy = 0.25
 
 [systems.n64]                      # Nintendo 64
 colour = "#2F8F4E"
+game_template = "generic_box_top_spine"
 
 [systems.n64.look.background]
 top_left     = "#214C2F"
@@ -231,7 +237,7 @@ energy = 0.25
 
 [systems.gc]                       # GameCube
 colour = "#5A4FCF"
-game_template = "dvd_case"
+game_template = "generic_box_spine"
 
 [systems.gc.look.background]
 top_left     = "#28244C"

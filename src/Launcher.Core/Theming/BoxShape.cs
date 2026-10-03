@@ -5,8 +5,9 @@ public readonly record struct BoxSize(float Width, float Height, float Depth);
 
 /// <summary>
 /// The shape of a template whose manifest says <c>shape = "media"</c> (A6): its front takes the game's cover's
-/// width over height, and its depth the game's spine's width over height times the box's height, so the cover, back
-/// and spine show whole. Scraped images are normalised (ScreenScraper's are 700 pixels high), so only these ratios
+/// width over height, and its depth the game's spine's, so the cover, back and spine show whole. A spine taller than
+/// wide is the box's side, as deep over high as the box; one wider than tall is its top (SNES and N64 boxes), as deep
+/// over wide as the box. Scraped images are normalised (ScreenScraper's are 700 pixels high), so only these ratios
 /// are read, never sizes. The grid works out the list's envelope once (<see cref="Unit"/>, the largest of each
 /// side), and each cell's shape inside it (<see cref="Fit"/>). Pure and allocation-free.
 /// </summary>
@@ -17,7 +18,7 @@ public static class BoxShape
 
     public const float MaxCoverAspect = 4f;
 
-    /// <summary>Spine aspects (depth over height) are clamped to this range.</summary>
+    /// <summary>The depth over the side the spine runs along (the height, or on top the width) is clamped to this range.</summary>
     public const float MinDepthRatio = 0.02f;
 
     public const float MaxDepthRatio = 0.5f;
@@ -47,7 +48,10 @@ public static class BoxShape
     /// </summary>
     /// <param name="rest">The template's rest size: the shape without a cover or a spine.</param>
     /// <param name="coverAspect">The cover's width over height; 0 or less without one.</param>
-    /// <param name="spineAspect">The spine's width over height, which is the box's depth over its height; 0 or less without one.</param>
+    /// <param name="spineAspect">
+    /// The spine's width over height: the box's depth over its height, or for a spine wider than tall (the box's top) its
+    /// width over its depth; 0 or less without one.
+    /// </param>
     /// <param name="envelopeWidth">The widest box in the list (at most 1).</param>
     /// <param name="envelopeHeight">The tallest box in the list (at most 1).</param>
     public static BoxSize Fit(BoxSize rest, float coverAspect, float spineAspect, float envelopeWidth, float envelopeHeight)
@@ -66,10 +70,15 @@ public static class BoxShape
 
         width = Math.Max(width * scale, MinSide);
         height = Math.Max(height * scale, MinSide);
-        var depthRatio = spineAspect > 0 && float.IsFinite(spineAspect)
-            ? Math.Clamp(spineAspect, MinDepthRatio, MaxDepthRatio)
-            : rest.Depth / Math.Max(rest.Height, MinSide);
-        return new BoxSize(width, height, Math.Max(height * depthRatio, MinDepth));
+        if (!(spineAspect > 0 && float.IsFinite(spineAspect)))
+        {
+            return new BoxSize(width, height, Math.Max(height * rest.Depth / Math.Max(rest.Height, MinSide), MinDepth));
+        }
+
+        var depth = spineAspect > 1
+            ? width * Math.Clamp(1 / spineAspect, MinDepthRatio, MaxDepthRatio)
+            : height * Math.Clamp(spineAspect, MinDepthRatio, MaxDepthRatio);
+        return new BoxSize(width, height, Math.Max(depth, MinDepth));
     }
 
     private static float CoverAspect(BoxSize rest, float coverAspect) =>
