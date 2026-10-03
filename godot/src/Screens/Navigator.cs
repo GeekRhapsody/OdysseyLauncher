@@ -291,6 +291,12 @@ public sealed partial class Navigator : Node
         {
             Run(command);
         }
+
+        // The right stick turns the focused system or game, in either grid, until the focus moves.
+        if (!blocked && _screen is Screen.Systems or Screen.Games && NavInput.ReadTurn() is var turn && turn != Vector2.Zero)
+        {
+            (_screen == Screen.Systems ? _systemsGrid : _gamesGrid).Turn(turn, (float)delta);
+        }
     }
 
     /// <summary>Acts on one command, from the controller or keyboard, or from <c>--nav-script</c>. Main thread.</summary>

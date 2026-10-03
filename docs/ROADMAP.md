@@ -644,3 +644,14 @@ Update this at the end of every milestone: the status, the date, and the evidenc
     - LT and RT still jump where the first letter changes, which only helps in title order; in another order they could jump by year or month.
     - Favourites keep title order and Recently played newest first, whatever `games_sort` says.
     - The catalogue's years and the added manufacturers are unverified, like its ScreenScraper ids.
+- **2026-10-03: turning an item with the right stick** (the owner's request): the right stick turns the focused system or game about its middle, and it goes back square when the focus moves.
+  - **What was added:**
+    - App `Navigation`: the right stick's four directions as gamepad actions (`nav_turn_*_pad`), read each frame by `NavInput.ReadTurn`; the navigator passes them to the shown grid while nothing else holds the input.
+    - App `Grid`: `ItemGrid.Turn`, the player's turn in the focused item's transform (round its vertical without limit; towards or away from the camera, up to 83°; 3 rad/s at full tilt, the tilt squared), about its model's middle; the sway holds still once it's turned; the item left eases back square in its blend-out, and a bind sets everything square.
+    - Core `Diagnostics` and app `Boot`: the nav script's `turn` step (the stick held right and a little up until the next step, on a joypad device id of its own).
+  - **Verification:**
+    - `dotnet build`: 0 warnings. `DebugOptionsTests` pass with the new step.
+    - Captures were reviewed on `synthetic-genbox` (PS2's games, and the systems): a game turned in place; the focus moved on (the one left square, the new one square); back to the turned game (square); a system's card turned.
+    - **Bench:** an editor scroll bench (`synthetic-genbox`, 20 s): the scroll's main-thread allocation is 96 B, as before. No export bench: nothing else per frame changed, and the turn is a few more terms in a transform already written each frame.
+    - A real pad is the owner's manual test ([manual-tests.md](manual-tests.md#turning-an-item-with-the-right-stick)).
+  - **Not done:** the controls hints don't mention the right stick (the games' line is already full); no keyboard or mouse equivalent.

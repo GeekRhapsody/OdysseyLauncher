@@ -419,6 +419,20 @@ This checks what a capture can't: a real pad's L3, and a video's sound. Use the 
 - A video whose sound drifts away from its picture, or stutters: which game, and whether it was on the Deck or docked.
 - A video that wouldn't play with a reason that isn't the 4:4:4 one: the reason it gave.
 
+## Turning an item with the right stick
+
+This checks what a capture can't: a real stick's feel (its speed, its deadzone, and a stick that drifts). Use the export on the Deck, with only the pad.
+
+1. **A game.** In a system's games, push the right stick right: the focused game turns round its vertical, the front going right, slowly with the stick a little way over and fast at its edge; it stops swaying. Left turns it back and keeps going round. Up tips its front up towards the top of the screen, down the other way; either stops before it turns over. It turns in place, about its middle, and nothing else moves.
+2. **Let go.** Let the stick go: the game stays where you left it, and holds still. A resting stick (or one that drifts a little) turns nothing.
+3. **Moving on.** Move the focus with the D-pad or the left stick: the game you left goes back square at once, and the new one starts square, swaying. Go back to the first: it's square.
+4. **A system.** Back on the systems grid, the right stick turns the focused system's card (or console) the same way, and moving on sets it square.
+5. **Elsewhere.** With the settings, a game's options or its details open, the right stick does nothing to the grid behind. Launch a game: the item spins up and flies forward as before, whether or not you'd turned it.
+
+### Send back
+
+- A speed that feels wrong (too fast to aim, or too slow to go round), which way up and down should turn it if it feels backwards, and an item that turns by itself with the stick at rest.
+
 ## A release's built-in ScreenScraper credentials
 
 A release carries ScreenScraper's developer credentials (ARCHITECTURE.md A5, "Secrets"), written by the release workflow from the repository's secrets, so a user only enters their own account. Only a release built by the workflow has them: a script can't check them against ScreenScraper without a network call.

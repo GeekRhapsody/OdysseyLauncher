@@ -67,6 +67,12 @@ public sealed class NavInput
     public const double RampSeconds = 1.4;
     private const float StickDeadzone = 0.5f;
 
+    /// <summary>The right stick turns the focused item (<see cref="ReadTurn"/>), so it can lean further before it counts.</summary>
+    private const float TurnDeadzone = 0.2f;
+
+    // The right stick's four directions, gamepad only: left, right, up, down.
+    private static readonly StringName[] Turn = ["nav_turn_left_pad", "nav_turn_right_pad", "nav_turn_up_pad", "nav_turn_down_pad"];
+
     private static readonly Binding[] Repeating =
     [
         new("nav_up", NavCommand.Up), new("nav_down", NavCommand.Down), new("nav_left", NavCommand.Left), new("nav_right", NavCommand.Right),
@@ -98,7 +104,8 @@ public sealed class NavInput
 
     /// <summary>
     /// Adds the <c>nav_*</c> actions to the input map, once at boot: arrows, Enter/Space, Escape/Backspace and the
-    /// rest on the keyboard; the D-pad, left stick (and its click), A/B/X/Y, shoulders, triggers, View and Menu on a gamepad.
+    /// rest on the keyboard; the D-pad, left stick (and its click), A/B/X/Y, shoulders, triggers, View and Menu on a gamepad;
+    /// and the right stick's four directions, which turn the focused item.
     /// </summary>
     public static void RegisterActions()
     {
@@ -121,6 +128,10 @@ public sealed class NavInput
         AddPress(8, [Key.O, Key.Menu], [JoyButton.X]);
         AddPress(9, [Key.P], [JoyButton.Back]);
         AddPress(10, [Key.F], [JoyButton.LeftStick]);
+        AddTurn(0, JoyAxis.RightX, -1);
+        AddTurn(1, JoyAxis.RightX, 1);
+        AddTurn(2, JoyAxis.RightY, -1);
+        AddTurn(3, JoyAxis.RightY, 1);
 
         foreach (var action in GodotNavigation)
         {
@@ -135,6 +146,21 @@ public sealed class NavInput
         Register(Repeating[index], keys, buttons, axis);
 
     private static void AddPress(int index, Key[] keys, JoyButton[] buttons) => Register(Presses[index], keys, buttons, null);
+
+    private static void AddTurn(int index, JoyAxis axis, float direction)
+    {
+        if (!InputMap.HasAction(Turn[index]))
+        {
+            InputMap.AddAction(Turn[index], TurnDeadzone);
+            InputMap.ActionAddEvent(Turn[index], new InputEventJoypadMotion { Axis = axis, AxisValue = direction, Device = -1 });
+        }
+    }
+
+    /// <summary>
+    /// Main thread: the right stick, for turning the focused item, each axis -1 to 1 (right and down positive), past a
+    /// round deadzone and rescaled from its edge. Not a command: it's read every frame while it's held, and doesn't repeat.
+    /// </summary>
+    public static Vector2 ReadTurn() => Godot.Input.GetVector(Turn[0], Turn[1], Turn[2], Turn[3]);
 
     private static void Register(Binding binding, Key[] keys, JoyButton[] buttons, (JoyAxis Axis, float Direction)? axis)
     {

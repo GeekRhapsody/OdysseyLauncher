@@ -91,12 +91,13 @@ public sealed record DebugOptions
     /// any screen, so a capture can show media changing), and <c>wait</c>, which does nothing for a step. While a
     /// settings screen is open (M7), the commands go to it. Three steps send real input events instead, through
     /// Godot's input like the mouse and keyboard: <c>click</c> (the left button, on the focused control), <c>scroll</c>
-    /// (the wheel, down three notches, over the middle of the screen) and <c>type</c> (the keys "Ok 1").
+    /// (the wheel, down three notches, over the middle of the screen) and <c>type</c> (the keys "Ok 1"); and
+    /// <c>turn</c> holds the right stick right and a little up until the next step, turning the focused item.
     /// </summary>
     public static IReadOnlyList<string> NavScriptSteps { get; } =
     [
         "up", "down", "left", "right", "pageup", "pagedown", "letterprevious", "letternext", "first", "last",
-        "accept", "back", "favourite", "menu", "x", "y", "power", "theme", "rescan", "click", "scroll", "type", "wait",
+        "accept", "back", "favourite", "menu", "x", "y", "power", "theme", "rescan", "click", "scroll", "type", "turn", "wait",
     ];
 
     /// <summary>Frames between <c>--nav-script</c> steps: long enough for a transition to finish.</summary>

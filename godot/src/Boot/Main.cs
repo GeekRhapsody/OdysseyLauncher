@@ -461,6 +461,7 @@ public partial class Main : Node3D
 
     private int _navScriptStep = -1;
     private int _navScriptWait;
+    private bool _navScriptTurning;
 
     /// <summary>--nav-script: one step every few frames, through the navigator as the controller would.</summary>
     private void StepNavScript()
@@ -471,6 +472,11 @@ public partial class Main : Node3D
         }
 
         _navScriptWait = 0;
+        if (_navScriptTurning)
+        {
+            SendTurn(0, 0);
+        }
+
         var step = _options.NavScript[_navScriptStep++];
         var command = step switch
         {
@@ -512,6 +518,11 @@ public partial class Main : Node3D
         else if (step is "click" or "scroll" or "type")
         {
             SendInput(step);
+        }
+        else if (step == "turn")
+        {
+            // The right stick held right and a little up until the next step.
+            SendTurn(1, -0.6f);
         }
 
         GD.Print($"Nav script: {step} -> {(_ui!.Top is { } panel ? $"{panel.Name} '{panel.Heading}', focus {GetViewport().GuiGetFocusOwner()?.Name ?? "none"}" : _navigator!.Describe())} (frame {Engine.GetFramesDrawn()})");
@@ -761,6 +772,18 @@ public partial class Main : Node3D
 
                 break;
         }
+    }
+
+    /// <summary>
+    /// The nav script's <c>turn</c>: the right stick's position, as a joypad's motion events. From a device of its own:
+    /// a real pad (the Deck's controls) sends its sticks' motion all the time, and on the same device would undo it.
+    /// </summary>
+    private void SendTurn(float x, float y)
+    {
+        const int device = 15;
+        Input.ParseInputEvent(new InputEventJoypadMotion { Device = device, Axis = JoyAxis.RightX, AxisValue = x });
+        Input.ParseInputEvent(new InputEventJoypadMotion { Device = device, Axis = JoyAxis.RightY, AxisValue = y });
+        _navScriptTurning = x != 0 || y != 0;
     }
 
     /// <summary><c>--open</c>: shows a settings screen or component for a capture.</summary>

@@ -84,6 +84,11 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
     private const float ScrollSmoothTime = 0.11f;
     private const float ClipBlendSeconds = 0.25f;
     private const float LaunchFallbackSeconds = 0.7f;
+
+    // The right stick turns the focused item this fast at full tilt (radians a second), and tips it towards or away
+    // from the camera this far at most, so its top or bottom faces the camera but it never turns over.
+    private const float TurnSpeed = 3.0f;
+    private const float MaxTurnPitch = 1.45f;
     private const int Slots = MediaSlots.Count;
 
     // A grid whose rows are set fits them between the overlay's heading and its details, these shares of the view's
@@ -200,6 +205,15 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
     private float _previousBlend;
     private float _focusTime;
     private float _launchTime = -1;
+
+    // The player's turn of the focused item (the right stick) and of the one it left, which eases back as it blends
+    // out; and the focused item's sway clock, which stops once the player has turned it, so it holds still.
+    private float _turnYaw;
+    private float _turnPitch;
+    private float _previousYaw;
+    private float _previousPitch;
+    private float _swayTime;
+    private bool _turned;
     private int _fadingSlots;
     private bool _texturesEnabled = true;
 
@@ -733,6 +747,7 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
         _focusCell = _previousCell = -1;
         _focusBlend = _previousBlend = 0;
         _launchTime = -1;
+        ResetTurn();
         VisibleTextured = false;
         _rootDirty = true;
         _curveScroll = _scroll;
@@ -793,6 +808,7 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
         _source = null;
         _count = 0;
         _focusCell = _previousCell = -1;
+        ResetTurn();
     }
 
     /// <summary>
@@ -904,6 +920,35 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
         var focusRow = Math.Clamp((int)(row + 0.5f), 0, Math.Max(_rows - 1, 0));
         _focus = Math.Min(_count - 1, focusRow * _columns + _columns / 2);
         _rootDirty = true;
+    }
+
+    /// <summary>
+    /// Main thread, each frame the right stick is held (<paramref name="stick"/>: each axis -1 to 1, right and down
+    /// positive): turns the focused item about its middle, round its vertical with the stick's x, and towards or away
+    /// from the camera with its y, slowly near the middle of the stick's travel and fast at its edge. The item stays
+    /// turned until the focus moves (it then eases back as it blends out) or the grid is bound again; once turned, it
+    /// stops swaying. Nothing while it launches.
+    /// </summary>
+    public void Turn(Vector2 stick, float dt)
+    {
+        // A move this frame hasn't reached the focused cell yet (UpdateFocus): the turn would go to the item it leaves.
+        if (_focusCell < 0 || _launchTime >= 0 || CellOf(_focus) != _focusCell)
+        {
+            return;
+        }
+
+        var speed = TurnSpeed * dt;
+        _turnYaw = Mathf.Wrap(_turnYaw + stick.X * MathF.Abs(stick.X) * speed, -MathF.PI, MathF.PI);
+
+        // Up (negative) brings the front up towards the top of the screen: a negative turn round x.
+        _turnPitch = Math.Clamp(_turnPitch + stick.Y * MathF.Abs(stick.Y) * speed, -MaxTurnPitch, MaxTurnPitch);
+        _turned = true;
+    }
+
+    private void ResetTurn()
+    {
+        _turnYaw = _turnPitch = _previousYaw = _previousPitch = _swayTime = 0;
+        _turned = false;
     }
 
     /// <summary>
@@ -1762,6 +1807,11 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
                 OnFocusLeave(_previousCell);
             }
 
+            // The item left takes the player's turn with it, to ease back as it blends out; the new one starts square.
+            _previousYaw = _turnYaw;
+            _previousPitch = _turnPitch;
+            _turnYaw = _turnPitch = _swayTime = 0;
+            _turned = false;
             _focusCell = cell;
             _focusBlend = 0;
             _focusTime = 0;
@@ -1778,6 +1828,11 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
         }
 
         _focusTime += dt;
+        if (!_turned)
+        {
+            _swayTime += dt;
+        }
+
         if (_focusCell >= 0)
         {
             _focusBlend = Math.Min(1, _focusBlend + dt * FocusBlendPerSecond);
@@ -1788,13 +1843,13 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
                 launch = Math.Min(1, _launchTime / LaunchFallbackSeconds);
             }
 
-            SetCellTransform(_focusCell, FocusTransform(_focusCell, _focusBlend, _focusTime, launch));
+            SetCellTransform(_focusCell, FocusTransform(_focusCell, _focusBlend, _swayTime, launch, _turnYaw, _turnPitch));
         }
 
         if (_previousCell >= 0)
         {
             _previousBlend = Math.Max(0, _previousBlend - dt * FocusBlendPerSecond);
-            SetCellTransform(_previousCell, FocusTransform(_previousCell, _previousBlend, 0, 0));
+            SetCellTransform(_previousCell, FocusTransform(_previousCell, _previousBlend, 0, 0, _previousYaw, _previousPitch));
 
             // A batched model's clip has blended back to rest by now (ClipBlendSeconds), so it can rejoin its MultiMesh.
             if (_previousBlend <= 0 && _focusTime >= ClipBlendSeconds)
@@ -1808,9 +1863,9 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
     /// <summary>
     /// The focused item lifts towards the camera and grows a little (always), and sways to show its spine unless a
     /// focused clip animates it; launching, it spins up and flies forward unless a launch clip plays instead (A7's
-    /// procedural fallbacks).
+    /// procedural fallbacks). The player's turn (<see cref="Turn"/>) is about its middle, and blends with the focus.
     /// </summary>
-    private Transform3D FocusTransform(int cell, float blend, float time, float launch)
+    private Transform3D FocusTransform(int cell, float blend, float time, float launch, float yaw, float pitch)
     {
         var model = _cellModel[cell];
         var rest = _cellBase[cell];
@@ -1827,6 +1882,18 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
         }
 
         var basis = new Basis(Vector3.Up, angle) * rest.Basis.Scaled(new Vector3(scale, scale, scale));
+
+        // Round its vertical, then towards or away from the camera, about its middle (it stands on its origin), so it
+        // turns in place.
+        var pivot = Vector3.Zero;
+        if (yaw != 0 || pitch != 0)
+        {
+            var turn = new Basis(Vector3.Right, pitch * eased) * new Basis(Vector3.Up, yaw * eased);
+            var middle = basis * new Vector3(0, (model?.Size.Y ?? 1) / 2, 0);
+            pivot = middle - turn * middle;
+            basis = turn * basis;
+        }
+
         // Coming towards the camera, an item would drift outwards in perspective (off screen at the edge columns), so
         // it's pulled in to stay where it was on screen; launching, it flies towards the middle.
         var rootScale = _scale * _zoom;
@@ -1834,7 +1901,7 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
         var restOrigin = rest.Origin;
         var x = ((_rootX + restOrigin.X * rootScale) * toCamera - _rootX) / rootScale;
         var origin = new Vector3(x, restOrigin.Y + _itemHeight / 2 * _cellCurve[cell] * (1 - scale), restOrigin.Z + lift);
-        return new Transform3D(basis, origin);
+        return new Transform3D(basis, origin + pivot);
     }
 
     private void SetCellTransform(int cell, Transform3D transform)
