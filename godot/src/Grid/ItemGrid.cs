@@ -1728,7 +1728,16 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
         return new Vector3(x, -row * _linePitch - _itemHeight / 2, 0);
     }
 
-    /// <summary>The bound cell's resting transform: fitted, and on a carousel's curve.</summary>
+    /// <summary>
+    /// Half the cell's model's height as drawn (fitted), about which it's centred in the cell, shrinks on a carousel's
+    /// curve and grows when focused. A reshaped box counts as the cell's height: boxes stand on the row's floor.
+    /// </summary>
+    private float HalfHeight(int cell) =>
+        _cellModel[cell] is { ShapeFromMedia: false } model
+            ? Math.Min(model.Size.Y * _cellFit[cell], _itemHeight) / 2
+            : _itemHeight / 2;
+
+    /// <summary>The bound cell's resting transform: fitted, centred in the cell's height, and on a carousel's curve.</summary>
     private Transform3D RestTransform(int cell)
     {
         var origin = FlatOrigin(cell);
@@ -1739,6 +1748,7 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
 
         _cellCurve[cell] = 1;
         var fit = _cellFit[cell];
+        origin.Y += _itemHeight / 2 - HalfHeight(cell);
         return new Transform3D(Basis.Identity.Scaled(new Vector3(fit, fit, fit)), origin);
     }
 
@@ -1757,7 +1767,7 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
         var back = -CarouselDepth * Math.Min(away, 3) * _itemHeight;
         return new Transform3D(
             new Basis(Vector3.Up, turn).Scaled(new Vector3(fit, fit, fit)),
-            new Vector3(origin.X, origin.Y + _itemHeight / 2 * (1 - curve), back));
+            new Vector3(origin.X, origin.Y + _itemHeight / 2 - HalfHeight(cell) * curve, back));
     }
 
     /// <summary>A carousel's items take their places on its curve again whenever it scrolls (the focused ones follow in <see cref="UpdateFocus"/>).</summary>
@@ -1937,7 +1947,7 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
         var toCamera = Math.Clamp(1 - lift * rootScale / _cameraDistance, 0.2f, 1);
         var restOrigin = rest.Origin;
         var x = ((_rootX + restOrigin.X * rootScale) * toCamera - _rootX) / rootScale;
-        var origin = new Vector3(x, restOrigin.Y + _itemHeight / 2 * _cellCurve[cell] * (1 - scale), restOrigin.Z + lift);
+        var origin = new Vector3(x, restOrigin.Y + HalfHeight(cell) * _cellCurve[cell] * (1 - scale), restOrigin.Z + lift);
         return new Transform3D(basis, origin + pivot);
     }
 

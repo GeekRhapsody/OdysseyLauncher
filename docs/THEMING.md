@@ -232,6 +232,8 @@ User models (levels 1 and 2) use the default slot chains. Nothing is looked for 
 
 The card is also shown large on the system's details screen (Y on the system): about two thirds of the height or width of a view on the left of the screen, in the system's look, focused (its `focused` clip plays) and turned by the player with the right stick, so its back and underside show too. That's what the system model's bigger budget is for: textures up to 2048² are worth it there.
 
+In a grid, each row is as tall as the tallest model in it, and a shorter model is drawn centred in the row's height. So a landscape console stands level with the middle of the cards beside it, not their bottoms. Game boxes that take their shape from their art (`shape = "media"`) are the exception: they stand on the row's floor.
+
 ## 6. The model spec
 
 | Rule | Value |
