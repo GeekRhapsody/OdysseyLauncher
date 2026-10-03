@@ -519,6 +519,33 @@ internal static class LibraryStore
         command.ExecuteNonQuery();
     }
 
+    /// <summary>
+    /// A deleted game's rows (2026-10-03), in one transaction: the game (its metadata, media rows, matches and scrape
+    /// state go with it), the cached playlists among its files, and the system's count. userdata.db keeps its rows,
+    /// as for any file that disappears (A4 Orphans).
+    /// </summary>
+    public static void RemoveDeletedGame(SqliteConnection connection, GameKey game, IReadOnlyList<string> deletedKeys)
+    {
+        using var transaction = connection.BeginTransaction();
+        using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.Parameters.AddWithValue("$system", game.SystemId);
+        var key = command.Parameters.AddWithValue("$key", game.PathKey);
+        command.CommandText = "DELETE FROM games WHERE system_id = $system AND path_key = $key";
+        command.ExecuteNonQuery();
+
+        command.CommandText = "DELETE FROM playlists WHERE system_id = $system AND path_key = $key";
+        foreach (var deleted in deletedKeys)
+        {
+            key.Value = deleted;
+            command.ExecuteNonQuery();
+        }
+
+        command.CommandText = "UPDATE systems SET game_count = (SELECT COUNT(*) FROM games WHERE system_id = $system) WHERE system_id = $system";
+        command.ExecuteNonQuery();
+        transaction.Commit();
+    }
+
     // ---- Play history ----------------------------------------------------------------------------
 
     public static long BeginSession(SqliteConnection connection, GameKey game, string emulator, long startedAtMs)

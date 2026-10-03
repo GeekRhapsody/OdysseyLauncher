@@ -641,6 +641,7 @@ public partial class Main : Node3D
             }
         };
         _jobs.GamesUpdated += navigator.OnGamesUpdated;
+        _jobs.GameDeleted += navigator.OnGameDeleted;
 
         // Y on a game: its details, with its images and video full size.
         _videoDecoder = PlatformServices.CreateVideoDecoder();

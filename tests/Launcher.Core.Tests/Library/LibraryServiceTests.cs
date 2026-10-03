@@ -633,6 +633,130 @@ public sealed class LibraryServiceTests : IAsyncLifetime
         Assert.Equal(new GameMetadata("A game.", "1991-06", "Someone", null, "Platform", "1-2", 0.8, "screenscraper"), metadata);
     }
 
+    // ---- Deleting a game (2026-10-03) ----------------------------------------------------------
+
+    [Fact]
+    public async Task Deleting_a_game_deletes_its_file_and_takes_it_out_of_the_library()
+    {
+        var file = Rom("snes/Mega Man X (USA).sfc", "12345");
+        Rom("snes/Super Mario World (USA).sfc");
+        await _library.RescanAsync("snes", null, Ct);
+        var key = new GameKey("snes", "mega man x (usa).sfc");
+        await _library.SetFavouriteAsync(key, true, Ct);
+
+        var plan = await _library.PlanDeleteAsync(key, Ct);
+        Assert.NotNull(plan);
+        Assert.False(plan.IsPlaylist);
+        Assert.Equal([("Mega Man X (USA).sfc", file, 5L)], plan.Files.Select(f => (f.RelPath, f.FullPath, f.SizeBytes)));
+        var result = await _library.DeleteGameAsync(plan, Ct);
+
+        Assert.Equal((true, 1, 5L), (result.Deleted, result.FilesDeleted, result.BytesFreed));
+        Assert.Empty(result.Failed);
+        Assert.False(File.Exists(file));
+        Assert.Equal(["Super Mario World"], await Titles("snes"));
+        Assert.Equal(1, (await _library.GetSystemsAsync(Ct)).Single(s => s.SystemId == "snes").GameCount);
+
+        // The library is as a rescan leaves it, and the user data stays for the file coming back.
+        var after = Dump();
+        Assert.Equal((0, 0, 0, 1), Changes(await _library.RescanAsync("snes", null, Ct)));
+        Assert.Equal(after, Dump());
+        Rom("snes/Mega Man X (USA).sfc");
+        await _library.RescanAsync("snes", null, Ct);
+        Assert.True((await Game("snes", "Mega Man X")).IsFavourite);
+    }
+
+    [Fact]
+    public async Task Deleting_a_playlist_deletes_every_file_it_lists_and_the_folder_they_leave_empty()
+    {
+        Rom("psx/Final Fantasy VII.m3u", "#EXTM3U\nFF7/Disc 1.cue\nFF7/Disc 2.cue\nFF7/Disc 3.cue\n");
+        Rom("psx/FF7/Disc 1.cue", "FILE \"Disc 1 (Track 1).bin\" BINARY\nFILE \"Disc 1 (Track 2).bin\" BINARY\n");
+        Rom("psx/FF7/Disc 1 (Track 1).bin", "track");
+        Rom("psx/FF7/Disc 1 (Track 2).bin", "track");
+        Rom("psx/FF7/Disc 2.cue", "FILE \"Disc 2.bin\" BINARY\n");
+        Rom("psx/FF7/Disc 2.bin", "track");
+        Rom("psx/Crash Bandicoot (USA).chd");
+        await _library.RescanAsync("psx", null, Ct);
+        Assert.Equal(["Crash Bandicoot", "Final Fantasy VII"], await Titles("psx"));
+
+        var plan = (await _library.PlanDeleteAsync(new GameKey("psx", "final fantasy vii.m3u"), Ct))!;
+        Assert.True(plan.IsPlaylist);
+        Assert.Equal(
+            ["Final Fantasy VII.m3u", "FF7/Disc 1.cue", "FF7/Disc 2.cue", "FF7/Disc 1 (Track 1).bin", "FF7/Disc 1 (Track 2).bin", "FF7/Disc 2.bin"],
+            plan.Files.Select(f => f.RelPath));
+        Assert.Equal(["FF7/Disc 3.cue"], plan.Missing);
+        Assert.Empty(plan.Shared);
+        var result = await _library.DeleteGameAsync(plan, Ct);
+
+        Assert.Equal((true, 6), (result.Deleted, result.FilesDeleted));
+        Assert.False(Directory.Exists(_dir.Combine("ROMs", "psx", "FF7")));
+        Assert.True(File.Exists(_dir.Combine("ROMs", "psx", "Crash Bandicoot (USA).chd")));
+        Assert.Equal(["Crash Bandicoot"], await Titles("psx"));
+        var after = Dump();
+        Assert.Equal((0, 0, 0, 1), Changes(await _library.RescanAsync("psx", null, Ct)));
+        Assert.Equal(after, Dump());
+    }
+
+    [Fact]
+    public async Task A_file_another_games_playlist_lists_is_kept()
+    {
+        Rom("psx/A.m3u", "Shared.cue\nA (Disc 2).chd\n");
+        Rom("psx/B.m3u", "Shared.cue\n");
+        Rom("psx/Shared.cue", "FILE \"Shared.bin\" BINARY\n");
+        Rom("psx/Shared.bin", "track");
+        Rom("psx/A (Disc 2).chd");
+        await _library.RescanAsync("psx", null, Ct);
+
+        var plan = (await _library.PlanDeleteAsync(new GameKey("psx", "a.m3u"), Ct))!;
+        Assert.Equal(["A.m3u", "A (Disc 2).chd"], plan.Files.Select(f => f.RelPath));
+        Assert.Equal(["Shared.cue", "Shared.bin"], plan.Shared);
+        await _library.DeleteGameAsync(plan, Ct);
+
+        Assert.True(File.Exists(_dir.Combine("ROMs", "psx", "Shared.cue")));
+        Assert.True(File.Exists(_dir.Combine("ROMs", "psx", "Shared.bin")));
+        Assert.Equal(["B"], await Titles("psx"));
+    }
+
+    [Fact]
+    public async Task A_read_only_game_is_deleted_too()
+    {
+        var file = Rom("snes/A.sfc");
+        File.SetAttributes(file, FileAttributes.ReadOnly);
+        await _library.RescanAsync("snes", null, Ct);
+
+        var result = await _library.DeleteGameAsync((await _library.PlanDeleteAsync(new GameKey("snes", "a.sfc"), Ct))!, Ct);
+
+        Assert.True(result.Deleted);
+        Assert.False(File.Exists(file));
+    }
+
+    [Fact]
+    public async Task When_the_games_own_file_cant_be_deleted_nothing_is()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "An open file can be deleted on Linux.");
+        var playlist = Rom("psx/A.m3u", "A (Disc 1).chd\n");
+        var disc = Rom("psx/A (Disc 1).chd");
+        await _library.RescanAsync("psx", null, Ct);
+        var plan = (await _library.PlanDeleteAsync(new GameKey("psx", "a.m3u"), Ct))!;
+
+        GameDeleteResult result;
+        using (File.Open(playlist, FileMode.Open, FileAccess.Read, FileShare.None))
+        {
+            result = await _library.DeleteGameAsync(plan, Ct);
+        }
+
+        Assert.False(result.Deleted);
+        Assert.Equal("A.m3u", Assert.Single(result.Failed).RelPath);
+        Assert.True(File.Exists(playlist));
+        Assert.True(File.Exists(disc));
+        Assert.Equal(["A"], await Titles("psx"));
+    }
+
+    [Fact]
+    public async Task A_game_no_longer_in_the_library_has_no_plan() =>
+        Assert.Null(await _library.PlanDeleteAsync(new GameKey("snes", "gone.sfc"), Ct));
+
+    private static (int, int, int, int) Changes(ScanSummary summary) => (summary.Added, summary.Updated, summary.Removed, summary.Unchanged);
+
     // ---- Rebuild -------------------------------------------------------------------------------
 
     [Fact]

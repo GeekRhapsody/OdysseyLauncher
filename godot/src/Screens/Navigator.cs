@@ -643,9 +643,14 @@ public sealed partial class Navigator : Node
         var focus = focusIndex
             ?? (focusGame is { } game ? Math.Max(0, source.IndexOf(game))
             : _lastGame.TryGetValue(source.Id, out var gameId) ? Math.Max(0, source.IndexOf(gameId)) : 0);
-        BindGames(source, focus);
+        BindGames(source, Math.Min(focus, Math.Max(0, source.Count - 1)));
         if (reloading)
         {
+            if (source.Count == 0)
+            {
+                _overlay.SetStatus(EmptyMessage(source.Id));
+            }
+
             OnFocusChanged();
             return;
         }
@@ -890,6 +895,54 @@ public sealed partial class Navigator : Node
         }
 
         return false;
+    }
+
+    // ---- A deleted game (2026-10-03) ------------------------------------------------------------------
+
+    /// <summary>
+    /// Main thread: a game was deleted from its options: its files are gone and it left the library. The systems grid
+    /// is built again with the new counts (a system left with no games drops out, as after a rescan), and the shown
+    /// list, if it held the game, is read again with the focus where it was, now on the next game. A list whose card
+    /// dropped out (its last game) goes back to the systems.
+    /// </summary>
+    public void OnGameDeleted(GameKey game, IReadOnlyList<SystemSummary> systems)
+    {
+        _services.Systems = systems;
+        _cache.Clear();
+        var systemsFocus = _systemsGrid.FocusIndex;
+        var focusedId = systemsFocus >= 0 && systemsFocus < _systems.Entries.Count ? _systems.Entries[systemsFocus].Id : null;
+        _systems = new SystemsSource(BuildEntries(systems), _systemsGrid.Templates.Count);
+        var index = -1;
+        for (var i = 0; focusedId is not null && i < _systems.Entries.Count; i++)
+        {
+            if (_systems.Entries[i].Id == focusedId)
+            {
+                index = i;
+                break;
+            }
+        }
+
+        _systemsGrid.Layout = SystemsLayout();
+        _systemsGrid.Bind(_systems, index >= 0 ? index : Math.Clamp(systemsFocus, 0, Math.Max(0, _systems.Entries.Count - 1)));
+        if (_screen == Screen.Systems)
+        {
+            OnFocusChanged();
+            return;
+        }
+
+        if (_screen != Screen.Games || _games is not { } shown || !Concerns(shown, [game]))
+        {
+            return;
+        }
+
+        if (FindEntry(shown.Id) is { } entry)
+        {
+            LoadGames(entry, Math.Max(0, _gamesGrid.FocusIndex), 0);
+        }
+        else
+        {
+            LeaveGames();
+        }
     }
 
     // ---- Titles and details after a scrape or an edit (M7) ------------------------------------------

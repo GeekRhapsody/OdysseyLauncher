@@ -433,6 +433,21 @@ This checks what a capture can't: a real stick's feel (its speed, its deadzone, 
 
 - A speed that feels wrong (too fast to aim, or too slow to go round), which way up and down should turn it if it feels backwards, and an item that turns by itself with the stick at rest.
 
+## Deleting a game
+
+This checks what a capture can't: deleting from a network share, and your own playlists. **Use copies, never the only copy of a game:** a deleted file doesn't go to the Recycle Bin. Copy a multi-disc game (an `.m3u` with its `.cue`/`.bin` or `.chd` discs) and a single-file game into a writable folder on the NAS that a system's `rom_dirs` lists, and rescan.
+
+1. **The question.** X on the multi-disc game, then down to the last row, "Delete this game" (in red: "Deletes <name>.m3u and every file it lists"). A: the question lists the `.m3u`, then its discs and their tracks, the size and the folder, and starts on "Keep it". B, or "Keep it", leaves everything as it was.
+2. **Delete.** Again, then left to "Delete it" and A. The options close, the game is gone from the grid and the focus is on the next game. In Explorer, the `.m3u`, its discs and their tracks are gone, and so is their own folder if nothing else was in it; nothing else in the ROM folder is touched.
+3. **A single file.** Delete the single-file game the same way.
+4. **A read-only share.** On a system whose folder is on the read-only share (`S:\`), try to delete a game: "Not deleted" says why, and the game stays in the grid.
+5. **Coming back.** Copy the deleted single-file game back and rescan: it comes back with its art, favourite and play history.
+
+### Send back
+
+- A file the question listed that shouldn't go (or one missing from it), with the playlist's lines.
+- Anything left behind in the ROM folder after step 2.
+
 ## A release's built-in ScreenScraper credentials
 
 A release carries ScreenScraper's developer credentials (ARCHITECTURE.md A5, "Secrets"), written by the release workflow from the repository's secrets, so a user only enters their own account. Only a release built by the workflow has them: a script can't check them against ScreenScraper without a network call.

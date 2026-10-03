@@ -26,7 +26,14 @@ public static class PathKeys
     /// Resolves <paramref name="reference"/> (as written inside a playlist) against the folder of
     /// <paramref name="fromRelPath"/>, giving a <c>path_key</c>. Null when it points outside the ROM folder.
     /// </summary>
-    public static string? ResolveReference(string fromRelPath, string reference)
+    public static string? ResolveReference(string fromRelPath, string reference) =>
+        ResolveRelPath(fromRelPath, reference) is { } relPath ? ToPathKey(relPath) : null;
+
+    /// <summary>
+    /// <see cref="ResolveReference"/>, giving the <c>rel_path</c> as the playlist writes it (case kept), to find the
+    /// file on disk.
+    /// </summary>
+    public static string? ResolveRelPath(string fromRelPath, string reference)
     {
         ArgumentNullException.ThrowIfNull(fromRelPath);
         ArgumentNullException.ThrowIfNull(reference);
@@ -65,6 +72,6 @@ public static class PathKeys
             segments.Add(segment);
         }
 
-        return segments.Count == 0 ? null : ToPathKey(ToRelPath(string.Join('/', segments)));
+        return segments.Count == 0 ? null : ToRelPath(string.Join('/', segments));
     }
 }

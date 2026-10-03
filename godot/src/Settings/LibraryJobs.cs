@@ -56,6 +56,9 @@ public sealed class LibraryJobs : IDisposable
     /// <summary>Main thread: these games' scraped data or user edits changed (a scrape, a clear), for the grid's titles.</summary>
     public event Action<IReadOnlyList<GameKey>>? GamesUpdated;
 
+    /// <summary>Main thread: a game was deleted (its files are gone and it left the library), with the systems as they now are.</summary>
+    public event Action<GameKey, IReadOnlyList<SystemSummary>>? GameDeleted;
+
     // ---- Scans ---------------------------------------------------------------------------------------
 
     /// <summary>Rescans the given systems (null: every one) in the background. Main thread; false if a scan is running.</summary>
@@ -266,6 +269,28 @@ public sealed class LibraryJobs : IDisposable
 
     /// <summary>Main thread: a game's title or metadata was edited, so the grid shows it.</summary>
     public void GameEdited(GameKey game) => GamesUpdated?.Invoke([game]);
+
+    /// <summary>What deleting a game would delete (its file, and a playlist's files), for the question asked first. Thread pool.</summary>
+    public Task<GameDeletePlan?> PlanDeleteAsync(GameKey game, CancellationToken cancellationToken) =>
+        _services.Library.PlanDeleteAsync(game, cancellationToken);
+
+    /// <summary>
+    /// Deletes a game's files as planned and takes it out of the library. Thread pool; the grid hears about it through
+    /// <see cref="GameDeleted"/>.
+    /// </summary>
+    public async Task<GameDeleteResult> DeleteGameAsync(GameDeletePlan plan, CancellationToken cancellationToken)
+    {
+        var result = await _services.Library.DeleteGameAsync(plan, cancellationToken).ConfigureAwait(false);
+        GD.Print(string.Create(CultureInfo.InvariantCulture,
+            $"Delete: {plan.Game.SystemId}/{plan.Game.PathKey}: {(result.Deleted ? "deleted" : "not deleted")}, {result.FilesDeleted} of {plan.Files.Count} file(s), {result.Failed.Count} failed."));
+        if (result.Deleted)
+        {
+            var systems = await _services.Library.GetSystemsAsync(cancellationToken).ConfigureAwait(false);
+            _queue.Post(() => GameDeleted?.Invoke(plan.Game, systems));
+        }
+
+        return result;
+    }
 
     /// <summary>Why a scrape took on no game: no provider has credentials, or the first provider's reason.</summary>
     private static string NothingQueued(ScrapeBatchResult result, string otherwise = "No provider could look it up.")

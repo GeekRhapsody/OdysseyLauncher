@@ -263,6 +263,49 @@ public sealed class LibraryService : ILibrary, IPlayHistory, IDisposable
             return true;
         }, cancellationToken);
 
+    /// <summary>
+    /// What deleting a game would delete (2026-10-03): its file and, for a playlist, the files it lists. Reads the
+    /// playlists from disk on the thread pool. Null if the game isn't in the library.
+    /// </summary>
+    public async Task<GameDeletePlan?> PlanDeleteAsync(GameKey game, CancellationToken cancellationToken)
+    {
+        var (details, playlists) = await _readers.RunAsync(
+            c => (LibraryStore.GetGame(c, game), LibraryStore.LoadPlaylists(c, game.SystemId)), cancellationToken).ConfigureAwait(false);
+        return details is null
+            ? null
+            : await Task.Run(() => GameDeleter.Plan(details, playlists), cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Deletes the files of <paramref name="plan"/> (the game's own file first: if it can't go, nothing does), then
+    /// takes the game out of the library, without a rescan. Waits for a running scan, which could otherwise add the
+    /// game back from a listing made before the delete. userdata.db and the media folder keep its rows and files, as
+    /// for any file that disappears, so adding the game again brings them back.
+    /// </summary>
+    public async Task<GameDeleteResult> DeleteGameAsync(GameDeletePlan plan, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(plan);
+        await _jobLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            var (result, deletedKeys) = await Task.Run(() => GameDeleter.Delete(plan), CancellationToken.None).ConfigureAwait(false);
+            if (result.Deleted)
+            {
+                await _writer.RunAsync(c =>
+                {
+                    LibraryStore.RemoveDeletedGame(c, plan.Game, deletedKeys);
+                    return true;
+                }, CancellationToken.None).ConfigureAwait(false);
+            }
+
+            return result;
+        }
+        finally
+        {
+            _jobLock.Release();
+        }
+    }
+
     public async Task<ScanSummary> RescanAsync(
         string? systemId, IProgress<JobProgress>? progress, CancellationToken cancellationToken)
     {

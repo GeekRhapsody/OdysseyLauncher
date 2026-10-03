@@ -18,8 +18,8 @@ namespace Launcher.App.Options;
 
 /// <summary>
 /// One game's options (M7 part 2), opened with X on the game: the emulator it launches with, its own model, its
-/// title and metadata, its images (one per media slot, the user's own or scraped), "scrape this game" and "clear
-/// metadata". Every change is saved at once (userdata.db for edits and the emulator, files in the media folder for
+/// title and metadata, its images (one per media slot, the user's own or scraped), "scrape this game", "clear
+/// metadata" and, last, "delete this game" (its file, and a playlist's files, from the ROM folder). Every change is saved at once (userdata.db for edits and the emulator, files in the media folder for
 /// images and the model) and shows in the grid without a restart.
 /// </summary>
 public sealed partial class GameOptionsPanel : ListPanel
@@ -31,11 +31,13 @@ public sealed partial class GameOptionsPanel : ListPanel
     private readonly SettingRow _media;
     private readonly SettingRow _scrape;
     private readonly SettingRow _clear;
+    private readonly SettingRow _delete;
     private GameDetails _game;
     private (string Path, ModelReport Report)? _ownModel;
     private IReadOnlyList<GameMediaInfo> _mediaRows = [];
     private int _generation;
     private bool _scraping;
+    private bool _deleting;
 
     public GameOptionsPanel(ItemOptions options, GameDetails game)
         : base(game.Title)
@@ -58,6 +60,10 @@ public sealed partial class GameOptionsPanel : ListPanel
         _scrape = AddRow("Scrape this game", activated: Scrape);
         _clear = AddRow("Clear metadata", "Removes what was scraped, every image (yours too), its model and your edits", activated: AskToClear);
         _clear.DetailColour = UiStyle.Warning;
+
+        AddSection("Delete");
+        _delete = AddRow("Delete this game", DeleteDetail(game), activated: AskToDelete);
+        _delete.DetailColour = UiStyle.Bad;
 
         SetHints("A  Choose     Y  Remove     B  Back");
         _options.Jobs.GamesUpdated += OnGamesUpdated;
@@ -419,6 +425,160 @@ public sealed partial class GameOptionsPanel : ListPanel
                 {
                     ShowStatus(message, UiStyle.Text, 8);
                     Reload();
+                }
+            });
+        });
+    }
+
+    // ---- Deleting ------------------------------------------------------------------------------------
+
+    /// <summary>The kinds of file whose game isn't the file: deleting the shortcut leaves the game installed.</summary>
+    private static bool IsShortcut(string relPath) =>
+        System.IO.Path.GetExtension(relPath).ToLowerInvariant() is ".lnk" or ".url" or ".bat" or ".cmd";
+
+    private static string DeleteDetail(GameDetails game)
+    {
+        var name = System.IO.Path.GetFileName(game.RelPath);
+        return IsShortcut(game.RelPath) ? $"Deletes {name} for good; the game it starts stays installed"
+            : Launcher.Core.Scanning.PlaylistParser.IsPlaylist(System.IO.Path.GetExtension(game.RelPath)) ? $"Deletes {name} and every file it lists, for good"
+            : $"Deletes {name} from its ROM folder, for good";
+    }
+
+    /// <summary>Finds what would go (a playlist's files are read off the main thread), then asks.</summary>
+    private void AskToDelete()
+    {
+        if (_deleting)
+        {
+            return;
+        }
+
+        if (_scraping)
+        {
+            ShowStatus("It's being scraped: delete it once that's done.", UiStyle.Dim, 4);
+            return;
+        }
+
+        ShowStatus("Finding its files…", UiStyle.Dim);
+        var options = _options;
+        var key = _game.Key;
+        _ = Task.Run(async () =>
+        {
+            GameDeletePlan? plan = null;
+            string? failure = null;
+            try
+            {
+                plan = await options.Jobs.PlanDeleteAsync(key, CancellationToken.None).ConfigureAwait(false);
+            }
+            catch (Exception e)
+            {
+                failure = e.Message;
+            }
+
+            options.Ui.Queue.Post(() =>
+            {
+                if (!IsInstanceValid(this))
+                {
+                    return;
+                }
+
+                ShowStatus(null);
+                if (plan is null)
+                {
+                    ShowStatus(failure is null ? "It isn't in the library any more." : $"Its files couldn't be read: {failure}", UiStyle.Bad, 6);
+                }
+                else if (Layer.Top == this)
+                {
+                    ConfirmDialog.Ask(Layer, "Delete this game?", DeleteQuestion(plan), "Delete it", "Keep it", yes =>
+                    {
+                        if (yes)
+                        {
+                            Delete(plan);
+                        }
+                    }, destructive: true);
+                }
+            });
+        });
+    }
+
+    /// <summary>The question: every file that goes (the first few, for a long playlist), what stays, and why.</summary>
+    private static string DeleteQuestion(GameDeletePlan plan)
+    {
+        const int shown = 6;
+        var text = (plan.Files.Count == 1 ? "This file is" : "These files are") + " deleted for good (not to the Recycle Bin):\n";
+        foreach (var file in plan.Files.Take(shown))
+        {
+            text += $"• {file.RelPath}\n";
+        }
+
+        if (plan.Files.Count > shown)
+        {
+            var more = plan.Files.Count - shown;
+            text += string.Create(CultureInfo.InvariantCulture, $"• and {more} more file{(more == 1 ? string.Empty : "s")}\n");
+        }
+
+        text += (plan.Files.Count == 1
+            ? $"\n{UiStyle.Size(plan.TotalBytes)}, in:\n"
+            : string.Create(CultureInfo.InvariantCulture, $"\n{plan.Files.Count} files, {UiStyle.Size(plan.TotalBytes)}, in:\n")) + plan.RomDir;
+        if (plan.Shared.Count > 0)
+        {
+            text += $"\n\nKept, because another game's playlist lists them too: {string.Join(", ", plan.Shared)}.";
+        }
+
+        if (plan.Missing.Count > 0)
+        {
+            text += $"\n\nIt also lists {string.Join(", ", plan.Missing)}, which {(plan.Missing.Count == 1 ? "isn't" : "aren't")} there.";
+        }
+
+        if (IsShortcut(plan.Files[0].RelPath))
+        {
+            text += "\n\nIt's a shortcut: the game it starts stays installed. Uninstall that from Windows or its store.";
+        }
+
+        return text + "\n\nIts images, favourite and play history are kept, and come back if you add the game again.";
+    }
+
+    private void Delete(GameDeletePlan plan)
+    {
+        _deleting = true;
+        ShowStatus("Deleting…", UiStyle.Dim);
+        var options = _options;
+        _ = Task.Run(async () =>
+        {
+            GameDeleteResult? result = null;
+            string? failure = null;
+            try
+            {
+                result = await options.Jobs.DeleteGameAsync(plan, CancellationToken.None).ConfigureAwait(false);
+            }
+            catch (Exception e)
+            {
+                failure = e.Message;
+            }
+
+            options.Ui.Queue.Post(() =>
+            {
+                if (!IsInstanceValid(this))
+                {
+                    return;
+                }
+
+                _deleting = false;
+                ShowStatus(null);
+                if (result is not { Deleted: true })
+                {
+                    var why = result?.Failed.FirstOrDefault() is { } first ? $"{first.RelPath} couldn't be deleted: {first.Message}" : $"It couldn't be deleted: {failure}";
+                    ConfirmDialog.Tell(Layer, "Not deleted", why + "\n\nNothing was deleted.");
+                    return;
+                }
+
+                // The game is gone, so its options close; the grid reads its list again (LibraryJobs.GameDeleted).
+                var layer = Layer;
+                Close();
+                if (result.Failed.Count > 0)
+                {
+                    ConfirmDialog.Tell(layer, "Partly deleted",
+                        string.Create(CultureInfo.InvariantCulture, $"{plan.Title} was deleted ({result.FilesDeleted} files, {UiStyle.Size(result.BytesFreed)}), but these couldn't be, and are still in the ROM folder:\n")
+                        + string.Join("\n", result.Failed.Select(f => $"• {f.RelPath}: {f.Message}")));
                 }
             });
         });
