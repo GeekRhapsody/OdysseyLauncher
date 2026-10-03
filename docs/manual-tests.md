@@ -141,7 +141,7 @@ This checks what `--nav-script` can't: real buttons, the stick, held moves speed
 
 Use only the gamepad from here on.
 
-1. **Systems grid.** The launcher opens on the systems grid with a system focused (the first one with games). Its name and details are top and bottom left.
+1. **Systems grid.** The launcher opens on the systems grid with a system focused (the first one with games). Its name is top left, with its maker, year and games under it. Its details are on its details screen (Y: see [a system's details](#a-systems-details)).
    - The D-pad and the left stick move the focus. Held, a move repeats after about a third of a second, then speeds up over the next second and a half.
    - LB and RB move four rows at a time.
    - View opens the power menu (see [the power menu](#the-power-menu)); B closes it. Rescanning is in the settings: Menu, then Rescan the library. A "Scanning your ROM folders" card shows top right with its progress (M7), then the counts update.
@@ -432,6 +432,21 @@ This checks what a capture can't: a real stick's feel (its speed, its deadzone, 
 ### Send back
 
 - A speed that feels wrong (too fast to aim, or too slow to go round), which way up and down should turn it if it feels backwards, and an item that turns by itself with the stick at rest.
+
+## A system's details
+
+This checks what a capture can't: a real pad on the screen, and how the model looks on the Deck and docked. Use the export on your own library, with the console theme.
+
+1. **The screen.** On the systems grid, press Y on Mega Drive. Its details open: the console on the left, large, on Mega Drive's background, with the cartridge going in as it does when focused in the grid; on the right its whole description, then its details (maker, year, games, last scan, emulator and alternatives, ROM folder, file types, view, sort, models, ScreenScraper and IGDB ids). Y or B goes back to the grid, on Mega Drive.
+2. **Scrolling.** Up and down scroll the description and details; LB and RB a page at a time.
+3. **Turning.** Push the right stick: the console turns as it does in the grid, and stays turned when you let go. Left and right on the D-pad turn it a step at a time, held to keep turning.
+4. **Others.** Try Game Gear and Game Boy (the console theme's other consoles), a system with a memory card (its name on the label), and Favourites and Recently played (their games counted). A system whose ROM folder you set in the settings lists that folder.
+5. **Docked.** Docked to the 4K display, open Mega Drive's details: the console is as sharp as the grid's items, not blurred.
+
+### Send back
+
+- A model cut off at the frame's edge (which system), or one that looks much smaller than the others.
+- A field that's wrong for your setup (a folder, an emulator, a sort), with what it said.
 
 ## Deleting a game
 

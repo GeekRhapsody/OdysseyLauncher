@@ -230,6 +230,8 @@ For each game and each system card, the launcher tries these candidates in order
 
 User models (levels 1 and 2) use the default slot chains. Nothing is looked for per game while the grid scrolls: per-game models are indexed when the library is scanned.
 
+The card is also shown large on the system's details screen (Y on the system): about two thirds of the height or width of a view on the left of the screen, in the system's look, focused (its `focused` clip plays) and turned by the player with the right stick, so its back and underside show too. That's what the system model's bigger budget is for: textures up to 2048² are worth it there.
+
 ## 6. The model spec
 
 | Rule | Value |

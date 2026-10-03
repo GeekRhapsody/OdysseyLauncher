@@ -222,6 +222,7 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
     private float _envelopeHeight;
 
     private float _gridFade;
+    private bool _fadeAtEdges = true;
     private Vector3 _offset;
     private float _zoom = 1;
     private bool _rootDirty = true;
@@ -367,6 +368,23 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
         }
     }
 
+    /// <summary>
+    /// Whether items fade into the background near the top and bottom of the view, under the overlay's text (on by
+    /// default). Off for a model shown on its own, which fills its view (a system's details).
+    /// </summary>
+    public bool FadeAtEdges
+    {
+        get => _fadeAtEdges;
+        set
+        {
+            _fadeAtEdges = value;
+            foreach (var material in _materials)
+            {
+                ApplyEdgeFade(material);
+            }
+        }
+    }
+
     /// <summary>Moves the whole grid, for transitions.</summary>
     public Vector3 Offset
     {
@@ -377,6 +395,9 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
             _rootDirty = true;
         }
     }
+
+    /// <summary>World units per model unit in the bound layout, before <see cref="Zoom"/>.</summary>
+    public float ItemScale => _scale;
 
     /// <summary>Scales the whole grid, for transitions.</summary>
     public float Zoom
@@ -589,6 +610,7 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
         }
 
         _background.ApplyTo(material);
+        ApplyEdgeFade(material);
         if (IsInsideTree())
         {
             _atlas.ApplyTo(material);
@@ -614,6 +636,19 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
             }
 
             return true;
+        }
+    }
+
+    /// <summary>The shader's default bands (item.gdshader <c>edge_fade</c>), or none.</summary>
+    private void ApplyEdgeFade(ShaderMaterial material)
+    {
+        if (_fadeAtEdges)
+        {
+            material.SetShaderParameter(ShaderParams.EdgeFade, default(Variant));
+        }
+        else
+        {
+            material.SetShaderParameter(ShaderParams.EdgeFade, Vector3.Zero);
         }
     }
 

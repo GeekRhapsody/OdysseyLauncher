@@ -1,33 +1,27 @@
-using System.Collections.Generic;
 using Godot;
 
 namespace Launcher.App.Screens;
 
-/// <summary>The focused item's details, formatted off the main thread (Screens/DetailsFormatter.cs).</summary>
-/// <param name="Rows">Label and value pairs, in display order; only the fields that are known. None for a game, whose metadata is on its details screen.</param>
-public sealed record OverlayDetails(long Key, IReadOnlyList<(string Label, string Value)> Rows, string? Description, bool Favourite);
+/// <summary>What the overlay shows of the focused game, read off the main thread: whether it's a favourite.</summary>
+public sealed record OverlayDetails(long Key, bool Favourite);
 
 /// <summary>
 /// The PS2-style text over the grid: the focused item's title top left with a soft glow, what it belongs to under
-/// it, a system's details bottom left (a game's are on its details screen, <see cref="GameDetailsPanel"/>), "Favourite"
-/// top right on a favourite game, and the controls bottom right. 2D, at the project's base size (1280×800) and
-/// stretched, so it's native resolution at 4K.
+/// it, "Favourite" top right on a favourite game, and the controls bottom right. A system's and a game's details are on
+/// their details screens (Y: <see cref="SystemDetailsPanel"/>, <see cref="GameDetailsPanel"/>). 2D, at the project's
+/// base size (1280×800) and stretched, so it's native resolution at 4K.
 /// </summary>
 public sealed partial class InfoOverlay : CanvasLayer
 {
-    public const int MaxRows = 9;
     private const float Margin = 44;
 
     /// <summary>Kept clear of the title, top right: the status indicators (<see cref="StatusBar"/>), and "Favourite" under them.</summary>
     private const float StatusBarRoom = 250;
 
-    private readonly Label[] _keys = new Label[MaxRows];
-    private readonly Label[] _values = new Label[MaxRows];
     private Control _root = null!;
     private Label _title = null!;
     private Label _subtitle = null!;
     private Label _favourite = null!;
-    private Label _description = null!;
     private Label _hints = null!;
     private Label _status = null!;
     private long _detailsKey = -1;
@@ -103,32 +97,6 @@ public sealed partial class InfoOverlay : CanvasLayer
         _favourite.OffsetBottom = 82;
         _favourite.HorizontalAlignment = HorizontalAlignment.Right;
 
-        var keyStyle = new LabelSettings { FontSize = 14, FontColor = new Color("#8E9CC6"), ShadowColor = new Color(0, 0, 0, 0.7f), ShadowSize = 3, ShadowOffset = Vector2.Zero };
-        var valueStyle = new LabelSettings { FontSize = 16, FontColor = new Color("#EEF1FA"), ShadowColor = new Color(0, 0, 0, 0.7f), ShadowSize = 3, ShadowOffset = Vector2.Zero };
-        for (var i = 0; i < MaxRows; i++)
-        {
-            // Two columns of rows, filled down then across.
-            var column = i / 5;
-            var row = i % 5;
-            _keys[i] = AddLabel(keyStyle);
-            _values[i] = AddLabel(valueStyle);
-            Place(_keys[i], Margin + column * 330, 5 - row, 104);
-            Place(_values[i], Margin + column * 330 + 108, 5 - row, 214);
-            _values[i].TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
-            _values[i].ClipText = true;
-        }
-
-        _description = AddLabel(new LabelSettings { FontSize = 15, FontColor = new Color("#C9D0E6"), ShadowColor = new Color(0, 0, 0, 0.7f), ShadowSize = 3, ShadowOffset = Vector2.Zero });
-        _description.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-        _description.MaxLinesVisible = 4;
-        _description.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
-        _description.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.BottomRight);
-        _description.OffsetLeft = -Margin - 480;
-        _description.OffsetRight = -Margin;
-        _description.OffsetTop = -150;
-        _description.OffsetBottom = -54;
-        _description.VerticalAlignment = VerticalAlignment.Bottom;
-
         _hints = AddLabel(new LabelSettings { FontSize = 14, FontColor = new Color("#9AA6CC") });
         _hints.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.BottomRight);
         _hints.OffsetLeft = -Margin - 1000;
@@ -166,19 +134,6 @@ public sealed partial class InfoOverlay : CanvasLayer
         }
 
         _detailsKey = details.Key;
-        for (var i = 0; i < MaxRows; i++)
-        {
-            var shown = i < details.Rows.Count;
-            _keys[i].Visible = shown;
-            _values[i].Visible = shown;
-            if (shown)
-            {
-                _keys[i].Text = details.Rows[i].Label;
-                _values[i].Text = details.Rows[i].Value;
-            }
-        }
-
-        _description.Text = details.Description ?? string.Empty;
         _favourite.Visible = details.Favourite;
     }
 
@@ -191,13 +146,6 @@ public sealed partial class InfoOverlay : CanvasLayer
         }
 
         _detailsKey = -2;
-        for (var i = 0; i < MaxRows; i++)
-        {
-            _keys[i].Visible = false;
-            _values[i].Visible = false;
-        }
-
-        _description.Text = string.Empty;
         _favourite.Visible = false;
     }
 
@@ -215,16 +163,6 @@ public sealed partial class InfoOverlay : CanvasLayer
         var label = new Label { LabelSettings = settings, MouseFilter = Control.MouseFilterEnum.Ignore };
         _root.AddChild(label);
         return label;
-    }
-
-    /// <summary>Anchors a detail label to the bottom left, <paramref name="rowFromBottom"/> rows up.</summary>
-    private static void Place(Label label, float left, int rowFromBottom, float width)
-    {
-        label.SetAnchorsPreset(Control.LayoutPreset.BottomLeft);
-        label.OffsetLeft = left;
-        label.OffsetRight = left + width;
-        label.OffsetTop = -40 - rowFromBottom * 24;
-        label.OffsetBottom = -40 - rowFromBottom * 24 + 22;
     }
 
     private static TextureRect Scrim(bool top)

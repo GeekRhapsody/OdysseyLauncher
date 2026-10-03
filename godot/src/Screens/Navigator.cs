@@ -21,8 +21,8 @@ namespace Launcher.App.Screens;
 /// <summary>
 /// The screens (A1 Screens): Systems → Games → Launching, and back, with animated transitions between the two
 /// grids (each laid out as settings.toml's <c>[display]</c> says: a grid, a carousel, one system at a time, or a list
-/// of games with the focused one's model beside it), each system's look cross-faded in (A6), focus memory per system, the focused system's details in the
-/// overlay (a game's are on its details screen, Y), favourites, rescans, the power menu, launching, and themes (M6):
+/// of games with the focused one's model beside it), each system's look cross-faded in (A6), focus memory per system, the focused item's title in the
+/// overlay (a system's and a game's details are on their details screens, Y), favourites, rescans, the power menu, launching, and themes (M6):
 /// switching one at run time, per-game models, and
 /// rebinding a game's media when it changes. Library calls run on the thread pool and their results come back
 /// through the <see cref="MainThreadQueue"/>.
@@ -31,13 +31,13 @@ public sealed partial class Navigator : Node
 {
     public const string FavouritesId = "favourites";
     public const string RecentlyPlayedId = "recently_played";
-    private const int RecentlyPlayedLimit = 60;
+    public const int RecentlyPlayedLimit = 60;
     private const double DetailsDelay = 0.12;
     private const float TransitionSeconds = 0.45f;
     private const double StatusSeconds = 2.5;
     private const int CachedLists = 3;
 
-    private const string SystemsHints = "A / Enter  Open     X / O  Options     View / P  Power     Menu / Esc  Settings";
+    private const string SystemsHints = "A / Enter  Open     X / O  Options     Y / I  Details     View / P  Power     Menu / Esc  Settings";
     private const string GamesHints = "A / Enter  Play     B / Esc  Back     X / O  Options     Y / I  Details     L3 / F  Favourite     LB RB  Page     LT RT  Letter";
     private const double TitlesDelay = 0.4;
 
@@ -151,6 +151,12 @@ public sealed partial class Navigator : Node
 
     /// <summary>Y on a game: its details screen should open (every field of its metadata, and its images and videos). The game's id.</summary>
     public event Action<long>? GameDetailsRequested;
+
+    /// <summary>
+    /// Y on a system, Favourites or Recently played: its details screen should open (its description, every field, and
+    /// its card's model). The card.
+    /// </summary>
+    public event Action<SystemEntry>? SystemDetailsRequested;
 
     /// <summary>The theme the grids show (the options panels say which model each system uses).</summary>
     public ThemeRuntime Theme => _theme;
@@ -343,6 +349,13 @@ public sealed partial class Navigator : Node
             case NavCommand.Back when _screen == Screen.Games:
                 LeaveGames();
                 break;
+            case NavCommand.Secondary when _screen == Screen.Systems:
+                if (_systemsGrid.FocusIndex >= 0 && _systemsGrid.FocusIndex < _systems.Entries.Count)
+                {
+                    SystemDetailsRequested?.Invoke(_systems.Entries[_systemsGrid.FocusIndex]);
+                }
+
+                break;
             case NavCommand.Secondary when _screen == Screen.Games:
                 if (_games is not null && _gamesGrid.FocusIndex >= 0 && _gamesGrid.FocusIndex < _games.Count)
                 {
@@ -420,6 +433,7 @@ public sealed partial class Navigator : Node
         _focusedGame = null;
         if (_screen == Screen.Systems || _games is null)
         {
+            // A system's details are on its details screen (Y); the overlay has its name and subtitle, and nothing to read.
             _focusedIndex = _systemsGrid.FocusIndex;
             _focusKey = _focusedIndex;
             if (_focusedIndex >= 0)
@@ -427,58 +441,37 @@ public sealed partial class Navigator : Node
                 var entry = _systems.Entries[_focusedIndex];
                 _overlay.ShowHeading(entry.Name, entry.Subtitle);
             }
-        }
-        else
-        {
-            _focusedIndex = _gamesGrid.FocusIndex;
-            if (_focusedIndex < 0)
-            {
-                _focusKey = -1;
-                return;
-            }
 
-            var row = _games.Row(_focusedIndex);
-            _focusKey = row.GameId;
-            _overlay.ShowHeading(row.Title, _games.SystemName(_focusedIndex));
+            _detailsDue = -1;
+            return;
         }
+
+        _focusedIndex = _gamesGrid.FocusIndex;
+        if (_focusedIndex < 0)
+        {
+            _focusKey = -1;
+            return;
+        }
+
+        var row = _games.Row(_focusedIndex);
+        _focusKey = row.GameId;
+        _overlay.ShowHeading(row.Title, _games.SystemName(_focusedIndex));
 
         // Details wait until the focus rests, so holding a direction doesn't query every step.
         _detailsDue = _clock + DetailsDelay;
     }
 
+    /// <summary>The focused game's details: whether it's a favourite, and the game to launch.</summary>
     private void RequestDetails()
     {
         var key = _focusKey;
-        if (key < 0)
+        if (key < 0 || _screen == Screen.Systems || _games is null)
         {
             return;
         }
 
         var library = _services.Library;
         var token = _shutdown.Token;
-        if (_screen == Screen.Systems || _games is null)
-        {
-            var entry = _systems.Entries[(int)key];
-            var config = _services.Config;
-            _ = Task.Run(() =>
-            {
-                var details = entry.Virtual switch
-                {
-                    VirtualKind.Favourites => DetailsFormatter.Virtual(key, "The games you've marked as favourites. Press L3 (or F) on a game to add it."),
-                    VirtualKind.RecentlyPlayed => DetailsFormatter.Virtual(key, "The games you've played most recently, newest first."),
-                    _ => DetailsFormatter.System(key, entry.System!, entry.Summary!, config, DateTimeOffset.Now),
-                };
-                _queue.Post(() =>
-                {
-                    if (_screen == Screen.Systems)
-                    {
-                        _overlay.ShowDetails(details, _focusKey);
-                    }
-                });
-            }, token);
-            return;
-        }
-
         _ = Task.Run(async () =>
         {
             try
@@ -490,7 +483,7 @@ public sealed partial class Navigator : Node
                 }
 
                 // A game's metadata is on its details screen (Y); the overlay keeps its title and whether it's a favourite.
-                var details = new OverlayDetails(key, [], null, game.IsFavourite);
+                var details = new OverlayDetails(key, game.IsFavourite);
                 _queue.Post(() =>
                 {
                     if (_focusKey == key && _screen is Screen.Games or Screen.Launching)

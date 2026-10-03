@@ -1,14 +1,15 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using Launcher.Core.Config;
 using Launcher.Core.Library;
 
 namespace Launcher.App.Screens;
 
 /// <summary>
-/// Turns library data into the overlay's rows and the game details screen's fields, in UK English. Runs on the thread
-/// pool, so the main thread never formats strings (A3 C# rules).
+/// Turns config and library data into the details screens' fields (a game's, a system's) and the overlay's subtitles,
+/// in UK English. Runs on the thread pool, so the main thread never formats strings (A3 C# rules).
 /// </summary>
 public static class DetailsFormatter
 {
@@ -68,20 +69,71 @@ public static class DetailsFormatter
         return rows;
     }
 
-    /// <summary>A system from config, with its boot summary and its description.</summary>
-    public static OverlayDetails System(long key, SystemConfig system, SystemSummary summary, AppConfig config, DateTimeOffset now)
+    /// <summary>
+    /// Every field the app has for a system, for its details screen (Y): who made it and when, its games and their last
+    /// scan (the library's summary), how they launch, where they're found and which files count, how they're shown and
+    /// sorted (marked when the system has its own), the models the theme gives it, and where scraping looks it up. Only
+    /// fields with a value; the description is apart.
+    /// </summary>
+    /// <param name="cardModel">The model its card uses, as the theme describes it; null if unknown.</param>
+    /// <param name="gamesModel">The model its games use, likewise.</param>
+    public static IReadOnlyList<(string Label, string Value)> SystemFields(
+        SystemConfig system, SystemSummary? summary, AppConfig config, string? cardModel, string? gamesModel, DateTimeOffset now)
     {
         var rows = new List<(string, string)>();
         Add(rows, "Made by", system.Manufacturer);
         Add(rows, "Released", system.Year?.ToString(Uk));
-        Add(rows, "Games", summary.GameCount.ToString("N0", Uk));
-        Add(rows, "Last scanned", summary.ScannedAt is { } scanned ? Relative(scanned, now) : "Never");
-        Add(rows, "Emulator", config.Emulators.TryGetValue(system.Emulator, out var emulator) ? emulator.Name : system.Emulator);
-        return new OverlayDetails(key, rows, system.Description, false);
+        Add(rows, "Games", GamesCount(summary?.GameCount ?? 0));
+        Add(rows, "Last scanned", summary?.ScannedAt is { } scanned ? Relative(scanned, now) : "Never");
+
+        Add(rows, "Emulator", EmulatorName(config, system.Emulator));
+        Add(rows, "Alternatives", system.AltEmulators.Count == 0
+            ? null
+            : string.Join("\n", Array.ConvertAll([.. system.AltEmulators], id => EmulatorName(config, id))));
+        Add(rows, system.RomDirs.Count > 1 && system.RomDirSource == RomDirSource.Configured ? "ROM folders" : "ROM folder", RomFolders(system));
+        Add(rows, "Subfolders", system.Recursive ? "Scanned too" : "Not scanned");
+        Add(rows, "Left out", system.Exclude.Count == 0 ? null : string.Join(", ", system.Exclude));
+        Add(rows, "File types", string.Join(" ", system.Extensions));
+        Add(rows, "Also known as", system.Aliases.Count == 0 ? null : string.Join(", ", system.Aliases));
+
+        var display = config.Settings.Display;
+        var layout = display.GamesLayoutFor(system);
+        Add(rows, "Games view", Own(Settings.LayoutPage.GamesTitle(layout), system.GamesLayout is not null));
+        if (layout == GamesLayout.Grid)
+        {
+            var size = display.GamesGridFor(system);
+            Add(rows, "Grid size", Own(GridSize(size.Columns, size.Rows), system.GamesColumns is not null || system.GamesRows is not null));
+        }
+
+        var sort = display.GamesSortFor(system);
+        Add(rows, "Games sorted", Own(
+            $"{Settings.LayoutPage.GamesSortTitle(sort.Sort)}: {Settings.LayoutPage.GamesOrderDetail(sort.Sort, sort.Order)}",
+            system.GamesSort is not null || system.GamesSortOrder is not null));
+        Add(rows, "Card model", cardModel);
+        Add(rows, "Games' model", gamesModel);
+
+        Add(rows, "ScreenScraper", system.ScreenScraperId is { } ss ? string.Create(Uk, $"System {ss}") : "Not on ScreenScraper");
+        Add(rows, "IGDB", system.IgdbPlatforms is { Count: > 0 } platforms
+            ? (platforms.Count == 1 ? "Platform " : "Platforms ") + string.Join(", ", Array.ConvertAll([.. platforms], p => p.ToString(Uk)))
+            : "Not looked up");
+        Add(rows, "Steam store", system.SteamStore ? "Looked up by title" : null);
+        Add(rows, "Id", system.Id);
+        return rows;
     }
 
-    /// <summary>A virtual system, which has only a description.</summary>
-    public static OverlayDetails Virtual(long key, string description) => new(key, [], description, false);
+    /// <summary>Favourites' or Recently played's fields: how many games it holds, and from how many systems.</summary>
+    public static IReadOnlyList<(string Label, string Value)> VirtualFields(int games, int systems)
+    {
+        var rows = new List<(string, string)>();
+        Add(rows, "Games", GamesCount(games));
+        Add(rows, "Systems", systems.ToString("N0", Uk));
+        return rows;
+    }
+
+    /// <summary>What Favourites or Recently played is, for its details screen.</summary>
+    public static string VirtualDescription(VirtualKind kind) => kind == VirtualKind.Favourites
+        ? "The games you've marked as favourites, from every system. Press L3 (or F) on a game to add it, or to take it out."
+        : "The games you've played most recently, from every system, newest first.";
 
     /// <summary>The subtitle under a system's name: who made it and when, and how many games there are.</summary>
     public static string SystemSubtitle(SystemConfig system, int games)
@@ -142,6 +194,56 @@ public static class DetailsFormatter
         var hours = (int)time.TotalHours;
         return hours == 0 ? string.Create(Uk, $"{time.Minutes} min") : string.Create(Uk, $"{hours:N0} h {time.Minutes} min");
     }
+
+    /// <summary>
+    /// The folders set in systems.toml, one a line; or the default's candidates, which share the ROM root, as the root
+    /// and then their names. Nothing is checked on disk (a disconnected share can take a long time to answer).
+    /// </summary>
+    private static string? RomFolders(SystemConfig system)
+    {
+        var dirs = system.RomDirs;
+        if (dirs.Count == 0)
+        {
+            return null;
+        }
+
+        if (system.RomDirSource == RomDirSource.Configured)
+        {
+            return string.Join("\n", dirs);
+        }
+
+        if (dirs.Count == 1)
+        {
+            return dirs[0] + "\nThe default";
+        }
+
+        var parent = Path.GetDirectoryName(dirs[0]);
+        var names = new List<string>(dirs.Count);
+        foreach (var dir in dirs)
+        {
+            if (!string.Equals(Path.GetDirectoryName(dir), parent, StringComparison.OrdinalIgnoreCase))
+            {
+                return string.Join("\n", dirs) + "\nThe default: the first of these that exists";
+            }
+
+            names.Add(Path.GetFileName(dir));
+        }
+
+        return $"{parent}\nThe default: the first of {string.Join(", ", names)} in it that exists";
+    }
+
+    private static string EmulatorName(AppConfig config, string id) => config.Emulators.TryGetValue(id, out var emulator) ? emulator.Name : id;
+
+    /// <summary>A setting's value, marked when the system has its own rather than the Layout page's.</summary>
+    private static string Own(string value, bool own) => own ? value + " (its own)" : value;
+
+    private static string GridSize(int columns, int rows) => (columns, rows) switch
+    {
+        (0, 0) => "Automatic",
+        (_, 0) => string.Create(Uk, $"{columns} columns"),
+        (0, _) => string.Create(Uk, $"{rows} rows"),
+        _ => string.Create(Uk, $"{columns} columns, {rows} rows"),
+    };
 
     private static void Add(List<(string, string)> rows, string label, string? value)
     {

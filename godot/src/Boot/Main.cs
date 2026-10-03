@@ -653,6 +653,15 @@ public partial class Main : Node3D
             }
         };
 
+        // Y on a system: its details, with its card's model large.
+        navigator.SystemDetailsRequested += entry =>
+        {
+            if (!_ui!.IsOpen)
+            {
+                SystemDetailsPanel.Open(context, services, () => navigator.Theme, entry);
+            }
+        };
+
         // View (Select) or P in the grids: restart, shut down or sleep the system, or quit.
         navigator.PowerRequested += () =>
         {
