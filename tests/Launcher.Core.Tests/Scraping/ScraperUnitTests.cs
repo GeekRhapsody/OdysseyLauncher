@@ -460,7 +460,7 @@ public sealed class ScraperUnitTests
     public async Task A_video_must_be_an_mp4_and_an_image_kind_must_be_an_image()
     {
         using var dir = new TempDir();
-        var store = new MediaStore(dir.Path);
+        var store = new MediaStore(dir.Combine("media"));
         var ct = TestContext.Current.CancellationToken;
 
         var video = (await store.SaveAsync("megadrive", "Sonic.md", MediaKinds.Video, ScrapeBed.Mp4("clip"), ct))!;
@@ -476,7 +476,7 @@ public sealed class ScraperUnitTests
     public async Task A_download_never_replaces_a_file_the_game_has_in_any_format_its_own_or_shared()
     {
         using var dir = new TempDir();
-        var store = new MediaStore(dir.Path);
+        var store = new MediaStore(dir.Combine("media"));
         var ct = TestContext.Current.CancellationToken;
         var shared = dir.File("media/megadrive/cover/Sonic.jpg", "the user's");
         var own = dir.File("media/megadrive/logo/Sonic.md.webp", "the user's");

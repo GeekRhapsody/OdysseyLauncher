@@ -202,7 +202,7 @@ public sealed class AppServices : IDisposable
             var systemsMs = stopwatch.Elapsed.TotalMilliseconds;
             var (builtInThemes, theme, themeMs) = resolving is null ? ([], null, 0) : await resolving.ConfigureAwait(false);
             GD.Print(string.Create(CultureInfo.InvariantCulture,
-                $"Boot: config {configMs:0.0} ms, then in parallel: theme '{theme?.Active.Id ?? "(headless: none)"}' {themeMs:0.0} ms, library {libraryMs - configMs:0.0} ms and systems query {systemsMs - libraryMs:0.0} ms (off the main thread); config in {paths.ConfigDir}, data in {paths.DataDir}"));
+                $"Boot: config {configMs:0.0} ms, then in parallel: theme '{theme?.Active.Id ?? "(headless: none)"}' {themeMs:0.0} ms, library {libraryMs - configMs:0.0} ms and systems query {systemsMs - libraryMs:0.0} ms (off the main thread); config in {paths.ConfigDir}, data in {paths.DataDir}, media in {library.MediaDir}"));
             foreach (var diagnostic in config.Diagnostics)
             {
                 GD.Print(diagnostic.ToString());

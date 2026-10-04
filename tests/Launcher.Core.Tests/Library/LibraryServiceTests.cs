@@ -464,6 +464,30 @@ public sealed class LibraryServiceTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task The_media_folder_settings_name_is_indexed_and_stored_paths_dont_name_it()
+    {
+        Rom("ps2/Game A (USA).iso");
+        Art("ps2/cover/Game A (USA).png", TestImages.Png(700, 1000));
+        var elsewhere = _dir.File("Launcher media/ps2/screenshot/Game A (USA).png");
+        File.WriteAllBytes(elsewhere, TestImages.Png(640, 480));
+        await _library.RescanAsync("ps2", null, Ct);
+        Assert.Equal(Path.Combine(DataDir, "media"), _library.MediaDir);
+
+        // [paths] media (2026-10-04): the library follows its config, and the rows keep "media/" for wherever it is.
+        var config = _library.Config;
+        _library.Config = config with { Settings = config.Settings with { MediaDir = _dir.Combine("Launcher media") } };
+        await _library.RescanAsync("ps2", null, Ct);
+
+        Assert.Equal(_dir.Combine("Launcher media"), _library.MediaDir);
+        var a = await Game("ps2", "Game A");
+        Assert.Null(a.CoverPath);
+        var rows = await _library.GetGameMediaAsync("ps2", ["cover", "screenshot"], Ct);
+        var screenshot = Assert.Single(rows);
+        Assert.Equal("media/ps2/screenshot/Game A (USA).png", screenshot.Media.Path);
+        Assert.Equal(elsewhere, _library.MediaPath(screenshot.Media.Path));
+    }
+
+    [Fact]
     public async Task An_exact_match_beats_a_stem_match_and_a_stem_match_covers_every_format()
     {
         Rom("psx/Crash.cue", "");

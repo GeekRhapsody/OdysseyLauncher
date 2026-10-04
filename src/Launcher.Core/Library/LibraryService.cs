@@ -47,8 +47,17 @@ public sealed class LibraryService : ILibrary, IPlayHistory, IDisposable
     /// </summary>
     public LibraryOpenOutcome OpenOutcome { get; }
 
-    /// <summary>library.db, userdata.db, media/ and scraped/ live here.</summary>
+    /// <summary>library.db, userdata.db, scraped/ and, unless settings.toml names another, the media folder live here.</summary>
     public string DataDir { get; }
+
+    /// <summary>
+    /// The media folder (A4): <c>[paths] media</c> in the current <see cref="Config"/> (2026-10-04), else
+    /// <c>DataDir/media</c>. It follows the config, so a new one applies at once; rescan to index it.
+    /// </summary>
+    public string MediaDir => MediaFolder.Of(Config.Settings, DataDir);
+
+    /// <summary>A stored media path's file (<c>media/ps2/cover/Game.iso.png</c>) in the current media folder.</summary>
+    public string MediaPath(string stored) => MediaFolder.FullPath(MediaDir, stored);
 
     /// <summary>Why library.db was recreated, if it was.</summary>
     public string? RecreatedBecause { get; }
@@ -66,7 +75,7 @@ public sealed class LibraryService : ILibrary, IPlayHistory, IDisposable
     public const int DefaultScanParallelism = 8;
 
     /// <summary>
-    /// Whether scans index the media folder, <c>DataDir/media/&lt;system&gt;/&lt;kind&gt;/</c> (art, videos and per-game
+    /// Whether scans index the media folder, <c>&lt;media folder&gt;/&lt;system&gt;/&lt;kind&gt;/</c> (art, videos and per-game
     /// models). Off indexes nothing and leaves existing rows alone. Set it before scanning.
     /// </summary>
     public bool IndexMedia { get; set; }
@@ -375,7 +384,7 @@ public sealed class LibraryService : ILibrary, IPlayHistory, IDisposable
         try
         {
             var cache = await _readers.RunAsync(c => LibraryStore.LoadMedia(c, systemId), cancellationToken).ConfigureAwait(false);
-            var scan = await Task.Run(() => MediaScanner.Scan(DataDir, systemId, cache, cancellationToken), cancellationToken).ConfigureAwait(false);
+            var scan = await Task.Run(() => MediaScanner.Scan(MediaDir, systemId, cache, cancellationToken), cancellationToken).ConfigureAwait(false);
             var changed = await _writer.RunAsync(c =>
             {
                 var games = new List<GameKey>();
@@ -470,6 +479,7 @@ public sealed class LibraryService : ILibrary, IPlayHistory, IDisposable
         var media = new MediaScan?[count];
         var next = -1;
         var done = 0;
+        var mediaDir = MediaDir;
         Exception? failure = null;
         progress?.Report(new JobProgress("scan", 0, count));
 
@@ -488,7 +498,7 @@ public sealed class LibraryService : ILibrary, IPlayHistory, IDisposable
                     results[i] = _scanner.Scan(systems[i], caches?[i].Playlists, cancellationToken);
                     if (indexMedia)
                     {
-                        media[i] = MediaScanner.Scan(DataDir, systems[i].Id, caches?[i].Media, cancellationToken);
+                        media[i] = MediaScanner.Scan(mediaDir, systems[i].Id, caches?[i].Media, cancellationToken);
                     }
 
                     progress?.Report(new JobProgress("scan", Interlocked.Increment(ref done), count));

@@ -31,7 +31,14 @@ public sealed record Settings(
     DisplaySettings Display,
     ScrapingSettings Scraping,
     ScanningSettings Scanning,
-    UiSettings Ui);
+    UiSettings Ui)
+{
+    /// <summary>
+    /// Absolute, expanded <c>paths.media</c> (2026-10-04): the media folder. Null: the default, <c>DataDir/media</c>,
+    /// which the loader doesn't know (<see cref="Media.MediaFolder.Of"/>).
+    /// </summary>
+    public string? MediaDir { get; init; }
+}
 
 /// <param name="Exclude">Glob patterns applied to every system; already folded into each <see cref="SystemConfig.Exclude"/>.</param>
 public sealed record ScanningSettings(IReadOnlyList<string> Exclude);

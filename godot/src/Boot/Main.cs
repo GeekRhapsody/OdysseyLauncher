@@ -294,7 +294,7 @@ public partial class Main : Node3D
 
     private void BuildScene(AppServices services)
     {
-        _streamer?.SetFolders(services.Paths.CacheDir, services.Paths.DataDir);
+        _streamer?.SetFolders(services.Paths.CacheDir, services.Library.MediaDir);
 
         var clock = System.Diagnostics.Stopwatch.StartNew();
         var theme = _theme!;
@@ -322,7 +322,7 @@ public partial class Main : Node3D
         if (!_options.NoTextures)
         {
             _cardStreamer = new TextureStreamer(systemSlots, 1);
-            _cardStreamer.SetFolders(Launcher.Core.Media.ThemeLogos.CacheRoot(services.Paths.CacheDir), services.Paths.DataDir);
+            _cardStreamer.SetFolders(Launcher.Core.Media.ThemeLogos.CacheRoot(services.Paths.CacheDir), services.Library.MediaDir);
         }
 
         _systemsGrid = new ItemGrid(_cardStreamer, _look.Colours, systemSlots, blockSize: 192, spines: false, systemCards: true)
@@ -632,6 +632,16 @@ public partial class Main : Node3D
             {
                 navigator.SwitchTheme(id);
             }
+        };
+
+        // The media folder moved (2026-10-04): sources are read there, per-game models' paths come from the theme's
+        // resolution, and a rescan indexes it (only a folder used as it is has different files, but a move can leave some).
+        _settings.MediaFolderChanged += mediaDir =>
+        {
+            _streamer?.SetFolders(services.Paths.CacheDir, mediaDir);
+            _cardStreamer?.SetFolders(Launcher.Core.Media.ThemeLogos.CacheRoot(services.Paths.CacheDir), mediaDir);
+            navigator.ReloadTheme();
+            navigator.Rescan(null);
         };
         navigator.SettingsRequested += () =>
         {

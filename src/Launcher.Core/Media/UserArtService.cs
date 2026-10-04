@@ -1,5 +1,4 @@
 using Launcher.Core.Library;
-using Launcher.Core.Platform;
 
 namespace Launcher.Core.Media;
 
@@ -28,7 +27,7 @@ public enum UserArtStatus
 }
 
 /// <summary>What setting or removing one of a game's images did.</summary>
-/// <param name="Path">The image's file, relative to DataDir and '/'-separated (<c>media/ps2/cover/Game.iso.png</c>).</param>
+/// <param name="Path">The image's file as stored, '/'-separated (<c>media/ps2/cover/Game.iso.png</c>).</param>
 /// <param name="Message">Why it was refused, for the user.</param>
 public sealed record UserArtResult(UserArtStatus Status, string? Path, string? Message = null);
 
@@ -36,7 +35,7 @@ public sealed record UserArtResult(UserArtStatus Status, string? Path, string? M
 /// The user's own images for a game (M7's game options panel): one per media kind, chosen with the image picker.
 /// <para>
 /// Setting one copies the file to the game's own name in the media folder,
-/// <c>DataDir/media/&lt;system&gt;/&lt;kind&gt;/&lt;rel path&gt;.&lt;ext&gt;</c> (the ROM's whole name, so no other game
+/// <c>&lt;media folder&gt;/&lt;system&gt;/&lt;kind&gt;/&lt;rel path&gt;.&lt;ext&gt;</c> (the ROM's whole name, so no other game
 /// takes it; A4), replacing the game's file of that kind (a scraped one too: there's one file per kind), bakes its
 /// derivative, and indexes it without a ROM scan (<see cref="LibraryService.RefreshMediaAsync"/>, which raises
 /// <c>MediaChanged</c>, so the grid shows it at once). Scraping never replaces it.
@@ -47,12 +46,11 @@ public sealed record UserArtResult(UserArtStatus Status, string? Path, string? M
 /// </para>
 /// It's just files in the folder the scanner indexes, so a rebuild keeps them. Clearing a game's metadata removes them.
 /// </summary>
-public sealed class UserArtService(LibraryService library, IPlatformPaths paths, DerivativeService? derivatives)
+public sealed class UserArtService(LibraryService library, DerivativeService? derivatives)
 {
     private readonly LibraryService _library = library ?? throw new ArgumentNullException(nameof(library));
-    private readonly IPlatformPaths _paths = paths ?? throw new ArgumentNullException(nameof(paths));
 
-    /// <summary>The game's own file for a kind, relative to DataDir: <c>media/&lt;system&gt;/&lt;kind&gt;/&lt;rel path&gt;&lt;ext&gt;</c>.</summary>
+    /// <summary>The game's own file for a kind, as stored: <c>media/&lt;system&gt;/&lt;kind&gt;/&lt;rel path&gt;&lt;ext&gt;</c>.</summary>
     public static string PathFor(GameKey game, string relPath, string kind, string extension)
     {
         ArgumentNullException.ThrowIfNull(extension);
@@ -162,7 +160,7 @@ public sealed class UserArtService(LibraryService library, IPlatformPaths paths,
         return new UserArtResult(UserArtStatus.Removed, removed);
     }
 
-    /// <summary>The game's own files of a kind (its whole ROM name, any image extension), relative to DataDir.</summary>
+    /// <summary>The game's own files of a kind (its whole ROM name, any image extension), as stored.</summary>
     private List<string> OwnFiles(GameKey game, string relPath, string kind)
     {
         var files = new List<string>();
@@ -178,7 +176,7 @@ public sealed class UserArtService(LibraryService library, IPlatformPaths paths,
         return files;
     }
 
-    private string Full(string relative) => Path.Combine(_paths.DataDir, relative.Replace('/', Path.DirectorySeparatorChar));
+    private string Full(string relative) => _library.MediaPath(relative);
 
     private static void CheckKind(string kind)
     {

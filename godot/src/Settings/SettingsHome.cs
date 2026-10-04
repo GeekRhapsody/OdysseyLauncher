@@ -16,7 +16,7 @@ using Launcher.Core.Theming;
 namespace Launcher.App.Settings;
 
 /// <summary>
-/// The main settings screen (M7): ROM folders, emulators, the theme, the status indicators, scraping, and the
+/// The main settings screen (M7): ROM folders, the media folder, emulators, the theme, the status indicators, scraping, and the
 /// library's actions (rescan, scrape all missing) with their progress and a way to cancel them. Menu, B or the Back
 /// button closes it; every change is saved as it's made, and applies without a restart.
 /// </summary>
@@ -24,6 +24,7 @@ public sealed partial class SettingsHome : ListPanel
 {
     private readonly SettingsController _settings;
     private readonly SettingRow _roms;
+    private readonly SettingRow _media;
     private readonly SettingRow _emulators;
     private readonly SettingRow _theme;
     private readonly SettingRow _layout;
@@ -46,6 +47,7 @@ public sealed partial class SettingsHome : ListPanel
 
         AddSection("Games");
         _roms = AddRow("ROM folders", activated: () => Layer.Push(new RomFoldersPage(_settings)));
+        _media = AddRow("Media folder", activated: () => Layer.Push(new MediaFolderPage(_settings)));
         _emulators = AddRow("Emulators", activated: () => Layer.Push(new EmulatorsPage(_settings)));
 
         AddSection("Look");
@@ -95,6 +97,9 @@ public sealed partial class SettingsHome : ListPanel
         _roms.Detail = custom == 0
             ? $"{config.Settings.RomRoot}, a folder per system"
             : $"{config.Settings.RomRoot}; {custom} system{(custom == 1 ? " has" : "s have")} its own";
+        _media.Detail = config.Settings.MediaDir is null
+            ? $"{services.Library.MediaDir}, the default: covers, videos and models"
+            : $"{services.Library.MediaDir}: covers, videos and models";
         _emulators.Detail = $"{config.Emulators.Count} profiles; the programs your systems use";
         var active = services.Theme?.Active;
         _theme.Detail = active is null ? config.Settings.Display.Theme : $"{active.Name} ({active.Id})";

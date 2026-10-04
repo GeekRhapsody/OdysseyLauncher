@@ -29,7 +29,7 @@ public sealed class ConfigLoader : IConfigLoader
     private static readonly string[] SettingsRootKeys = ["format", "paths", "scanning", "variables", "display", "ui", "scraping"];
     private static readonly string[] SystemsRootKeys = ["format", "systems"];
     private static readonly string[] EmulatorsRootKeys = ["format", "emulators"];
-    private static readonly string[] PathsKeys = ["rom_root"];
+    private static readonly string[] PathsKeys = ["rom_root", "media"];
     private static readonly string[] DisplayKeys =
     [
         "theme", "fullscreen", "hide_empty_systems",
@@ -186,6 +186,14 @@ public sealed class ConfigLoader : IConfigLoader
                 ?? ExpandPath(DefaultRomRoot, romRootNode, "paths.rom_root", allowRomRoot: false)
                 ?? sources.HomeDir;
 
+            // The media folder (2026-10-04): unset is DataDir/media, which the loader doesn't know; a bad one is an error,
+            // and the default is used.
+            string? mediaDir = null;
+            if (SettingString(tree, defaults, "paths", "media") is { } mediaSetting)
+            {
+                mediaDir = ExpandPath(mediaSetting.Value, mediaSetting.Node, "paths.media", allowRomRoot: false);
+            }
+
             var display = SubTable(tree, "display", "display");
             if (display is not null)
             {
@@ -292,7 +300,10 @@ public sealed class ConfigLoader : IConfigLoader
                 },
                 new ScrapingSettings(provider, fallback, regions, languages, media, hashLimitMb * 1024 * 1024),
                 new ScanningSettings(_globalExcludes),
-                uiSettings);
+                uiSettings)
+            {
+                MediaDir = mediaDir,
+            };
         }
 
         private readonly record struct Located(string Value, TomlNode Node);

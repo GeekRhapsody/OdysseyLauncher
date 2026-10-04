@@ -52,7 +52,7 @@ public sealed class DerivativeService : IDisposable
     /// <summary>False when this platform has no image decoder.</summary>
     public bool CanBake => _baker is not null;
 
-    /// <summary>The derivative's path for a media row (its path relative to DataDir).</summary>
+    /// <summary>The derivative's path for a media row (its stored path, <c>media/...</c>).</summary>
     public string PathFor(string relPath, long sizeBytes, long mtimeMs) =>
         TextureDerivatives.PathFor(_paths.CacheDir, relPath, sizeBytes, mtimeMs);
 
@@ -65,7 +65,7 @@ public sealed class DerivativeService : IDisposable
         }
 
         var destination = PathFor(relPath, sizeBytes, mtimeMs);
-        var source = Path.Combine(_paths.DataDir, relPath.Replace('/', Path.DirectorySeparatorChar));
+        var source = _library.MediaPath(relPath);
         return Enqueue(source, destination, relPath, cancellationToken);
     }
 

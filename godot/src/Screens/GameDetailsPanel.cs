@@ -85,7 +85,7 @@ public sealed partial class GameDetailsPanel : UiPanel
         strip.AddChild(cards);
         foreach (var row in Ordered(loaded.Media))
         {
-            var file = Path.Combine(services.Paths.DataDir, row.Media.Path.Replace('/', Path.DirectorySeparatorChar));
+            var file = services.Library.MediaPath(row.Media.Path);
             var index = _items.Count;
             var name = GameMediaPanel.SlotName(row.Kind);
             _items.Add(new MediaViewer.Item(row.Kind, file, name));

@@ -29,7 +29,7 @@ public sealed class ItemOptions
         _navigator = navigator;
         var services = settings.Services;
         Models = new ModelImportService(services.Library, services.Paths, settings.Ui.Decoder);
-        Art = new UserArtService(services.Library, services.Paths, services.Derivatives);
+        Art = new UserArtService(services.Library, services.Derivatives);
     }
 
     public SettingsController Settings { get; }

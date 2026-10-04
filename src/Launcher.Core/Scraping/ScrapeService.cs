@@ -225,8 +225,10 @@ public sealed class ScrapeService : IDisposable
     private readonly LibraryService _library;
     private readonly Dictionary<string, IScraper> _scrapers;
     private readonly HttpClient? _client;
-    private readonly MediaStore _media;
     private readonly Redactor _redactor;
+
+    /// <summary>The media folder as the library's config has it now (A4: settings can move it), for each download and clear.</summary>
+    private MediaStore MediaFiles => new(_library.MediaDir);
     private readonly ILog _log;
     private readonly TimeProvider _clock;
     private readonly CancellationTokenSource _lifetime = new();
@@ -247,7 +249,6 @@ public sealed class ScrapeService : IDisposable
         _clock = options.Clock;
         _redactor = new Redactor(options.Accounts.Values);
         _log = new RedactingLog(options.Log, _redactor);
-        _media = new MediaStore(_library.DataDir);
         Derivatives = new DerivativeService(_library, options.Paths, options.ImageDecoder, _log);
         if (options.Scrapers is { } scrapers)
         {
@@ -615,7 +616,7 @@ public sealed class ScrapeService : IDisposable
 
                 if (!cleared.Shared.Contains(path))
                 {
-                    var file = _media.FullPath(path);
+                    var file = MediaFiles.FullPath(path);
                     Delete(file);
                     if (kind == MediaKinds.Model)
                     {
@@ -628,7 +629,7 @@ public sealed class ScrapeService : IDisposable
             // Files named after the game that no scan has indexed yet.
             if (cleared.RelPath is { } relPath)
             {
-                foreach (var file in _media.FilesOf(game.SystemId, relPath))
+                foreach (var file in MediaFiles.FilesOf(game.SystemId, relPath))
                 {
                     Delete(file);
                 }
@@ -1180,7 +1181,7 @@ public sealed class ScrapeService : IDisposable
                 {
                     var bytes = await _scrapers[provider].DownloadAsync(media, cancellationToken).ConfigureAwait(false);
                     // Null: a file of that kind turned up meanwhile (the user's own), and it stays.
-                    if (await _media.SaveAsync(key.SystemId, context.RelPath, kind, bytes, cancellationToken).ConfigureAwait(false) is not { } stored)
+                    if (await MediaFiles.SaveAsync(key.SystemId, context.RelPath, kind, bytes, cancellationToken).ConfigureAwait(false) is not { } stored)
                     {
                         break;
                     }

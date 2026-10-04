@@ -6,7 +6,7 @@ public enum ModelKind
     /// <summary>A theme's game template, or the user's <c>ConfigDir/models/templates/&lt;system&gt;.glb</c>.</summary>
     GameTemplate,
 
-    /// <summary>The user's model for one game, <c>DataDir/media/&lt;system&gt;/model/&lt;rel path&gt;.glb</c>.</summary>
+    /// <summary>The user's model for one game, <c>&lt;media folder&gt;/&lt;system&gt;/model/&lt;rel path&gt;.glb</c>.</summary>
     PerGame,
 
     /// <summary>A system card: a theme's system model, or the user's <c>ConfigDir/models/systems/&lt;system&gt;.glb</c>.</summary>

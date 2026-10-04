@@ -346,7 +346,7 @@ public sealed class GamelistImportService(LibraryService library, IPlatformPaths
         var copied = new Dictionary<string, int>(StringComparer.Ordinal);
         int alreadyThere = 0, missing = 0, unreadable = 0, done = 0, unindexed = 0;
         var total = plan.Files;
-        var store = new MediaStore(_library.DataDir);
+        var store = new MediaStore(_library.MediaDir);
 
         // Derivatives bake on the derivative service's thread while the next files copy; they're waited for before the
         // copies are indexed, so the grid never finds an image it has no derivative for yet.

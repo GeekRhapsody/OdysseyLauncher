@@ -122,6 +122,48 @@ public class ConfigLoaderTests
     }
 
     [Fact]
+    public void The_media_folder_is_unset_by_default_and_can_be_anywhere_relative_paths_against_ConfigDir()
+    {
+        Assert.Null(Load().Config.Settings.MediaDir);
+
+        var absolute = Load(settings: """
+            [variables]
+            big = "E:/Big drive"
+
+            [paths]
+            media = "{big}/Launcher media"
+            """);
+        Assert.Empty(absolute.Diagnostics);
+        Assert.Equal(Path.GetFullPath("E:/Big drive/Launcher media"), absolute.Config.Settings.MediaDir);
+
+        var relative = Load(settings: """
+            [paths]
+            media = "my media"
+            """);
+        Assert.Equal(Path.Combine(ConfigDir, "my media"), relative.Config.Settings.MediaDir);
+    }
+
+    [Fact]
+    public void A_bad_media_folder_is_an_error_and_the_default_is_used()
+    {
+        var result = Load(settings: """
+            [paths]
+            media = ""
+            """);
+
+        var error = Single(result, Severity.Error);
+        Assert.Equal("paths.media", error.Key);
+        Assert.Null(result.Config.Settings.MediaDir);
+
+        var number = Load(settings: """
+            [paths]
+            media = 3
+            """);
+        Assert.Equal("paths.media", Single(number, Severity.Error).Key);
+        Assert.Null(number.Config.Settings.MediaDir);
+    }
+
+    [Fact]
     public void A_system_can_list_several_folders_using_variables_and_relative_paths()
     {
         var result = Load(

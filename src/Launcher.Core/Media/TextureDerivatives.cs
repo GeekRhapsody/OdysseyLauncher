@@ -6,7 +6,7 @@ namespace Launcher.Core.Media;
 
 /// <summary>
 /// Where the grid's baked cover derivatives live (A3): <c>CacheDir/textures/&lt;key&gt;.dds</c>, one canonical size
-/// (BC7, 512², full mips) keyed by the source's path (relative to DataDir), size and modification time, so a changed
+/// (BC7, 512², full mips) keyed by the source's stored path (<c>media/...</c>, wherever the media folder is), size and modification time, so a changed
 /// source gets a new derivative and a stale one is never shown.
 /// <para>
 /// The whole source image is scaled to the square, whatever its aspect ratio. The cover shader crops it to the
@@ -57,11 +57,12 @@ public static class TextureDerivatives
 
     /// <summary>The derivative's absolute path. Does file I/O (reads the source's size and time): never on the main thread.</summary>
     /// <returns>Null when the source doesn't exist.</returns>
-    public static string? PathFor(string cacheDir, string dataDir, string relPath)
+    /// <param name="mediaDir">The media folder, which a stored path's <c>media/</c> stands for (<see cref="MediaFolder"/>).</param>
+    public static string? PathFor(string cacheDir, string mediaDir, string relPath)
     {
         ArgumentNullException.ThrowIfNull(cacheDir);
-        ArgumentNullException.ThrowIfNull(dataDir);
-        var source = new FileInfo(Path.Combine(dataDir, relPath));
+        ArgumentNullException.ThrowIfNull(mediaDir);
+        var source = new FileInfo(MediaFolder.FullPath(mediaDir, relPath));
         if (!source.Exists)
         {
             return null;
@@ -75,7 +76,8 @@ public static class TextureDerivatives
     /// <summary>Writes the 32 hex digits and the extension into <paramref name="destination"/>, without allocating.</summary>
     private static void WriteFileName(string relPath, long sizeBytes, long mtimeMs, Span<char> destination)
     {
-        // v2 (2026-10-02): every source is in DataDir, so the key no longer names a root.
+        // v2 (2026-10-02): every source is in the media folder, so the key no longer names a root (and moving the folder
+        // keeps every key).
         var textLength = 3 + relPath.Length + 1 + 20 + 1 + 20;
         Span<char> text = textLength <= 1024 ? stackalloc char[textLength] : new char[textLength];
         var n = 0;

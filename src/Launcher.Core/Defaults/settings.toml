@@ -4,6 +4,9 @@ format = 1
 [paths]
 # Each system's ROMs default to {rom_root}/<system id>, e.g. {rom_root}/megadrive.
 rom_root = "{home}/ROMs"
+# The media folder: every game's images, videos and models, a folder per system. Unset, it's media in the data
+# folder (%LOCALAPPDATA%\OdysseyLauncher\media, or userdata\media when portable). Settings > Media folder moves it.
+# media = "D:/Launcher media"
 
 [scanning]
 # Skipped in every system's ROM folders, before each system's own `exclude`. Patterns without '/' match a

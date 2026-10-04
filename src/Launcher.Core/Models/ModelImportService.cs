@@ -22,7 +22,7 @@ public enum ModelImportStatus
 
 /// <summary>What importing a model for a game did.</summary>
 /// <param name="ModelPath">
-/// Where the model is now, '/'-separated: a game's relative to DataDir (<c>media/ps2/model/Game.iso.glb</c>), a
+/// Where the model is now, '/'-separated: a game's as stored (<c>media/ps2/model/Game.iso.glb</c>), a
 /// system's relative to ConfigDir (<c>models/systems/ps2.glb</c>).
 /// </param>
 /// <param name="Converted">True when it was converted from an OBJ model.</param>
@@ -63,7 +63,7 @@ public sealed record ModelRemoveResult(ModelRemoveStatus Status, string? SharedP
 /// textures) or a bare <c>.obj</c>; converts OBJ to glTF (<see cref="ObjConverter"/>); fits it to the per-game
 /// budget (<see cref="ModelProcessor"/>: textures scaled down, counts checked, a broken or more-than-2×-over file
 /// rejected with nothing changed); writes it to the game's model slot in the media folder,
-/// <c>DataDir/media/&lt;system&gt;/model/&lt;rel path&gt;.glb</c>, atomically; primes the processed-model cache so
+/// <c>&lt;media folder&gt;/&lt;system&gt;/model/&lt;rel path&gt;.glb</c>, atomically; primes the processed-model cache so
 /// the app doesn't process it again; indexes it (<see cref="LibraryService.RefreshMediaAsync"/>, which raises
 /// <c>MediaChanged</c>, so a running grid swaps the game's model in place); and logs the outcome to the model log.
 /// Clearing a game's metadata (<c>ScrapeService.ClearGameAsync</c>) removes its model too.
@@ -89,7 +89,7 @@ public sealed class ModelImportService
     /// <summary>The files <see cref="ImportGameModelAsync"/> takes.</summary>
     public static IReadOnlyList<string> Extensions { get; } = [".glb", ".zip", ".obj"];
 
-    /// <summary>The game's model slot, relative to DataDir: <c>media/&lt;system&gt;/model/&lt;rel path&gt;.glb</c>.</summary>
+    /// <summary>The game's model slot, as stored: <c>media/&lt;system&gt;/model/&lt;rel path&gt;.glb</c> (<see cref="MediaFolder"/>).</summary>
     public static string ModelPathFor(GameKey game, string relPath) =>
         MediaStore.RelativePathFor(game.SystemId, relPath, MediaKinds.Model, ".glb");
 
@@ -104,7 +104,7 @@ public sealed class ModelImportService
         }
 
         var relative = ModelPathFor(game, details.RelPath);
-        var result = await ImportAsync(sourceFile, _paths.DataDir, relative, ModelKind.PerGame, $"{Path.GetFileName(sourceFile)} for {game.SystemId}/{details.RelPath}", cancellationToken).ConfigureAwait(false);
+        var result = await ImportAsync(sourceFile, _library.MediaPath(relative), relative, ModelKind.PerGame, $"{Path.GetFileName(sourceFile)} for {game.SystemId}/{details.RelPath}", cancellationToken).ConfigureAwait(false);
         if (result.Status == ModelImportStatus.Imported)
         {
             await _library.RefreshMediaAsync(game.SystemId, cancellationToken).ConfigureAwait(false);
@@ -129,7 +129,7 @@ public sealed class ModelImportService
         var own = ModelPathFor(game, details.RelPath);
         var removed = await Task.Run(() =>
         {
-            var target = Path.Combine(_paths.DataDir, own.Replace('/', Path.DirectorySeparatorChar));
+            var target = _library.MediaPath(own);
             if (!File.Exists(target))
             {
                 return false;
@@ -168,7 +168,7 @@ public sealed class ModelImportService
         }
 
         var path = rows[0].Media.Path;
-        var full = Path.Combine(_paths.DataDir, path.Replace('/', Path.DirectorySeparatorChar));
+        var full = _library.MediaPath(path);
         var cached = await Task.Run(() => _cache.Get(full, ModelKind.PerGame), cancellationToken).ConfigureAwait(false);
         return (path, cached.Report);
     }
@@ -196,7 +196,7 @@ public sealed class ModelImportService
 
         var relative = SystemModelPathFor(systemId, slot);
         var what = slot == SystemModelSlot.Card ? "the system model" : "the game template";
-        return await ImportAsync(sourceFile, _paths.ConfigDir, relative, KindOf(slot), $"{Path.GetFileName(sourceFile)} as {what} for {systemId}", cancellationToken).ConfigureAwait(false);
+        return await ImportAsync(sourceFile, Path.Combine(_paths.ConfigDir, relative.Replace('/', Path.DirectorySeparatorChar)), relative, KindOf(slot), $"{Path.GetFileName(sourceFile)} as {what} for {systemId}", cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>Removes the user's model for a system, so the theme's shows again. False when there wasn't one.</summary>
@@ -227,8 +227,8 @@ public sealed class ModelImportService
 
     private static ModelKind KindOf(SystemModelSlot slot) => slot == SystemModelSlot.Card ? ModelKind.SystemModel : ModelKind.GameTemplate;
 
-    /// <summary>Prepares <paramref name="sourceFile"/> as <paramref name="kind"/> and, if it passes, writes it to <paramref name="relative"/> under <paramref name="root"/>.</summary>
-    private Task<ModelImportResult> ImportAsync(string sourceFile, string root, string relative, ModelKind kind, string name, CancellationToken cancellationToken) =>
+    /// <summary>Prepares <paramref name="sourceFile"/> as <paramref name="kind"/> and, if it passes, writes it to <paramref name="target"/> (<paramref name="relative"/>, as reported).</summary>
+    private Task<ModelImportResult> ImportAsync(string sourceFile, string target, string relative, ModelKind kind, string name, CancellationToken cancellationToken) =>
         Task.Run(() =>
         {
             var prepared = Prepare(sourceFile, kind, _decoder, ScratchDir);
@@ -248,7 +248,6 @@ public sealed class ModelImportService
                 return new ModelImportResult(ModelImportStatus.Rejected, null, prepared.Converted, processed.Report, prepared.Messages);
             }
 
-            var target = Path.Combine(root, relative.Replace('/', Path.DirectorySeparatorChar));
             Directory.CreateDirectory(Path.GetDirectoryName(target)!);
             var temporary = target + ".import.tmp";
             File.WriteAllBytes(temporary, glb);

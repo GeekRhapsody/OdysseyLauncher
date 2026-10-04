@@ -5,10 +5,10 @@ using Launcher.Core.Scanning;
 namespace Launcher.Core.Media;
 
 /// <summary>
-/// One file in the media folder, <c>DataDir/media/&lt;system&gt;/&lt;kind&gt;/&lt;rel path&gt;.&lt;ext&gt;</c>: an image,
+/// One file in the media folder, <c>&lt;media folder&gt;/&lt;system&gt;/&lt;kind&gt;/&lt;rel path&gt;.&lt;ext&gt;</c>: an image,
 /// a video (kind <c>video</c>) or a per-game model (kind <c>model</c>), scraped or the user's own alike.
 /// </summary>
-/// <param name="Path">Relative to DataDir, '/'-separated, as stored in <c>media.path</c>.</param>
+/// <param name="Path">'/'-separated, as stored in <c>media.path</c>: <c>media/&lt;system&gt;/...</c>, <c>media</c> standing for the media folder (<see cref="MediaFolder"/>).</param>
 /// <param name="MatchKey">
 /// The path under the kind's folder without the file's extension, as a <c>path_key</c>. It matches a game whose
 /// <c>path_key</c> is the same, or is the same without the ROM's extension.
@@ -30,22 +30,23 @@ public sealed record MediaScan(IReadOnlyList<MediaFile> Files, IReadOnlyList<Dia
 /// </summary>
 public static class MediaScanner
 {
-    /// <summary>The media folder, under DataDir.</summary>
-    public const string FolderName = "media";
+    /// <summary>The first part of every stored path, standing for the media folder (<see cref="MediaFolder.Name"/>).</summary>
+    public const string FolderName = MediaFolder.Name;
 
+    /// <param name="mediaDir">The media folder (<see cref="MediaFolder.Of"/>).</param>
     /// <param name="cache">The previous scan's images, by <see cref="MediaFile.Path"/>.</param>
     public static MediaScan Scan(
-        string dataDir,
+        string mediaDir,
         string systemId,
         IReadOnlyDictionary<string, MediaEntry>? cache,
         CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(dataDir);
+        ArgumentNullException.ThrowIfNull(mediaDir);
         ArgumentNullException.ThrowIfNull(systemId);
         var files = new List<MediaFile>();
         var diagnostics = new List<Diagnostic>();
         var headersRead = 0;
-        var systemDir = System.IO.Path.Combine(dataDir, FolderName, systemId);
+        var systemDir = System.IO.Path.Combine(mediaDir, systemId);
         if (!Directory.Exists(systemDir))
         {
             return new MediaScan(files, diagnostics, 0);
@@ -71,7 +72,7 @@ public static class MediaScanner
                 var matchKey = PathKeys.ToPathKey(relPath[..^System.IO.Path.GetExtension(relPath).Length]);
                 if (keys.TryGetValue(matchKey, out var first))
                 {
-                    diagnostics.Add(new Diagnostic(Severity.Warning, System.IO.Path.Combine(dataDir, stored), 0, 0, string.Empty,
+                    diagnostics.Add(new Diagnostic(Severity.Warning, MediaFolder.FullPath(mediaDir, stored), 0, 0, string.Empty,
                         $"is the same {kind} as '{first}', which is used instead"));
                     continue;
                 }
@@ -87,9 +88,9 @@ public static class MediaScanner
                     else
                     {
                         headersRead++;
-                        if (!ImageHeaders.TryReadSize(System.IO.Path.Combine(dataDir, stored), out var w, out var h))
+                        if (!ImageHeaders.TryReadSize(MediaFolder.FullPath(mediaDir, stored), out var w, out var h))
                         {
-                            diagnostics.Add(new Diagnostic(Severity.Warning, System.IO.Path.Combine(dataDir, stored), 0, 0, string.Empty,
+                            diagnostics.Add(new Diagnostic(Severity.Warning, MediaFolder.FullPath(mediaDir, stored), 0, 0, string.Empty,
                                 "isn't a PNG, JPEG or WebP image the launcher can read, so it's ignored"));
                             continue;
                         }

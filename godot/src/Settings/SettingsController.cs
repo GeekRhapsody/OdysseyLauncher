@@ -38,6 +38,13 @@ public sealed class SettingsController(AppServices services, UiContext ui, Libra
     /// <summary>Main thread: a theme was chosen and saved; the navigator switches to it.</summary>
     public event Action<string>? ThemeChosen;
 
+    /// <summary>
+    /// Main thread: the media folder is another one now (moved, or settings name a folder that has media already), with
+    /// its path. The texture streamer reads sources there, and the navigator loads the theme again (per-game models'
+    /// paths) and rescans (indexing it).
+    /// </summary>
+    public event Action<string>? MediaFolderChanged;
+
     /// <summary>Main thread, from the Library section: rescan (the navigator's rescan, so the grid refreshes after it).</summary>
     public Action<IReadOnlyList<string>?>? Rescan { get; set; }
 
@@ -68,18 +75,40 @@ public sealed class SettingsController(AppServices services, UiContext ui, Libra
             ConfigSaveResult result;
             try
             {
-                result = check?.Invoke() is { } problem ? new ConfigSaveResult(problem, [], null, null) : writer.Save(edits);
+                result = check?.Invoke() is { } problem ? new ConfigSaveResult(problem, [], null, null) : Write(writer, edits);
             }
             catch (Exception e) when (e is System.IO.IOException or UnauthorizedAccessException)
             {
                 result = new ConfigSaveResult($"The settings couldn't be written: {e.Message}", [], null, null);
             }
 
-            Ui.Queue.Post(() => Applied(from, edits, result, saved, then));
+            Ui.Queue.Post(() => Apply(from, edits, result, saved, then));
         });
     }
 
-    private void Applied(UiPanel from, IReadOnlyList<ConfigEdit> edits, ConfigSaveResult result, string saved, Action<ConfigSaveResult>? then)
+    /// <summary>
+    /// Thread pool: writes <paramref name="edits"/> with a <see cref="Writer"/> made on the main thread, as
+    /// <see cref="Save"/> does, without applying them: the caller passes the result to <see cref="Apply"/> on the main
+    /// thread. For a save that's one step of a longer job (moving the media folder).
+    /// </summary>
+    public static ConfigSaveResult Write(ConfigWriter writer, IReadOnlyList<ConfigEdit> edits)
+    {
+        ArgumentNullException.ThrowIfNull(writer);
+        try
+        {
+            return writer.Save(edits);
+        }
+        catch (Exception e) when (e is System.IO.IOException or UnauthorizedAccessException)
+        {
+            return new ConfigSaveResult($"The settings couldn't be written: {e.Message}", [], null, null);
+        }
+    }
+
+    /// <summary>Main thread: the new media folder is in use (<see cref="MediaFolderChanged"/>).</summary>
+    public void MediaFolderMoved(string mediaDir) => MediaFolderChanged?.Invoke(mediaDir);
+
+    /// <summary>Main thread: applies a <see cref="Write"/>'s result, or tells why it wasn't saved, as <see cref="Save"/> does.</summary>
+    public void Apply(UiPanel from, IReadOnlyList<ConfigEdit> edits, ConfigSaveResult result, string saved, Action<ConfigSaveResult>? then = null)
     {
         if (!result.Saved)
         {

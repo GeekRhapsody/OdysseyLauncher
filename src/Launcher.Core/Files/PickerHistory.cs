@@ -13,6 +13,7 @@ public static class PickerUses
     public const string Image = "image";
     public const string Model = "model";
     public const string Gamelist = "gamelist";
+    public const string MediaFolder = "media-folder";
 }
 
 /// <summary>

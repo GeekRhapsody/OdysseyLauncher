@@ -145,7 +145,7 @@ public sealed partial class GameMediaPanel : UiPanel
         var generation = ++_generation;
         var options = _options;
         var gameId = _game.GameId;
-        var paths = options.Settings.Services.Paths;
+        var library = options.Settings.Services.Library;
         var decoder = options.Ui.Decoder;
         _ = Task.Run(async () =>
         {
@@ -176,7 +176,7 @@ public sealed partial class GameMediaPanel : UiPanel
                     continue;
                 }
 
-                var file = Path.Combine(paths.DataDir, row.Media.Path.Replace('/', Path.DirectorySeparatorChar));
+                var file = library.MediaPath(row.Media.Path);
                 var texture = Thumbnails.Load(file, ThumbSide, decoder, out var info);
                 options.Ui.Queue.Post(() =>
                 {

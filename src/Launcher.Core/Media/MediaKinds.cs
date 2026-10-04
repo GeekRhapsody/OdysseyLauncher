@@ -2,7 +2,7 @@ namespace Launcher.Core.Media;
 
 /// <summary>
 /// The <c>media.kind</c> values (ARCHITECTURE.md A4), which are also the media slot names of models (A7), and the
-/// folders of the media folder: <c>DataDir/media/&lt;system&gt;/&lt;kind&gt;/</c>.
+/// folders of the media folder: <c>&lt;media folder&gt;/&lt;system&gt;/&lt;kind&gt;/</c> (<see cref="MediaFolder"/>).
 /// </summary>
 public static class MediaKinds
 {
@@ -18,7 +18,7 @@ public static class MediaKinds
     /// <summary>A gameplay video (an MP4): not an image, so not a slot; the game's details screen plays it (<see cref="IVideoDecoder"/>).</summary>
     public const string Video = "video";
 
-    /// <summary>A per-game model: <c>DataDir/media/&lt;system&gt;/model/&lt;rel path&gt;.glb</c> (M6).</summary>
+    /// <summary>A per-game model: <c>&lt;media folder&gt;/&lt;system&gt;/model/&lt;rel path&gt;.glb</c> (M6).</summary>
     public const string Model = "model";
 
     /// <summary>The kinds that are images: any of them can fill a theme's slot, and each gets a derivative.</summary>

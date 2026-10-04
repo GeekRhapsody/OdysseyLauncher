@@ -77,17 +77,18 @@ public sealed class ImageHeadersTests
     }
 
     [Fact]
-    public void A_derivative_path_follows_its_source_file()
+    public void A_derivative_path_follows_its_source_file_wherever_the_media_folder_is()
     {
         using var dir = new TempDir();
-        var source = dir.File("data/media/ps2/cover/game.png", "x", new DateTime(2025, 1, 2, 3, 4, 5, DateTimeKind.Utc));
+        var source = dir.File("Launcher media/ps2/cover/game.png", "x", new DateTime(2025, 1, 2, 3, 4, 5, DateTimeKind.Utc));
 
-        var path = TextureDerivatives.PathFor(dir.Combine("cache"), dir.Combine("data"), "media/ps2/cover/game.png");
+        // The stored path's "media/" stands for the media folder, which needn't be called that (A4, 2026-10-04).
+        var path = TextureDerivatives.PathFor(dir.Combine("cache"), dir.Combine("Launcher media"), "media/ps2/cover/game.png");
 
         var expected = TextureDerivatives.FileName("media/ps2/cover/game.png", 1,
             new DateTimeOffset(2025, 1, 2, 3, 4, 5, TimeSpan.Zero).ToUnixTimeMilliseconds());
         Assert.Equal(dir.Combine("cache", "textures", expected), path);
         File.Delete(source);
-        Assert.Null(TextureDerivatives.PathFor(dir.Combine("cache"), dir.Combine("data"), "media/ps2/cover/game.png"));
+        Assert.Null(TextureDerivatives.PathFor(dir.Combine("cache"), dir.Combine("Launcher media"), "media/ps2/cover/game.png"));
     }
 }

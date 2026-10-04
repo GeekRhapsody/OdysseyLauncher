@@ -62,7 +62,7 @@ public sealed record LogoFile(string ThemeId, string Relative, string Path)
 /// <summary>Where a model candidate comes from, in precedence order (A7).</summary>
 public enum ModelLevel
 {
-    /// <summary><c>DataDir/media/&lt;system&gt;/model/&lt;rel path&gt;.glb</c>, indexed by the scanner.</summary>
+    /// <summary><c>&lt;media folder&gt;/&lt;system&gt;/model/&lt;rel path&gt;.glb</c>, indexed by the scanner.</summary>
     UserGame,
 
     /// <summary><c>ConfigDir/models/templates/&lt;system&gt;.glb</c>, or for a card <c>ConfigDir/models/systems/&lt;system&gt;.glb</c>.</summary>
@@ -139,19 +139,19 @@ public sealed class ModelResolver
 {
     private readonly AppConfig _config;
     private readonly UserModels _user;
-    private readonly string _dataDir;
+    private readonly string _mediaDir;
     private readonly List<Diagnostic> _diagnostics = [];
 
     /// <param name="active">The theme settings.toml names (or the base theme).</param>
     /// <param name="baseTheme">The base theme, always the last resort.</param>
-    /// <param name="dataDir">Where the media folder is, which per-game models' paths are relative to.</param>
+    /// <param name="dataDir">DataDir: the media folder, which per-game models' stored paths stand in, is <paramref name="config"/>'s or <c>DataDir/media</c>.</param>
     public ModelResolver(Theme active, Theme baseTheme, UserModels user, AppConfig config, string dataDir)
     {
         Active = active ?? throw new ArgumentNullException(nameof(active));
         Base = baseTheme ?? throw new ArgumentNullException(nameof(baseTheme));
         _user = user ?? throw new ArgumentNullException(nameof(user));
         _config = config ?? throw new ArgumentNullException(nameof(config));
-        _dataDir = dataDir ?? throw new ArgumentNullException(nameof(dataDir));
+        _mediaDir = Media.MediaFolder.Of(config.Settings, dataDir ?? throw new ArgumentNullException(nameof(dataDir)));
         foreach (var system in config.Systems)
         {
             if (system.GameModel is { } id && !active.Templates.ContainsKey(id) && !baseTheme.Templates.ContainsKey(id))
@@ -215,12 +215,12 @@ public sealed class ModelResolver
         }
     }
 
-    /// <summary>The per-game model, from its <c>media</c> row (kind <c>model</c>, a path relative to DataDir).</summary>
+    /// <summary>The per-game model, from its <c>media</c> row (kind <c>model</c>, a stored path: <c>media/...</c>).</summary>
     public ModelCandidate PerGame(string relativePath)
     {
         ArgumentNullException.ThrowIfNull(relativePath);
         return new ModelCandidate(ModelLevel.UserGame, ThemeOrigin.User,
-            Path.GetFullPath(Path.Combine(_dataDir, relativePath.Replace('/', Path.DirectorySeparatorChar))), null, false,
+            Path.GetFullPath(Media.MediaFolder.FullPath(_mediaDir, relativePath)), null, false,
             $"your {relativePath}");
     }
 

@@ -25,7 +25,7 @@ public sealed class UserArtServiceTests : IAsyncLifetime
         _bed.Rom("megadrive/Ecco the Dolphin (USA, Europe).md");
         await _bed.ScanAsync();
         _derivatives = new DerivativeService(_bed.Library, _bed.Paths, PlatformServices.CreateImageDecoder());
-        _service = new UserArtService(_bed.Library, _bed.Paths, _derivatives);
+        _service = new UserArtService(_bed.Library, _derivatives);
         _bed.Library.MediaChanged += (_, e) =>
         {
             lock (_changes)

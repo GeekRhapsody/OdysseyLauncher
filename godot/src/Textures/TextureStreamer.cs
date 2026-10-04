@@ -64,7 +64,7 @@ public sealed class TextureStreamer : IDisposable
 
     private readonly object _gate = new();
     private string _cacheDir = string.Empty;
-    private string _dataDir = string.Empty;
+    private string _mediaDir = string.Empty;
 
     // Per request unit: cell × Channels + channel.
     private readonly int[] _state;
@@ -115,13 +115,16 @@ public sealed class TextureStreamer : IDisposable
         }
     }
 
-    /// <summary>Where derivatives and their sources (DataDir's media folder) are. Main thread, before any request.</summary>
-    public void SetFolders(string cacheDir, string dataDir)
+    /// <summary>
+    /// Where derivatives and their sources (the media folder, which settings can move) are. Main thread, before any
+    /// request, and again when the media folder moves.
+    /// </summary>
+    public void SetFolders(string cacheDir, string mediaDir)
     {
         lock (_gate)
         {
             _cacheDir = cacheDir;
-            _dataDir = dataDir;
+            _mediaDir = mediaDir;
         }
     }
 
@@ -556,7 +559,7 @@ public sealed class TextureStreamer : IDisposable
             int generation;
             string relPath;
             string cacheDir;
-            string dataDir;
+            string mediaDir;
             long size;
             long mtime;
             bool large;
@@ -577,7 +580,7 @@ public sealed class TextureStreamer : IDisposable
                 generation = _generation[unit];
                 relPath = _relPath[unit]!;
                 cacheDir = _cacheDir;
-                dataDir = _dataDir;
+                mediaDir = _mediaDir;
                 size = _size[unit];
                 mtime = _mtime[unit];
                 large = _large[unit];
@@ -597,7 +600,7 @@ public sealed class TextureStreamer : IDisposable
                 }
                 else if (!_derivativePaths.TryGetValue(relPath, out path))
                 {
-                    path = TextureDerivatives.PathFor(cacheDir, dataDir, relPath);
+                    path = TextureDerivatives.PathFor(cacheDir, mediaDir, relPath);
                     _derivativePaths[relPath] = path;
                 }
 

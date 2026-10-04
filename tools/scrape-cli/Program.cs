@@ -129,6 +129,7 @@ foreach (var diagnostic in loaded.Diagnostics.Concat(accounts.Diagnostics).Where
 
 Console.WriteLine($"Config: {paths.ConfigDir}");
 Console.WriteLine($"Data:   {paths.DataDir}");
+Console.WriteLine($"Media:  {MediaFolder.Of(loaded.Config.Settings, paths.DataDir)}");
 
 using var stop = new CancellationTokenSource();
 Console.CancelKeyPress += (_, e) =>
@@ -337,7 +338,7 @@ async Task<int> ImportModel(GameKey key, string file)
     var result = await Models().ImportGameModelAsync(key, file, stop.Token);
     Console.WriteLine(result.Status switch
     {
-        ModelImportStatus.Imported => $"Imported{(result.Converted ? " (converted from OBJ)" : string.Empty)}: {Path.Combine(paths.DataDir, result.ModelPath!.Replace('/', Path.DirectorySeparatorChar))}",
+        ModelImportStatus.Imported => $"Imported{(result.Converted ? " (converted from OBJ)" : string.Empty)}: {library.MediaPath(result.ModelPath!)}",
         ModelImportStatus.Rejected => "Rejected: nothing was changed.",
         ModelImportStatus.Unsupported => "Not imported:",
         _ => "Not imported: the game isn't in the library.",
@@ -482,7 +483,7 @@ async Task<int> Show(GameKey key)
     if (row.CoverPath is not null)
     {
         var derivative = TextureDerivatives.PathFor(paths.CacheDir, row.CoverPath, row.CoverSizeBytes, row.CoverMtimeMs);
-        Console.WriteLine($"  Cover: {Path.Combine(paths.DataDir, row.CoverPath)} (derivative {(File.Exists(derivative) ? "baked" : "missing")})");
+        Console.WriteLine($"  Cover: {library.MediaPath(row.CoverPath)} (derivative {(File.Exists(derivative) ? "baked" : "missing")})");
     }
 
     return 0;

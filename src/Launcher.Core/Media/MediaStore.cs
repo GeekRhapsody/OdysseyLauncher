@@ -1,19 +1,20 @@
 namespace Launcher.Core.Media;
 
 /// <summary>A media file as written: where it is, and what the <c>media</c> row records about it.</summary>
-/// <param name="RelativePath">Relative to DataDir, '/'-separated, as stored in <c>media.path</c>.</param>
+/// <param name="RelativePath">'/'-separated, as stored in <c>media.path</c>: <c>media/&lt;system&gt;/...</c> (<see cref="MediaFolder"/>).</param>
 public sealed record StoredMedia(string RelativePath, long SizeBytes, long MtimeMs, int Width, int Height);
 
 /// <summary>
 /// Scraped downloads on disk (ARCHITECTURE.md A4), in the media folder every game's media is indexed from:
-/// <c>DataDir/media/&lt;system&gt;/&lt;kind&gt;/&lt;rel path&gt;.&lt;ext&gt;</c>, the ROM's whole name, as the user's own
+/// <c>&lt;media folder&gt;/&lt;system&gt;/&lt;kind&gt;/&lt;rel path&gt;.&lt;ext&gt;</c>, the ROM's whole name, as the user's own
 /// art is named. A download never replaces a file: what's in the folder is the game's, wherever it came from. Writes
 /// are atomic (a temporary file, then a move), so a crash never leaves a half-written image where the grid would
 /// read it. Does file I/O: never on the main thread.
 /// </summary>
-public sealed class MediaStore(string dataDir)
+/// <param name="mediaDir">The media folder (<see cref="MediaFolder.Of"/>).</param>
+public sealed class MediaStore(string mediaDir)
 {
-    public string DataDir { get; } = dataDir ?? throw new ArgumentNullException(nameof(dataDir));
+    public string MediaDir { get; } = mediaDir ?? throw new ArgumentNullException(nameof(mediaDir));
 
     /// <summary>A game's own file of a kind: <c>media/&lt;system&gt;/&lt;kind&gt;/&lt;rel path&gt;&lt;extension&gt;</c>.</summary>
     /// <param name="relPath">The ROM's <c>rel_path</c>, its extension included.</param>
@@ -27,8 +28,7 @@ public sealed class MediaStore(string dataDir)
         return $"{MediaScanner.FolderName}/{systemId}/{kind}/{relPath}{extension}";
     }
 
-    public string FullPath(string relativePath) =>
-        Path.Combine(DataDir, relativePath.Replace('/', Path.DirectorySeparatorChar));
+    public string FullPath(string relativePath) => MediaFolder.FullPath(MediaDir, relativePath);
 
     /// <summary>
     /// Writes a download (an image, or for <see cref="MediaKinds.Video"/> a video) as the game's file of that kind,
@@ -114,7 +114,7 @@ public sealed class MediaStore(string dataDir)
     public IReadOnlyList<string> FilesOf(string systemId, string relPath)
     {
         var files = new List<string>();
-        if (!Directory.Exists(Path.Combine(DataDir, MediaScanner.FolderName, systemId)))
+        if (!Directory.Exists(Path.Combine(MediaDir, systemId)))
         {
             return files;
         }

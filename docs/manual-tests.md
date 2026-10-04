@@ -509,3 +509,19 @@ A live scrape needs your credentials, so it's yours to run. Use a user folder of
 
 - Step 2's covers, and each step's count and the card's outcome.
 - ScreenScraper's quota (the providers page) before and after step 3, to show only the one game was asked for.
+
+## Moving the media folder
+
+Moving between drives copies every file, so it's yours to run on real media. Use a user folder of its own with media in it (the gamelist test's `C:\OdysseyGamelist`, or `C:\OdysseyTest` once scraped), and a second drive or a USB stick with room for it.
+
+1. **The page.** Settings, then Media folder: the folder is `<user folder>\media`, "Use the default folder" says In use, and the note counts its files and size.
+2. **Another drive.** Change, open the other drive, make a folder there in Explorer (`E:\Launcher media`), choose it. The question says how many files and that each is copied, then deleted from the old folder. Choose Move it there: the dialog counts files and bytes, then says how many moved. `settings.toml` has `media = "E:/Launcher media"`, the old folder's system folders are gone, and the grid's covers, a game's details (its video plays) and its images (X, then Images) all show.
+3. **Stop.** Change back to the default and Stop part way: "Not moved", everything still on the other drive, nothing in the old folder but empty folders, `settings.toml` unchanged.
+4. **Back.** Use the default folder again and let it finish: the media is back in `<user folder>\media`, and `media` is gone from `settings.toml`.
+5. **Use it as it is.** Copy the media folder to the other drive in Explorer, then choose that copy and Use the folder as it is: the library rescans, and everything still shows.
+6. **Busy.** Start "Scrape all missing metadata", then open Media folder and choose Change: it says to wait for scraping to finish.
+
+### Send back
+
+- Step 2's file count and how long it took, with the drive types (SSD, USB stick, share).
+- Anything that showed a placeholder afterwards, with its file.

@@ -61,6 +61,12 @@ public sealed class LibraryJobs : IDisposable
     /// <summary>A gamelist is being imported.</summary>
     public bool Importing => Jobs.Running(ImportKind) is not null;
 
+    /// <summary>
+    /// What's running that writes to or indexes the media folder, for "wait for … to finish" (moving the folder waits for
+    /// it); null when nothing is. Main thread.
+    /// </summary>
+    public string? UsingMedia => Scanning ? "the scan" : AnyScraping ? "scraping" : Importing ? "the gamelist import" : null;
+
     /// <summary>Main thread: these games' scraped data or user edits changed (a scrape, a clear), for the grid's titles.</summary>
     public event Action<IReadOnlyList<GameKey>>? GamesUpdated;
 
