@@ -48,7 +48,7 @@ model = "models/templates/dvd_case.glb"
 [templates.jewel_case]             # PlayStation, Saturn, Dreamcast: 142 x 125 x 10.4 mm
 model = "models/templates/jewel_case.glb"
 
-[templates.cartridge_box]          # NES, SNES, N64, Game Boy Advance: 135 x 185 x 32 mm
+[templates.cartridge_box]          # NES, N64, Game Boy Advance: 135 x 185 x 32 mm
 model = "models/templates/cartridge_box.glb"
 
 [templates.gameboy_box]            # Game Boy, Game Boy Color, Super Game Boy: 125 x 125 x 18.2 mm (the scraped art's)
@@ -58,9 +58,15 @@ model = "models/templates/gameboy_box.glb"
 model = "models/templates/generic_box.glb"
 shape = "media"                    # the front takes the cover's proportions, the depth the spine's (A6)
 
-[templates.generic_box_top_spine]  # SNES, N64: a landscape big box whose spine is its top and bottom; 190 x 136 x 30 mm without any
+[templates.generic_box_top_spine]  # N64: a landscape big box whose spine is its top and bottom; 190 x 136 x 30 mm without any
 model = "models/templates/generic_box_top.glb"
 shape = "media"                    # the depth from the spine's height over its width, times the box's width (A7)
+
+[templates.snes_box_horizontal]    # SNES (US, Europe): a landscape cardboard box, its spine on the top and bottom; 190 x 139 x 28 mm
+model = "models/templates/snes_box_horizontal.glb"
+
+[templates.snes_box_vertical]      # Super Famicom: a portrait cardboard box, its spine on both sides; 99.6 x 180 x 29.1 mm. Chosen per game
+model = "models/templates/snes_box_vertical.glb"
 
 [templates.generic_box_logo]       # Windows, Steam: the same box, with the game's logo along its spine
 model = "models/templates/generic_box.glb"
@@ -187,7 +193,7 @@ energy = 0.25
 
 [systems.snes]                     # SNES
 colour = "#6C5BA6"
-game_template = "generic_box_top_spine"
+game_template = "snes_box_horizontal"
 
 [systems.snes.look.background]
 top_left     = "#362F4C"

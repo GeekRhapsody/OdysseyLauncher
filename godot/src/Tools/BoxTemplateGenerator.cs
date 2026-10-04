@@ -44,7 +44,7 @@ public partial class BoxTemplateGenerator : Node
             CaseColour: new Color("#2A2D35"), CaseRoughness: 0.2f, ArtRoughness: 0.22f,
             Split: FrontSplit.SpineStrip, SplitAt: 15),
 
-        // NES, SNES, N64 and Game Boy Advance: a cardboard box, 135 x 185 x 32, printed on both sides.
+        // NES, N64 and Game Boy Advance: a cardboard box, 135 x 185 x 32, printed on both sides.
         new("cartridge_box", 135, 185, 32, SpineRadius: 0.6f, OpeningRadius: 0.6f, Bevel: 0.5f,
             CaseColour: new Color("#D9D3C3"), CaseRoughness: 0.9f, ArtRoughness: 0.75f, PrintedOpeningSide: true),
 
@@ -64,11 +64,26 @@ public partial class BoxTemplateGenerator : Node
             CaseColour: new Color("#26262A"), CaseRoughness: 0.85f, ArtRoughness: 0.7f, PrintedOpeningSide: true,
             PrintedBevels: true),
 
-        // SNES and N64: the same big box, landscape, with its spine on the top and bottom, as those boxes' scraped spines
-        // are (680 x 97 against a 680 x 497 front). The theme's generic_box_top_spine shapes it by the art too; 190 x 136
-        // x 30 is a box with none.
+        // N64: the same big box, landscape, with its spine on the top and bottom, as US and European N64 and SNES boxes'
+        // scraped spines are (680 x 97 against a 680 x 497 front). The theme's generic_box_top_spine shapes it by the art
+        // too; 190 x 136 x 30 is a box with none.
         new("generic_box_top", 190, 136, 30, SpineRadius: 0.8f, OpeningRadius: 0.8f, Bevel: 0.6f,
             CaseColour: new Color("#26262A"), CaseRoughness: 0.85f, ArtRoughness: 0.7f, SpineOnTop: true,
+            PrintedBevels: true),
+
+        // SNES: the US and European cardboard box, landscape, printed over its bevels, with its spine on the top and
+        // bottom. Sized by the scraped art, like the Game Boy's: a 680 x 497 front (1.368) and a 680 x 97 top, so the
+        // spine face (the width less the corners, over the depth less the chamfers) is 7.0: 188.8 / 27. The left and
+        // right flaps are plain dark case. The theme's snes_box_horizontal, SNES's template.
+        new("snes_box_horizontal", 190, 139, 28, SpineRadius: 0.6f, OpeningRadius: 0.6f, Bevel: 0.5f,
+            CaseColour: new Color("#1C1C20"), CaseRoughness: 0.85f, ArtRoughness: 0.7f, SpineOnTop: true,
+            PrintedBevels: true),
+
+        // Super Famicom: the Japanese cardboard box, portrait, printed over its bevels and on both long sides. Sized by
+        // the scraped art: a 478 x 864 front (0.553) and a 136 x 864 spine, so the spine face is 0.157: 28.1 / 178.8.
+        // The top and bottom flaps are plain off-white card. The theme's snes_box_vertical, which users choose per game.
+        new("snes_box_vertical", 99.6f, 180, 29.1f, SpineRadius: 0.6f, OpeningRadius: 0.6f, Bevel: 0.5f,
+            CaseColour: new Color("#D6D3CB"), CaseRoughness: 0.85f, ArtRoughness: 0.7f, PrintedOpeningSide: true,
             PrintedBevels: true),
 
         // Mega Drive (and Master System): the European plastic clamshell, 136 x 190 x 24, with a thick rim.
