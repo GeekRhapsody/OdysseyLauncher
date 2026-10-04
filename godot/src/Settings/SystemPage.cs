@@ -22,7 +22,8 @@ namespace Launcher.App.Settings;
 /// <c>{rom_root}/&lt;id&gt;</c> and its aliases that exists), the emulator it launches with, its models (its own card for
 /// the systems grid, and the template its games use: one of the theme's, or the user's own <c>.glb</c>), and
 /// how its games are shown (its own layout, its grid's columns and rows, and their order, or the Layout page's), "scrape this system", which says how many games it
-/// will take on first, and "import gamelist.xml" (ES-DE's metadata and media, copied in; 2026-10-04). The settings screen opens it from ROM
+/// will take on first (and since 2026-10-04 three narrower scrapes: games without a front cover, without a screenshot,
+/// or not scraped in the last 30 days), and "import gamelist.xml" (ES-DE's metadata and media, copied in; 2026-10-04). The settings screen opens it from ROM
 /// folders, and X on a system in the grid opens it too. Saving folders rescans the system; a model change reloads the
 /// theme, so the grid shows it without a restart.
 /// </summary>
@@ -37,7 +38,7 @@ public sealed partial class SystemPage : ListPanel
     private readonly List<(SettingRow Row, int Index)> _folderRows = [];
     private SettingRow? _card;
     private SettingRow? _template;
-    private SettingRow? _scrape;
+    private readonly List<(SettingRow Row, SystemScrapeFilter Filter)> _scrapeRows = [];
     private SettingRow? _import;
     private SettingRow? _view;
     private SettingRow? _columns;
@@ -76,6 +77,7 @@ public sealed partial class SystemPage : ListPanel
     {
         ClearRows(out var focused);
         _folderRows.Clear();
+        _scrapeRows.Clear();
         Build();
         FocusRow(focused);
     }
@@ -85,7 +87,7 @@ public sealed partial class SystemPage : ListPanel
         var config = _settings.Services.Config;
         if (config.FindSystem(_systemId) is not { } system)
         {
-            _card = _template = _scrape = _import = null;
+            _card = _template = _import = null;
             AddNote("This system isn't enabled any more.", UiStyle.Warning);
             return;
         }
@@ -137,7 +139,7 @@ public sealed partial class SystemPage : ListPanel
 
         if (Options is null)
         {
-            _card = _template = _scrape = null;
+            _card = _template = null;
             AddImport();
             return;
         }
@@ -148,7 +150,12 @@ public sealed partial class SystemPage : ListPanel
         AddNote("A game with a model of its own (X on the game, then Model) shows it instead of the template.");
 
         AddSection("Scraping");
-        _scrape = AddRow("Scrape this system", "Counting its games…", activated: ScrapeSystem);
+        foreach (var filter in ScrapeFilters)
+        {
+            var captured = filter;
+            _scrapeRows.Add((AddRow(ScrapeTitle(filter), "Counting its games…", activated: () => ScrapeSystem(captured)), filter));
+        }
+
         AddImport();
         ShowModels();
         ShowScrapeState();
@@ -647,28 +654,51 @@ public sealed partial class SystemPage : ListPanel
 
     // ---- Scraping --------------------------------------------------------------------------------------
 
+    /// <summary>The scrape rows, in order: every game, then the games without a front cover, a screenshot, or a recent scrape (2026-10-04).</summary>
+    private static readonly SystemScrapeFilter[] ScrapeFilters =
+        [SystemScrapeFilter.All, SystemScrapeFilter.NoCover, SystemScrapeFilter.NoScreenshot, SystemScrapeFilter.NotRecent];
+
+    private static int RecentDays => (int)ScrapeService.RecentScrape.TotalDays;
+
+    private static string ScrapeTitle(SystemScrapeFilter filter) => filter switch
+    {
+        SystemScrapeFilter.NoCover => "Scrape games without a front cover",
+        SystemScrapeFilter.NoScreenshot => "Scrape games without a screenshot",
+        SystemScrapeFilter.NotRecent => string.Create(CultureInfo.InvariantCulture, $"Scrape games not scraped in the last {RecentDays} days"),
+        _ => "Scrape this system",
+    };
+
+    /// <summary>The media kind a filter's games lack, or null.</summary>
+    private static string? KindOf(SystemScrapeFilter filter) => filter switch
+    {
+        SystemScrapeFilter.NoCover => MediaKinds.Cover,
+        SystemScrapeFilter.NoScreenshot => MediaKinds.Screenshot,
+        _ => null,
+    };
+
     private void ShowScrapeState()
     {
-        if (_scrape is null)
+        var running = _settings.Jobs.Scraping;
+        foreach (var (row, filter) in _scrapeRows)
         {
-            return;
-        }
+            row.Value = running ? "Running" : null;
+            if (_count is not { } count)
+            {
+                continue;
+            }
 
-        var jobs = _settings.Jobs;
-        _scrape.Value = jobs.Scraping ? "Running" : null;
-        if (_count is { } count)
-        {
-            _scrape.Detail = count.Games == 0
+            row.Detail = count.Games == 0
                 ? "No games yet: rescan it first"
-                : string.Create(CultureInfo.InvariantCulture,
-                    $"{Games(count.Games)}; {count.Missing:N0} never scraped, not found or without a front cover");
+                : filter == SystemScrapeFilter.All
+                    ? string.Create(CultureInfo.InvariantCulture, $"{Games(count.Games)}; {count.Missing:N0} never scraped, not found or without a front cover")
+                    : string.Create(CultureInfo.InvariantCulture, $"{Games(count.Of(filter))} of {count.Games:N0}; only the media they're missing is downloaded");
         }
     }
 
     private static string Games(int count) => count == 1 ? "1 game" : string.Create(CultureInfo.InvariantCulture, $"{count:N0} games");
 
     /// <summary>Counts again, says how many games and which providers, and asks before it starts.</summary>
-    private void ScrapeSystem()
+    private void ScrapeSystem(SystemScrapeFilter filter)
     {
         var jobs = _settings.Jobs;
         if (jobs.Scraping)
@@ -678,7 +708,14 @@ public sealed partial class SystemPage : ListPanel
         }
 
         var name = _settings.Services.Config.FindSystem(_systemId)?.Name ?? _systemId;
-        _scrape!.Value = "Counting…";
+        foreach (var (row, rowFilter) in _scrapeRows)
+        {
+            if (rowFilter == filter)
+            {
+                row.Value = "Counting…";
+            }
+        }
+
         var systemId = _systemId;
         _ = Task.Run(async () =>
         {
@@ -708,16 +745,28 @@ public sealed partial class SystemPage : ListPanel
                     return;
                 }
 
-                AskToScrape(name, preview.Count!, preview.Providers!);
+                AskToScrape(name, filter, preview.Count!, preview.Providers!);
             });
         });
     }
 
-    private void AskToScrape(string name, SystemScrapeCount count, IReadOnlyList<ProviderStatus> providers)
+    private void AskToScrape(string name, SystemScrapeFilter filter, SystemScrapeCount count, IReadOnlyList<ProviderStatus> providers)
     {
         if (count.Games == 0)
         {
             ConfirmDialog.Tell(Layer, "Nothing to scrape", $"{name} has no games in the library yet. Check its ROM folders, then rescan.");
+            return;
+        }
+
+        var games = count.Of(filter);
+        if (games == 0)
+        {
+            ConfirmDialog.Tell(Layer, "Nothing to scrape", filter switch
+            {
+                SystemScrapeFilter.NoCover => $"Every game of {name} has a front cover.",
+                SystemScrapeFilter.NoScreenshot => $"Every game of {name} has a screenshot.",
+                _ => string.Create(CultureInfo.InvariantCulture, $"Every game of {name} was scraped in the last {RecentDays} days."),
+            });
             return;
         }
 
@@ -737,12 +786,35 @@ public sealed partial class SystemPage : ListPanel
         }
 
         var text = new StringBuilder();
-        text.Append(CultureInfo.InvariantCulture, $"Every game of {name} is looked up: {Games(count.Games)}. ");
-        text.Append(count.Missing == 0
-            ? "All of them have been scraped before, so each is fetched again by its match, not searched for."
-            : count.Missing == count.Games
-                ? "None of them has been scraped successfully yet (or each has no front cover)."
-                : string.Create(CultureInfo.InvariantCulture, $"{count.Missing:N0} have never been scraped, weren't found or have no front cover; the others are fetched again by their match."));
+        switch (filter)
+        {
+            case SystemScrapeFilter.All:
+                text.Append(CultureInfo.InvariantCulture, $"Every game of {name} is looked up: {Games(count.Games)}. ");
+                text.Append(count.Missing == 0
+                    ? "All of them have been scraped before, so each is fetched again by its match, not searched for."
+                    : count.Missing == count.Games
+                        ? "None of them has been scraped successfully yet (or each has no front cover)."
+                        : string.Create(CultureInfo.InvariantCulture, $"{count.Missing:N0} have never been scraped, weren't found or have no front cover; the others are fetched again by their match."));
+                break;
+            case SystemScrapeFilter.NotRecent:
+                text.Append(games == count.Games
+                    ? string.Create(CultureInfo.InvariantCulture, $"None of {name}'s {Games(count.Games)} has been scraped in the last {RecentDays} days, so every one is looked up.")
+                    : string.Create(CultureInfo.InvariantCulture, $"{games:N0} of {name}'s {Games(count.Games)} haven't been scraped in the last {RecentDays} days, or ever: those are looked up, and the {count.Games - games:N0} scraped since are skipped."));
+                break;
+            default:
+                var kind = ScrapeMediaPage.NameOf(KindOf(filter)!).ToLowerInvariant();
+                text.Append(games == count.Games
+                    ? string.Create(CultureInfo.InvariantCulture, $"None of {name}'s {Games(count.Games)} has a {kind}, so every one is looked up.")
+                    : string.Create(CultureInfo.InvariantCulture, $"{games:N0} of {name}'s {Games(count.Games)} have no {kind}: those are looked up, and the {count.Games - games:N0} with one are skipped."));
+                break;
+        }
+
+        text.Append(" Each game gets only the media it's missing, and its metadata is refreshed.");
+        if (KindOf(filter) is { } wanted && !_settings.Services.Config.Settings.Scraping.Media.Contains(wanted))
+        {
+            text.Append(CultureInfo.InvariantCulture, $" {ScrapeMediaPage.NameOf(wanted)}s aren't in your media to scrape, though, so none is downloaded: turn them on under Scraping, Media to scrape.");
+        }
+
         text.Append("\n\nThey'll be looked up with ").Append(string.Join(", then ", usable.Select(p => p.DisplayName))).Append('.');
         foreach (var skipped in providers.Where(p => p.InOrder && p.State != ProviderState.Ready))
         {
@@ -750,9 +822,9 @@ public sealed partial class SystemPage : ListPanel
         }
 
         text.Append("\n\nYour own images and edits are kept. It runs in the background: you can keep browsing, and its games update in the grid as they're done.");
-        ConfirmDialog.Ask(Layer, string.Create(CultureInfo.InvariantCulture, $"Scrape {Games(count.Games)}?"), text.ToString(), "Start scraping", "Not now", yes =>
+        ConfirmDialog.Ask(Layer, string.Create(CultureInfo.InvariantCulture, $"Scrape {Games(games)}?"), text.ToString(), "Start scraping", "Not now", yes =>
         {
-            if (yes && !_settings.Jobs.ScrapeSystem(_systemId))
+            if (yes && !_settings.Jobs.ScrapeSystem(_systemId, filter))
             {
                 ShowStatus("A scrape is already running.", UiStyle.Warning, 4);
             }

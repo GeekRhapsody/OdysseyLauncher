@@ -10,7 +10,7 @@ namespace Launcher.App.Settings;
 
 /// <summary>
 /// Scraping (M7): the provider asked first (left and right change it in place), the fallbacks and their order, the
-/// media to download, and each provider's credentials. The page says which providers are ready, which have no credentials, and whether an
+/// media to download, the regions preferred and their order (2026-10-04), and each provider's credentials. The page says which providers are ready, which have no credentials, and whether an
 /// <c>ODYSSEY_*</c> variable sets them.
 /// </summary>
 public sealed partial class ScrapingPage : ListPanel
@@ -76,6 +76,7 @@ public sealed partial class ScrapingPage : ListPanel
 
         AddSection("Media");
         AddRow("Media to scrape", ScrapeMediaPage.Summary(scraping.Media), null, () => Layer.Push(new ScrapeMediaPage(_settings)));
+        AddRow("Preferred regions", RegionsPage.Summary(scraping.Regions), null, () => Layer.Push(new RegionsPage(_settings)));
 
         AddSection("Providers");
         foreach (var id in Providers)

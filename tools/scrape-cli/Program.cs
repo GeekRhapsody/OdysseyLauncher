@@ -24,7 +24,9 @@ const string Usage = """
     Commands:
       providers                   Each provider's state: credentials, and ScreenScraper's account limits
       game <system>/<rel path>    Scrapes one game (scanning its system first if it isn't in the library)
-      system <system>             Scrapes every game of a system
+      system [--only=no-cover|no-screenshot|not-recent] <system>
+                                  Scrapes every game of a system, or only those without a front cover, without a
+                                  screenshot, or not scraped in the last 30 days
       missing                     Scrapes every game never scraped successfully, or with no front cover
       clear <system>/<rel path>   Clears a game's metadata, media files, matches and overrides
       show <system>/<rel path>    Prints what the library has for a game
@@ -62,6 +64,7 @@ string? userDir = null;
 string? from = null;
 var saveResponses = false;
 var kind = ModelKind.PerGame;
+var only = SystemScrapeFilter.All;
 foreach (var argument in arguments.ToList())
 {
     if (argument.StartsWith("--user-dir=", StringComparison.Ordinal))
@@ -87,6 +90,24 @@ foreach (var argument in arguments.ToList())
             "system" => ModelKind.SystemModel,
             _ => ModelKind.PerGame,
         };
+        arguments.Remove(argument);
+    }
+    else if (argument.StartsWith("--only=", StringComparison.Ordinal))
+    {
+        SystemScrapeFilter? filter = argument["--only=".Length..] switch
+        {
+            "no-cover" => SystemScrapeFilter.NoCover,
+            "no-screenshot" => SystemScrapeFilter.NoScreenshot,
+            "not-recent" => SystemScrapeFilter.NotRecent,
+            _ => null,
+        };
+        if (filter is null)
+        {
+            Console.Error.WriteLine($"Unknown {argument}: use no-cover, no-screenshot or not-recent.");
+            return 2;
+        }
+
+        only = filter.Value;
         arguments.Remove(argument);
     }
 }
@@ -165,7 +186,7 @@ try
 
         case "system":
             await EnsureScanned(Require(argument));
-            return Report(await service.ScrapeSystemAsync(Require(argument), stop.Token));
+            return Report(await service.ScrapeSystemAsync(Require(argument), only, stop.Token));
         case "missing":
             return Report(await service.ScrapeAllMissingAsync(stop.Token));
         case "resume":

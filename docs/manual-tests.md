@@ -494,3 +494,18 @@ An import copies a whole system's media off the NAS (the NES folder has 4.7 GB o
 
 - The question's numbers at step 1, and the card's outcome at step 2, with how long it took.
 - A game whose title or art came out wrong, with its `<game>` entry.
+
+## Preferred regions and partial system scrapes
+
+A live scrape needs your credentials, so it's yours to run. Use a user folder of its own with a system you've scraped before (the M7 part 2 set-up, `C:\OdysseyTest`, with Mega Drive, is fine).
+
+1. **Regions.** Settings, then Providers, media and credentials, then Preferred regions: Europe 1st, World 2nd, USA 3rd, Japan 4th, the rest Off. Move USA up twice (left, or its ↑): it's 1st, the focus stays on it, and `settings.toml` has `regions = ["us", "eu", "wor", "jp"]`. Turn Japan off and United Kingdom on. Turning off the last one left says it needs at least one.
+2. **A region at work.** X on a game with different US and European covers (Sonic the Hedgehog 3, say), Clear metadata, then Scrape this game: the cover is the US box. Put Europe first again and repeat: the European box.
+3. **No front cover.** On Mega Drive's options, delete one game's cover file in `media\megadrive\cover\` first and rescan (F5). "Scrape games without a front cover" says 1 game of the system's; start it. Only that game is scraped (the progress card counts 1), and it gets its cover back.
+4. **No screenshot.** With Screenshot on under Media to scrape, "Scrape games without a screenshot" counts the games without one; start it, then open it again: the count is now the games no provider has a screenshot for.
+5. **Not scraped recently.** Right after step 4, "Scrape games not scraped in the last 30 days" counts only the games steps 2 to 4 didn't scrape; with every game scraped today it says there's nothing to scrape.
+
+### Send back
+
+- Step 2's covers, and each step's count and the card's outcome.
+- ScreenScraper's quota (the providers page) before and after step 3, to show only the one game was asked for.

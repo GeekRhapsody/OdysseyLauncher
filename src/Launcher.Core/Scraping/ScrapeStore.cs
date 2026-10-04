@@ -548,12 +548,23 @@ internal static class ScrapeStore
 
     // ---- Selection --------------------------------------------------------------------------------
 
-    /// <summary>A system's games, in grid order.</summary>
-    public static List<GameKey> SystemGames(SqliteConnection connection, string systemId)
+    /// <summary>
+    /// A system's games that <paramref name="filter"/> picks, in grid order. <paramref name="recentSince"/> (unix ms) is
+    /// when a scrape starts to count as recent, for <see cref="SystemScrapeFilter.NotRecent"/>.
+    /// </summary>
+    public static List<GameKey> SystemGames(SqliteConnection connection, string systemId, SystemScrapeFilter filter = SystemScrapeFilter.All, long recentSince = 0)
     {
         using var command = connection.CreateCommand();
-        command.CommandText = "SELECT path_key FROM games WHERE system_id = $system ORDER BY sort_title, game_id";
+        var condition = filter switch
+        {
+            SystemScrapeFilter.NoCover => $" AND {NoMedia("cover")}",
+            SystemScrapeFilter.NoScreenshot => $" AND {NoMedia("screenshot")}",
+            SystemScrapeFilter.NotRecent => " AND " + NotRecent,
+            _ => string.Empty,
+        };
+        command.CommandText = $"SELECT g.path_key FROM games g WHERE g.system_id = $system{condition} ORDER BY g.sort_title, g.game_id";
         command.Parameters.AddWithValue("$system", systemId);
+        command.Parameters.AddWithValue("$since", recentSince);
         using var reader = command.ExecuteReader();
         var keys = new List<GameKey>();
         while (reader.Read())
@@ -563,6 +574,36 @@ internal static class ScrapeStore
 
         return keys;
     }
+
+    /// <summary>
+    /// A system's games, its "missing" ones (as <see cref="MissingGames"/>) and each <see cref="SystemScrapeFilter"/>'s,
+    /// counted in one pass. <paramref name="recentSince"/> as for <see cref="SystemGames"/>.
+    /// </summary>
+    public static SystemScrapeCount CountSystem(SqliteConnection connection, string systemId, long recentSince)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = $"""
+            SELECT COUNT(*),
+                   COALESCE(SUM(CASE WHEN s.status IS NULL OR s.status IN ('not_found', 'error') OR {NoMedia("cover")} THEN 1 ELSE 0 END), 0),
+                   COALESCE(SUM(CASE WHEN {NoMedia("cover")} THEN 1 ELSE 0 END), 0),
+                   COALESCE(SUM(CASE WHEN {NoMedia("screenshot")} THEN 1 ELSE 0 END), 0),
+                   COALESCE(SUM(CASE WHEN {NotRecent} THEN 1 ELSE 0 END), 0)
+            FROM games g
+            LEFT JOIN scrape_state s ON s.game_id = g.game_id
+            WHERE g.system_id = $system
+            """;
+        command.Parameters.AddWithValue("$system", systemId);
+        command.Parameters.AddWithValue("$since", recentSince);
+        using var reader = command.ExecuteReader();
+        reader.Read();
+        return new SystemScrapeCount(reader.GetInt32(0), reader.GetInt32(1), reader.GetInt32(2), reader.GetInt32(3), reader.GetInt32(4));
+    }
+
+    /// <summary>SQL that's true when game <c>g</c> has no file of <paramref name="kind"/> (a constant, never user text).</summary>
+    private static string NoMedia(string kind) => $"NOT EXISTS (SELECT 1 FROM media m WHERE m.game_id = g.game_id AND m.kind = '{kind}')";
+
+    /// <summary>SQL that's true when game <c>g</c> was never scraped, or last scraped before <c>$since</c>.</summary>
+    private const string NotRecent = "NOT EXISTS (SELECT 1 FROM scrape_state r WHERE r.game_id = g.game_id AND r.scraped_at >= $since)";
 
     /// <summary>
     /// "Missing" (M4): never successfully scraped (no state, or not found or failed), plus every game with no front

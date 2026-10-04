@@ -709,9 +709,44 @@ public sealed class ScrapeServiceTests : IAsyncLifetime
         using var service = _bed.Service();
         await service.ScrapeGameAsync(Key(Sonic), Ct);
 
-        Assert.Equal(new SystemScrapeCount(3, 2), await service.CountSystemAsync("megadrive", Ct));
-        Assert.Equal(new SystemScrapeCount(1, 1), await service.CountSystemAsync("snes", Ct));
-        Assert.Equal(new SystemScrapeCount(0, 0), await service.CountSystemAsync("unknown", Ct));
+        Assert.Equal(new SystemScrapeCount(3, 2, 2, 3, 2), await service.CountSystemAsync("megadrive", Ct));
+        Assert.Equal(new SystemScrapeCount(1, 1, 1, 1, 1), await service.CountSystemAsync("snes", Ct));
+        Assert.Equal(new SystemScrapeCount(0, 0, 0, 0, 0), await service.CountSystemAsync("unknown", Ct));
+    }
+
+    [Fact]
+    public async Task Scraping_a_system_can_skip_games_with_a_cover_or_a_screenshot_or_scraped_recently()
+    {
+        _bed.Rom(Sonic);
+        _bed.Rom(Ecco);
+        _bed.Rom("megadrive/Other.md");
+        File.WriteAllBytes(_bed.Dir.File("user/media/megadrive/screenshot/Ecco the Dolphin (USA, Europe).jpg"), TestImages.Jpeg(30, 40));
+        await _bed.ScanAsync();
+        using var service = _bed.Service();
+
+        // Sonic is found (a cover, no screenshot), then 31 days on Other isn't found; Ecco has only the user's screenshot.
+        await service.ScrapeGameAsync(Key(Sonic), Ct);
+        _bed.Clock.Advance(TimeSpan.FromDays(31));
+        await service.ScrapeGameAsync(Key("megadrive/Other.md"), Ct);
+        Assert.Equal(new SystemScrapeCount(3, 2, 2, 2, 2), await service.CountSystemAsync("megadrive", Ct));
+
+        async Task<List<GameKey>> Scrape(SystemScrapeFilter filter)
+        {
+            _bed.Scraped.Clear();
+            var result = await service.ScrapeSystemAsync("megadrive", filter, Ct);
+            Assert.Equal(result.Total, _bed.Scraped.Count);
+            return [.. _bed.Scraped.Keys.OrderBy(k => k.PathKey, StringComparer.Ordinal)];
+        }
+
+        Assert.Equal([Key(Ecco), Key("megadrive/Other.md")], await Scrape(SystemScrapeFilter.NoCover));
+        Assert.Equal([Key("megadrive/Other.md"), Key(Sonic)], await Scrape(SystemScrapeFilter.NoScreenshot));
+
+        // Everything was scraped just now; a scrape counts as recent for 30 days, whatever it found.
+        Assert.Empty(await Scrape(SystemScrapeFilter.NotRecent));
+        _bed.Clock.Advance(TimeSpan.FromDays(30) - TimeSpan.FromMinutes(1));
+        Assert.Equal(0, (await service.CountSystemAsync("megadrive", Ct)).NotRecent);
+        _bed.Clock.Advance(TimeSpan.FromMinutes(2));
+        Assert.Equal(3, (await Scrape(SystemScrapeFilter.NotRecent)).Count);
     }
 
     [Fact]

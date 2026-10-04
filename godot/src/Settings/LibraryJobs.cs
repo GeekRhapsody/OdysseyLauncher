@@ -213,11 +213,21 @@ public sealed class LibraryJobs : IDisposable
     public bool ScrapeMissing() => RunBatch("missing", "Scraping missing metadata", (scraper, token) => scraper.ScrapeAllMissingAsync(token));
 
     /// <summary>
-    /// Starts scraping every game of a system in the background (the system options panel, M7). Main thread; false if
-    /// a batch is running.
+    /// Starts scraping a system's games in the background (the system options panel, M7): every one, or those
+    /// <paramref name="filter"/> picks (2026-10-04). Main thread; false if a batch is running.
     /// </summary>
-    public bool ScrapeSystem(string systemId) =>
-        RunBatch("system", $"Scraping {SystemName(systemId)}", (scraper, token) => scraper.ScrapeSystemAsync(systemId, token));
+    public bool ScrapeSystem(string systemId, SystemScrapeFilter filter = SystemScrapeFilter.All)
+    {
+        var name = SystemName(systemId);
+        var title = filter switch
+        {
+            SystemScrapeFilter.NoCover => $"Scraping {name}: games without a front cover",
+            SystemScrapeFilter.NoScreenshot => $"Scraping {name}: games without a screenshot",
+            SystemScrapeFilter.NotRecent => $"Scraping {name}: games not scraped recently",
+            _ => $"Scraping {name}",
+        };
+        return RunBatch("system", title, (scraper, token) => scraper.ScrapeSystemAsync(systemId, filter, token));
+    }
 
     /// <summary>
     /// Manual matching: every provider's results for <paramref name="term"/> (null: the game's own title), with each

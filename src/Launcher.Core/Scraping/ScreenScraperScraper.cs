@@ -53,7 +53,35 @@ public sealed partial class ScreenScraperScraper : IScraper
     /// <summary>How long a video's download may take: they're megabytes, and ScreenScraper's servers can be slow.</summary>
     private static readonly TimeSpan VideoTimeout = TimeSpan.FromMinutes(5);
 
-    private static readonly string[] FallbackRegions = ["wor", "us", "eu", "ss", "jp"];
+    /// <summary>Asked after <c>[scraping] regions</c>, in this order, when none of those has a name, date or medium.</summary>
+    public static readonly IReadOnlyList<string> FallbackRegions = ["wor", "us", "eu", "ss", "jp"];
+
+    /// <summary>
+    /// The region codes the settings screen offers for <c>[scraping] regions</c> (2026-10-04), with their names: the
+    /// common ones from ScreenScraper's region list (<c>regionsListe.php</c>). The setting takes any code.
+    /// </summary>
+    public static readonly IReadOnlyList<(string Code, string Name)> KnownRegions =
+    [
+        ("eu", "Europe"), ("wor", "World"), ("us", "USA"), ("jp", "Japan"), ("ss", "ScreenScraper's own"),
+        ("uk", "United Kingdom"), ("fr", "France"), ("de", "Germany"), ("sp", "Spain"), ("it", "Italy"),
+        ("nl", "Netherlands"), ("pt", "Portugal"), ("se", "Sweden"), ("ru", "Russia"), ("au", "Australia"),
+        ("nz", "New Zealand"), ("ca", "Canada"), ("br", "Brazil"), ("asi", "Asia"), ("kr", "Korea"),
+        ("cn", "China"), ("tw", "Taiwan"),
+    ];
+
+    /// <summary>A region code's name (<see cref="KnownRegions"/>), or the code itself.</summary>
+    public static string RegionName(string code)
+    {
+        foreach (var (known, name) in KnownRegions)
+        {
+            if (known == code)
+            {
+                return name;
+            }
+        }
+
+        return code;
+    }
 
     private readonly ScraperHttp _http;
     private readonly ProviderAccounts _accounts;

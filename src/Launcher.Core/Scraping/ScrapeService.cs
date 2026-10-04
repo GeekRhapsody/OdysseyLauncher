@@ -62,10 +62,42 @@ public sealed record ConnectionTestResult(string Provider, bool Succeeded, strin
 /// <param name="Systems">Each system with games to scrape, in config order.</param>
 public sealed record MissingSummary(int Games, IReadOnlyList<(string SystemId, int Games)> Systems);
 
-/// <summary>What "scrape this system" would take on, counted before it starts (M7).</summary>
+/// <summary>What "scrape this system" would take on, counted before it starts (M7), with each filter's games (2026-10-04).</summary>
 /// <param name="Games">Every game of the system: each is scraped (matched ones fetched by id).</param>
 /// <param name="Missing">Those never successfully scraped, or without a front cover.</param>
-public sealed record SystemScrapeCount(int Games, int Missing);
+/// <param name="NoCover">Those without a front cover (<see cref="SystemScrapeFilter.NoCover"/>).</param>
+/// <param name="NoScreenshot">Those without a screenshot (<see cref="SystemScrapeFilter.NoScreenshot"/>).</param>
+/// <param name="NotRecent">Those not scraped within <see cref="ScrapeService.RecentScrape"/> (<see cref="SystemScrapeFilter.NotRecent"/>).</param>
+public sealed record SystemScrapeCount(int Games, int Missing, int NoCover, int NoScreenshot, int NotRecent)
+{
+    /// <summary>How many games <paramref name="filter"/> takes on.</summary>
+    public int Of(SystemScrapeFilter filter) => filter switch
+    {
+        SystemScrapeFilter.NoCover => NoCover,
+        SystemScrapeFilter.NoScreenshot => NoScreenshot,
+        SystemScrapeFilter.NotRecent => NotRecent,
+        _ => Games,
+    };
+}
+
+/// <summary>
+/// Which of a system's games "scrape this system" takes on (2026-10-04). Whichever it is, a game's scrape downloads
+/// only the media kinds it has no file for, and fetches a matched game by id.
+/// </summary>
+public enum SystemScrapeFilter
+{
+    /// <summary>Every game.</summary>
+    All,
+
+    /// <summary>Games without a front cover (any: scraped, the user's own or imported).</summary>
+    NoCover,
+
+    /// <summary>Games without a screenshot.</summary>
+    NoScreenshot,
+
+    /// <summary>Games never scraped, or last scraped (whatever the outcome) longer ago than <see cref="ScrapeService.RecentScrape"/>.</summary>
+    NotRecent,
+}
 
 /// <summary>One search hit for a manual match.</summary>
 /// <param name="Similarity">How close its name is to the search, 0 to 1 (<see cref="TitleMatcher.Similarity"/>).</param>
@@ -185,6 +217,9 @@ public sealed class ScrapeService : IDisposable
     /// scrape that runs even when no configured provider can, as the chosen one may be outside the configured order.
     /// </summary>
     public const string ManualKind = "manual";
+
+    /// <summary>A game scraped within this long is skipped by <see cref="SystemScrapeFilter.NotRecent"/>.</summary>
+    public static readonly TimeSpan RecentScrape = TimeSpan.FromDays(30);
 
     private readonly ScrapeServiceOptions _options;
     private readonly LibraryService _library;
@@ -330,20 +365,14 @@ public sealed class ScrapeService : IDisposable
 
     /// <summary>
     /// What <see cref="ScrapeSystemAsync"/> would take on (M7: the system options panel asks first): every game of the
-    /// system, and how many of them are "missing" (never successfully scraped, or without a front cover).
+    /// system, how many of them are "missing" (never successfully scraped, or without a front cover), and how many
+    /// each <see cref="SystemScrapeFilter"/> takes on.
     /// </summary>
     public Task<SystemScrapeCount> CountSystemAsync(string systemId, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(systemId);
-        var config = _library.Config;
-        return _library.ReadAsync(c =>
-        {
-            var games = ScrapeStore.SystemGames(c, systemId).Count;
-            var missing = config.FindSystem(systemId) is { } system
-                ? ScrapeStore.MissingGames(c, config with { Systems = [system] }).Count
-                : 0;
-            return new SystemScrapeCount(games, missing);
-        }, cancellationToken);
+        var recentSince = RecentSince();
+        return _library.ReadAsync(c => ScrapeStore.CountSystem(c, systemId, recentSince), cancellationToken);
     }
 
     /// <summary>Scrapes one game, ahead of any batch that's running.</summary>
@@ -487,8 +516,15 @@ public sealed class ScrapeService : IDisposable
         return await scraper.IdentifyFileAsync(query, cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary>Scrapes every game of a system, in grid order. Matched games are fetched by id, not searched again.</summary>
-    public Task<ScrapeBatchResult> ScrapeSystemAsync(string systemId, CancellationToken cancellationToken)
+    /// <summary>
+    /// Scrapes a system's games, in grid order: every one, or those <paramref name="filter"/> picks. Matched games are
+    /// fetched by id, not searched again.
+    /// </summary>
+    public Task<ScrapeBatchResult> ScrapeSystemAsync(string systemId, CancellationToken cancellationToken) =>
+        ScrapeSystemAsync(systemId, SystemScrapeFilter.All, cancellationToken);
+
+    /// <inheritdoc cref="ScrapeSystemAsync(string, CancellationToken)"/>
+    public Task<ScrapeBatchResult> ScrapeSystemAsync(string systemId, SystemScrapeFilter filter, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(systemId);
         if (_library.Config.FindSystem(systemId) is null)
@@ -496,8 +532,12 @@ public sealed class ScrapeService : IDisposable
             throw new ArgumentException($"'{systemId}' isn't an enabled system.", nameof(systemId));
         }
 
-        return RunBatchAsync("system", systemId, 1, c => ScrapeStore.SystemGames(c, systemId), cancellationToken);
+        var recentSince = RecentSince();
+        return RunBatchAsync("system", systemId, 1, c => ScrapeStore.SystemGames(c, systemId, filter, recentSince), cancellationToken);
     }
+
+    /// <summary>The unix ms from which a scrape counts as recent (<see cref="SystemScrapeFilter.NotRecent"/>).</summary>
+    private long RecentSince() => (_clock.GetUtcNow() - RecentScrape).ToUnixTimeMilliseconds();
 
     /// <summary>Scrapes every game never successfully scraped, and every game with no front cover.</summary>
     public Task<ScrapeBatchResult> ScrapeAllMissingAsync(CancellationToken cancellationToken)
