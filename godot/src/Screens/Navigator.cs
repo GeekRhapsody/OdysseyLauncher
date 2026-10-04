@@ -15,6 +15,7 @@ using Launcher.App.Theming;
 using Launcher.Core.Config;
 using Launcher.Core.Diagnostics;
 using Launcher.Core.Library;
+using Launcher.Core.Media;
 
 namespace Launcher.App.Screens;
 
@@ -178,6 +179,9 @@ public sealed partial class Navigator : Node
 
     /// <summary>The media streamer, for evicting textures while a game runs and for a theme's layout.</summary>
     public TextureStreamer? Streamer { get; set; }
+
+    /// <summary>The systems grid's streamer, for its cards' logos (A6 <c>logos/</c>); null with <c>--no-textures</c>.</summary>
+    public TextureStreamer? CardStreamer { get; set; }
 
     /// <summary>True once a system's games are bound and its transition has finished.</summary>
     public bool InGames => _screen == Screen.Games && !_gamesAnimation.Active;
@@ -1139,16 +1143,19 @@ public sealed partial class Navigator : Node
         _cache.Clear();
         _perGameLoading.Clear();
 
+        _systemsGrid.DisableTextures();
         _systemsGrid.SetTemplates(theme.CardTemplates);
         _gamesGrid.DisableTextures();
         _gamesGrid.SetTemplates(theme.GameTemplates);
         _loader.FreeRetired();
         InstallLayout(theme);
+        InstallCardLayout(theme);
 
         var systemsFocus = _systemsGrid.FocusIndex;
         _systems = new SystemsSource(BuildEntries(_services.Systems), _systemsGrid.Templates.Count);
         _systemsGrid.Layout = SystemsLayout();
         _systemsGrid.Bind(_systems, Math.Max(0, systemsFocus));
+        BakeLogos();
         var shownEntry = _games is { } shown ? FindEntry(shown.Id) : null;
         _stage.Show(theme.LookFor(shownEntry is { Virtual: VirtualKind.None } ? shownEntry.Id : null), theme.TransitionSeconds);
 
@@ -1202,6 +1209,131 @@ public sealed partial class Navigator : Node
                     _gamesGrid.EnableTextures();
                 }
             });
+        });
+    }
+
+    /// <summary>
+    /// The systems grid's layout for its cards' logos: with none, nothing to build; else its array is built on a
+    /// worker, as the games grid's are, then installed.
+    /// </summary>
+    public void InstallCardLayout(ThemeRuntime theme)
+    {
+        if (CardStreamer is not { } streamer)
+        {
+            return;
+        }
+
+        var layout = theme.CardLayout;
+        if (layout.ChannelCount == 0)
+        {
+            streamer.Install(layout, null, null);
+            _systemsGrid.EnableTextures();
+            return;
+        }
+
+        var (large, small) = (streamer.Large, streamer.Small);
+        _ = Task.Run(() =>
+        {
+            var built = System.Diagnostics.Stopwatch.StartNew();
+            var arrays = streamer.BuildArrays(layout, large, small);
+            GD.Print(FormattableString.Invariant($"Theme: card logo arrays for {layout} ready in {built.Elapsed.TotalMilliseconds:0.0} ms on a worker."));
+            _queue.Post(() =>
+            {
+                if (theme != _theme)
+                {
+                    return;
+                }
+
+                streamer.Install(layout, arrays.Large, arrays.Small);
+                if (Launcher?.InGameMode != true)
+                {
+                    _systemsGrid.EnableTextures();
+                }
+            });
+        });
+    }
+
+    private CancellationTokenSource? _logoBake;
+    private int _logoRefreshQueued;
+
+    /// <summary>
+    /// Bakes the active theme's logos that have no derivative yet (the cards in the grid's order first), ahead of any
+    /// library bake on the derivative service's below-normal thread, and deletes the logo derivatives it doesn't name:
+    /// they're kept for the last theme with logos, so switching to a theme without them and back bakes nothing. Each
+    /// card shows its fallback until its logo is baked, then the logo. After the warm-up (never in start-up) and after
+    /// each theme switch, which cancels a bake still running.
+    /// </summary>
+    public void BakeLogos()
+    {
+        _logoBake?.Cancel();
+        _logoBake = null;
+        var theme = _theme;
+        if (theme.Plan.Logos.Count == 0)
+        {
+            return;
+        }
+
+        // The cards in the grid's order first, then the rest (a system hidden for having no games).
+        var logos = new List<ThemeLogo>(theme.Plan.Logos.Count);
+        foreach (var entry in _systems.Entries)
+        {
+            if (theme.Plan.Logos.TryGetValue(entry.Id, out var logo))
+            {
+                logos.Add(logo);
+            }
+        }
+
+        foreach (var logo in theme.Plan.Logos.Values)
+        {
+            if (!logos.Contains(logo))
+            {
+                logos.Add(logo);
+            }
+        }
+
+        var derivatives = _services.Derivatives;
+        var cacheDir = theme.Plan.Paths.CacheDir;
+        var bake = _logoBake = CancellationTokenSource.CreateLinkedTokenSource(_shutdown.Token);
+        var token = bake.Token;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                var summary = await ThemeLogos.BakeMissingAsync(derivatives, cacheDir, logos, () => RefreshLogos(theme), token).ConfigureAwait(false);
+                if (summary.Baked + summary.Failed + summary.Pruned > 0)
+                {
+                    GD.Print(string.Create(CultureInfo.InvariantCulture,
+                        $"Theme: logos: {summary.Baked} baked, {summary.Failed} failed, {summary.Pruned} stale removed, of {summary.Logos} ({summary.Elapsed.TotalSeconds:0.0} s)"));
+                }
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            catch (Exception e)
+            {
+                GD.PushWarning($"Theme: baking logos failed: {e.Message}");
+            }
+        }, token);
+    }
+
+    /// <summary>
+    /// Any thread, after a logo is baked: the cards that found no derivative showed their fallback, so they ask again
+    /// (once per frame at most, however many were baked since).
+    /// </summary>
+    private void RefreshLogos(ThemeRuntime theme)
+    {
+        if (Interlocked.Exchange(ref _logoRefreshQueued, 1) == 1)
+        {
+            return;
+        }
+
+        _queue.Post(() =>
+        {
+            Volatile.Write(ref _logoRefreshQueued, 0);
+            if (theme == _theme && Launcher?.InGameMode != true)
+            {
+                _systemsGrid.EnableTextures();
+            }
         });
     }
 
@@ -1478,6 +1610,8 @@ public sealed partial class Navigator : Node
     {
         _gamesGrid.DisableTextures();
         Streamer?.Evict();
+        _systemsGrid.DisableTextures();
+        CardStreamer?.Evict();
     }
 
     /// <summary>Back in the launcher: recreate the media arrays and re-request what's on screen.</summary>
@@ -1485,6 +1619,8 @@ public sealed partial class Navigator : Node
     {
         Streamer?.Restore();
         _gamesGrid.EnableTextures();
+        CardStreamer?.Restore();
+        _systemsGrid.EnableTextures();
     }
 
     // ---- Animation ------------------------------------------------------------------------------
@@ -1530,8 +1666,10 @@ public sealed partial class Navigator : Node
         var virtualCard = _theme.CardTemplateOf(null);
         var entries = new List<SystemEntry>
         {
-            new(FavouritesId, "Favourites", "The games you've marked", Palette.Favourites, null, null, VirtualKind.Favourites, virtualCard),
-            new(RecentlyPlayedId, "Recently played", "Newest first", Palette.RecentlyPlayed, null, null, VirtualKind.RecentlyPlayed, virtualCard),
+            new(FavouritesId, "Favourites", "The games you've marked", Palette.Favourites, null, null, VirtualKind.Favourites, virtualCard,
+                _theme.LogoOf(FavouritesId)),
+            new(RecentlyPlayedId, "Recently played", "Newest first", Palette.RecentlyPlayed, null, null, VirtualKind.RecentlyPlayed, virtualCard,
+                _theme.LogoOf(RecentlyPlayedId)),
         };
         var hideEmpty = _services.Config.Settings.Display.HideEmptySystems;
         var systems = new List<SystemEntry>(summaries.Count);
@@ -1545,7 +1683,7 @@ public sealed partial class Navigator : Node
             if (_services.Config.FindSystem(summary.SystemId) is { } system)
             {
                 systems.Add(new SystemEntry(system.Id, system.Name, DetailsFormatter.SystemSubtitle(system, summary.GameCount),
-                    _theme.ColourOf(system.Id), system, summary, VirtualKind.None, _theme.CardTemplateOf(system.Id)));
+                    _theme.ColourOf(system.Id), system, summary, VirtualKind.None, _theme.CardTemplateOf(system.Id), _theme.LogoOf(system.Id)));
             }
         }
 

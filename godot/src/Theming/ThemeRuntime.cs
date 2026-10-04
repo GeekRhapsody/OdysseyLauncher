@@ -5,6 +5,8 @@ using Launcher.App.Grid;
 using Launcher.App.Models;
 using Launcher.App.Screens;
 using Launcher.Core.Config;
+using Launcher.Core.Library;
+using Launcher.Core.Media;
 using Launcher.Core.Platform;
 using Launcher.Core.Theming;
 using Theme = Launcher.Core.Theming.Theme;
@@ -14,8 +16,8 @@ namespace Launcher.App.Theming;
 
 /// <summary>
 /// A theme resolved for the enabled systems (A6, A7): the themes, and each system's model candidates in precedence
-/// order, for its games and its card. Built on the thread pool (it reads the manifests and lists the user's model
-/// folders); nothing in it touches Godot's scene.
+/// order, for its games and its card, and the cards' logos when any card shows one. Built on the thread pool (it reads
+/// the manifests, lists the user's model folders and reads the logos' headers); nothing in it touches Godot's scene.
 /// </summary>
 public sealed class ThemePlan
 {
@@ -35,6 +37,26 @@ public sealed class ThemePlan
         }
 
         CardCandidates[VirtualCards] = resolver.SystemModels(null);
+
+        // A6 logos/: only read when some card's chain shows a logo (a theme without them reads nothing).
+        if (AnyCardShowsLogo())
+        {
+            foreach (var system in config.Systems)
+            {
+                AddLogo(system.Id);
+            }
+
+            AddLogo(Navigator.FavouritesId);
+            AddLogo(Navigator.RecentlyPlayedId);
+        }
+
+        void AddLogo(string id)
+        {
+            if (resolver.LogoOf(id) is { } file && ThemeLogos.Describe(file.Path, file.Key) is { } logo)
+            {
+                Logos[id] = logo;
+            }
+        }
     }
 
     public ThemeSet Themes { get; }
@@ -52,6 +74,31 @@ public sealed class ThemePlan
     public Dictionary<string, IReadOnlyList<ModelCandidate>> GameCandidates { get; } = new(StringComparer.Ordinal);
 
     public Dictionary<string, IReadOnlyList<ModelCandidate>> CardCandidates { get; } = new(StringComparer.Ordinal);
+
+    /// <summary>Each card's logo, by system id (or the virtual cards' ids); empty when no card shows one.</summary>
+    public Dictionary<string, ThemeLogo> Logos { get; } = new(StringComparer.Ordinal);
+
+    private bool AnyCardShowsLogo()
+    {
+        foreach (var candidates in CardCandidates.Values)
+        {
+            foreach (var candidate in candidates)
+            {
+                if (candidate.CardSlots is { } slots)
+                {
+                    foreach (var chain in slots.Values)
+                    {
+                        if (chain.UsesMedia)
+                        {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
 
     /// <summary>Loads and resolves the theme <paramref name="themeId"/> names. Thread pool only.</summary>
     /// <param name="builtIns">The app's own themes (<see cref="ThemeCatalog.BuiltInSources"/>), read once at boot.</param>
@@ -110,6 +157,9 @@ public sealed class ThemeRuntime
     /// <summary>Which slots the games grid streams media for.</summary>
     public SlotLayout Layout { get; private set; } = SlotLayout.Empty;
 
+    /// <summary>Which slots the systems grid streams logos for (A6 logos/); empty for a theme whose cards show none.</summary>
+    public SlotLayout CardLayout { get; private set; } = SlotLayout.Empty;
+
     public float TransitionSeconds => Plan.Active.LookTransitionMs / 1000f;
 
     /// <summary>Main thread, each frame until <see cref="Ready"/>: advances loading. True when it has just become ready.</summary>
@@ -136,6 +186,7 @@ public sealed class ThemeRuntime
         }
 
         Layout = new SlotLayout(_gameTemplates);
+        CardLayout = new SlotLayout(_cardTemplates);
         Ready = true;
         return true;
     }
@@ -159,6 +210,9 @@ public sealed class ThemeRuntime
             : null;
 
     public ThemeLook LookFor(string? systemId) => Plan.Resolver.LookFor(systemId);
+
+    /// <summary>A card's logo (a system's id, or a virtual card's), or null for none.</summary>
+    public MediaRef? LogoOf(string id) => Plan.Logos.TryGetValue(id, out var logo) ? logo.Media : null;
 
     /// <summary>A system's colour: the theme's, else one made from its id.</summary>
     public Color ColourOf(string systemId) => Palette.ForSystem(Plan.Resolver.ColourOf(systemId), systemId);

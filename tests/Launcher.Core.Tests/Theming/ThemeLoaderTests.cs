@@ -655,4 +655,139 @@ public sealed class ThemeLoaderTests
         var unnamed = config.Systems.Select(s => s.Id).First(system => !console.Systems.ContainsKey(system));
         Assert.Equal(baseTheme.PathOf(baseTheme.Defaults.SystemModel!), resolver.SystemModels(unnamed)[0].Path);
     }
+
+    // ---- System cards' chains and logos ----------------------------------------------------------
+
+    [Fact]
+    public void Card_chains_are_read_from_the_defaults_and_each_system()
+    {
+        var result = ThemeFixtures.Parse(MinimalTemplate + """
+
+            [defaults]
+            system_model = "card.glb"
+
+            [defaults.system_slots]
+            label = ["logo", "generated"]
+
+            [systems.ps2.slots]
+            cover = ["logo", "authored"]
+            """, Box().Model("card.glb", "label", "cover", "case"));
+
+        Assert.Empty(result.Diagnostics);
+        var theme = result.Theme!;
+        Assert.Equal([SlotSource.Media(MediaSlots.Logo), SlotSource.Generated], theme.Defaults.SystemSlots[MediaSlots.Label].Sources);
+        Assert.Equal([MediaSlots.Label], theme.Defaults.SystemSlots.Keys);
+        Assert.Equal([SlotSource.Media(MediaSlots.Logo), SlotSource.Authored], theme.Systems["ps2"].Slots![MediaSlots.Cover].Sources);
+        Assert.Equal([MediaSlots.Cover], theme.Systems["ps2"].Slots!.Keys);
+    }
+
+    [Fact]
+    public void A_card_chain_can_only_name_the_logo_and_its_mistakes_are_reported_at_their_keys()
+    {
+        var result = ThemeFixtures.Parse(MinimalTemplate + """
+
+            [defaults.system_slots]
+            label = ["cover", "generated"]
+            logo = ["logo", "generated"]
+            back = ["logo", "authored"]
+
+            [systems.ps2.slots]
+            cover = ["logoo"]
+            """, Box());
+
+        var errors = result.Diagnostics.Where(d => d.IsError).ToList();
+        Assert.Equal(["defaults.system_slots.label", "defaults.system_slots.logo", "systems.ps2.slots.cover"], errors.Select(e => e.Key));
+        Assert.Contains("a system has no cover: its only art is its logo", errors[0].Message, StringComparison.Ordinal);
+        Assert.Contains("can't draw a logo", errors[1].Message, StringComparison.Ordinal);
+        Assert.Contains("did you mean 'logo'?", errors[2].Message, StringComparison.Ordinal);
+        Assert.Equal([7, 8, 12], errors.Select(e => e.Line));
+
+        // The good chain stays; the bad ones fall back to a card's default.
+        var theme = result.Theme!;
+        Assert.Equal([MediaSlots.Back], theme.Defaults.SystemSlots.Keys);
+        Assert.Null(theme.Systems["ps2"].Slots);
+    }
+
+    [Fact]
+    public void Logos_are_the_logos_folders_images_by_id_and_a_systems_logo_wins()
+    {
+        var result = ThemeFixtures.Parse("""
+            name = "Logos"
+
+            [systems.psx]
+            logo = "art/psx.jpg"
+
+            [systems.ps2]
+            logo = "./art/ps2.webp"
+            """, new FakeThemeFiles().File(
+                "logos/ps2.png", "logos/megadrive.webp", "logos/megadrive.png", "logos/Saturn.JPG", "logos/not an id.png",
+                "logos/readme.txt", "logos/sub/gb.png", "art/psx.jpg", "art/ps2.webp"));
+
+        Assert.Empty(result.Diagnostics);
+        Assert.Equal(
+            new Dictionary<string, string>
+            {
+                ["megadrive"] = "logos/megadrive.png",
+                ["ps2"] = "art/ps2.webp",
+                ["psx"] = "art/psx.jpg",
+                ["saturn"] = "logos/Saturn.JPG",
+            },
+            result.Theme!.Logos.OrderBy(l => l.Key, StringComparer.Ordinal).ToDictionary());
+        Assert.Equal("art/psx.jpg", result.Theme.Systems["psx"].Logo);
+    }
+
+    [Fact]
+    public void A_bad_logo_is_an_error_and_the_logos_folder_still_counts()
+    {
+        var result = ThemeFixtures.Parse("""
+            name = "Logos"
+
+            [systems.ps2]
+            logo = "../ps2.png"
+
+            [systems.psx]
+            logo = "logos/psx.gif"
+
+            [systems.saturn]
+            logo = "logos/missing.png"
+            """, new FakeThemeFiles().File("logos/saturn.png", "logos/psx.gif"));
+
+        var errors = result.Diagnostics.Where(d => d.IsError).ToList();
+        Assert.Equal(["systems.ps2.logo", "systems.psx.logo", "systems.saturn.logo"], errors.Select(e => e.Key));
+        Assert.Contains("must be a path inside the theme's folder", errors[0].Message, StringComparison.Ordinal);
+        Assert.Contains("isn't a PNG, JPEG or WebP image", errors[1].Message, StringComparison.Ordinal);
+        Assert.Contains("doesn't exist in the theme's folder", errors[2].Message, StringComparison.Ordinal);
+        Assert.Equal(["saturn"], result.Theme!.Logos.Keys);
+    }
+
+    [Fact]
+    public void The_slab_theme_loads_cleanly_with_a_logo_on_one_grey_card_for_every_built_in_system()
+    {
+        var result = ThemeFixtures.LoadResult(ThemeFixtures.SlabFolder);
+
+        Assert.Empty(result.Diagnostics);
+        var slab = result.Theme!;
+        Assert.Equal(("slab", "Slab", ThemeOrigin.BuiltIn), (slab.Id, slab.Name, slab.Origin));
+        Assert.Equal(("models/systems/slab.glb", false), (slab.Defaults.SystemModel, slab.Defaults.TintSystemModel));
+        Assert.True(File.Exists(slab.PathOf(slab.Defaults.SystemModel!)));
+
+        var config = new ConfigLoader().Load(new ConfigSources { HomeDir = "C:/home", ConfigDir = "C:/config", FileExists = null }).Config;
+        var resolver = new ModelResolver(slab, ThemeFixtures.Base, UserModels.None("C:/config"), config, "C:/data");
+        foreach (var id in config.Systems.Select(s => s.Id).Append("favourites").Append("recently_played"))
+        {
+            var logo = resolver.LogoOf(id);
+            Assert.True(logo is not null && File.Exists(logo.Path), $"{id} has no logo in the Slab theme.");
+        }
+
+        foreach (var id in config.Systems.Select(s => s.Id).Append(null))
+        {
+            var card = resolver.SystemModels(id)[0];
+            Assert.Equal((slab.PathOf("models/systems/slab.glb"), false), (card.Path, card.Tint));
+            Assert.Equal([SlotSource.Media(MediaSlots.Logo), SlotSource.Authored], card.ChainFor(MediaSlots.Label, systemCard: true).Sources);
+        }
+
+        // Every image in its logos folder is some built-in system's, or a virtual card's.
+        var known = config.Systems.Select(s => s.Id).Concat(["favourites", "recently_played", "astrocade"]).ToHashSet(StringComparer.Ordinal);
+        Assert.All(Directory.GetFiles(slab.PathOf(Theme.LogosFolder)), file => Assert.Contains(Path.GetFileNameWithoutExtension(file), known));
+    }
 }

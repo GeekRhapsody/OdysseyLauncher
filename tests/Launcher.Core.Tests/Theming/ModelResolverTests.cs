@@ -248,4 +248,102 @@ public sealed class ModelResolverTests
             candidate.ChainFor(MediaSlots.Screenshot, systemCard: false).Sources);
         Assert.Equal(SlotChain.ForSystemModel(MediaSlots.Label), candidate.ChainFor(MediaSlots.Label, systemCard: true));
     }
+
+    /// <summary>A user theme whose default card shows each system's logo on its label, and PS2's on its cover too.</summary>
+    private static Theme Logos => ThemeFixtures.Parse("""
+        name = "Logos"
+
+        [defaults]
+        system_model = "card.glb"
+
+        [defaults.system_slots]
+        label = ["logo", "generated"]
+
+        [systems.ps2]
+        model = "ps2.glb"
+
+        [systems.ps2.slots]
+        cover = ["logo", "authored"]
+
+        [systems.psx]
+        logo = "art/psx.png"
+        """, new FakeThemeFiles().Model("card.glb", "label", "case").Model("ps2.glb", "cover", "label", "case")
+            .File("logos/ps2.png", "logos/favourites.png", "art/psx.png"), Base, id: "logos").Theme!;
+
+    [Fact]
+    public void A_cards_chains_are_its_themes_systems_over_its_defaults_and_the_users_card_takes_the_active_themes()
+    {
+        var user = new UserModels(ConfigDir, new HashSet<string>(), new HashSet<string> { "ps2" });
+        var cards = Resolver(Logos, user).SystemModels("ps2");
+
+        Assert.Equal("User:ps2.glb > ThemeSystem:ps2.glb > ThemeDefault:card.glb > BaseDefault:generic.glb", Describe(cards));
+        var logoThenGenerated = new[] { SlotSource.Media(MediaSlots.Logo), SlotSource.Generated };
+        var logoThenAuthored = new[] { SlotSource.Media(MediaSlots.Logo), SlotSource.Authored };
+        foreach (var card in cards.Take(3))
+        {
+            Assert.Equal(logoThenGenerated, card.ChainFor(MediaSlots.Label, systemCard: true).Sources);
+            Assert.Equal(logoThenAuthored, card.ChainFor(MediaSlots.Cover, systemCard: true).Sources);
+        }
+
+        // The base theme's card keeps its own chains: the base names none.
+        Assert.Equal(SlotChain.ForSystemModel(MediaSlots.Label), cards[3].ChainFor(MediaSlots.Label, systemCard: true));
+
+        // A game's template never takes a card's chains.
+        Assert.Equal(SlotChain.Default(MediaSlots.Cover), cards[2].ChainFor(MediaSlots.Cover, systemCard: false));
+    }
+
+    [Fact]
+    public void Cards_that_share_a_model_but_not_its_chains_are_different_grid_templates()
+    {
+        var resolver = Resolver(Logos);
+        var megadrive = resolver.SystemModels("megadrive")[0];
+        var psx = resolver.SystemModels("psx")[0];
+        var plain = Resolver(Active).SystemModels("megadrive")[0];
+
+        // Same file, same chains: one template.
+        Assert.Equal(megadrive.Key, psx.Key);
+
+        // A system with chains of its own on the same default card: another template.
+        var withOwn = new ModelCandidate(megadrive.Level, megadrive.Origin, megadrive.Path, null, megadrive.Tint, "", resolver.Active.Systems["ps2"].Slots);
+        Assert.NotEqual(megadrive.Key, withOwn.Key);
+
+        // A card without chains keeps the key it always had.
+        Assert.Equal($"{plain.Path}|:|plain", plain.Key);
+    }
+
+    [Fact]
+    public void A_cards_logo_is_the_active_themes_then_the_base_themes()
+    {
+        var logos = Logos;
+        var resolver = Resolver(logos);
+
+        Assert.Equal(new LogoFile("logos", "logos/ps2.png", logos.PathOf("logos/ps2.png")), resolver.LogoOf("ps2"));
+        Assert.Equal(logos.PathOf("art/psx.png"), resolver.LogoOf("psx")!.Path);
+        Assert.Equal(logos.PathOf("logos/favourites.png"), resolver.LogoOf("favourites")!.Path);
+        Assert.Null(resolver.LogoOf("megadrive"));
+
+        // Named by the theme and the path in it, wherever the theme's folder is (an editor run's or an export's).
+        Assert.Equal("logos/logos/ps2.png", resolver.LogoOf("ps2")!.Key);
+
+        // The base theme's logos stand in for the active theme's.
+        var withBaseLogo = ThemeFixtures.ParseBase("""
+            format = 1
+            name = "Built-in"
+
+            [look.background]
+            top_left = "#1B1F4A"
+            top_right = "#1B1F4A"
+            bottom_left = "#04040C"
+            bottom_right = "#0B0B24"
+
+            [look.ambient]
+            colour = "#303038"
+
+            [[look.lights]]
+            direction = [-0.5, -0.4, -0.75]
+            """, new FakeThemeFiles().File("logos/megadrive.webp"));
+        var layered = new ModelResolver(logos, withBaseLogo, UserModels.None(ConfigDir), Config(), DataDir);
+        Assert.Equal(new LogoFile(ThemeCatalog.BaseId, "logos/megadrive.webp", withBaseLogo.PathOf("logos/megadrive.webp")), layered.LogoOf("megadrive"));
+        Assert.Equal(logos.PathOf("logos/ps2.png"), layered.LogoOf("ps2")!.Path);
+    }
 }

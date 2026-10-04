@@ -1,0 +1,18 @@
+# Slab: every system's card is the same dark grey slab (Memory Card's generic card's shape), with the system's
+# image on its front. One model for every system: each card's image is its logo, from logos/<system id>.webp
+# (docs/THEMING.md section 4, "System cards and logos"). Everything else (the looks, the game templates and the
+# systems' colours) is Memory Card's.
+
+format = 1
+name = "Slab"
+
+[defaults]
+system_model = "models/systems/slab.glb"   # a dark grey slab whose whole front is a label slot of the same grey
+tint_system_model = false                  # every card stays grey: the image is what tells them apart
+
+[defaults.system_slots]
+label = ["logo", "authored"]               # the system's image, over the slab's own grey; just the grey without one
+
+# logos/ names each image after its system's id; Bally Astrocade's id is astrocde.
+[systems.astrocde]
+logo = "logos/astrocade.webp"

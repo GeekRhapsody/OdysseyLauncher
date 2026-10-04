@@ -1,11 +1,14 @@
 using System;
 using Godot;
 using Launcher.App.Boot;
+using Launcher.App.Diagnostics;
 using Launcher.App.Grid;
 using Launcher.App.Models;
 using Launcher.App.Navigation;
+using Launcher.App.Textures;
 using Launcher.App.Theming;
 using Launcher.Core.Library;
+using Launcher.Core.Media;
 using ThemeLook = Launcher.Core.Theming.Look;
 
 namespace Launcher.App.Screens;
@@ -14,7 +17,7 @@ namespace Launcher.App.Screens;
 /// One item's model, large, in a world of its own (a system's details): a <see cref="SubViewport"/> with its own camera,
 /// its look's gradient, ambient and lights (<see cref="LookStage"/>), and a one-cell <see cref="ItemGrid"/> showing it
 /// one at a time and focused, so the model is drawn as the grid draws it (its colour, its generated faces and title, its
-/// clips, the focus's sway) and turns as it does (<see cref="Tick"/>, <see cref="Step"/>). Its own world keeps its
+/// logo, its clips, the focus's sway) and turns as it does (<see cref="Tick"/>, <see cref="Step"/>). Its own world keeps its
 /// environment and lights away from the grids'. Shown through a <see cref="TextureRect"/>, rendered at the grids' pixel
 /// density (A3: 3D at no more than 1080p).
 /// <para>
@@ -39,8 +42,11 @@ public sealed partial class ModelView : Control
     private readonly SubViewport _viewport;
     private readonly LookStage _stage;
     private readonly ItemGrid _grid;
+
+    // A system card's logo (A6 logos/) streams into a one-cell array of its own, made only for a model that shows one.
+    private readonly TextureStreamer? _streamer;
     private ItemTemplate? _model;
-    private OneItem _item = new(string.Empty, default);
+    private OneItem _item = new(string.Empty, default, null);
 
     private ModelView()
     {
@@ -59,7 +65,8 @@ public sealed partial class ModelView : Control
         _viewport.AddChild(camera);
         _stage = new LookStage(_viewport, camera);
 
-        _grid = new ItemGrid(null, _stage.Colours, maxCells: 1, blockSize: 192, spines: false, systemCards: true)
+        _streamer = DebugHooks.Options.NoTextures ? null : new TextureStreamer(1, 1);
+        _grid = new ItemGrid(_streamer, _stage.Colours, maxCells: 1, blockSize: 192, spines: false, systemCards: true)
         {
             Name = "Model",
             Layout = new GridLayout(GridShape.Single),
@@ -85,7 +92,9 @@ public sealed partial class ModelView : Control
     /// </summary>
     /// <param name="title">The item's name, for a face the launcher draws (a generated label).</param>
     /// <param name="colour">Its plain colour (a system's card takes its system's).</param>
-    public static ModelView Show(Control parent, ItemTemplate model, string title, Color colour, ThemeLook look)
+    /// <param name="logo">The card's logo, for a slot whose chain names <c>logo</c>; null for none.</param>
+    /// <param name="cacheDir">Where logos' derivatives are (<see cref="ThemeLogos.CacheRoot"/> under it).</param>
+    public static ModelView Show(Control parent, ItemTemplate model, string title, Color colour, ThemeLook look, MediaRef? logo, string cacheDir)
     {
         if (_shared is null || !IsInstanceValid(_shared))
         {
@@ -99,6 +108,7 @@ public sealed partial class ModelView : Control
         {
             view._model = model;
             view._grid.SetTemplates([model]);
+            view.InstallLayout(model, cacheDir);
         }
         else
         {
@@ -106,7 +116,7 @@ public sealed partial class ModelView : Control
         }
 
         // Bound once it's in the tree and laid out (Fit).
-        view._item = new OneItem(title, colour);
+        view._item = new OneItem(title, colour, logo);
         view.GetParent()?.RemoveChild(view);
         view.Visible = true;
         view._viewport.RenderTargetUpdateMode = SubViewport.UpdateMode.Always;
@@ -127,6 +137,33 @@ public sealed partial class ModelView : Control
         keeper.AddChild(this);
     }
 
+    /// <summary>
+    /// The model's slot layout: with a logo, a one-layer array (made here, on opening a details screen: one layer is
+    /// quick to make, and it's kept for the next system with the same model); without, none.
+    /// </summary>
+    private void InstallLayout(ItemTemplate model, string cacheDir)
+    {
+        if (_streamer is not { } streamer)
+        {
+            return;
+        }
+
+        var layout = new SlotLayout([model]);
+        var (large, small) = layout.ChannelCount == 0 ? (null, null) : streamer.BuildArrays(layout, streamer.Large, streamer.Small);
+        // A logo's size and time are known (ThemePlan read them), so its source folder is never needed.
+        streamer.SetFolders(ThemeLogos.CacheRoot(cacheDir), string.Empty);
+        streamer.Install(layout, large, small);
+        _grid.EnableTextures();
+    }
+
+    public override void _Notification(int what)
+    {
+        if (what == NotificationPredelete)
+        {
+            _streamer?.Dispose();
+        }
+    }
+
     /// <summary>Shown again at the size it had, it gets no <see cref="Control.Resized"/>: it's bound here.</summary>
     public override void _EnterTree() => Fit();
 
@@ -139,6 +176,7 @@ public sealed partial class ModelView : Control
         }
 
         _grid.Tick(dt);
+        _grid.PumpTextures(TextureStreamer.DefaultBudgetBytes, 0);
     }
 
     /// <summary>A step of the turn round its vertical (-1 left, 1 right), for the D-pad, the arrows and the left stick.</summary>
@@ -179,8 +217,8 @@ public sealed partial class ModelView : Control
         _grid.Zoom = fill / _grid.ItemScale;
     }
 
-    /// <summary>The one item: its title and colour, no media (a system's card has none).</summary>
-    private sealed class OneItem(string title, Color colour) : IGridSource
+    /// <summary>The one item: its title and colour, and a system card's only media, its logo.</summary>
+    private sealed class OneItem(string title, Color colour, MediaRef? logo) : IGridSource
     {
         public int Count => 1;
 
@@ -188,6 +226,12 @@ public sealed partial class ModelView : Control
 
         public bool TryGetMedia(int index, int slot, out MediaRef media)
         {
+            if (slot == Launcher.Core.Theming.MediaSlots.Logo && logo is { } shown)
+            {
+                media = shown;
+                return true;
+            }
+
             media = default;
             return false;
         }

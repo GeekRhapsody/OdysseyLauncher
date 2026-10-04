@@ -7,9 +7,9 @@ namespace Launcher.App.Tools;
 /// Generates the built-in models procedurally and exports each with Godot's glTF exporter (A7): the built-in theme's
 /// box templates and its arcade cabinet (<see cref="ArcadeCabinetBuilder"/>) in
 /// <c>godot/themes/memory-card/models/templates/</c> and its generic system model in
-/// <c>godot/themes/memory-card/models/systems/</c>, and the M6 test theme's models in
-/// <c>tests/themes/slot-showcase/models/</c>, and the sample theme's in <c>samples/themes/retro-tv/models/</c>
-/// (<see cref="RetroTvBuilder"/>). None is imported by Godot (<c>godot/themes/</c> has a <c>.gdignore</c>): every theme's
+/// <c>godot/themes/memory-card/models/systems/</c>, the Slab theme's card in <c>godot/themes/slab/models/systems/</c>,
+/// and the M6 test theme's models in <c>tests/themes/slot-showcase/models/</c>, and the sample theme's in
+/// <c>samples/themes/retro-tv/models/</c> (<see cref="RetroTvBuilder"/>). None is imported by Godot (<c>godot/themes/</c> has a <c>.gdignore</c>): every theme's
 /// models are loaded from the <c>.glb</c> files at run time (A6 Locations).
 /// <para>
 /// Run it headless with <c>godot --headless --path godot res://scenes/tools/generate_box_templates.tscn</c> (it quits
@@ -21,6 +21,9 @@ public partial class BoxTemplateGenerator : Node
 {
     public const string TemplatesDir = "res://themes/memory-card/models/templates";
     public const string SystemsDir = "res://themes/memory-card/models/systems";
+
+    /// <summary>The Slab theme's card.</summary>
+    public const string SlabSystemsDir = "res://themes/slab/models/systems";
 
     /// <summary>The test theme, relative to the project folder.</summary>
     public const string TestThemeDir = "../tests/themes/slot-showcase/models";
@@ -87,6 +90,15 @@ public partial class BoxTemplateGenerator : Node
             FrontSlot: "label", HasBackSlot: false, HasSpineSlot: false, Split: FrontSplit.TopLabel, SplitAt: 34);
 
     /// <summary>
+    /// The Slab theme's card: the generic card's slab, all dark grey and untinted, its whole front a <c>label</c> slot of
+    /// the same grey, so each system's image (its <c>logo</c>, A6 logos/) shows on the case's own colour.
+    /// </summary>
+    public static readonly BoxSpec SlabSystem =
+        new("slab", 72, 100, 11, SpineRadius: 5, OpeningRadius: 5, Bevel: 1.6f,
+            CaseColour: new Color("#2C2E32"), CaseRoughness: 0.5f, ArtRoughness: 0.5f,
+            FrontSlot: "label", HasBackSlot: false, HasSpineSlot: false, SlotColour: new Color("#2C2E32"));
+
+    /// <summary>
     /// The test theme's game template: a tall case with the cover on the upper front, a 16:9 screenshot panel below
     /// it whose authored texture is a test card, and a spine. Four materials, the A7 budget.
     /// </summary>
@@ -127,6 +139,8 @@ public partial class BoxTemplateGenerator : Node
 
         ok &= ExportMesh(ArcadeCabinetBuilder.Build(out var cabinetTriangles), "arcade_cabinet", cabinetTriangles, $"{TemplatesDir}/arcade_cabinet.glb");
         ok &= Export(GenericSystem, $"{SystemsDir}/{GenericSystem.Id}.glb");
+        DirAccess.MakeDirRecursiveAbsolute(ProjectSettings.GlobalizePath(SlabSystemsDir));
+        ok &= Export(SlabSystem, $"{SlabSystemsDir}/{SlabSystem.Id}.glb");
 
         var testTheme = System.IO.Path.GetFullPath(System.IO.Path.Combine(ProjectSettings.GlobalizePath("res://"), TestThemeDir));
         DirAccess.MakeDirRecursiveAbsolute(System.IO.Path.Combine(testTheme, "templates"));

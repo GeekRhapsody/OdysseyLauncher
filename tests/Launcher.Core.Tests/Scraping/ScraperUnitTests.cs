@@ -546,6 +546,37 @@ public sealed class DerivativeServiceTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Theme_logos_are_baked_apart_from_the_librarys_derivatives_and_kept_for_the_active_theme_only()
+    {
+        _bed.Rom("megadrive/Game.md");
+        File.WriteAllBytes(_bed.Dir.File("user/media/megadrive/cover/Game.png"), TestImages.RealPng(40, 56, (_, _) => (200, 10, 10, 255)));
+        await _bed.ScanAsync();
+        using var service = _bed.Service(derivatives: true);
+        Assert.SkipUnless(service.Derivatives.CanBake, "no image decoder on this platform");
+        var file = _bed.Dir.File("app/themes/slab/logos/megadrive.png");
+        File.WriteAllBytes(file, TestImages.RealPng(80, 40, (x, _) => (255, 255, 255, (byte)(x < 40 ? 255 : 0))));
+        var logo = ThemeLogos.Describe(file, "slab/logos/megadrive.png")!.Value;
+        Assert.Equal((file, 2f, "slab/logos/megadrive.png"), (logo.Source, logo.Media.Aspect, logo.Media.Path));
+
+        var baked = 0;
+        var first = await ThemeLogos.BakeMissingAsync(service.Derivatives, _bed.Paths.CacheDir, [logo], () => Interlocked.Increment(ref baked), Ct);
+
+        Assert.Equal((1, 1, 0, 0, 1), (first.Logos, first.Baked, first.Failed, first.Pruned, baked));
+        var derivative = ThemeLogos.DerivativePath(_bed.Paths.CacheDir, logo.Media);
+        Assert.Equal(Path.Combine(_bed.Paths.CacheDir, ThemeLogos.FolderName, TextureDerivatives.FolderName), Path.GetDirectoryName(derivative));
+        Assert.Equal(Bc7DdsWriter.FileLength, new FileInfo(derivative).Length);
+
+        // The library's bake, which prunes what no library image names, leaves it be; baking again bakes nothing.
+        Assert.Equal(0, (await service.Derivatives.BakeMissingAsync(null, Ct)).Pruned);
+        Assert.True(File.Exists(derivative));
+        Assert.Equal(0, (await ThemeLogos.BakeMissingAsync(service.Derivatives, _bed.Paths.CacheDir, [logo], null, Ct)).Baked);
+
+        // A theme with no logos (or other ones) prunes it.
+        Assert.Equal(1, (await ThemeLogos.BakeMissingAsync(service.Derivatives, _bed.Paths.CacheDir, [], null, Ct)).Pruned);
+        Assert.False(File.Exists(derivative));
+    }
+
+    [Fact]
     public async Task Without_a_decoder_nothing_is_baked_and_nothing_fails_loudly()
     {
         _bed.Rom("megadrive/Game.md");

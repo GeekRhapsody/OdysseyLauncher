@@ -25,7 +25,13 @@ public sealed class DerivativeService : IDisposable
     private readonly DerivativeBaker? _baker;
     private readonly ILog _log;
     private readonly BlockingCollection<Action> _work = new();
+
+    // Theme logos (A6): on screen the moment a theme with logos is first used, so they have threads of their own (made
+    // then), which the library's threads help, taking them before any library image.
+    private readonly BlockingCollection<Action> _urgent = new();
     private readonly Thread[] _threads;
+    private readonly object _logoGate = new();
+    private Thread[]? _logoThreads;
 
     /// <param name="decoder">Null where there's no decoder (Linux, for now): nothing is baked, and covers show as plain boxes.</param>
     /// <param name="workers">Bake threads. One by default: baking is background work.</param>
@@ -60,8 +66,57 @@ public sealed class DerivativeService : IDisposable
 
         var destination = PathFor(relPath, sizeBytes, mtimeMs);
         var source = Path.Combine(_paths.DataDir, relPath.Replace('/', Path.DirectorySeparatorChar));
+        return Enqueue(source, destination, relPath, cancellationToken);
+    }
+
+    /// <summary>
+    /// Bakes an image outside the library (a theme's logo, A6) to <paramref name="destination"/>, unless it exists, on
+    /// below-normal logo threads (half the processors, at most 4, made on first use) that the library's thread helps,
+    /// ahead of the library's images still waiting. False when it couldn't be (the reason is logged).
+    /// </summary>
+    public Task<bool> BakeFileAsync(string source, string destination, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(destination);
+        if (_baker is null)
+        {
+            return Task.FromResult(false);
+        }
+
+        StartLogoThreads();
+        return Enqueue(source, destination, source, cancellationToken, urgent: true);
+    }
+
+    private void StartLogoThreads()
+    {
+        lock (_logoGate)
+        {
+            if (_logoThreads is not null || _urgent.IsAddingCompleted)
+            {
+                return;
+            }
+
+            _logoThreads = new Thread[Math.Clamp(Environment.ProcessorCount / 2, 1, 4)];
+            for (var i = 0; i < _logoThreads.Length; i++)
+            {
+                _logoThreads[i] = new Thread(() =>
+                {
+                    foreach (var job in _urgent.GetConsumingEnumerable())
+                    {
+                        job();
+                    }
+                })
+                { IsBackground = true, Name = "Logo baker", Priority = ThreadPriority.BelowNormal };
+                _logoThreads[i].Start();
+            }
+        }
+    }
+
+    private Task<bool> Enqueue(string source, string destination, string name, CancellationToken cancellationToken, bool urgent = false)
+    {
+        var baker = _baker!;
         var completion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-        _work.Add(() =>
+        (urgent ? _urgent : _work).Add(() =>
         {
             if (cancellationToken.IsCancellationRequested)
             {
@@ -77,17 +132,17 @@ public sealed class DerivativeService : IDisposable
                     return;
                 }
 
-                var ok = _baker.TryBake(source, destination, out var error);
+                var ok = baker.TryBake(source, destination, out var error);
                 if (!ok)
                 {
-                    _log.Write(LogLevel.Warning, $"Derivative: couldn't bake '{relPath}': {error}");
+                    _log.Write(LogLevel.Warning, $"Derivative: couldn't bake '{name}': {error}");
                 }
 
                 completion.TrySetResult(ok);
             }
             catch (Exception e) when (e is IOException or UnauthorizedAccessException)
             {
-                _log.Write(LogLevel.Warning, $"Derivative: couldn't bake '{relPath}': {e.Message}");
+                _log.Write(LogLevel.Warning, $"Derivative: couldn't bake '{name}': {e.Message}");
                 completion.TrySetResult(false);
             }
         }, CancellationToken.None);
@@ -158,20 +213,28 @@ public sealed class DerivativeService : IDisposable
 
     public void Dispose()
     {
+        lock (_logoGate)
+        {
+            _urgent.CompleteAdding();
+        }
+
         _work.CompleteAdding();
-        foreach (var thread in _threads)
+        foreach (var thread in _threads.Concat(_logoThreads ?? []))
         {
             thread.Join();
         }
 
+        _urgent.Dispose();
         _work.Dispose();
     }
 
     private void Loop()
     {
-        foreach (var job in _work.GetConsumingEnumerable())
+        // TryTakeFromAny takes from the first collection that has work: the urgent one first. -1 once both are done.
+        BlockingCollection<Action>[] queues = [_urgent, _work];
+        while (BlockingCollection<Action>.TryTakeFromAny(queues, out var job, Timeout.Infinite) >= 0)
         {
-            job();
+            job!();
         }
     }
 }

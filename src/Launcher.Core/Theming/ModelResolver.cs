@@ -49,6 +49,16 @@ public sealed record UserModels(string ConfigDir, IReadOnlySet<string> Templates
     public string SystemPath(string systemId) => Path.Combine(ConfigDir, FolderName, "systems", systemId + ".glb");
 }
 
+/// <summary>A card's logo file (<see cref="ModelResolver.LogoOf"/>).</summary>
+/// <param name="ThemeId">The theme it's in.</param>
+/// <param name="Relative">Its path in that theme, '/'-separated.</param>
+/// <param name="Path">An absolute file path.</param>
+public sealed record LogoFile(string ThemeId, string Relative, string Path)
+{
+    /// <summary>What its derivative is named by: the theme and the path in it, wherever the theme's folder is.</summary>
+    public string Key => $"{ThemeId}/{Relative}";
+}
+
 /// <summary>Where a model candidate comes from, in precedence order (A7).</summary>
 public enum ModelLevel
 {
@@ -83,18 +93,34 @@ public enum ModelLevel
 /// <param name="Template">The theme's template, with its slot chains; null for a user model (default chains).</param>
 /// <param name="Tint">For a system card: whether its plain materials take the system's colour.</param>
 /// <param name="Description">For logs: "theme 'memory-card' template 'dvd_case'".</param>
-public sealed record ModelCandidate(ModelLevel Level, ThemeOrigin Origin, string Path, GameTemplate? Template, bool Tint, string Description)
+/// <param name="CardSlots">
+/// For a system card: the chains its theme gives its slots (<c>[systems.&lt;id&gt;.slots]</c> over
+/// <c>[defaults.system_slots]</c>); a slot it doesn't list uses <see cref="SlotChain.ForSystemModel"/>. Null for none.
+/// </param>
+public sealed record ModelCandidate(
+    ModelLevel Level,
+    ThemeOrigin Origin,
+    string Path,
+    GameTemplate? Template,
+    bool Tint,
+    string Description,
+    IReadOnlyDictionary<int, SlotChain>? CardSlots = null)
 {
     /// <summary>
     /// Two candidates are the same grid template if they load the same file with the same chains and tint: a key that
     /// dedupes them across systems and precedence levels. A theme's template extending the base's has the same file and
-    /// id but its own chains, so the declaring theme is part of it.
+    /// id but its own chains, so the declaring theme is part of it; a card's chains are written out, since two systems
+    /// can share a model and not its chains.
     /// </summary>
-    public string Key => $"{Path}|{Template?.ThemeId}:{Template?.Id}|{(Tint ? "tint" : "plain")}";
+    public string Key => CardSlots is { Count: > 0 } slots
+        ? $"{Path}|{Template?.ThemeId}:{Template?.Id}|{(Tint ? "tint" : "plain")}|{string.Join("; ", slots.OrderBy(s => s.Key).Select(s => s.Value))}"
+        : $"{Path}|{Template?.ThemeId}:{Template?.Id}|{(Tint ? "tint" : "plain")}";
 
-    /// <summary>The slot's chain: the template's, or the default for a user model.</summary>
+    /// <summary>The slot's chain: for a card its theme's, else the template's, or the default for a user model.</summary>
     public SlotChain ChainFor(int slot, bool systemCard) =>
-        systemCard ? SlotChain.ForSystemModel(slot) : Template?.ChainFor(slot) ?? SlotChain.Default(slot);
+        systemCard
+            ? CardSlots is not null && CardSlots.TryGetValue(slot, out var chain) ? chain : SlotChain.ForSystemModel(slot)
+            : Template?.ChainFor(slot) ?? SlotChain.Default(slot);
 }
 
 /// <summary>
@@ -198,14 +224,17 @@ public sealed class ModelResolver
             $"your {relativePath}");
     }
 
-    /// <summary>The candidates for a system's card, best first, without repeats. Null for Favourites and Recently played.</summary>
+    /// <summary>
+    /// The candidates for a system's card, best first, without repeats. Null for Favourites and Recently played. Each
+    /// carries the chains of the theme whose model it is; the user's own card takes the active theme's.
+    /// </summary>
     public IReadOnlyList<ModelCandidate> SystemModels(string? systemId)
     {
         var candidates = new List<ModelCandidate>();
         if (systemId is not null && _user.Systems.Contains(systemId))
         {
             candidates.Add(new ModelCandidate(ModelLevel.User, ThemeOrigin.User, _user.SystemPath(systemId), null, false,
-                $"your models/systems/{systemId}.glb"));
+                $"your models/systems/{systemId}.glb", CardSlotsOf(Active, systemId)));
         }
 
         foreach (var (theme, systemLevel, defaultLevel) in Themes())
@@ -226,12 +255,31 @@ public sealed class ModelResolver
 
         void Add(ModelLevel level, Theme theme, string model, bool tint, string where)
         {
-            var candidate = new ModelCandidate(level, theme.Origin, theme.PathOf(model), null, tint, $"theme '{theme.Id}' {model} ({where})");
+            var candidate = new ModelCandidate(level, theme.Origin, theme.PathOf(model), null, tint, $"theme '{theme.Id}' {model} ({where})",
+                CardSlotsOf(theme, systemId));
             if (!candidates.Exists(c => c.Key == candidate.Key))
             {
                 candidates.Add(candidate);
             }
         }
+    }
+
+    /// <summary>
+    /// A card's image (A6 <c>logos/</c>): the active theme's for the system (or <c>favourites</c>, <c>recently_played</c>),
+    /// else the base theme's; null when neither has one.
+    /// </summary>
+    public LogoFile? LogoOf(string id)
+    {
+        ArgumentNullException.ThrowIfNull(id);
+        foreach (var (theme, _, _) in Themes())
+        {
+            if (theme.Logos.TryGetValue(id, out var logo))
+            {
+                return new LogoFile(theme.Id, logo, theme.PathOf(logo));
+            }
+        }
+
+        return null;
     }
 
     /// <summary>The system's colour (its card's tint and its plain boxes'): the active theme's, else the base theme's.</summary>
@@ -251,6 +299,24 @@ public sealed class ModelResolver
         ArgumentNullException.ThrowIfNull(theme);
         ArgumentNullException.ThrowIfNull(id);
         return theme.Templates.TryGetValue(id, out var own) ? own : Base.Templates.GetValueOrDefault(id);
+    }
+
+    /// <summary>A theme's chains for a system's card: <c>[systems.&lt;id&gt;.slots]</c> over <c>[defaults.system_slots]</c>.</summary>
+    private static IReadOnlyDictionary<int, SlotChain>? CardSlotsOf(Theme theme, string? systemId)
+    {
+        var own = systemId is not null && theme.Systems.TryGetValue(systemId, out var entry) ? entry.Slots : null;
+        if (own is null)
+        {
+            return theme.Defaults.SystemSlots.Count > 0 ? theme.Defaults.SystemSlots : null;
+        }
+
+        var merged = new Dictionary<int, SlotChain>(theme.Defaults.SystemSlots);
+        foreach (var (slot, chain) in own)
+        {
+            merged[slot] = chain;
+        }
+
+        return merged;
     }
 
     private IEnumerable<(Theme Theme, ModelLevel System, ModelLevel Default)> Themes()

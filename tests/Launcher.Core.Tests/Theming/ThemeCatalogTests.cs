@@ -10,7 +10,7 @@ public sealed class ThemeCatalogTests : IDisposable
 
     public void Dispose() => _dir.Dispose();
 
-    /// <summary>The app's own themes, as it ships them: memory-card (the base) and console.</summary>
+    /// <summary>The app's own themes, as it ships them: memory-card (the base), console and slab.</summary>
     private static List<ThemeSource> BuiltIns()
     {
         var diagnostics = new List<Diagnostic>();
@@ -28,7 +28,7 @@ public sealed class ThemeCatalogTests : IDisposable
     {
         var sources = BuiltIns();
 
-        Assert.Equal([ThemeCatalog.DefaultId, ThemeCatalog.BaseId], sources.Select(s => s.Id));
+        Assert.Equal([ThemeCatalog.DefaultId, ThemeCatalog.BaseId, "slab"], sources.Select(s => s.Id));
         Assert.All(sources, s => Assert.Equal(ThemeOrigin.BuiltIn, s.Origin));
         Assert.All(sources, s => Assert.Null(s.Files.MaterialsOf("models/systems/gb.glb", out _)));
         Assert.True(sources[0].Files.Exists("models/systems/gb.glb"));
@@ -49,7 +49,7 @@ public sealed class ThemeCatalogTests : IDisposable
         Assert.Equal("memory-card", set.Base.Id);
 
         // The base theme isn't one to choose, so it isn't offered.
-        Assert.Equal(["console", "neon", "plain"], set.Available);
+        Assert.Equal(["console", "neon", "plain", "slab"], set.Available);
 
         // A user theme with no look of its own takes the base's.
         Assert.Equal(set.Base.Look, set.Active.Look);

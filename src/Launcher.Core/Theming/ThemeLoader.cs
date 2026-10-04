@@ -1,4 +1,5 @@
 using Launcher.Core.Config;
+using Launcher.Core.Media;
 using Launcher.Core.Models;
 
 namespace Launcher.Core.Theming;
@@ -13,6 +14,9 @@ public interface IThemeFiles
     /// theme's, which Core's tests check instead). A read failure gives null with <paramref name="error"/> set.
     /// </summary>
     IReadOnlyList<string>? MaterialsOf(string relativePath, out string? error);
+
+    /// <summary>The names of the files directly in a folder of the theme (<c>logos</c>); empty if it has none.</summary>
+    IReadOnlyList<string> FilesIn(string relativeFolder);
 }
 
 /// <summary>A theme folder on disk. Does file I/O: never on the main thread.</summary>
@@ -30,6 +34,25 @@ public sealed class FolderThemeFiles(string folder, bool inspect = true) : IThem
     {
         error = null;
         return inspect && GlbInfo.TryReadMaterials(PathOf(relativePath), out var materials, out error) ? materials : null;
+    }
+
+    public IReadOnlyList<string> FilesIn(string relativeFolder)
+    {
+        var folder = PathOf(relativeFolder);
+        if (!Directory.Exists(folder))
+        {
+            return [];
+        }
+
+        try
+        {
+            return Directory.EnumerateFiles(folder).Select(Path.GetFileName).OfType<string>().Order(StringComparer.Ordinal).ToList();
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            // An unreadable folder has no files.
+            return [];
+        }
     }
 
     private string PathOf(string relativePath) => Path.Combine(Folder, relativePath.Replace('/', Path.DirectorySeparatorChar));
@@ -65,12 +88,15 @@ public static class ThemeLoader
     private static readonly string[] BackgroundKeys = ["top_left", "top_right", "bottom_left", "bottom_right"];
     private static readonly string[] AmbientKeys = ["colour", "energy"];
     private static readonly string[] LightKeys = ["direction", "colour", "energy"];
-    private static readonly string[] DefaultsKeys = ["system_model", "tint_system_model", "game_template"];
+    private static readonly string[] DefaultsKeys = ["system_model", "tint_system_model", "game_template", "system_slots"];
     private static readonly string[] TemplateKeys = ["model", "slots", "shape", "fit"];
     private static readonly string[] Shapes = ["model", "media"];
     private static readonly string[] Fits = ["crop", "whole"];
-    private static readonly string[] SystemKeys = ["model", "tint", "game_template", "colour", "look"];
+    private static readonly string[] SystemKeys = ["model", "tint", "game_template", "colour", "look", "logo", "slots"];
     private static readonly string[] SourceKeywords = ["generated", "authored"];
+
+    /// <summary>What a card's chain can name: systems have no art but their logo.</summary>
+    private static readonly string[] CardSources = [MediaKinds.Logo, "generated", "authored"];
 
     /// <param name="baseTheme">
     /// The base theme, for whatever the theme leaves out or gets wrong. Null when loading the base theme itself, whose
@@ -134,7 +160,7 @@ public static class ThemeLoader
             var templates = ReadTemplates(v.Table(root, string.Empty, "templates"));
             var defaults = ReadDefaults(v.Table(root, string.Empty, "defaults"), templates);
             var systems = ReadSystems(v.Table(root, string.Empty, "systems"), templates, look);
-            return new Theme(source.Id, name ?? source.Id, author, source.Origin, source.Folder, transition, look, defaults, templates, systems);
+            return new Theme(source.Id, name ?? source.Id, author, source.Origin, source.Folder, transition, look, defaults, templates, systems, Logos(systems));
         }
 
         // ---- Looks ---------------------------------------------------------------------------------
@@ -361,7 +387,7 @@ public static class ThemeLoader
                 var beforeSlots = v.ErrorCount;
                 if (v.Table(entry, prefix, "slots") is { } slotsTable)
                 {
-                    ReadSlots(slotsTable, prefix + ".slots", slots);
+                    ReadSlots(slotsTable, prefix + ".slots", slots, card: false);
                 }
 
                 // A bad fit leaves its slot as it was (cropped, or the base's), as a bad chain does.
@@ -410,7 +436,11 @@ public static class ThemeLoader
             return templates;
         }
 
-        private void ReadSlots(TomlTableNode table, string prefix, Dictionary<int, SlotChain> slots)
+        /// <param name="card">
+        /// A system card's chains (<c>[defaults.system_slots]</c>, <c>[systems.&lt;id&gt;.slots]</c>): the only art a system
+        /// has is its logo, so no other media kind may be named.
+        /// </param>
+        private void ReadSlots(TomlTableNode table, string prefix, Dictionary<int, SlotChain> slots, bool card)
         {
             foreach (var name in table.Keys)
             {
@@ -451,7 +481,20 @@ public static class ThemeLoader
                     }
                     else if (MediaSlots.IndexOf(entry) is var kind and >= 0)
                     {
+                        if (card && kind != MediaSlots.Logo)
+                        {
+                            v.Error(node, key, $"a system has no {entry}: its only art is its logo. Use \"logo\", \"generated\" or \"authored\"");
+                            ok = false;
+                            continue;
+                        }
+
                         source = SlotSource.Media(kind);
+                    }
+                    else if (card)
+                    {
+                        v.Error(node, key, $"unknown source '{entry}'{TomlValidator.Suggest(entry, CardSources)}. Use \"logo\", \"generated\" or \"authored\"");
+                        ok = false;
+                        continue;
                     }
                     else
                     {
@@ -594,14 +637,7 @@ public static class ThemeLoader
                 return null;
             }
 
-            var relative = raw.Replace('\\', '/');
-            while (relative.StartsWith("./", StringComparison.Ordinal))
-            {
-                relative = relative[2..];
-            }
-
-            if (relative.Length == 0 || relative.StartsWith('/') || relative.Contains(':', StringComparison.Ordinal)
-                || relative.Split('/').Contains(".."))
+            if (Inside(raw) is not { } relative)
             {
                 v.Error(node, path, $"'{raw}' must be a path inside the theme's folder, e.g. \"models/systems/ps2.glb\"");
                 return null;
@@ -622,20 +658,107 @@ public static class ThemeLoader
             return relative;
         }
 
+        /// <summary>A PNG, JPEG or WebP inside the theme's folder that exists: a card's <c>logo</c>.</summary>
+        private string? ImagePath(TomlTableNode table, string prefix, string key)
+        {
+            var path = TomlValidator.Join(prefix, key);
+            if (!table.TryGet(key, out var node) || v.String(table, prefix, key) is not { } raw)
+            {
+                return null;
+            }
+
+            if (Inside(raw) is not { } relative)
+            {
+                v.Error(node, path, $"'{raw}' must be a path inside the theme's folder, e.g. \"logos/ps2.png\"");
+                return null;
+            }
+
+            if (!IsImage(relative))
+            {
+                v.Error(node, path, $"'{raw}' isn't a PNG, JPEG or WebP image ({string.Join(", ", MediaKinds.ImageExtensions)})");
+                return null;
+            }
+
+            if (!source.Files.Exists(relative))
+            {
+                v.Error(node, path, $"'{raw}' doesn't exist in the theme's folder");
+                return null;
+            }
+
+            return relative;
+        }
+
+        /// <summary>A path relative to the theme's folder, '/'-separated; null for one that could leave it.</summary>
+        private static string? Inside(string raw)
+        {
+            var relative = raw.Replace('\\', '/');
+            while (relative.StartsWith("./", StringComparison.Ordinal))
+            {
+                relative = relative[2..];
+            }
+
+            return relative.Length == 0 || relative.StartsWith('/') || relative.Contains(':', StringComparison.Ordinal)
+                || relative.Split('/').Contains("..")
+                ? null
+                : relative;
+        }
+
+        private static bool IsImage(string path) =>
+            MediaKinds.ImageExtensions.Any(extension => path.EndsWith(extension, StringComparison.OrdinalIgnoreCase));
+
+        // ---- Logos ---------------------------------------------------------------------------------
+
+        /// <summary>
+        /// Each card's image: a system's <c>logo</c>, else <c>logos/&lt;id&gt;.&lt;ext&gt;</c> (PNG before JPEG before WebP,
+        /// when the folder has several for one id).
+        /// </summary>
+        private Dictionary<string, string> Logos(Dictionary<string, ThemeSystem> systems)
+        {
+            var logos = new Dictionary<string, string>(StringComparer.Ordinal);
+            var files = source.Files.FilesIn(Theme.LogosFolder);
+            foreach (var extension in MediaKinds.ImageExtensions)
+            {
+                foreach (var file in files)
+                {
+                    if (file.EndsWith(extension, StringComparison.OrdinalIgnoreCase)
+                        && file[..^extension.Length].ToLowerInvariant() is var id && TomlValidator.IsValidId(id))
+                    {
+                        logos.TryAdd(id, $"{Theme.LogosFolder}/{file}");
+                    }
+                }
+            }
+
+            foreach (var system in systems.Values)
+            {
+                if (system.Logo is { } logo)
+                {
+                    logos[system.Id] = logo;
+                }
+            }
+
+            return logos;
+        }
+
         // ---- Defaults and systems ------------------------------------------------------------------
 
         private ThemeDefaults ReadDefaults(TomlTableNode? table, Dictionary<string, GameTemplate> templates)
         {
+            var systemSlots = new Dictionary<int, SlotChain>();
             if (table is null)
             {
-                return new ThemeDefaults(null, false, null);
+                return new ThemeDefaults(null, false, null, systemSlots);
             }
 
             v.WarnUnknownKeys(table, "defaults", DefaultsKeys);
             var model = ModelPath(table, "defaults", "system_model", required: false);
             var tint = v.Bool(table, "defaults", "tint_system_model") ?? false;
             var template = TemplateId(table, "defaults", templates);
-            return new ThemeDefaults(model, tint, template);
+            if (v.Table(table, "defaults", "system_slots") is { } slotsTable)
+            {
+                ReadSlots(slotsTable, "defaults.system_slots", systemSlots, card: true);
+            }
+
+            return new ThemeDefaults(model, tint, template, systemSlots);
         }
 
         private Dictionary<string, ThemeSystem> ReadSystems(TomlTableNode? table, Dictionary<string, GameTemplate> templates, Look look)
@@ -668,7 +791,14 @@ public static class ThemeLoader
                 var template = TemplateId(entry, prefix, templates);
                 var colour = Colour(entry, prefix, "colour", required: false);
                 var systemLook = v.Table(entry, prefix, "look") is { } lookTable ? ReadLook(lookTable, prefix + ".look", look, entry) ?? look : look;
-                systems[id] = new ThemeSystem(id, model, tint, template, colour, systemLook);
+                var logo = ImagePath(entry, prefix, "logo");
+                var slots = new Dictionary<int, SlotChain>();
+                if (v.Table(entry, prefix, "slots") is { } slotsTable)
+                {
+                    ReadSlots(slotsTable, prefix + ".slots", slots, card: true);
+                }
+
+                systems[id] = new ThemeSystem(id, model, tint, template, colour, systemLook, logo, slots.Count > 0 ? slots : null);
             }
 
             return systems;

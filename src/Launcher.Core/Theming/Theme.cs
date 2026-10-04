@@ -72,13 +72,30 @@ public sealed record GameTemplate(
 /// <param name="GameTemplate">A template id in the same theme or the base theme; null for the theme's default.</param>
 /// <param name="Colour">The system's colour: its card's tint and its plain boxes' colour. Null when the theme has none.</param>
 /// <param name="Look">The look while the system's games are shown, already layered over the theme's look.</param>
-public sealed record ThemeSystem(string Id, string? Model, bool? Tint, string? GameTemplate, Rgb? Colour, Look Look);
+/// <param name="Logo">The system's image (<c>logo</c>), relative to the theme's folder; null for <c>logos/&lt;id&gt;.*</c> if there is one.</param>
+/// <param name="Slots">
+/// <c>[systems.&lt;id&gt;.slots]</c>: the chains of its card's slots, by slot number, over the theme's
+/// <see cref="ThemeDefaults.SystemSlots"/>. Null for none.
+/// </param>
+public sealed record ThemeSystem(
+    string Id,
+    string? Model,
+    bool? Tint,
+    string? GameTemplate,
+    Rgb? Colour,
+    Look Look,
+    string? Logo = null,
+    IReadOnlyDictionary<int, SlotChain>? Slots = null);
 
 /// <summary><c>[defaults]</c>.</summary>
 /// <param name="SystemModel">The card for systems without their own model, relative to the theme's folder.</param>
 /// <param name="TintSystemModel">Whether that default card takes each system's colour.</param>
 /// <param name="GameTemplate">The template for systems the theme doesn't assign one: its own or the base theme's.</param>
-public sealed record ThemeDefaults(string? SystemModel, bool TintSystemModel, string? GameTemplate);
+/// <param name="SystemSlots">
+/// <c>[defaults.system_slots]</c>: the chains of the slots of this theme's cards, by slot number. A slot it doesn't list
+/// uses <see cref="SlotChain.ForSystemModel"/>.
+/// </param>
+public sealed record ThemeDefaults(string? SystemModel, bool TintSystemModel, string? GameTemplate, IReadOnlyDictionary<int, SlotChain> SystemSlots);
 
 public enum ThemeOrigin
 {
@@ -95,6 +112,10 @@ public enum ThemeOrigin
 /// <summary>A loaded, validated theme (A6). Only valid entries are present.</summary>
 /// <param name="Folder">The theme's folder, an absolute path.</param>
 /// <param name="LookTransitionMs">How long a cross-fade between looks takes.</param>
+/// <param name="Logos">
+/// Each card's image, by system id (or <c>favourites</c> and <c>recently_played</c>), relative to the theme's folder: a
+/// system's <c>logo</c>, else <c>logos/&lt;id&gt;.png</c>, <c>.jpg</c>, <c>.jpeg</c> or <c>.webp</c>.
+/// </param>
 public sealed record Theme(
     string Id,
     string Name,
@@ -105,8 +126,12 @@ public sealed record Theme(
     Look Look,
     ThemeDefaults Defaults,
     IReadOnlyDictionary<string, GameTemplate> Templates,
-    IReadOnlyDictionary<string, ThemeSystem> Systems)
+    IReadOnlyDictionary<string, ThemeSystem> Systems,
+    IReadOnlyDictionary<string, string> Logos)
 {
+    /// <summary>The folder whose images are cards' logos by file name (<c>logos/ps2.webp</c>).</summary>
+    public const string LogosFolder = "logos";
+
     /// <summary>The look for a system's games, or the theme's own look for the systems grid (null) and virtual systems.</summary>
     public Look LookFor(string? systemId) =>
         systemId is not null && Systems.TryGetValue(systemId, out var system) ? system.Look : Look;

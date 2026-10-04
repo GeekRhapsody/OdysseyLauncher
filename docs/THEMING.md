@@ -2,9 +2,10 @@
 
 This guide is for theme authors. It covers the folder and manifest, the media slots your models show, which model wins when several could, the model spec and budgets, how to make and export models in Blender, and how to test a theme. The design behind it is in [ARCHITECTURE.md](ARCHITECTURE.md) (A6 is the manifest, A7 the model spec).
 
-Three themes come with the repo:
+Four themes come with the repo:
 - **Memory Card**, the base theme ([`godot/themes/memory-card/`](../godot/themes/memory-card/theme.toml)). It isn't a theme to choose: every theme builds on it, and anything a theme leaves out (a look, a template, a model, a system's colour) is Memory Card's (section 2). Its templates (the DVD case, jewel case, cartridge box and the rest) are there for every theme to use.
 - **Console**, the default theme ([`godot/themes/console/`](../godot/themes/console/theme.toml)): each system's console as its card (for Windows, a gaming PC and its monitor; the Switch's focused clip slides a Joy-Con off and back), and a Mega Drive cartridge for that system's games (its art on the cartridge's label). It's small, because everything else comes from Memory Card.
+- **Slab** ([`godot/themes/slab/`](../godot/themes/slab/theme.toml)): one dark grey card, Memory Card's slab shape, for every system, with the system's image on its front (section 4, "System cards and logos"). It's a manifest, one model and an image per system: the way to show every system's logo without a model for each.
 - **Retro TV**, the sample theme ([`samples/themes/retro-tv/`](../samples/themes/retro-tv/theme.toml)). It has a CRT television as its game template, a console as its system model, and animation clips. It's the best place to start.
 
 ## Contents
@@ -44,9 +45,12 @@ neon-arcade/                      the folder name is the theme's id: lower-case 
   models/
     templates/crt_tv.glb          game templates (the models games are shown on)
     systems/console.glb           system models (the cards on the systems screen)
+  logos/
+    ps2.png                       each system's image for its card, named by its id (section 4)
 ```
 
 - Only `theme.toml` is required. Put models wherever you like inside the folder: the manifest names each one by its path, relative to the folder and `/`-separated. A path can't leave the folder.
+- `logos/` is the one folder found by its name: an image there named after a system's id (`ps2.webp`) is that system's logo, for its card (section 4).
 - The app's own themes are in the `themes` folder beside its executable (`OdysseyLauncher.exe`), not packed inside it. A user theme with the same id as one of them (`console`, say) replaces it. `memory-card` is reserved: a user theme with that id is ignored, with a warning.
 - Models are glTF 2.0 binaries (`.glb`) only. To use OBJ or another format, convert it first (section 9).
 
@@ -95,6 +99,9 @@ system_model = "models/systems/console.glb"   # the card for systems without the
 tint_system_model = true                      # its plain materials take each system's colour
 game_template = "crt_tv"                      # the template for systems the theme doesn't assign one: yours, or Memory Card's
 
+[defaults.system_slots]               # optional: what your cards' slots show (section 4, "System cards and logos")
+label = ["logo", "generated"]         # the system's logo, else its name printed on the label
+
 [templates.crt_tv]                    # a game template: an id, a model, and optional slot chains (Memory Card's id: extends it)
 model = "models/templates/crt_tv.glb"
 shape = "model"                       # optional: "model" (its own shape, the default) or "media" (section 4)
@@ -111,6 +118,10 @@ model = "models/systems/ps2.glb"      # its card (default: [defaults] system_mod
 tint = false                          # default false for its own model, else tint_system_model
 colour = "#2B4C9A"                    # its card's tint and the colour of its games' plain boxes
 game_template = "crt_tv"              # a template id in this theme or Memory Card (default: [defaults] game_template)
+logo = "art/ps2.png"                  # its card's logo: PNG, JPEG or WebP (default: logos/ps2.png, .jpg, .jpeg or .webp)
+
+[systems.ps2.slots]                   # its card's chains, slot by slot over [defaults.system_slots]
+cover = ["logo", "authored"]
 
 [systems.ps2.look.background]         # the look while its games are shown; replaces the theme's block whole
 top_left     = "#1E2A4E"
@@ -170,7 +181,7 @@ A slot you don't list gets the default chain: its own kind, then `generated` whe
 - `cover = ["cover", "generated"]`
 - `screenshot = ["screenshot"]`, which ends with `authored`
 
-System cards have no art. Their slots show `generated` where they can (a card's `label` shows the system's name), and `authored` otherwise.
+A system card's slots work the same way, with one difference: a system's only art is its logo (below).
 
 The sample's television, for example:
 
@@ -179,6 +190,17 @@ The sample's television, for example:
 screenshot = ["screenshot", "hero", "cover", "authored"]   # the screen; "authored" is the model's own test card
 label = ["logo", "generated"]                               # the stand's plate: the logo, else a printed title
 ```
+
+### System cards and logos
+
+A theme can give each system an image, its **logo**, and show it on its cards, so one card model can serve every system:
+
+- **The image:** `[systems.<id>] logo = "<path>"`, or else an image in the theme's `logos/` folder named after the system's id: `logos/ps2.png`, `.jpg`, `.jpeg` or `.webp` (PNG first when there are several; the name's case doesn't matter). Favourites and Recently played are `logos/favourites.*` and `logos/recently_played.*`. Logos with transparency look best: the card shows through. **Crop each image to what it shows:** the launcher fits the whole image to the face, transparent border included, so a picture in the middle of a mostly empty square comes out small. Larger than 512 pixels gains nothing (each is baked to 512² once, below). Slab's images are prepared that way by `tools/slab-logos.py`.
+- **The chains:** `[defaults.system_slots]` gives your cards' slots their chains, and a system's `[systems.<id>.slots]` overrides them slot by slot. A card's chain can name `logo` (the only media a system has), `generated` (cover, back, spine and label, as for games: a card's label prints the system's name) and `authored`. A slot no chain lists shows `generated` where it can, else `authored`, as cards always have.
+- **How it's drawn:** a logo is never cropped. It's drawn whole within a margin (at most 88% of the face's width and 84% of its height), over the slot's fallback, as on a game's slot (section 4, "How art fits a face"). Over `authored`, it isn't multiplied by the material's colour, so a slot material in your card's own colour shows the logo on it: Slab's `label` is the slab's dark grey, with `label = ["logo", "authored"]`. Over `generated`, a label's fallback is a darkened plain colour.
+- **Whose chains:** a card uses the chains of the theme its model comes from, and a user's own card (`models/systems/<id>.glb`) takes your theme's, so it shows your logos too. Memory Card names none, so its slab shows the system's name.
+- **The first time a theme is used,** its logos are baked to textures in the background (as a game's art is when it's scraped), on up to four threads, the cards on screen first: Slab's 169 take about 7 s, the cards on screen a fraction of that; a card shows its fallback until its logo is ready. From then on a logo loads as fast as a game's art. Only the last theme with logos keeps them baked (`CacheDir/theme-logos/`), so switching to a theme without logos and back costs nothing, and an edited image is baked again.
+- **Cost:** a theme whose cards show no logo costs nothing. One that does uses a 256² texture layer per card in the systems grid's pool (about 6 MB), and the systems grid uploads its cards' logos as the games grid does its art.
 
 ### How art fits a face
 
@@ -222,7 +244,7 @@ For each game and each system card, the launcher tries these candidates in order
 6. Memory Card's template for the system.
 7. Memory Card's default template.
 
-**A system's card:**
+**A system's card** (and its slot chains: section 4, "System cards and logos"):
 1. The user's `ConfigDir/models/systems/<system>.glb`, chosen in the system's options (X on the system, then System model).
 2. Your theme's `[systems.<system>] model`.
 3. Your theme's `[defaults] system_model`.
@@ -384,6 +406,7 @@ It scrolls the biggest system from the first row to the last and reports frame t
 | Art is stretched or cut off badly | The face's aspect ratio is wrong | Set the material's `aspect` custom property, and export Custom Properties |
 | Art is upside down or mirrored | The slot's UVs aren't upright from outside | Flip the UV island vertically or horizontally |
 | A slot shows the plain colour, never art | The material isn't named after a slot, or the chain names kinds the library has no art for | Check the name (a `.001` suffix is fine), then the chain |
+| A card shows no logo | The chain doesn't name `logo` (`[defaults.system_slots]`), the image isn't named after the system's id (`logos/<id>.png`: the id, not its name, e.g. `megadrive`), the card's model comes from another theme (its chains are that theme's), or it's still being baked (the first time, the console says when they're done) | Check the chain, the id (systems.toml) and the console |
 | The model is tiny, or huge and warned about units | It's modelled in centimetres or millimetres | Scale it to about 1 m, and apply the scale |
 | A clip doesn't play | It isn't named idle, focused or launch, or it wasn't exported | Rename the action, and push it onto the NLA stack |
 | "more than twice the ... may have" in the log | The model is too heavy, so it was rejected | Decimate it, or merge materials |

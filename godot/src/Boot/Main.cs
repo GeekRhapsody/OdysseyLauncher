@@ -61,6 +61,7 @@ public partial class Main : Node3D
     private Exception? _bootFailure;
     private Camera3D _camera = null!;
     private TextureStreamer? _streamer;
+    private TextureStreamer? _cardStreamer;
     private ItemGrid? _systemsGrid;
     private ItemGrid? _gamesGrid;
     private InfoOverlay? _overlay;
@@ -182,6 +183,7 @@ public partial class Main : Node3D
         _jobs?.Dispose();
         _loader.FreeScenes();
         _streamer?.Dispose();
+        _cardStreamer?.Dispose();
         _services?.Dispose();
     }
 
@@ -217,6 +219,10 @@ public partial class Main : Node3D
         _systemsGrid!.Tick(dt);
         _gamesGrid!.Tick(dt);
         _gamesGrid.PumpTextures(TextureStreamer.DefaultBudgetBytes, _options.UploadCap);
+        if (_cardStreamer is { Layout.ChannelCount: > 0 })
+        {
+            _systemsGrid.PumpTextures(TextureStreamer.DefaultBudgetBytes, _options.UploadCap);
+        }
     }
 
     // ---- Boot -----------------------------------------------------------------------------------
@@ -310,7 +316,16 @@ public partial class Main : Node3D
         }
 
         var systemSlots = Math.Clamp(shownSystems + 2 + ItemGrid.MaxColumns, 24, MaxSystemSlots);
-        _systemsGrid = new ItemGrid(null, _look.Colours, systemSlots, blockSize: 192, spines: false, systemCards: true)
+
+        // The cards' logos (A6 logos/) stream through a streamer of their own, one worker, whose arrays are only made
+        // for a theme whose cards show logos; for any other it's never asked for anything.
+        if (!_options.NoTextures)
+        {
+            _cardStreamer = new TextureStreamer(systemSlots, 1);
+            _cardStreamer.SetFolders(Launcher.Core.Media.ThemeLogos.CacheRoot(services.Paths.CacheDir), services.Paths.DataDir);
+        }
+
+        _systemsGrid = new ItemGrid(_cardStreamer, _look.Colours, systemSlots, blockSize: 192, spines: false, systemCards: true)
         {
             RowsVisible = SystemRowsVisible,
             Name = "Systems",
@@ -328,10 +343,12 @@ public partial class Main : Node3D
         _navigator = new Navigator(services, _queue, _systemsGrid, _gamesGrid, _overlay!, _look, _loader, theme)
         {
             Streamer = _streamer,
+            CardStreamer = _cardStreamer,
             LayoutOverride = _options.Layout,
         };
         AddChild(_navigator);
         _navigator.ShowSystems();
+        _navigator.InstallCardLayout(theme);
 
         // Every template's pipeline is drawn in the first frame, faded into the background (A3), so it's compiled
         // before interactive rather than in a hitch just after it.
@@ -574,6 +591,7 @@ public partial class Main : Node3D
             // Covers with no derivative (the user's own art, or art from an earlier version) are baked after the
             // scans, or now if there are none (M4).
             _navigator!.BakeAfterScans = true;
+            _navigator.BakeLogos();
             _ = services.CheckInstallsAsync();
             if (unscanned.Count > 0)
             {

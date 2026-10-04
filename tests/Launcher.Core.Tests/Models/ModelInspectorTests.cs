@@ -164,7 +164,7 @@ public sealed class ModelInspectorTests
     public static TheoryData<string, string, ModelKind> CommittedModels()
     {
         var data = new TheoryData<string, string, ModelKind>();
-        foreach (var folder in (string[])[ThemeFixtures.BaseFolder, ThemeFixtures.ConsoleFolder, ThemeFixtures.SlotShowcaseFolder, ThemeFixtures.RetroTvFolder])
+        foreach (var folder in (string[])[ThemeFixtures.BaseFolder, ThemeFixtures.ConsoleFolder, ThemeFixtures.SlabFolder, ThemeFixtures.SlotShowcaseFolder, ThemeFixtures.RetroTvFolder])
         {
             var theme = ThemeFixtures.Load(folder);
             foreach (var template in theme.Templates.Values)

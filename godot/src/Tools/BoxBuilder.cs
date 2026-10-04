@@ -43,6 +43,10 @@ public enum FrontSplit
 /// </param>
 /// <param name="LowerSlot">For <see cref="FrontSplit.LowerPanel"/>, the lower part's slot.</param>
 /// <param name="TestCardOnLowerSlot">Give the lower slot's material an authored texture (a test card), its last fallback.</param>
+/// <param name="SlotColour">
+/// The slot materials' base colour, which is what <c>authored</c> shows; null for white (art multiplies it). Art drawn
+/// whole (a logo) sits over it unmultiplied, so a dark slot shows a logo on the case's own colour.
+/// </param>
 public sealed record BoxSpec(
     string Id,
     float Width,
@@ -63,7 +67,8 @@ public sealed record BoxSpec(
     bool SpineOnTop = false,
     bool PrintedBevels = false,
     string? LowerSlot = null,
-    bool TestCardOnLowerSlot = false);
+    bool TestCardOnLowerSlot = false,
+    Color? SlotColour = null);
 
 /// <summary>
 /// Builds a <see cref="BoxSpec"/> as an <see cref="ArrayMesh"/> with one surface per material, to the model spec (A7):
@@ -440,7 +445,7 @@ public sealed class BoxBuilder
             var material = new StandardMaterial3D
             {
                 ResourceName = name,
-                AlbedoColor = isSlot ? Colors.White : s.CaseColour,
+                AlbedoColor = isSlot ? s.SlotColour ?? Colors.White : s.CaseColour,
                 Roughness = isSlot ? s.ArtRoughness : s.CaseRoughness,
                 Metallic = 0,
             };

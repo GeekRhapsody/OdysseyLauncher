@@ -74,6 +74,24 @@ public sealed class BuiltInModelTests
         AssertShape("generic", model);
     }
 
+    [Fact]
+    public void The_slab_system_model_is_the_generic_cards_shape_with_a_grey_label_over_its_whole_front()
+    {
+        // Its label is the case's grey, not white: a logo is drawn over it unmultiplied (art drawn whole), and with no
+        // logo the card shows the grey ("authored").
+        var slab = Load(ThemeFixtures.SlabFolder, ThemeFixtures.Load(ThemeFixtures.SlabFolder).Defaults.SystemModel!, whiteSlots: false);
+        var generic = Load(ThemeFixtures.BaseFolder, ThemeFixtures.Load(ThemeFixtures.BaseFolder).Defaults.SystemModel!);
+
+        Assert.Equal(["label", "case"], slab.Materials);
+        Assert.Equal(generic.Min, slab.Min);
+        Assert.Equal(generic.Max, slab.Max);
+        Assert.True(slab.Triangles <= 30_000);
+        AssertShape("slab", slab);
+
+        // The whole front, not the generic card's upper part: about as wide over high as the card.
+        Assert.InRange(slab.Aspects["label"], 0.65f, 0.75f);
+    }
+
     private static void AssertShape(string id, Model model)
     {
         const float Tolerance = 0.001f;
@@ -104,7 +122,8 @@ public sealed class BuiltInModelTests
         Dictionary<string, (float Min, float Max)> SlotUvRanges,
         Dictionary<string, float> Aspects);
 
-    private static Model Load(string folder, string relative)
+    /// <param name="whiteSlots">Slot materials are white, as art multiplies them (every model but one made to show logos only).</param>
+    private static Model Load(string folder, string relative, bool whiteSlots = true)
     {
         var path = Path.Combine(folder, relative.Replace('/', Path.DirectorySeparatorChar));
         var bytes = File.ReadAllBytes(path);
@@ -126,8 +145,11 @@ public sealed class BuiltInModelTests
                 aspects[name] = material.TryGetProperty("extras", out var extras) && extras.TryGetProperty("aspect", out var aspect)
                     ? aspect.GetSingle()
                     : 0;
-                var factor = material.GetProperty("pbrMetallicRoughness").GetProperty("baseColorFactor");
-                Assert.All(factor.EnumerateArray(), c => Assert.Equal(1.0, c.GetDouble(), 3));
+                if (whiteSlots)
+                {
+                    var factor = material.GetProperty("pbrMetallicRoughness").GetProperty("baseColorFactor");
+                    Assert.All(factor.EnumerateArray(), c => Assert.Equal(1.0, c.GetDouble(), 3));
+                }
             }
         }
 

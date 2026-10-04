@@ -12,6 +12,7 @@ namespace Launcher.App.Screens;
 
 /// <summary>One card of the systems grid: a configured system, or Favourites or Recently played.</summary>
 /// <param name="Template">The card's model, as an index into the systems grid's templates.</param>
+/// <param name="Logo">The card's logo from the theme (A6 <c>logos/</c>), for a slot whose chain names <c>logo</c>; null for none.</param>
 public sealed record SystemEntry(
     string Id,
     string Name,
@@ -20,7 +21,8 @@ public sealed record SystemEntry(
     SystemConfig? System,
     SystemSummary? Summary,
     VirtualKind Virtual,
-    int Template);
+    int Template,
+    MediaRef? Logo = null);
 
 public enum VirtualKind
 {
@@ -75,9 +77,15 @@ public sealed class SystemsSource(IReadOnlyList<SystemEntry> entries, int templa
         cell = new CellInfo { Title = entry.Name, Template = entry.Template, Plain = entry.Colour };
     }
 
-    /// <summary>Systems have no media: their slots show what the theme draws or authored.</summary>
+    /// <summary>A system's only media is its theme's logo (A6 <c>logos/</c>); its other slots show what the theme draws or authored.</summary>
     public bool TryGetMedia(int index, int slot, out MediaRef media)
     {
+        if (slot == MediaSlots.Logo && entries[index].Logo is { } logo)
+        {
+            media = logo;
+            return true;
+        }
+
         media = default;
         return false;
     }

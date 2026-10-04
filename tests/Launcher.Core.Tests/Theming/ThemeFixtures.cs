@@ -17,6 +17,9 @@ internal static class ThemeFixtures
     /// <summary>The default theme, built in: <c>godot/themes/console</c>.</summary>
     public static string ConsoleFolder => Path.Combine(BuiltInThemesFolder, ThemeCatalog.DefaultId);
 
+    /// <summary>The built-in theme whose cards show each system's logo: <c>godot/themes/slab</c>.</summary>
+    public static string SlabFolder => Path.Combine(BuiltInThemesFolder, "slab");
+
     /// <summary>The M6 test theme: <c>tests/themes/slot-showcase</c>.</summary>
     public static string SlotShowcaseFolder => Path.Combine(RepoRoot, "tests", "themes", "slot-showcase");
 
@@ -70,10 +73,11 @@ internal static class ThemeFixtures
     }
 }
 
-/// <summary>Theme files that exist by name, with the materials each model has (null: can't be inspected).</summary>
+/// <summary>Theme files that exist by name, with the materials each model has (null: can't be inspected), and other files (images).</summary>
 internal sealed class FakeThemeFiles : IThemeFiles
 {
     private readonly Dictionary<string, string[]?> _models = new(StringComparer.Ordinal);
+    private readonly HashSet<string> _files = new(StringComparer.Ordinal);
 
     public FakeThemeFiles Model(string path, params string[]? materials)
     {
@@ -81,11 +85,29 @@ internal sealed class FakeThemeFiles : IThemeFiles
         return this;
     }
 
-    public bool Exists(string relativePath) => _models.ContainsKey(relativePath);
+    /// <summary>Any other file, by its path relative to the theme's folder ("logos/ps2.png").</summary>
+    public FakeThemeFiles File(params string[] paths)
+    {
+        foreach (var path in paths)
+        {
+            _files.Add(path);
+        }
+
+        return this;
+    }
+
+    public bool Exists(string relativePath) => _models.ContainsKey(relativePath) || _files.Contains(relativePath);
 
     public IReadOnlyList<string>? MaterialsOf(string relativePath, out string? error)
     {
         error = null;
         return _models.TryGetValue(relativePath, out var materials) ? materials : null;
     }
+
+    public IReadOnlyList<string> FilesIn(string relativeFolder) =>
+        _files.Concat(_models.Keys)
+            .Where(path => path.StartsWith(relativeFolder + "/", StringComparison.Ordinal) && path.LastIndexOf('/') == relativeFolder.Length)
+            .Select(path => path[(relativeFolder.Length + 1)..])
+            .Order(StringComparer.Ordinal)
+            .ToList();
 }
