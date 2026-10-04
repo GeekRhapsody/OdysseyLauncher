@@ -10,6 +10,8 @@ using Launcher.App.Options;
 using Launcher.App.Ui;
 using Launcher.Core.Config;
 using Launcher.Core.Files;
+using Launcher.Core.Importing;
+using Launcher.Core.Media;
 using Launcher.Core.Models;
 using Launcher.Core.Scraping;
 
@@ -19,8 +21,8 @@ namespace Launcher.App.Settings;
 /// One system's options (M7): its ROM folders (several are allowed, scanned in order; the default is the first of
 /// <c>{rom_root}/&lt;id&gt;</c> and its aliases that exists), the emulator it launches with, its models (its own card for
 /// the systems grid, and the template its games use: one of the theme's, or the user's own <c>.glb</c>), and
-/// how its games are shown (its own layout, its grid's columns and rows, and their order, or the Layout page's), and "scrape this system", which says how many games it
-/// will take on first. The settings screen opens it from ROM
+/// how its games are shown (its own layout, its grid's columns and rows, and their order, or the Layout page's), "scrape this system", which says how many games it
+/// will take on first, and "import gamelist.xml" (ES-DE's metadata and media, copied in; 2026-10-04). The settings screen opens it from ROM
 /// folders, and X on a system in the grid opens it too. Saving folders rescans the system; a model change reloads the
 /// theme, so the grid shows it without a restart.
 /// </summary>
@@ -28,6 +30,7 @@ public sealed partial class SystemPage : ListPanel
 {
     private const string OwnTemplate = "*own";
     private const string ThemesChoice = "";
+    private const string OtherGamelist = "*other";
 
     private readonly SettingsController _settings;
     private readonly string _systemId;
@@ -35,6 +38,7 @@ public sealed partial class SystemPage : ListPanel
     private SettingRow? _card;
     private SettingRow? _template;
     private SettingRow? _scrape;
+    private SettingRow? _import;
     private SettingRow? _view;
     private SettingRow? _columns;
     private SettingRow? _rows;
@@ -55,6 +59,7 @@ public sealed partial class SystemPage : ListPanel
         SetHints("A  Change     Y  Remove     B  Back");
         _settings.ConfigApplied += Rebuild;
         _settings.Jobs.Jobs.Changed += ShowScrapeState;
+        _settings.Jobs.Jobs.Changed += ShowImportState;
         LoadInfo();
     }
 
@@ -64,6 +69,7 @@ public sealed partial class SystemPage : ListPanel
     {
         _settings.ConfigApplied -= Rebuild;
         _settings.Jobs.Jobs.Changed -= ShowScrapeState;
+        _settings.Jobs.Jobs.Changed -= ShowImportState;
     }
 
     private void Rebuild(AppConfig config)
@@ -79,7 +85,7 @@ public sealed partial class SystemPage : ListPanel
         var config = _settings.Services.Config;
         if (config.FindSystem(_systemId) is not { } system)
         {
-            _card = _template = _scrape = null;
+            _card = _template = _scrape = _import = null;
             AddNote("This system isn't enabled any more.", UiStyle.Warning);
             return;
         }
@@ -132,6 +138,7 @@ public sealed partial class SystemPage : ListPanel
         if (Options is null)
         {
             _card = _template = _scrape = null;
+            AddImport();
             return;
         }
 
@@ -142,8 +149,16 @@ public sealed partial class SystemPage : ListPanel
 
         AddSection("Scraping");
         _scrape = AddRow("Scrape this system", "Counting its games…", activated: ScrapeSystem);
+        AddImport();
         ShowModels();
         ShowScrapeState();
+    }
+
+    private void AddImport()
+    {
+        AddSection("Import");
+        _import = AddRow("Import gamelist.xml", "ES-DE's titles, metadata, covers, screenshots, logos and videos, copied in", activated: ImportGamelist);
+        ShowImportState();
     }
 
     public override bool Handle(NavCommand command)
@@ -743,4 +758,218 @@ public sealed partial class SystemPage : ListPanel
             }
         });
     }
+
+    // ---- Gamelist import -------------------------------------------------------------------------------
+
+    private void ShowImportState()
+    {
+        if (_import is not null)
+        {
+            _import.Value = _settings.Jobs.Importing ? "Running" : null;
+        }
+    }
+
+    /// <summary>Looks for the system's gamelists (its ROM folders, then ES-DE's own folder), then reads the one chosen.</summary>
+    private void ImportGamelist()
+    {
+        var jobs = _settings.Jobs;
+        if (jobs.Importing)
+        {
+            ShowStatus("A gamelist is already being imported: it's on the progress card.", UiStyle.Dim, 4);
+            return;
+        }
+
+        var service = jobs.Gamelists;
+        var systemId = _systemId;
+        _import!.Value = "Looking…";
+        _ = Task.Run(async () =>
+        {
+            IReadOnlyList<string> found = [];
+            string? failure = null;
+            try
+            {
+                found = await service.FindAsync(systemId, CancellationToken.None).ConfigureAwait(false);
+            }
+            catch (Exception e)
+            {
+                failure = e.Message;
+            }
+
+            _settings.Ui.Queue.Post(() =>
+            {
+                if (!IsInstanceValid(this) || Layer?.Top != this)
+                {
+                    return;
+                }
+
+                ShowImportState();
+                if (failure is not null)
+                {
+                    ConfirmDialog.Tell(Layer, "Couldn't look for a gamelist", failure);
+                    return;
+                }
+
+                ChooseGamelist(found);
+            });
+        });
+    }
+
+    private void ChooseGamelist(IReadOnlyList<string> found)
+    {
+        if (found.Count == 0)
+        {
+            PickGamelist();
+            return;
+        }
+
+        if (found.Count == 1)
+        {
+            ReadGamelist(found[0]);
+            return;
+        }
+
+        var choices = found.Select(f => new Choice(f, f)).ToList();
+        choices.Add(new Choice(OtherGamelist, "Choose a file…", "A gamelist.xml somewhere else"));
+        Layer.Push(new ChoicePanel("Which gamelist?", $"Found for {SystemName()}", choices, found[0], choice =>
+        {
+            if (choice.Id == OtherGamelist)
+            {
+                PickGamelist();
+            }
+            else
+            {
+                ReadGamelist(choice.Id);
+            }
+        }));
+    }
+
+    private void PickGamelist()
+    {
+        var system = _settings.Services.Config.FindSystem(_systemId);
+        FilePicker.Open(_settings.Ui, new PickerRequest(
+            $"A gamelist for {SystemName()}",
+            PickerMode.File,
+            PickerUses.Gamelist,
+            ReadGamelist,
+            Filter: FileFilter.Gamelists,
+            Start: system is { RomDirs.Count: > 0 } ? system.RomDirs[0] : null,
+            Subtitle: "ES-DE's gamelist.xml: its games are found in this system's ROM folders"));
+    }
+
+    /// <summary>Reads the gamelist and works out what it would add, off the main thread, then asks.</summary>
+    private void ReadGamelist(string file)
+    {
+        var service = _settings.Jobs.Gamelists;
+        var systemId = _systemId;
+        ShowStatus("Reading the gamelist…", UiStyle.Dim);
+        _ = Task.Run(async () =>
+        {
+            GamelistPlan? plan = null;
+            string? failure = null;
+            try
+            {
+                plan = await service.PlanAsync(systemId, file, CancellationToken.None).ConfigureAwait(false);
+                failure = plan.Error;
+            }
+            catch (Exception e)
+            {
+                failure = e.Message;
+            }
+
+            _settings.Ui.Queue.Post(() =>
+            {
+                if (!IsInstanceValid(this) || Layer is null)
+                {
+                    return;
+                }
+
+                ShowStatus(null);
+                if (failure is not null || plan is null)
+                {
+                    ConfirmDialog.Tell(Layer, "Couldn't read the gamelist", failure ?? file);
+                    return;
+                }
+
+                AskToImport(plan);
+            });
+        });
+    }
+
+    private void AskToImport(GamelistPlan plan)
+    {
+        var name = SystemName();
+        if (plan.InLibrary == 0)
+        {
+            ConfirmDialog.Tell(Layer, "Nothing to import", plan.Entries == 0
+                ? $"{plan.File}\n\nThe gamelist has no games."
+                : $"{plan.File}\n\nNone of its {Games(plan.Entries)} is in the library. Check {name}'s ROM folders and rescan it, then import again.");
+            return;
+        }
+
+        if (plan.Games.Count == 0)
+        {
+            ConfirmDialog.Tell(Layer, "Nothing new to import",
+                $"{plan.File}\n\nEvery game it lists already has what it offers: a title and metadata (scraped or yours), and each kind of image and video.");
+            return;
+        }
+
+        var text = new StringBuilder();
+        text.Append(plan.File).Append("\n\n");
+        text.Append(plan.InLibrary == plan.Entries
+            ? plan.Entries == 1 ? "Its game is in the library" : string.Create(CultureInfo.InvariantCulture, $"All {plan.Entries:N0} of its games are in the library")
+            : string.Create(CultureInfo.InvariantCulture, $"{plan.InLibrary:N0} of its {Games(plan.Entries)} are in the library"));
+        text.Append(plan.NotInLibrary == 0
+            ? ". "
+            : string.Create(CultureInfo.InvariantCulture, $"; {plan.NotInLibrary:N0} aren't (not scanned yet, or in another folder). "));
+        if (plan.WithMetadata > 0)
+        {
+            text.Append(CultureInfo.InvariantCulture, $"{Games(plan.WithMetadata)} get titles and metadata where they have none, saved as your own edits: scraping won't replace them, and Clear metadata removes them.");
+        }
+
+        if (plan.Files > 0)
+        {
+            var kinds = plan.FilesByKind();
+            var parts = new List<string>();
+            foreach (var (kind, label) in (ReadOnlySpan<(string, string)>)[(MediaKinds.Cover, "covers"), (MediaKinds.Screenshot, "screenshots"), (MediaKinds.Logo, "logos"), (MediaKinds.Video, "videos")])
+            {
+                if (kinds.TryGetValue(kind, out var count))
+                {
+                    parts.Add(string.Create(CultureInfo.InvariantCulture, $"{count:N0} {label}"));
+                }
+            }
+
+            text.Append("\n\nUp to ").Append(parts.Count == 1 ? parts[0] : string.Join(", ", parts[..^1]) + " and " + parts[^1]);
+            text.Append(" are copied into the launcher's media folder. The gamelist's own files aren't moved or changed, and images a game already has are kept.");
+        }
+
+        if (plan.Favourites > 0 || plan.Matches > 0)
+        {
+            text.Append("\n\n");
+            if (plan.Favourites > 0)
+            {
+                text.Append(CultureInfo.InvariantCulture, $"{plan.Favourites:N0} become favourites. ");
+            }
+
+            if (plan.Matches > 0)
+            {
+                text.Append(CultureInfo.InvariantCulture, $"{Games(plan.Matches)} get their ScreenScraper match, so a scrape fetches them by id.");
+            }
+        }
+
+        if (plan.Hidden > 0)
+        {
+            text.Append(CultureInfo.InvariantCulture, $"\n\n{Games(plan.Hidden)} it hides stay shown: the launcher can't hide games yet.");
+        }
+
+        text.Append("\n\nIt runs in the background: you can keep browsing, and the games update as it goes.");
+        ConfirmDialog.Ask(Layer, $"Import {Games(plan.Games.Count)}?", text.ToString(), "Import", "Not now", yes =>
+        {
+            if (yes && !_settings.Jobs.ImportGamelist(plan))
+            {
+                ShowStatus("A gamelist is already being imported.", UiStyle.Warning, 4);
+            }
+        });
+    }
+
+    private string SystemName() => _settings.Services.Config.FindSystem(_systemId)?.Name ?? _systemId;
 }

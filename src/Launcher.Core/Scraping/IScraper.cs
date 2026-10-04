@@ -37,6 +37,9 @@ public static class MatchMethods
     public const string Hash = "hash";
     public const string Search = "search";
     public const string Manual = "manual";
+
+    /// <summary>ScreenScraper's id from an imported ES-DE gamelist (2026-10-04): fetched by id, as any stored match is.</summary>
+    public const string Gamelist = "gamelist";
 }
 
 /// <summary>Everything a provider may use to find a game.</summary>

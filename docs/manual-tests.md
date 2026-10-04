@@ -478,3 +478,19 @@ A release carries ScreenScraper's developer credentials (ARCHITECTURE.md A5, "Se
 ### Send back
 
 - Any step that differed, especially a ScreenScraper refusal at step 4 (the message it gave), or a credential found at step 7 (which file).
+
+## Importing an ES-DE gamelist
+
+An import copies a whole system's media off the NAS (the NES folder has 4.7 GB of videos), so it's yours to run. Use a user folder of its own, so your library isn't changed: `C:\OdysseyGamelist\systems.toml` with `[systems.nes]` and `rom_dirs = ['S:/Nintendo Entertainment System']`, then `godot --path godot -- --user-dir=C:\OdysseyGamelist` (or the export, with `-- --user-dir=...`).
+
+1. **Find it.** Once NES is scanned, X on it, then down to Import > "Import gamelist.xml". The question names `S:\Nintendo Entertainment System\gamelist.xml` and says all 1,196 of its games are in the library, how many get metadata, about 1,150 of each kind of file, and the ScreenScraper matches.
+2. **Import.** Choose Import, then B back to the grid. The progress card counts files; titles change at once (Adventure Island 2 becomes Adventure Island II), and covers appear in the grid as the import goes. It should take about a quarter of an hour.
+3. **Cancel and finish.** Cancel the card part way (its Cancel), then import again: the question now offers only what's left, and the import finishes it.
+4. **A game.** Y on 720 Degrees: its description, release date (1 November 1989), developer, publisher, genre and players, "Metadata: Yours", and cards for its video (it plays), front cover, screenshot and logo. X > Metadata shows the values as yours.
+5. **Nothing moved.** In Explorer, `S:\Nintendo Entertainment System\images` and `videos` still have their files (the share is read-only anyway); the copies are in `C:\OdysseyGamelist\media\nes\{cover,screenshot,logo,video}\`.
+6. **Again.** Import once more: "Nothing new to import".
+
+### Send back
+
+- The question's numbers at step 1, and the card's outcome at step 2, with how long it took.
+- A game whose title or art came out wrong, with its `<game>` entry.

@@ -8,6 +8,7 @@ using Godot;
 using Launcher.App.Boot;
 using Launcher.App.Ui;
 using Launcher.Core.Diagnostics;
+using Launcher.Core.Importing;
 using Launcher.Core.Library;
 using Launcher.Core.Platform;
 using Launcher.Core.Scraping;
@@ -29,12 +30,16 @@ public sealed class LibraryJobs : IDisposable
     /// <summary>One game's scrape (M7), which can run beside a batch: the service puts single games first.</summary>
     public const string GameScrapeKind = "scrape-game";
 
+    /// <summary>A system's gamelist.xml being imported (2026-10-04).</summary>
+    public const string ImportKind = "import";
+
     private readonly AppServices _services;
     private readonly MainThreadQueue _queue;
     private readonly CancellationTokenSource _shutdown = new();
     private readonly object _scraperLock = new();
     private ScrapeService? _scraper;
     private bool _scraperStale;
+    private GamelistImportService? _gamelists;
 
     public LibraryJobs(AppServices services, MainThreadQueue queue)
     {
@@ -52,6 +57,9 @@ public sealed class LibraryJobs : IDisposable
 
     /// <summary>A batch is running (scrape all missing, or a system).</summary>
     public bool Scraping => Jobs.Running(ScrapeKind) is not null;
+
+    /// <summary>A gamelist is being imported.</summary>
+    public bool Importing => Jobs.Running(ImportKind) is not null;
 
     /// <summary>Main thread: these games' scraped data or user edits changed (a scrape, a clear), for the grid's titles.</summary>
     public event Action<IReadOnlyList<GameKey>>? GamesUpdated;
@@ -129,6 +137,63 @@ public sealed class LibraryJobs : IDisposable
             }
         }, cancel.Token);
         return true;
+    }
+
+    // ---- Gamelist import ------------------------------------------------------------------------------
+
+    /// <summary>
+    /// The gamelist import (2026-10-04), made on first use. Main thread only: it takes the app's derivative service,
+    /// which is made on first use too.
+    /// </summary>
+    public GamelistImportService Gamelists => _gamelists ??= new GamelistImportService(_services.Library, _services.Paths, _services.Derivatives);
+
+    /// <summary>
+    /// Imports a planned gamelist in the background: titles, metadata, favourites and matches at once (the grid reads
+    /// its titles again), then the media copied one file at a time, on the progress card, cancellable. Main thread;
+    /// false if an import is running.
+    /// </summary>
+    public bool ImportGamelist(GamelistPlan plan)
+    {
+        if (Importing)
+        {
+            return false;
+        }
+
+        var service = Gamelists;
+        var cancel = CancellationTokenSource.CreateLinkedTokenSource(_shutdown.Token);
+        var job = Jobs.Start(ImportKind, $"Importing {SystemName(plan.SystemId)}", "files", cancel.Cancel);
+        var progress = new JobProgressSink(job);
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                var result = await service.ImportAsync(plan, progress, keys => _queue.Post(() => GamesUpdated?.Invoke(keys)), cancel.Token).ConfigureAwait(false);
+                GD.Print(string.Create(CultureInfo.InvariantCulture,
+                    $"Gamelist: {plan.SystemId} from {plan.File}: {result.MetadataGames} game(s) given metadata, {result.Favourites} favourite(s), {result.Matches} match(es), {result.CopiedTotal} file(s) copied, {result.AlreadyThere} already there, {result.Missing} missing, {result.Unreadable} unreadable."));
+                _queue.Post(() => Jobs.End(job, JobState.Finished, ImportOutcome(result)));
+            }
+            catch (OperationCanceledException)
+            {
+                _queue.Post(() => Jobs.End(job, JobState.Cancelled, "Import stopped. What was copied stays: import again to finish."));
+            }
+            catch (Exception e)
+            {
+                _queue.Post(() => Jobs.End(job, JobState.Failed, $"The import failed: {e.Message}"));
+            }
+            finally
+            {
+                cancel.Dispose();
+            }
+        }, cancel.Token);
+        return true;
+    }
+
+    private static string ImportOutcome(GamelistImportResult result)
+    {
+        var text = string.Create(CultureInfo.InvariantCulture,
+            $"Done: {result.MetadataGames:N0} game{(result.MetadataGames == 1 ? string.Empty : "s")} given metadata, {result.CopiedTotal:N0} file{(result.CopiedTotal == 1 ? string.Empty : "s")} copied");
+        var skipped = result.Missing + result.Unreadable;
+        return skipped == 0 ? text + "." : string.Create(CultureInfo.InvariantCulture, $"{text}; {skipped:N0} missing or unreadable.");
     }
 
     // ---- Scraping ------------------------------------------------------------------------------------

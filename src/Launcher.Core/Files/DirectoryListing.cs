@@ -15,6 +15,9 @@ public sealed record FileFilter(string Name, IReadOnlyList<string> Extensions)
     /// <summary>What <c>ModelImportService</c> takes: a .glb, a zip of an OBJ model, or an .obj.</summary>
     public static FileFilter ModelImports { get; } = new("3D models", [".glb", ".zip", ".obj"]);
 
+    /// <summary>An ES-DE gamelist, for importing a system's metadata and media (2026-10-04).</summary>
+    public static FileFilter Gamelists { get; } = new("Gamelists", [".xml"]);
+
     /// <summary>Emulators: .exe on Windows (A5 rejects .bat and .cmd); any file elsewhere.</summary>
     public static FileFilter Executables { get; } = new("Programs", OperatingSystem.IsWindows() ? [".exe"] : []);
 

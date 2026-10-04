@@ -12,6 +12,7 @@ public static class PickerUses
     public const string Emulator = "emulator";
     public const string Image = "image";
     public const string Model = "model";
+    public const string Gamelist = "gamelist";
 }
 
 /// <summary>

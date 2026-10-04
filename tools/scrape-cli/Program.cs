@@ -7,6 +7,7 @@
 using System.Globalization;
 using Launcher.Core.Config;
 using Launcher.Core.Diagnostics;
+using Launcher.Core.Importing;
 using Launcher.Core.Library;
 using Launcher.Core.Media;
 using Launcher.Core.Models;
@@ -41,6 +42,13 @@ const string Usage = """
       inspect-model [--kind=game|template|system] <file>
                                   Checks a model against the spec and budgets without importing it
       models-log                  Prints the model log (rejected and over-budget models, imports)
+
+    Gamelists (2026-10-04; no network):
+      import-gamelist [--from=<file>] <system>
+                                  Imports an ES-DE gamelist.xml (the system's own, found in its ROM folders or
+                                  ~/ES-DE/gamelists/<system>/, or --from): titles and metadata as your own edits,
+                                  favourites and ScreenScraper matches, filling only what's missing; its thumbnails,
+                                  images, marquees and videos copied in as covers, screenshots, logos and videos
 
     <rel path> is the ROM's path under its system's ROM folder, as on disk: megadrive/Sonic the Hedgehog 3 (Europe).md
     Credentials: ConfigDir/secrets.toml ([screenscraper] dev_id, dev_password, username, password;
@@ -220,6 +228,8 @@ try
                 return prepared.Processed?.Report.Accepted == true ? 0 : 1;
             }
 
+        case "import-gamelist":
+            return await ImportGamelist(Require(argument), from);
         case "models-log":
             {
                 var lines = ModelLog.ReadRecent(paths.DataDir, 400);
@@ -345,6 +355,52 @@ static void PrintModel(ModelReport? report, bool converted, IReadOnlyList<string
     }
 }
 
+async Task<int> ImportGamelist(string systemId, string? file)
+{
+    await EnsureScanned(systemId);
+    var gamelists = new GamelistImportService(library, paths, service.Derivatives);
+    if (file is null)
+    {
+        var found = await gamelists.FindAsync(systemId, stop.Token);
+        if (found.Count == 0)
+        {
+            Console.Error.WriteLine($"No gamelist.xml for {systemId}: give one with --from=<file>.");
+            return 1;
+        }
+
+        file = found[0];
+        foreach (var other in found.Skip(1))
+        {
+            Console.WriteLine($"  Also found {other} (use --from to import it instead).");
+        }
+    }
+
+    var plan = await gamelists.PlanAsync(systemId, file, stop.Token);
+    if (plan.Error is not null)
+    {
+        Console.Error.WriteLine(plan.Error);
+        return 1;
+    }
+
+    var kinds = string.Join(", ", plan.FilesByKind().Select(k => $"{k.Value} {k.Key}"));
+    Console.WriteLine($"{file}: {plan.Entries} game(s), {plan.InLibrary} in the library, {plan.NotInLibrary} not; {plan.Hidden} hidden (not imported).");
+    Console.WriteLine($"  To import: metadata for {plan.WithMetadata}, {plan.Favourites} favourite(s), {plan.Matches} ScreenScraper match(es), {plan.Files} file(s){(kinds.Length > 0 ? $" ({kinds})" : string.Empty)}.");
+    var lastReported = -1;
+    var progress = new InlineProgress<JobProgress>(p =>
+    {
+        var step = p.Total == 0 ? 0 : p.Done * 20 / p.Total;
+        if (step != lastReported)
+        {
+            lastReported = step;
+            Console.WriteLine($"  [{p.Done}/{p.Total}] files");
+        }
+    });
+    var result = await gamelists.ImportAsync(plan, progress, null, stop.Token);
+    var copied = string.Join(", ", result.Copied.Select(k => $"{k.Value} {k.Key}"));
+    Console.WriteLine($"Imported: metadata for {result.MetadataGames}, {result.Favourites} favourite(s), {result.Matches} match(es); copied {result.CopiedTotal} file(s){(copied.Length > 0 ? $" ({copied})" : string.Empty)}, {result.AlreadyThere} already there, {result.Missing} missing, {result.Unreadable} unreadable.");
+    return 0;
+}
+
 int Report(ScrapeBatchResult result)
 {
     if (result.BatchId == 0 && result.Total == 0)
@@ -460,4 +516,10 @@ internal sealed class ConsoleLog : ILog
             Console.WriteLine($"  {message}");
         }
     }
+}
+
+/// <summary>Progress reported on the caller's thread (Progress&lt;T&gt; would post to the thread pool, out of order).</summary>
+internal sealed class InlineProgress<T>(Action<T> report) : IProgress<T>
+{
+    public void Report(T value) => report(value);
 }
