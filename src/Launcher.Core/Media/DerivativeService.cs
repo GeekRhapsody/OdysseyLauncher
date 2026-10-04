@@ -52,6 +52,13 @@ public sealed class DerivativeService : IDisposable
     /// <summary>False when this platform has no image decoder.</summary>
     public bool CanBake => _baker is not null;
 
+    /// <summary>
+    /// POC (direct source images): the games grid reads the library's images themselves, so no library image is baked
+    /// (<see cref="BakeAsync"/> succeeds at once and <see cref="BakeMissingAsync"/> does nothing, pruning nothing either).
+    /// Theme logos (<see cref="BakeFileAsync"/>) are still baked.
+    /// </summary>
+    public bool SkipLibraryBakes { get; init; }
+
     /// <summary>The derivative's path for a media row (its stored path, <c>media/...</c>).</summary>
     public string PathFor(string relPath, long sizeBytes, long mtimeMs) =>
         TextureDerivatives.PathFor(_paths.CacheDir, relPath, sizeBytes, mtimeMs);
@@ -59,6 +66,11 @@ public sealed class DerivativeService : IDisposable
     /// <summary>Bakes one derivative (unless it exists). False when it couldn't be (the reason is logged).</summary>
     public Task<bool> BakeAsync(string relPath, long sizeBytes, long mtimeMs, CancellationToken cancellationToken)
     {
+        if (SkipLibraryBakes)
+        {
+            return Task.FromResult(true);
+        }
+
         if (_baker is null)
         {
             return Task.FromResult(false);
@@ -157,6 +169,11 @@ public sealed class DerivativeService : IDisposable
     public async Task<BakeSummary> BakeMissingAsync(IProgress<JobProgress>? progress, CancellationToken cancellationToken)
     {
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+        if (SkipLibraryBakes)
+        {
+            return new BakeSummary(0, 0, 0, 0, 0, stopwatch.Elapsed);
+        }
+
         var images = await _library.ReadAsync(c => ScrapeStore.MediaOfKinds(c, MediaKinds.Images), cancellationToken).ConfigureAwait(false);
         var wanted = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var missing = new List<(string Path, long Size, long Mtime)>();

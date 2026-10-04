@@ -142,7 +142,8 @@ public partial class Main : Node3D
         // since nearly every theme's templates have a cover (A7); a theme's other slots get theirs once its models are in.
         if (!_options.NoTextures)
         {
-            _streamer = new TextureStreamer(CoverSlots, TextureStreamer.DefaultWorkers);
+            // POC: the games grid reads the scraped images themselves, not baked BC7 derivatives.
+            _streamer = new TextureStreamer(CoverSlots, TextureStreamer.DefaultWorkers, directSources: true);
             _streamer.CreateBootArray();
 
             // The first layer update can take tens of milliseconds (M1), so it's done now, while the DB opens, rather

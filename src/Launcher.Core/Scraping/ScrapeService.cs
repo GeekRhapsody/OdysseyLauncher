@@ -183,6 +183,9 @@ public sealed class ScrapeServiceOptions
     /// <summary>Null: no derivatives are baked (a platform without a decoder).</summary>
     public IImageDecoder? ImageDecoder { get; init; }
 
+    /// <summary>POC (direct source images): scraped images get no derivative (<see cref="DerivativeService.SkipLibraryBakes"/>).</summary>
+    public bool SkipDerivatives { get; init; }
+
     /// <summary>Null builds the three real providers.</summary>
     public IReadOnlyList<IScraper>? Scrapers { get; init; }
 
@@ -249,7 +252,7 @@ public sealed class ScrapeService : IDisposable
         _clock = options.Clock;
         _redactor = new Redactor(options.Accounts.Values);
         _log = new RedactingLog(options.Log, _redactor);
-        Derivatives = new DerivativeService(_library, options.Paths, options.ImageDecoder, _log);
+        Derivatives = new DerivativeService(_library, options.Paths, options.ImageDecoder, _log) { SkipLibraryBakes = options.SkipDerivatives };
         if (options.Scrapers is { } scrapers)
         {
             _scrapers = scrapers.ToDictionary(s => s.Id, StringComparer.Ordinal);

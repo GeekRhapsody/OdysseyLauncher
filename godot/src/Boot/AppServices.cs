@@ -80,8 +80,12 @@ public sealed class AppServices : IDisposable
     /// <summary>
     /// Bakes cover derivatives on its own below-normal thread (M4). Built on first use, after <c>interactive</c>, so
     /// its thread costs nothing at boot. Null decoder on platforms without one: nothing is baked there.
+    /// POC (direct source images): the games grid reads the library's images themselves, so only theme logos are baked.
     /// </summary>
-    public DerivativeService Derivatives => _derivatives ??= new DerivativeService(Library, Paths, PlatformServices.CreateImageDecoder());
+    public DerivativeService Derivatives => _derivatives ??= new DerivativeService(Library, Paths, PlatformServices.CreateImageDecoder())
+    {
+        SkipLibraryBakes = true,
+    };
 
     private DerivativeService? _derivatives;
 

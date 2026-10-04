@@ -547,6 +547,7 @@ public sealed class LibraryJobs : IDisposable
             Accounts = accounts.Accounts,
             Log = GodotLog.Instance,
             ImageDecoder = PlatformServices.CreateImageDecoder(),
+            SkipDerivatives = true,
             SaveResponses = _services.SaveResponses,
         });
     }

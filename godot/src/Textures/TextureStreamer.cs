@@ -36,13 +36,22 @@ public interface ITextureSink
 /// derivative's path is known, and one derivative serves any slot.</item>
 /// <item>The arrays are created up front (never while browsing), and the main thread only updates their layers,
 /// within a byte budget and a cap per frame.</item>
+/// <item>POC (direct source images): a streamer made with <c>directSources</c> reads the media folder's images
+/// themselves (PNG, JPEG, WebP), decodes them with Godot, squeezes them to the layer's square with mips, and keeps
+/// RGBA8 arrays (4× the VRAM of BC7). Workers allocate per image then, and decodes take tens of milliseconds.</item>
 /// </list>
 /// </summary>
 public sealed class TextureStreamer : IDisposable
 {
     public const int LargeSize = TextureDerivatives.Size;
     public const int SmallSize = TextureDerivatives.Size / 2;
-    public const Image.Format LayerFormat = Image.Format.BptcRgba;
+    public const Image.Format DerivativeFormat = Image.Format.BptcRgba;
+
+    /// <summary>POC: the layers' format when the sources are read directly (no runtime BC7 encoder in exports).</summary>
+    public const Image.Format DirectFormat = Image.Format.Rgba8;
+
+    /// <summary>POC: the largest source image a worker reads.</summary>
+    private const long MaxSourceBytes = 64L * 1024 * 1024;
 
     /// <summary>A3: 4 MB per frame.</summary>
     public const long DefaultBudgetBytes = 4L * 1024 * 1024;
@@ -59,9 +68,11 @@ public sealed class TextureStreamer : IDisposable
     /// <summary>Workers prefer covers: another slot's request counts as this many rows further away.</summary>
     private const float SmallSlotPenaltyRows = 0.35f;
 
-    private static readonly long LargeLayerBytes = ChainBytes(LargeSize);
-    private static readonly long SmallLayerBytes = ChainBytes(SmallSize);
+    private static readonly long Bc7SmallChainBytes = ChainBytes(SmallSize, DerivativeFormat);
 
+    private readonly bool _direct;
+    private readonly long _largeLayerBytes;
+    private readonly long _smallLayerBytes;
     private readonly object _gate = new();
     private string _cacheDir = string.Empty;
     private string _mediaDir = string.Empty;
@@ -94,9 +105,14 @@ public sealed class TextureStreamer : IDisposable
     private readonly double[] _uploadMs = new double[StatsCapacity];
 
     /// <summary>Starts the workers. <see cref="SetFolders"/> must be called before the first request.</summary>
-    public TextureStreamer(int cells, int workers)
+    /// <param name="directSources">POC: read the media folder's images instead of their baked derivatives.</param>
+    public TextureStreamer(int cells, int workers, bool directSources = false)
     {
         Cells = cells;
+        _direct = directSources;
+        Format = directSources ? DirectFormat : DerivativeFormat;
+        _largeLayerBytes = ChainBytes(LargeSize, Format);
+        _smallLayerBytes = ChainBytes(SmallSize, Format);
         var units = cells * Channels;
         _state = new int[units];
         _generation = new int[units];
@@ -133,6 +149,9 @@ public sealed class TextureStreamer : IDisposable
 
     /// <summary>Pool cells.</summary>
     public int Cells { get; }
+
+    /// <summary>The layers' format: BC7 from derivatives, or RGBA8 from the sources themselves (POC).</summary>
+    public Image.Format Format { get; }
 
     /// <summary>The slot channels requests are for.</summary>
     public SlotLayout Layout { get; private set; } = SlotLayout.Empty;
@@ -177,17 +196,17 @@ public sealed class TextureStreamer : IDisposable
     public ReadOnlySpan<double> UploadSamples => _uploadMs.AsSpan(0, Math.Min(Uploads, StatsCapacity));
 
     /// <summary>
-    /// A blank array of <paramref name="layers"/> BC7 layers with mips. Creation can stall the main thread for tens of
-    /// milliseconds (M1), so it's done at boot, or on a worker thread, never while browsing.
+    /// A blank array of <paramref name="layers"/> layers with mips, in the streamer's format. Creation can stall the
+    /// main thread for tens of milliseconds (M1), so it's done at boot, or on a worker thread, never while browsing.
     /// </summary>
-    public static Texture2DArray? CreateArray(int size, int layers)
+    public Texture2DArray? CreateArray(int size, int layers)
     {
         if (layers <= 0)
         {
             return null;
         }
 
-        using var blank = Image.CreateEmpty(size, size, true, LayerFormat);
+        using var blank = Image.CreateEmpty(size, size, true, Format);
         var images = new Godot.Collections.Array<Image>();
         for (var i = 0; i < layers; i++)
         {
@@ -219,11 +238,11 @@ public sealed class TextureStreamer : IDisposable
         return (large, small);
     }
 
-    private static Texture2DArray? Warm(Texture2DArray? array, int size)
+    private Texture2DArray? Warm(Texture2DArray? array, int size)
     {
         if (array is not null)
         {
-            using var blank = Image.CreateEmpty(size, size, true, LayerFormat);
+            using var blank = Image.CreateEmpty(size, size, true, Format);
             array.UpdateLayer(blank, 0);
         }
 
@@ -268,7 +287,7 @@ public sealed class TextureStreamer : IDisposable
         {
             if (array is not null)
             {
-                using var blank = Image.CreateEmpty(size, size, true, LayerFormat);
+                using var blank = Image.CreateEmpty(size, size, true, Format);
                 array.UpdateLayer(blank, 0);
             }
         }
@@ -381,7 +400,7 @@ public sealed class TextureStreamer : IDisposable
             }
 
             var large = _large[unit];
-            var bytes = large ? LargeLayerBytes : SmallLayerBytes;
+            var bytes = large ? _largeLayerBytes : _smallLayerBytes;
             if (spent + bytes > budgetBytes && uploads > 0)
             {
                 FramesAtBudget++;
@@ -594,7 +613,12 @@ public sealed class TextureStreamer : IDisposable
                 // From the indexed size and time when the library has them (one string, no file access); otherwise from
                 // the source file, once per game.
                 string? path;
-                if (size > 0)
+                if (_direct)
+                {
+                    // POC: the source image itself, wherever the media folder is.
+                    path = MediaFolder.FullPath(mediaDir, relPath);
+                }
+                else if (size > 0)
                 {
                     path = TextureDerivatives.PathFor(cacheDir, relPath, size, mtime);
                 }
@@ -606,13 +630,16 @@ public sealed class TextureStreamer : IDisposable
 
                 if (path is not null)
                 {
-                    image = Decode(path, ref buffer, large);
+                    image = _direct ? DecodeSource(path, ref buffer, large) : Decode(path, ref buffer, large);
                     failed = image is null && File.Exists(path);
                 }
 
                 if (image is null && Interlocked.Increment(ref _reportedMissing) == 1)
                 {
-                    GD.Print($"Textures: no usable derivative for {relPath} ({(path is null ? "the source is missing" : failed ? "it didn't decode as a 512² BC7 DDS with mips" : "not baked yet")}: {path}); its slot falls back down its chain. Further misses aren't logged.");
+                    var why = _direct
+                        ? failed ? "it didn't decode as a PNG, JPEG or WebP" : "the source is missing"
+                        : path is null ? "the source is missing" : failed ? "it didn't decode as a 512² BC7 DDS with mips" : "not baked yet";
+                    GD.Print($"Textures: no usable {(_direct ? "source image" : "derivative")} for {relPath} ({why}: {path}); its slot falls back down its chain. Further misses aren't logged.");
                 }
             }
             catch (Exception e) when (e is IOException or UnauthorizedAccessException)
@@ -701,7 +728,7 @@ public sealed class TextureStreamer : IDisposable
         if (large)
         {
             if (image.LoadDdsFromBuffer(data) != Error.Ok
-                || image.GetFormat() != LayerFormat
+                || image.GetFormat() != DerivativeFormat
                 || image.GetWidth() != LargeSize
                 || image.GetHeight() != LargeSize
                 || !image.HasMipmaps())
@@ -719,8 +746,91 @@ public sealed class TextureStreamer : IDisposable
             return null;
         }
 
-        image.SetData(SmallSize, SmallSize, true, LayerFormat, chain);
+        image.SetData(SmallSize, SmallSize, true, DerivativeFormat, chain);
         return image;
+    }
+
+    /// <summary>
+    /// POC: reads a source image (PNG, JPEG or WebP, told apart by its first bytes) into the worker's buffer, decodes
+    /// it into a pooled image, squeezes the whole image to the layer's square (as a derivative does, so the shader's crop
+    /// by the media's aspect still applies) and builds its mips. Null if there's no such file or it doesn't decode.
+    /// </summary>
+    private Image? DecodeSource(string path, ref byte[] buffer, bool large)
+    {
+        if (!TryReadFile(path, ref buffer, MaxSourceBytes, out var read))
+        {
+            return null;
+        }
+
+        var data = buffer.AsSpan(0, read);
+        var image = TakeImage();
+        var error = data switch
+        {
+            [0x89, (byte)'P', (byte)'N', (byte)'G', ..] => image.LoadPngFromBuffer(data),
+            [0xFF, 0xD8, 0xFF, ..] => image.LoadJpgFromBuffer(data),
+            [(byte)'R', (byte)'I', (byte)'F', (byte)'F', _, _, _, _, (byte)'W', (byte)'E', (byte)'B', (byte)'P', ..] => image.LoadWebpFromBuffer(data),
+            _ => Error.FileUnrecognized,
+        };
+
+        if (error != Error.Ok || image.IsEmpty())
+        {
+            Recycle(image);
+            return null;
+        }
+
+        if (image.GetFormat() != DirectFormat)
+        {
+            image.Convert(DirectFormat);
+        }
+
+        var size = large ? LargeSize : SmallSize;
+        image.Resize(size, size, Image.Interpolation.Lanczos);
+        image.GenerateMipmaps();
+        return image;
+    }
+
+    /// <summary>Reads a whole file into the worker's buffer (growing it if need be). False if it's missing or too big.</summary>
+    private static bool TryReadFile(string path, ref byte[] buffer, long maxBytes, out int read)
+    {
+        read = 0;
+        SafeFileHandle handle;
+        try
+        {
+            handle = File.OpenHandle(path, FileMode.Open, System.IO.FileAccess.Read, FileShare.Read, FileOptions.SequentialScan);
+        }
+        catch (FileNotFoundException)
+        {
+            return false;
+        }
+        catch (DirectoryNotFoundException)
+        {
+            return false;
+        }
+
+        using var file = handle;
+        var length = RandomAccess.GetLength(file);
+        if (length > maxBytes)
+        {
+            return false;
+        }
+
+        if (length > buffer.Length)
+        {
+            buffer = new byte[length];
+        }
+
+        while (read < length)
+        {
+            var n = RandomAccess.Read(file, buffer.AsSpan(read, (int)length - read), read);
+            if (n == 0)
+            {
+                break;
+            }
+
+            read += n;
+        }
+
+        return true;
     }
 
     /// <summary>
@@ -743,12 +853,12 @@ public sealed class TextureStreamer : IDisposable
         // DXGI_FORMAT_BC7_UNORM (98) or its sRGB twin (99).
         var format = BinaryPrimitives.ReadInt32LittleEndian(dds[HeaderEnd..]);
         var start = HeaderEnd + 20 + LargeSize * LargeSize;
-        if (format is not (98 or 99) || dds.Length < start + SmallLayerBytes)
+        if (format is not (98 or 99) || dds.Length < start + Bc7SmallChainBytes)
         {
             return false;
         }
 
-        chain = dds.Slice(start, (int)SmallLayerBytes);
+        chain = dds.Slice(start, (int)Bc7SmallChainBytes);
         return true;
     }
 
@@ -778,13 +888,15 @@ public sealed class TextureStreamer : IDisposable
         return best;
     }
 
-    /// <summary>A BC7 mip chain's bytes: 16 per 4×4 block, and mips below 4×4 still take one block.</summary>
-    private static long ChainBytes(int size)
+    /// <summary>
+    /// A mip chain's bytes. BC7: 16 per 4×4 block, and mips below 4×4 still take one block. RGBA8 (POC): 4 per pixel.
+    /// </summary>
+    private static long ChainBytes(int size, Image.Format format)
     {
         long total = 0;
         for (var s = size; s >= 1; s /= 2)
         {
-            total += (long)Math.Max(1, s / 4) * Math.Max(1, s / 4) * 16;
+            total += format == DirectFormat ? (long)s * s * 4 : (long)Math.Max(1, s / 4) * Math.Max(1, s / 4) * 16;
         }
 
         return total;
