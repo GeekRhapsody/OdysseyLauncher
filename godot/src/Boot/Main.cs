@@ -68,6 +68,7 @@ public partial class Main : Node3D
     private Navigator? _navigator;
     private LaunchController? _launch;
     private ScrollBench? _scrollBench;
+    private MemoryLog? _memoryLog;
     private UiLayer? _ui;
     private LibraryJobs? _jobs;
     private SettingsController? _settings;
@@ -99,6 +100,12 @@ public partial class Main : Node3D
             $"Launcher.Core {CoreInfo.Version} | Godot {Engine.GetVersionInfo()["string"].AsString()} | " +
             $"{RuntimeInformation.FrameworkDescription} | " +
             $"{RenderingServer.GetCurrentRenderingMethod()}/{RenderingServer.GetCurrentRenderingDriverName()}");
+
+        if (_options.MemoryLogPath is { } memoryLog)
+        {
+            _memoryLog = new MemoryLog(memoryLog);
+            AddChild(_memoryLog);
+        }
 
         var executableDir = Path.GetDirectoryName(OS.GetExecutablePath()) ?? ".";
 
@@ -424,6 +431,7 @@ public partial class Main : Node3D
 
     private void OnInteractive()
     {
+        _memoryLog?.Mark("browsing");
         var ourCode = DebugHooks.Timeline.Between(StartupMarks.AutoloadEnterTree, StartupMarks.Interactive);
         var marks = new System.Text.StringBuilder();
         foreach (var (name, ms) in DebugHooks.Timeline.ToDictionary())
@@ -971,6 +979,13 @@ public partial class Main : Node3D
             _launch.GameModeEntered += navigator.OnGameModeEntered;
             _launch.GameModeLeft += navigator.OnGameModeLeft;
             _launch.LaunchEnded += navigator.FinishLaunch;
+        }
+
+        // After the navigator's handlers, so "running" is sampled once the textures are evicted.
+        if (_memoryLog is { } log)
+        {
+            _launch.GameModeEntered += () => log.Mark("running");
+            _launch.GameModeLeft += () => log.Mark("returned");
         }
 
         return _launch;

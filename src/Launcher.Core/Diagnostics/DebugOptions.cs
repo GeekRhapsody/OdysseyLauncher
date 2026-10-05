@@ -54,6 +54,7 @@ public sealed record DebugOptions
     public const string FakeStatusArg = "--fake-status";
     public const string SaveResponsesArg = "--save-responses";
     public const string LayoutArg = "--layout";
+    public const string MemoryLogArg = "--memory-log";
 
     /// <summary>
     /// What <c>--open</c> can show once the app is interactive (M7), for captures of each settings screen and shared
@@ -82,7 +83,7 @@ public sealed record DebugOptions
         CaptureArg, CaptureFrameArg, BenchArg, BenchFramesArg, BenchScenarioArg, BenchSystemArg, BenchScrollSecondsArg,
         NoTexturesArg, RenderScaleArg, UpscalerArg, UploadCapArg, StartSystemArg, StartIndexArg, NavScriptArg, LaunchArg,
         UserDirArg, QuitAfterLaunchArg, ThemeArg, NoOverlayArg, OpenArg, OpenPathArg,
-        FakeStatusArg, SaveResponsesArg, LayoutArg,
+        FakeStatusArg, SaveResponsesArg, LayoutArg, MemoryLogArg,
     ];
 
     /// <summary>
@@ -201,6 +202,13 @@ public sealed record DebugOptions
     /// </summary>
     public LayoutOverride? Layout { get; init; }
 
+    /// <summary>
+    /// <c>--memory-log=&lt;path.csv&gt;</c>: once a second, append the app's memory (Godot's video, texture and buffer
+    /// memory, the working set, private bytes and the managed heap) and what it's doing (browsing, a game running) to
+    /// this CSV, until it quits; null for none. Spike: direct source images (docs/perf/spike-direct-images.md).
+    /// </summary>
+    public string? MemoryLogPath { get; init; }
+
     public bool CaptureRequested => CapturePath is not null;
 
     public bool BenchRequested => BenchPath is not null;
@@ -271,6 +279,7 @@ public sealed record DebugOptions
                 FakeStatusArg => options with { FakeStatus = ParseFakeStatus(value, errors) },
                 SaveResponsesArg => options with { SaveResponses = true },
                 LayoutArg => options with { Layout = ParseLayout(value, errors) },
+                MemoryLogArg => options with { MemoryLogPath = ParsePath(name, value, ".csv", errors) },
                 _ => options,
             };
         }
@@ -536,6 +545,7 @@ public sealed record DebugOptions
         OpenPathArg => $"{OpenPathArg}=C:/Games",
         FakeStatusArg => $"{FakeStatusArg}=42+/wifi2",
         LayoutArg => $"{LayoutArg}=grid:4x2/list",
+        MemoryLogArg => $"{MemoryLogArg}=C:/bench/memory.csv",
         _ => $"{BenchFramesArg}={DefaultBenchFrames}",
     };
 }
