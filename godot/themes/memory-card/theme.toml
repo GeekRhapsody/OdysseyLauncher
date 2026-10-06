@@ -818,7 +818,6 @@ game_template = "arcade_cabinet"
 
 [systems.pcengine]                       # PC Engine / TurboGrafx-16
 colour = "#9E865C"
-game_template = "clamshell"
 
 [systems.pcenginecd]                       # PC Engine CD / TurboGrafx-CD
 colour = "#9E885C"
