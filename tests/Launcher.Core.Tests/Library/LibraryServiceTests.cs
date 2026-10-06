@@ -545,6 +545,26 @@ public sealed class LibraryServiceTests : IAsyncLifetime
         Assert.Equal("back:media/snes/backcovers/Game.png", command.ExecuteScalar());
     }
 
+    [Fact]
+    public async Task Media_no_game_would_use_isnt_read_so_a_media_folder_shared_with_es_de_costs_only_its_listing()
+    {
+        // Not images at all: had the scan opened them, each would be a warning.
+        Rom("snes/Game.sfc");
+        Art("snes/covers/Game.png", TestImages.Png(10, 10));
+        Art("snes/covers/Not In The Library.png", "not an image"u8.ToArray());
+        Art("snes/screenshots/Sub/Game.png", "not an image"u8.ToArray());
+        Art("3do/covers/A System With No Games.png", "not an image"u8.ToArray());
+
+        var summary = await _library.RescanAsync(null, null, Ct);
+
+        Assert.Empty(summary.Diagnostics);
+        Assert.Equal("media/snes/covers/Game.png", (await Game("snes", "Game")).CoverPath);
+        using var connection = Sqlite.Open(Path.Combine(DataDir, LibraryService.LibraryFileName));
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT COUNT(*) FROM media";
+        Assert.Equal(1L, command.ExecuteScalar());
+    }
+
     // ---- Media for theme slots and per-game models (M6) --------------------------------------------
 
     [Fact]

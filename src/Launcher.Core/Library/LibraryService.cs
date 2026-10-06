@@ -383,8 +383,8 @@ public sealed class LibraryService : ILibrary, IPlayHistory, IDisposable
         await _jobLock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            var cache = await _readers.RunAsync(c => LibraryStore.LoadMedia(c, systemId), cancellationToken).ConfigureAwait(false);
-            var scan = await Task.Run(() => MediaScanner.Scan(MediaDir, systemId, cache, cancellationToken), cancellationToken).ConfigureAwait(false);
+            var (cache, games) = await _readers.RunAsync(c => (LibraryStore.LoadMedia(c, systemId), LibraryStore.LoadGameKeys(c, systemId)), cancellationToken).ConfigureAwait(false);
+            var scan = await Task.Run(() => MediaScanner.Scan(MediaDir, systemId, cache, games, cancellationToken), cancellationToken).ConfigureAwait(false);
             var changed = await _writer.RunAsync(c =>
             {
                 var games = new List<GameKey>();
@@ -498,7 +498,14 @@ public sealed class LibraryService : ILibrary, IPlayHistory, IDisposable
                     results[i] = _scanner.Scan(systems[i], caches?[i].Playlists, cancellationToken);
                     if (indexMedia)
                     {
-                        media[i] = MediaScanner.Scan(mediaDir, systems[i].Id, caches?[i].Media, cancellationToken);
+                        // Only the media of the games just found: their names, so nothing else's header is read.
+                        var keys = new List<string>(results[i].Games.Count);
+                        foreach (var game in results[i].Games)
+                        {
+                            keys.Add(game.PathKey);
+                        }
+
+                        media[i] = MediaScanner.Scan(mediaDir, systems[i].Id, caches?[i].Media, keys, cancellationToken);
                     }
 
                     progress?.Report(new JobProgress("scan", Interlocked.Increment(ref done), count));

@@ -49,6 +49,22 @@ internal static class LibraryStore
         return entries;
     }
 
+    /// <summary>The system's games' <c>path_key</c>s, for <see cref="MediaScanner.Scan"/> to index only their media.</summary>
+    public static List<string> LoadGameKeys(SqliteConnection connection, string systemId)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT path_key FROM games WHERE system_id = $system";
+        command.Parameters.AddWithValue("$system", systemId);
+        using var reader = command.ExecuteReader();
+        var keys = new List<string>();
+        while (reader.Read())
+        {
+            keys.Add(reader.GetString(0));
+        }
+
+        return keys;
+    }
+
     public static List<SystemSummary> GetSystems(SqliteConnection connection, AppConfig config)
     {
         var rows = new Dictionary<string, (int Count, long? ScannedAt)>(StringComparer.Ordinal);

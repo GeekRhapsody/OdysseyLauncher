@@ -36,10 +36,16 @@ public static class MediaScanner
 
     /// <param name="mediaDir">The media folder (<see cref="MediaFolder.Of"/>).</param>
     /// <param name="cache">The previous scan's images, by <see cref="MediaFile.Path"/>.</param>
+    /// <param name="gameKeys">
+    /// The system's games' <c>path_key</c>s: only files one of them would match are indexed, and an image's header is
+    /// read only then, so a media folder shared with ES-DE (media for games the library doesn't have, on a share) costs
+    /// a listing, not a read per file. Empty: nothing is listed. Null: every file is indexed.
+    /// </param>
     public static MediaScan Scan(
         string mediaDir,
         string systemId,
         IReadOnlyDictionary<string, MediaEntry>? cache,
+        IReadOnlyCollection<string>? gameKeys,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(mediaDir);
@@ -47,11 +53,18 @@ public static class MediaScanner
         var files = new List<MediaFile>();
         var diagnostics = new List<Diagnostic>();
         var headersRead = 0;
+        if (gameKeys is { Count: 0 })
+        {
+            return new MediaScan(files, diagnostics, 0);
+        }
+
         var systemDir = System.IO.Path.Combine(mediaDir, systemId);
         if (!Directory.Exists(systemDir))
         {
             return new MediaScan(files, diagnostics, 0);
         }
+
+        var wanted = gameKeys is null ? null : MatchKeys(gameKeys);
 
         foreach (var kind in MediaKinds.All)
         {
@@ -70,8 +83,13 @@ public static class MediaScanner
             foreach (var (relPath, size, mtime) in found)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                var stored = $"{FolderName}/{systemId}/{folder}/{relPath}";
                 var matchKey = PathKeys.ToPathKey(relPath[..^System.IO.Path.GetExtension(relPath).Length]);
+                if (wanted is not null && !wanted.Contains(matchKey))
+                {
+                    continue;
+                }
+
+                var stored = $"{FolderName}/{systemId}/{folder}/{relPath}";
                 if (keys.TryGetValue(matchKey, out var first))
                 {
                     diagnostics.Add(new Diagnostic(Severity.Warning, MediaFolder.FullPath(mediaDir, stored), 0, 0, string.Empty,
@@ -107,6 +125,22 @@ public static class MediaScanner
         }
 
         return new MediaScan(files, diagnostics, headersRead);
+    }
+
+    /// <summary>
+    /// The match keys a file may have to belong to one of the games: each <c>path_key</c>, and each one without the ROM's
+    /// extension (as <c>LibraryStore</c> matches them, and <see cref="MediaStore.NameOf"/> names them).
+    /// </summary>
+    private static HashSet<string> MatchKeys(IReadOnlyCollection<string> gameKeys)
+    {
+        var keys = new HashSet<string>(gameKeys.Count * 2, StringComparer.Ordinal);
+        foreach (var key in gameKeys)
+        {
+            keys.Add(key);
+            keys.Add(MediaStore.NameOf(key));
+        }
+
+        return keys;
     }
 
     private static List<(string RelPath, long Size, long MtimeMs)> List(string root, IReadOnlyList<string> extensions, List<Diagnostic> diagnostics)
