@@ -802,7 +802,6 @@ game_template = "dvd_case"
 
 [systems.pc]                       # IBM PC
 colour = "#745C9E"
-game_template = "dvd_case"
 
 [systems.pc88]                       # PC-8800 Series
 colour = "#9E845C"
