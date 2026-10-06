@@ -433,6 +433,22 @@ This checks what a capture can't: a real stick's feel (its speed, its deadzone, 
 
 - A speed that feels wrong (too fast to aim, or too slow to go round), which way up and down should turn it if it feels backwards, and an item that turns by itself with the stick at rest.
 
+## Inspecting a game with R3
+
+This checks what a capture can't: a real pad's R3 (pressing the right stick), and whether pressing it turns the game too. Use the export on the Deck, with only the pad.
+
+1. **Inspect.** In a system's games, press R3: the focused game moves to the middle of the screen, facing you, and grows until it's nearly as tall as the screen. The rest of the grid stays where it was, behind it. The game isn't faded at the top or bottom of the screen.
+2. **Turn it.** Push the right stick: the big game turns in place, as it does in the grid. Pressing R3 can nudge the stick, so watch whether the game turns a little as you press it.
+3. **Back with R3.** Press R3 again: the game goes back to its place in the grid, swaying.
+4. **Back with B.** Inspect again and press B: the game goes back, and you're still in the system's games. B again goes back to the systems.
+5. **Back by moving.** Inspect again and move the focus with the D-pad: the game goes back as the next one is focused, at its normal size.
+6. **Play.** Inspect a game and press A: it spins up from where it is and the game starts. After it ends, the game is still inspected; R3 or B puts it back.
+
+### Send back
+
+- A game that leaves the screen when inspected without being turned (which system and game), one that's clearly smaller than the screen, and whether the size feels right on the Deck and docked.
+- Whether pressing R3 turns the game noticeably.
+
 ## A system's details
 
 This checks what a capture can't: a real pad on the screen, and how the model looks on the Deck and docked. Use the export on your own library, with the console theme.

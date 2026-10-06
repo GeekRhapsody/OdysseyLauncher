@@ -43,6 +43,9 @@ public enum NavCommand
 
     /// <summary>View (Select) or P: the power menu in the grids (restart, shut down or sleep the system, or quit).</summary>
     Power,
+
+    /// <summary>R3 (pressing the right stick), or Z: the focused game large in the middle of the view, and back, in the games grid.</summary>
+    Inspect,
 }
 
 /// <summary>
@@ -85,7 +88,7 @@ public sealed class NavInput
         new("nav_accept", NavCommand.Accept), new("nav_back", NavCommand.Back), new("nav_secondary", NavCommand.Secondary),
         new("nav_first", NavCommand.First), new("nav_last", NavCommand.Last), new("nav_rescan", NavCommand.Rescan),
         new("nav_next_theme", NavCommand.NextTheme), new("nav_menu", NavCommand.Menu), new("nav_alternate", NavCommand.Alternate),
-        new("nav_power", NavCommand.Power), new("nav_favourite", NavCommand.Favourite),
+        new("nav_power", NavCommand.Power), new("nav_favourite", NavCommand.Favourite), new("nav_inspect", NavCommand.Inspect),
     ];
 
     /// <summary>Godot's GUI navigation, which the settings screens replace with <see cref="NavCommand"/>s.</summary>
@@ -105,7 +108,7 @@ public sealed class NavInput
     /// <summary>
     /// Adds the <c>nav_*</c> actions to the input map, once at boot: arrows, Enter/Space, Escape/Backspace and the
     /// rest on the keyboard; the D-pad, left stick (and its click), A/B/X/Y, shoulders, triggers, View and Menu on a gamepad;
-    /// and the right stick's four directions, which turn the focused item.
+    /// and the right stick's four directions, which turn the focused item, and its click.
     /// </summary>
     public static void RegisterActions()
     {
@@ -128,6 +131,7 @@ public sealed class NavInput
         AddPress(8, [Key.O, Key.Menu], [JoyButton.X]);
         AddPress(9, [Key.P], [JoyButton.Back]);
         AddPress(10, [Key.F], [JoyButton.LeftStick]);
+        AddPress(11, [Key.Z], [JoyButton.RightStick]);
         AddTurn(0, JoyAxis.RightX, -1);
         AddTurn(1, JoyAxis.RightX, 1);
         AddTurn(2, JoyAxis.RightY, -1);

@@ -89,6 +89,12 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
     // from the camera this far at most, so its top or bottom faces the camera but it never turns over.
     private const float TurnSpeed = 3.0f;
     private const float MaxTurnPitch = 1.45f;
+
+    // Inspected (R3), the focused item stands in the middle of the view this share of its height tall (or this share of
+    // its width wide, if that's smaller), and gets there or back in 1 / InspectBlendPerSecond seconds.
+    private const float InspectHeight = 0.9f;
+    private const float InspectWidth = 0.9f;
+    private const float InspectBlendPerSecond = 5.0f;
     private const int Slots = MediaSlots.Count;
 
     // A grid whose rows are set fits them between the overlay's heading and its details, these shares of the view's
@@ -158,6 +164,7 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
     private readonly SceneInstance?[] _cellScene;
     private readonly Node3D?[] _cellNode;
     private readonly bool[] _shaped;
+    private readonly bool[] _inspectedCell;
 
     // Per pool cell and slot: cell × Slots + slot.
     private readonly bool[] _wanted;
@@ -183,7 +190,7 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
     // (the list's), in world units before the grid's scale.
     private float _linePitch = 1;
     private float _crossOffset;
-    private float _rootX;
+    private Vector3 _rootOrigin;
     private float _focusLift = FocusLift;
     private float _curveScroll = float.NaN;
     private float _cellWidth = 1;
@@ -214,6 +221,11 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
     private float _previousPitch;
     private float _swayTime;
     private bool _turned;
+
+    // Whether the focused item is inspected (R3), and how far it and the item it left are towards that pose (0 to 1).
+    private bool _inspecting;
+    private float _inspectBlend;
+    private float _previousInspect;
     private int _fadingSlots;
     private bool _texturesEnabled = true;
 
@@ -262,6 +274,7 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
         _cellScene = new SceneInstance?[maxCells];
         _cellNode = new Node3D?[maxCells];
         _shaped = new bool[maxCells];
+        _inspectedCell = new bool[maxCells];
         _wanted = new bool[maxCells * Slots];
         _textured = new bool[maxCells * Slots];
         _fade = new float[maxCells * Slots];
@@ -782,7 +795,7 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
         _focusCell = _previousCell = -1;
         _focusBlend = _previousBlend = 0;
         _launchTime = -1;
-        ResetTurn();
+        ResetPose();
         VisibleTextured = false;
         _rootDirty = true;
         _curveScroll = _scroll;
@@ -843,7 +856,7 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
         _source = null;
         _count = 0;
         _focusCell = _previousCell = -1;
-        ResetTurn();
+        ResetPose();
     }
 
     /// <summary>
@@ -980,10 +993,47 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
         _turned = true;
     }
 
-    private void ResetTurn()
+    /// <summary>
+    /// Whether the focused item is inspected (<see cref="ToggleInspect"/>), or on its way there; false as soon as the
+    /// focus moves (the next tick lets it go).
+    /// </summary>
+    public bool Inspecting => _inspecting && CellOf(_focus) == _focusCell;
+
+    /// <summary>
+    /// Main thread: inspects the focused item (R3), or ends it. Inspected, it moves to the middle of the view and grows
+    /// until it's nearly as tall as the view (<see cref="InspectHeight"/>), in front of the other items, facing the
+    /// camera; it still turns, plays its clips and launches there. Moving the focus, or binding the grid again, ends it:
+    /// the item eases back as it blends out. Nothing while it launches.
+    /// </summary>
+    public void ToggleInspect()
+    {
+        if (_focusCell < 0 || _launchTime >= 0 || CellOf(_focus) != _focusCell)
+        {
+            return;
+        }
+
+        _inspecting = !_inspecting;
+    }
+
+    /// <summary>Main thread: ends the inspection, the item easing back. False if the item wasn't inspected.</summary>
+    public bool EndInspect()
+    {
+        if (!Inspecting)
+        {
+            return false;
+        }
+
+        _inspecting = false;
+        return true;
+    }
+
+    /// <summary>The focused item goes back to how it rests: square, not turned, not inspected.</summary>
+    private void ResetPose()
     {
         _turnYaw = _turnPitch = _previousYaw = _previousPitch = _swayTime = 0;
         _turned = false;
+        _inspecting = false;
+        _inspectBlend = _previousInspect = 0;
     }
 
     /// <summary>
@@ -1556,6 +1606,7 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
 
         _cellTemplate[cell] = -1;
         _cellModel[cell] = null;
+        _inspectedCell[cell] = false;
         WriteShape(cell);
         _cellItem[cell] = -1;
         for (var slot = 0; slot < Slots; slot++)
@@ -1653,9 +1704,7 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
         }
 
         var rest = RestOf(model);
-        var cover = _source.TryGetMedia(item, MediaSlots.Cover, out var coverMedia) ? coverMedia.Aspect : 0;
-        var spine = _source.TryGetMedia(item, MediaSlots.Spine, out var spineMedia) ? spineMedia.Aspect : 0;
-        var size = BoxShape.Fit(rest, cover, spine, _envelopeWidth, _envelopeHeight);
+        var size = ShapeOf(item, rest);
         _stateImage.SetPixel(ShapeColumn, cell, new Color(
             (size.Width - rest.Width) / 2, size.Height - rest.Height, (size.Depth - rest.Depth) / 2, rest.Height / 2));
         var spineFace = model.SlotAspect(MediaSlots.Spine) > 1 ? size.Width / size.Depth : size.Depth / size.Height;
@@ -1664,9 +1713,51 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
         _stateDirty = true;
     }
 
+    /// <summary>A reshaped box's size for its item's cover and spine (<see cref="BoxShape.Fit"/>), in model units.</summary>
+    private BoxSize ShapeOf(int item, BoxSize rest)
+    {
+        var cover = _source!.TryGetMedia(item, MediaSlots.Cover, out var coverMedia) ? coverMedia.Aspect : 0;
+        var spine = _source.TryGetMedia(item, MediaSlots.Spine, out var spineMedia) ? spineMedia.Aspect : 0;
+        return BoxShape.Fit(rest, cover, spine, _envelopeWidth, _envelopeHeight);
+    }
+
+    /// <summary>
+    /// The cell's model's size as drawn, in model units before the cell's fit: a reshaped box's (<see cref="WriteShape"/>:
+    /// it still stands on its origin, centred), else the model's.
+    /// </summary>
+    private Vector3 DrawnSize(int cell)
+    {
+        if (_cellModel[cell] is not { } model)
+        {
+            return Vector3.One;
+        }
+
+        if (!_shaped[cell] || _source is null || _cellItem[cell] < 0)
+        {
+            return model.Size;
+        }
+
+        var size = ShapeOf(_cellItem[cell], RestOf(model));
+        return new Vector3(size.Width, size.Height, size.Depth);
+    }
+
+    /// <summary>Whether the cell's item is inspected, or still on its way there or back (it then doesn't fade at the edges).</summary>
+    private bool IsInspected(int cell) =>
+        cell >= 0 && ((cell == _focusCell && (_inspecting || _inspectBlend > 0)) || (cell == _previousCell && _previousInspect > 0));
+
+    /// <summary>Writes the cell's data again if whether it's inspected changed.</summary>
+    private void SyncInspected(int cell)
+    {
+        if (cell >= 0 && _inspectedCell[cell] != IsInspected(cell))
+        {
+            WriteCustom(cell);
+        }
+    }
+
     /// <summary>
     /// The cell's per-instance data (item.gdshader): the cell, the plain colour packed into one channel, the idle phase
-    /// (-1: focused), and 1 when a clip animates it (so the shader doesn't bob it too).
+    /// (-1: focused), and 1 when a clip animates it (so the shader doesn't bob it too), plus 2 while it's inspected (so
+    /// it doesn't fade at the view's top and bottom).
     /// </summary>
     private void WriteCustom(int cell)
     {
@@ -1678,7 +1769,8 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
         var phase = cell == _focusCell ? -1 : _cellPhase[cell];
         var plain = _cellPlain[cell];
         var packed = (Math.Clamp(plain.R8, 0, 255) << 16) | (Math.Clamp(plain.G8, 0, 255) << 8) | Math.Clamp(plain.B8, 0, 255);
-        var animated = model.HasClip(ModelClip.Idle) && _cellScene[cell] is not null ? 1 : 0;
+        _inspectedCell[cell] = IsInspected(cell);
+        var animated = (model.HasClip(ModelClip.Idle) && _cellScene[cell] is not null ? 1 : 0) + (_inspectedCell[cell] ? 2 : 0);
 
         // A node's data goes through an instance uniform as a Vector4: Godot converts a Color given to one from sRGB
         // to linear, which would scramble the cell and the packed colour.
@@ -1832,7 +1924,7 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
         var origin = _horizontal
             ? _offset + new Vector3(-_scroll * _linePitch * scale, _focusLine, 0)
             : _offset + new Vector3(_crossOffset, _focusLine + _scroll * _linePitch * scale, 0);
-        _rootX = origin.X;
+        _rootOrigin = origin;
         _root.Transform = new Transform3D(Basis.Identity.Scaled(new Vector3(scale, scale, scale)), origin);
     }
 
@@ -1845,20 +1937,27 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
             {
                 if (_previousCell >= 0)
                 {
-                    SetCellTransform(_previousCell, _cellBase[_previousCell]);
-                    UseBatched(_previousCell);
+                    var replaced = _previousCell;
+                    SetCellTransform(replaced, _cellBase[replaced]);
+                    UseBatched(replaced);
+                    _previousCell = -1;
+                    SyncInspected(replaced);
                 }
 
                 _previousCell = _focusCell;
                 _previousBlend = _focusBlend;
+                _previousInspect = _inspectBlend;
                 OnFocusLeave(_previousCell);
             }
 
-            // The item left takes the player's turn with it, to ease back as it blends out; the new one starts square.
+            // The item left takes the player's turn and inspection with it, to ease back as it blends out; the new one
+            // starts square, where it rests.
             _previousYaw = _turnYaw;
             _previousPitch = _turnPitch;
             _turnYaw = _turnPitch = _swayTime = 0;
             _turned = false;
+            _inspecting = false;
+            _inspectBlend = 0;
             _focusCell = cell;
             _focusBlend = 0;
             _focusTime = 0;
@@ -1883,6 +1982,7 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
         if (_focusCell >= 0)
         {
             _focusBlend = Math.Min(1, _focusBlend + dt * FocusBlendPerSecond);
+            _inspectBlend = Mathf.MoveToward(_inspectBlend, _inspecting ? 1 : 0, dt * InspectBlendPerSecond);
             var launch = 0f;
             if (_launchTime >= 0)
             {
@@ -1890,16 +1990,19 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
                 launch = Math.Min(1, _launchTime / LaunchFallbackSeconds);
             }
 
-            SetCellTransform(_focusCell, FocusTransform(_focusCell, _focusBlend, _swayTime, launch, _turnYaw, _turnPitch));
+            SetCellTransform(_focusCell, FocusTransform(_focusCell, _focusBlend, _swayTime, launch, _turnYaw, _turnPitch, _inspectBlend));
+            SyncInspected(_focusCell);
         }
 
         if (_previousCell >= 0)
         {
             _previousBlend = Math.Max(0, _previousBlend - dt * FocusBlendPerSecond);
-            SetCellTransform(_previousCell, FocusTransform(_previousCell, _previousBlend, 0, 0, _previousYaw, _previousPitch));
+            _previousInspect = Math.Max(0, _previousInspect - dt * InspectBlendPerSecond);
+            SetCellTransform(_previousCell, FocusTransform(_previousCell, _previousBlend, 0, 0, _previousYaw, _previousPitch, _previousInspect));
+            SyncInspected(_previousCell);
 
             // A batched model's clip has blended back to rest by now (ClipBlendSeconds), so it can rejoin its MultiMesh.
-            if (_previousBlend <= 0 && _focusTime >= ClipBlendSeconds)
+            if (_previousBlend <= 0 && _previousInspect <= 0 && _focusTime >= ClipBlendSeconds)
             {
                 UseBatched(_previousCell);
                 _previousCell = -1;
@@ -1911,15 +2014,36 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
     /// The focused item lifts towards the camera and grows a little (always), and sways to show its spine unless a
     /// focused clip animates it; launching, it spins up and flies forward unless a launch clip plays instead (A7's
     /// procedural fallbacks). The player's turn (<see cref="Turn"/>) is about its middle, and blends with the focus.
+    /// Inspected (<paramref name="inspect"/>, 0 to 1), it rests in the middle of the view, large (<see cref="Inspected"/>),
+    /// instead of in its cell, without the lift and growth (which that place already has).
     /// </summary>
-    private Transform3D FocusTransform(int cell, float blend, float time, float launch, float yaw, float pitch)
+    private Transform3D FocusTransform(int cell, float blend, float time, float launch, float yaw, float pitch, float inspect)
     {
         var model = _cellModel[cell];
         var rest = _cellBase[cell];
         var eased = blend * blend * (3 - 2 * blend);
-        var scale = 1 + (FocusScale - 1) * eased;
-        var angle = model?.HasClip(ModelClip.Focused) == true ? 0 : (0.3f + 0.3f * MathF.Sin(time * 1.1f)) * eased;
-        var lift = _focusLift * eased;
+        var restOrigin = rest.Origin;
+        var grow = 1f;
+        var inspected = 0f;
+        var size = Vector3.One;
+        if (inspect > 0 || yaw != 0 || pitch != 0)
+        {
+            size = DrawnSize(cell);
+        }
+
+        if (inspect > 0)
+        {
+            inspected = inspect * inspect * (3 - 2 * inspect);
+            var (origin, factor) = Inspected(cell, size);
+            restOrigin = restOrigin.Lerp(origin, inspected);
+            grow = 1 + (factor - 1) * inspected;
+        }
+
+        var scale = 1 + (FocusScale - 1) * eased * (1 - inspected);
+
+        // Inspected, it faces the camera (only the player turns it): swaying that close, its near edge would leave the view.
+        var angle = model?.HasClip(ModelClip.Focused) == true ? 0 : (0.3f + 0.3f * MathF.Sin(time * 1.1f)) * eased * (1 - inspected);
+        var lift = _focusLift * eased * (1 - inspected);
         if (launch > 0 && model?.HasClip(ModelClip.Launch) != true)
         {
             var e = launch * launch;
@@ -1928,7 +2052,8 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
             scale += e * 0.3f;
         }
 
-        var basis = new Basis(Vector3.Up, angle) * rest.Basis.Scaled(new Vector3(scale, scale, scale));
+        var scaled = grow * scale;
+        var basis = new Basis(Vector3.Up, angle) * rest.Basis.Scaled(new Vector3(scaled, scaled, scaled));
 
         // Round its vertical, then towards or away from the camera, about its middle (it stands on its origin), so it
         // turns in place.
@@ -1936,7 +2061,7 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
         if (yaw != 0 || pitch != 0)
         {
             var turn = new Basis(Vector3.Right, pitch * eased) * new Basis(Vector3.Up, yaw * eased);
-            var middle = basis * new Vector3(0, (model?.Size.Y ?? 1) / 2, 0);
+            var middle = basis * new Vector3(0, size.Y / 2, 0);
             pivot = middle - turn * middle;
             basis = turn * basis;
         }
@@ -1945,10 +2070,41 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
         // it's pulled in to stay where it was on screen; launching, it flies towards the middle.
         var rootScale = _scale * _zoom;
         var toCamera = Math.Clamp(1 - lift * rootScale / _cameraDistance, 0.2f, 1);
-        var restOrigin = rest.Origin;
-        var x = ((_rootX + restOrigin.X * rootScale) * toCamera - _rootX) / rootScale;
-        var origin = new Vector3(x, restOrigin.Y + HalfHeight(cell) * _cellCurve[cell] * (1 - scale), restOrigin.Z + lift);
-        return new Transform3D(basis, origin + pivot);
+        var x = ((_rootOrigin.X + restOrigin.X * rootScale) * toCamera - _rootOrigin.X) / rootScale;
+        var y = restOrigin.Y + HalfHeight(cell) * _cellCurve[cell] * grow * (1 - scale);
+        return new Transform3D(basis, new Vector3(x, y, restOrigin.Z + lift) + pivot);
+    }
+
+    /// <summary>
+    /// Where the cell's item rests when inspected, in the grid's root, and how much it grows from its rest size: its
+    /// middle on the camera's axis, its front <see cref="InspectHeight"/> of the view tall (or <see cref="InspectWidth"/>
+    /// of it wide, if that's smaller), and far enough in front of the other items that turned round its vertical it
+    /// doesn't touch them.
+    /// </summary>
+    /// <param name="size">The model's size as drawn (<see cref="DrawnSize"/>), in model units.</param>
+    private (Vector3 Origin, float Grow) Inspected(int cell, Vector3 size)
+    {
+        var rootScale = _scale * _zoom;
+        var restScale = _cellFit[cell] * _cellCurve[cell];
+
+        // How far it reaches from its vertical, turned any way round it, and how far its front is from its middle.
+        var reach = MathF.Sqrt(size.X * size.X + size.Z * size.Z) / 2;
+        var near = reach + size.Z / 2;
+
+        // The other items come no nearer the camera than this (world z): a focused one's lift and half the cell.
+        var front = _rootOrigin.Z + (_focusLift + Math.Max(_cellWidth, _itemHeight) / 2) * rootScale;
+        var depth = _cameraDistance - front;
+        var tall = InspectHeight * _viewHeight;
+        var wide = InspectWidth * _viewHeight * _viewAspect;
+
+        // World units per model unit, k: the view at depth z is viewHeight × (D − z) / D tall; the middle stands reach × k
+        // in front of the others, and the front near × k, so the front's height fills `tall` of the view there.
+        var k = Math.Min(
+            tall * depth / (_cameraDistance * Math.Max(size.Y, 0.01f) + tall * near),
+            wide * depth / (_cameraDistance * Math.Max(size.X, 0.01f) + wide * near));
+        var middle = (new Vector3(0, 0, front + reach * k) - _rootOrigin) / rootScale;
+        var grow = k / (Math.Max(restScale, 0.0001f) * rootScale);
+        return (middle - new Vector3(0, size.Y / 2 * restScale * grow, 0), grow);
     }
 
     private void SetCellTransform(int cell, Transform3D transform)

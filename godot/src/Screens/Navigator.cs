@@ -39,7 +39,7 @@ public sealed partial class Navigator : Node
     private const int CachedLists = 3;
 
     private const string SystemsHints = "A / Enter  Open     X / O  Options     Y / I  Details     View / P  Power     Menu / Esc  Settings";
-    private const string GamesHints = "A / Enter  Play     B / Esc  Back     X / O  Options     Y / I  Details     L3 / F  Favourite     LB RB  Page     LT RT  Letter";
+    private const string GamesHints = "A / Enter  Play     B / Esc  Back     X / O  Options     Y / I  Details     L3 / F  Favourite     R3 / Z  Zoom     LB RB  Page     LT RT  Letter";
     private const double TitlesDelay = 0.4;
 
     private static readonly GridPose Shown = new(0, 1, 0);
@@ -206,7 +206,7 @@ public sealed partial class Navigator : Node
         var title = _screen == Screen.Systems
             ? grid.FocusIndex >= 0 ? _systems.Entries[grid.FocusIndex].Name : "-"
             : _games is not null && grid.FocusIndex >= 0 ? _games.Row(grid.FocusIndex).Title : "-";
-        return $"{_screen}, {(_screen == Screen.Systems ? "systems" : _games?.Id ?? "?")}, item {grid.FocusIndex}: {title} (theme {ThemeId})";
+        return $"{_screen}, {(_screen == Screen.Systems ? "systems" : _games?.Id ?? "?")}, item {grid.FocusIndex}: {title}{(grid.Inspecting ? ", inspected" : "")} (theme {ThemeId})";
     }
 
     /// <summary>Builds the systems grid from the boot query. Main thread.</summary>
@@ -351,7 +351,15 @@ public sealed partial class Navigator : Node
                 StartLaunch();
                 break;
             case NavCommand.Back when _screen == Screen.Games:
-                LeaveGames();
+                // B puts an inspected game back first; the next B leaves.
+                if (!_gamesGrid.EndInspect())
+                {
+                    LeaveGames();
+                }
+
+                break;
+            case NavCommand.Inspect when _screen == Screen.Games:
+                _gamesGrid.ToggleInspect();
                 break;
             case NavCommand.Secondary when _screen == Screen.Systems:
                 if (_systemsGrid.FocusIndex >= 0 && _systemsGrid.FocusIndex < _systems.Entries.Count)

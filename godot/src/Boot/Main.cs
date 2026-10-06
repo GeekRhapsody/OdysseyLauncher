@@ -519,6 +519,7 @@ public partial class Main : Node3D
             "accept" => NavCommand.Accept,
             "back" => NavCommand.Back,
             "favourite" => NavCommand.Favourite,
+            "zoom" => NavCommand.Inspect,
             "menu" => NavCommand.Menu,
             "x" => NavCommand.Alternate,
             "y" => NavCommand.Secondary,

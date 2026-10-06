@@ -364,10 +364,10 @@ public class DebugOptionsTests
     [Fact]
     public void A_nav_script_is_a_list_of_known_steps()
     {
-        var result = DebugOptions.Parse(["--nav-script=Down, right,accept,wait,LetterNext,turn,back"]);
+        var result = DebugOptions.Parse(["--nav-script=Down, right,accept,wait,LetterNext,turn,zoom,back"]);
 
         Assert.True(result.IsValid, string.Join("; ", result.Errors));
-        Assert.Equal(["down", "right", "accept", "wait", "letternext", "turn", "back"], result.Options.NavScript);
+        Assert.Equal(["down", "right", "accept", "wait", "letternext", "turn", "zoom", "back"], result.Options.NavScript);
         Assert.Contains("doesn't know the step 'jump'", Assert.Single(DebugOptions.Parse(["--nav-script=down,jump"]).Errors), StringComparison.Ordinal);
         Assert.Contains("at least one step", Assert.Single(DebugOptions.Parse(["--nav-script=,"]).Errors), StringComparison.Ordinal);
         Assert.Empty(DebugOptions.Parse([]).Options.NavScript);

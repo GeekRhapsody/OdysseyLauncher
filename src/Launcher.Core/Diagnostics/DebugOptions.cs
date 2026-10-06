@@ -88,7 +88,7 @@ public sealed record DebugOptions
 
     /// <summary>
     /// The steps <c>--nav-script</c> takes: the navigation commands (as the controller sends them; <c>menu</c> is Menu,
-    /// <c>x</c> is X, <c>y</c> is Y, <c>favourite</c> is L3, <c>power</c> is View), <c>theme</c> (the next theme, as T does), <c>rescan</c> (every system, from
+    /// <c>x</c> is X, <c>y</c> is Y, <c>favourite</c> is L3, <c>zoom</c> is R3, <c>power</c> is View), <c>theme</c> (the next theme, as T does), <c>rescan</c> (every system, from
     /// any screen, so a capture can show media changing), and <c>wait</c>, which does nothing for a step. While a
     /// settings screen is open (M7), the commands go to it. Three steps send real input events instead, through
     /// Godot's input like the mouse and keyboard: <c>click</c> (the left button, on the focused control), <c>scroll</c>
@@ -98,7 +98,7 @@ public sealed record DebugOptions
     public static IReadOnlyList<string> NavScriptSteps { get; } =
     [
         "up", "down", "left", "right", "pageup", "pagedown", "letterprevious", "letternext", "first", "last",
-        "accept", "back", "favourite", "menu", "x", "y", "power", "theme", "rescan", "click", "scroll", "type", "turn", "wait",
+        "accept", "back", "favourite", "zoom", "menu", "x", "y", "power", "theme", "rescan", "click", "scroll", "type", "turn", "wait",
     ];
 
     /// <summary>Frames between <c>--nav-script</c> steps: long enough for a transition to finish.</summary>

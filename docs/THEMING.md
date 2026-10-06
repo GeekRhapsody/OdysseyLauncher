@@ -317,6 +317,8 @@ The grid adds its own motion:
 
 So a `focused` clip replaces the sway, and a `launch` clip replaces the spin.
 
+The player can also look at a game close up: R3 (or Z) brings the focused game to the middle of the screen, facing the camera, its front about 90% of the window's height (less if that would make it wider than 90% of the window). Its `focused` clip keeps playing there, and the player can turn it with the right stick. A game template is seen far larger there than in the grid, so its authored textures and its front's art should hold up at that size.
+
 A model with only `focused` and `launch` clips is batched like any other. The grid swaps the focused item onto its own copy of the model while its clips play, then blends it back to the rest pose before swapping it back. Clips should therefore start and end near the rest pose.
 
 ## 9. Making models in Blender
