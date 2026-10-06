@@ -67,7 +67,7 @@ public sealed record GamelistPlan(
 /// <param name="Copied">Files copied into the media folder, per kind.</param>
 /// <param name="AlreadyThere">Files skipped because the game had a file of that kind by then.</param>
 /// <param name="Missing">Files the gamelist names that aren't there.</param>
-/// <param name="Unreadable">Files that aren't an image (or for a video, an MP4) the launcher can read, or couldn't be copied.</param>
+/// <param name="Unreadable">Files that aren't an image (or for a video an MP4, for a manual a PDF) the launcher can read, or couldn't be copied.</param>
 public sealed record GamelistImportResult(
     int MetadataGames,
     int Favourites,
@@ -83,9 +83,9 @@ public sealed record GamelistImportResult(
 /// <summary>
 /// Imports a system's ES-DE <c>gamelist.xml</c> (2026-10-04): its games' titles and metadata as the user's own edits
 /// (userdata.db, so they survive a rebuild and scraping never replaces them), its favourites, its ScreenScraper ids as
-/// matches, and its media <b>copied</b> (never moved) into the media folder as each game's own files
-/// (<c>media/&lt;system&gt;/&lt;kind&gt;/&lt;rel path&gt;.&lt;ext&gt;</c>, A4): <c>thumbnail</c> the cover, <c>image</c> the
-/// screenshot, <c>marquee</c> the logo, <c>video</c> the video. Only gaps are filled: a value the game has, scraped or
+/// matches, and its media <b>copied</b> (never moved) into the media folder as each game's files
+/// (<c>media/&lt;system&gt;/&lt;folder&gt;/&lt;name&gt;.&lt;ext&gt;</c>, A4: <see cref="MediaStore.PathFor"/>): <c>thumbnail</c>
+/// the cover, <c>image</c> the screenshot, <c>marquee</c> the logo, <c>video</c> the video, <c>manual</c> the manual. Only gaps are filled: a value the game has, scraped or
 /// the user's, and a media kind it has a file for, are kept, so importing again only finishes what was left. Hidden
 /// flags aren't imported. File and DB work is on the thread pool and the library's writer: never call it from the
 /// main thread and wait.
@@ -440,7 +440,7 @@ public sealed class GamelistImportService(LibraryService library, IPlatformPaths
             return (CopyOutcome.Unreadable, null);
         }
 
-        var relative = MediaStore.RelativePathFor(systemId, relPath, copy.Kind, extension);
+        var relative = MediaStore.PathFor(systemId, relPath, copy.Kind, extension);
         var target = store.FullPath(relative);
         var temporary = target + ".import-" + Guid.NewGuid().ToString("N");
         try
@@ -486,7 +486,7 @@ public sealed class GamelistImportService(LibraryService library, IPlatformPaths
         }
 
         Task<bool>? bake = null;
-        if (copy.Kind != MediaKinds.Video && derivatives is not null)
+        if (MediaKinds.Images.Contains(copy.Kind) && derivatives is not null)
         {
             var info = new FileInfo(target);
             bake = derivatives.BakeAsync(relative, info.Length, new DateTimeOffset(info.LastWriteTimeUtc).ToUnixTimeMilliseconds(), cancellationToken);
@@ -495,17 +495,20 @@ public sealed class GamelistImportService(LibraryService library, IPlatformPaths
         return (CopyOutcome.Copied, bake);
     }
 
-    /// <summary>An image whose header the launcher reads, or a video that's an MP4, by its first bytes.</summary>
+    /// <summary>An image whose header the launcher reads, a video that's an MP4, or a manual that's a PDF, by its first bytes.</summary>
     private static bool Readable(GamelistCopy copy)
     {
-        if (copy.Kind != MediaKinds.Video)
+        if (copy.Kind is not (MediaKinds.Video or MediaKinds.Manual))
         {
             return ImageHeaders.TryReadSize(copy.Source, out var width, out var height) && width > 0 && height > 0;
         }
 
-        Span<byte> head = stackalloc byte[12];
+        Span<byte> head = stackalloc byte[DocumentFormats.HeaderWindow];
         using var stream = new FileStream(copy.Source, FileMode.Open, FileAccess.Read, FileShare.Read, 1);
-        return stream.ReadAtLeast(head, head.Length, throwOnEndOfStream: false) == head.Length && VideoFormats.Sniff(head) is not null;
+        var read = stream.ReadAtLeast(head, head.Length, throwOnEndOfStream: false);
+        return copy.Kind == MediaKinds.Video
+            ? read >= 12 && VideoFormats.Sniff(head[..read]) is not null
+            : DocumentFormats.Sniff(head[..read]) is not null;
     }
 
     private static void Delete(string path)

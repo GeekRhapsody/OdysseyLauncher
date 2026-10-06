@@ -26,7 +26,7 @@ public readonly record struct GameRow(
     long CoverMtimeMs = 0);
 
 /// <summary>One indexed media file: what the grid needs to name its derivative and crop it.</summary>
-/// <param name="Path">Relative to DataDir (<c>media/&lt;system&gt;/&lt;kind&gt;/...</c>).</param>
+/// <param name="Path">Relative to DataDir (<c>media/&lt;system&gt;/&lt;folder&gt;/...</c>).</param>
 /// <param name="Aspect">Width over height; 0 when unknown (models, and images whose header wasn't read).</param>
 /// <param name="SizeBytes">The file's size when it was indexed; 0 when unknown.</param>
 /// <param name="MtimeMs">The file's modification time (unix ms) when it was indexed; 0 when unknown.</param>

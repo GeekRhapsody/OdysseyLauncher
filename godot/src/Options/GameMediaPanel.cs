@@ -71,6 +71,7 @@ public sealed partial class GameMediaPanel : UiPanel
         MediaKinds.Logo => "Logo",
         MediaKinds.Hero => "Hero art",
         MediaKinds.Video => "Video",
+        MediaKinds.Manual => "Manual",
         _ => kind,
     };
 
@@ -304,7 +305,6 @@ public sealed partial class GameMediaPanel : UiPanel
                         ShowStatus(result.Status switch
                         {
                             UserArtStatus.Removed => "Removed. Scraping the game can fill the slot again.",
-                            UserArtStatus.Shared => $"{result.Path} is every game of that name's, so it was left alone.",
                             _ => "There was nothing to remove.",
                         }, result.Status == UserArtStatus.Removed ? UiStyle.Good : UiStyle.Warning, 6);
                         _cards[slot].SetImage(null, null);

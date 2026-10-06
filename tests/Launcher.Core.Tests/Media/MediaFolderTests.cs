@@ -31,8 +31,8 @@ public sealed class MediaFolderTests : IDisposable
     {
         var folder = _dir.Combine("E", "Art");
 
-        Assert.Equal(Path.Combine(folder, "ps2", "cover", "Game.iso.png"), MediaFolder.FullPath(folder, "media/ps2/cover/Game.iso.png"));
-        Assert.Equal(Path.Combine(folder, "ps2", "cover", "Game.iso.png"), MediaFolder.FullPath(folder, @"media\ps2\cover\Game.iso.png"));
+        Assert.Equal(Path.Combine(folder, "ps2", "covers", "Game.png"), MediaFolder.FullPath(folder, "media/ps2/covers/Game.png"));
+        Assert.Equal(Path.Combine(folder, "ps2", "covers", "Game.png"), MediaFolder.FullPath(folder, @"media\ps2\covers\Game.png"));
         Assert.Equal(Path.Combine(folder, "mediaeval", "x.png"), MediaFolder.FullPath(folder, "mediaeval/x.png"));
         Assert.Equal(Path.Combine(_dir.Path, "media"), MediaFolder.Default(_dir.Path));
     }
@@ -64,15 +64,15 @@ public sealed class MediaFolderTests : IDisposable
     [Fact]
     public void A_plan_counts_every_file_but_hidden_and_system_ones_and_a_missing_folder_has_none()
     {
-        Old("ps2/cover/Game.iso.png", "12345");
-        Old("ps2/video/Game.iso.mp4", "123");
+        Old("ps2/covers/Game.png", "12345");
+        Old("ps2/videos/Game.mp4", "123");
         Old("notes.txt", "1");
-        var hidden = Old("ps2/cover/Thumbs.db");
+        var hidden = Old("ps2/covers/Thumbs.db");
         File.SetAttributes(hidden, FileAttributes.Hidden | FileAttributes.System);
 
         var plan = MediaFolderMove.Plan(From, To, Ct);
 
-        Assert.Equal(["notes.txt", "ps2/cover/Game.iso.png", "ps2/video/Game.iso.mp4"], plan.Files.Select(f => f.RelativePath.Replace('\\', '/')));
+        Assert.Equal(["notes.txt", "ps2/covers/Game.png", "ps2/videos/Game.mp4"], plan.Files.Select(f => f.RelativePath.Replace('\\', '/')));
         Assert.Equal(9, plan.Bytes);
         Assert.True(plan.SameVolume);
         Assert.Empty(MediaFolderMove.Plan(_dir.Combine("nowhere"), To, Ct).Files);
@@ -83,19 +83,19 @@ public sealed class MediaFolderTests : IDisposable
     [InlineData(false)]
     public void Moving_keeps_each_files_path_and_time_and_finishing_empties_the_old_folder(bool sameVolume)
     {
-        Old("ps2/cover/Game.iso.png", "cover");
-        Old("ps2/model/Sub/Game B.chd.glb", "glTF");
-        Old("snes/video/Game.sfc.mp4", "video");
+        Old("ps2/covers/Game.png", "cover");
+        Old("ps2/models/Sub/Game B.glb", "glTF");
+        Old("snes/videos/Game.mp4", "video");
         // A copy (another drive) leaves the originals until the new folder is in use.
         var plan = MediaFolderMove.Plan(From, To, Ct) with { SameVolume = sameVolume };
         var reports = new List<MediaMoveProgress>();
 
         var move = MediaFolderMove.Move(plan, new Collect(reports), Ct);
 
-        string[] all = ["ps2/cover/Game.iso.png", "ps2/model/Sub/Game B.chd.glb", "snes/video/Game.sfc.mp4"];
+        string[] all = ["ps2/covers/Game.png", "ps2/models/Sub/Game B.glb", "snes/videos/Game.mp4"];
         Assert.Equal(all, FilesIn(To));
         Assert.Equal(sameVolume ? [] : all, FilesIn(From));
-        Assert.Equal("video", File.ReadAllText(Path.Combine(To, "snes", "video", "Game.sfc.mp4")));
+        Assert.Equal("video", File.ReadAllText(Path.Combine(To, "snes", "videos", "Game.mp4")));
         Assert.All(all, f => Assert.Equal(Modified, File.GetLastWriteTimeUtc(Path.Combine(To, f))));
         Assert.Equal((3, 0), (move.Moved, move.AlreadyThere));
         Assert.Equal(new MediaMoveProgress(3, 3, 14, 14), reports[^1]);
@@ -112,15 +112,15 @@ public sealed class MediaFolderTests : IDisposable
     [InlineData(false)]
     public void Undoing_puts_every_file_back_and_removes_the_folders_the_move_made(bool sameVolume)
     {
-        Old("ps2/cover/Game.iso.png", "cover");
-        Old("snes/logo/Game.sfc.png", "logo");
+        Old("ps2/covers/Game.png", "cover");
+        Old("snes/logos/Game.png", "logo");
         _dir.File("Launcher media/readme.txt", "the user's");
         var plan = MediaFolderMove.Plan(From, To, Ct) with { SameVolume = sameVolume };
         var move = MediaFolderMove.Move(plan, null, Ct);
 
         Assert.Equal(0, move.Undo());
 
-        Assert.Equal(["ps2/cover/Game.iso.png", "snes/logo/Game.sfc.png"], FilesIn(From));
+        Assert.Equal(["ps2/covers/Game.png", "snes/logos/Game.png"], FilesIn(From));
         Assert.Equal(["readme.txt"], FilesIn(To));
         Assert.Empty(Directory.GetDirectories(To));
     }
@@ -128,46 +128,46 @@ public sealed class MediaFolderTests : IDisposable
     [Fact]
     public void A_file_the_new_folder_has_already_is_kept_there_and_its_original_stays()
     {
-        Old("ps2/cover/Game.iso.png", "old");
-        Old("ps2/logo/Game.iso.png", "logo");
-        _dir.File("Launcher media/ps2/cover/Game.iso.png", "new");
+        Old("ps2/covers/Game.png", "old");
+        Old("ps2/logos/Game.png", "logo");
+        _dir.File("Launcher media/ps2/covers/Game.png", "new");
 
         var move = MediaFolderMove.Move(MediaFolderMove.Plan(From, To, Ct), null, Ct);
         move.Finish();
 
         Assert.Equal((1, 1), (move.Moved, move.AlreadyThere));
-        Assert.Equal("new", File.ReadAllText(Path.Combine(To, "ps2", "cover", "Game.iso.png")));
-        Assert.Equal(["ps2/cover/Game.iso.png"], FilesIn(From));
-        Assert.Equal("old", File.ReadAllText(Path.Combine(From, "ps2", "cover", "Game.iso.png")));
+        Assert.Equal("new", File.ReadAllText(Path.Combine(To, "ps2", "covers", "Game.png")));
+        Assert.Equal(["ps2/covers/Game.png"], FilesIn(From));
+        Assert.Equal("old", File.ReadAllText(Path.Combine(From, "ps2", "covers", "Game.png")));
     }
 
     [Fact]
     public void A_cancelled_move_puts_back_what_it_had_moved()
     {
-        Old("a/cover/1.png");
-        Old("a/cover/2.png");
-        Old("a/cover/3.png");
+        Old("a/covers/1.png");
+        Old("a/covers/2.png");
+        Old("a/covers/3.png");
         using var cancel = new CancellationTokenSource();
         var plan = MediaFolderMove.Plan(From, To, Ct);
 
         Assert.Throws<OperationCanceledException>(() => MediaFolderMove.Move(plan, new Cancel(cancel, after: 2), cancel.Token));
 
-        Assert.Equal(["a/cover/1.png", "a/cover/2.png", "a/cover/3.png"], FilesIn(From));
+        Assert.Equal(["a/covers/1.png", "a/covers/2.png", "a/covers/3.png"], FilesIn(From));
         Assert.Empty(FilesIn(To));
     }
 
     [Fact]
     public void A_file_that_cant_be_moved_puts_back_the_rest_and_fails()
     {
-        Old("a/cover/1.png");
-        Old("b/cover/2.png");
+        Old("a/covers/1.png");
+        Old("b/covers/2.png");
         // A file where the move needs a folder: "b" can't be made in the new folder.
         _dir.File("Launcher media/b", "in the way");
         var plan = MediaFolderMove.Plan(From, To, Ct);
 
         Assert.ThrowsAny<IOException>(() => MediaFolderMove.Move(plan, null, Ct));
 
-        Assert.Equal(["a/cover/1.png", "b/cover/2.png"], FilesIn(From));
+        Assert.Equal(["a/covers/1.png", "b/covers/2.png"], FilesIn(From));
         Assert.Equal(["b"], FilesIn(To));
     }
 

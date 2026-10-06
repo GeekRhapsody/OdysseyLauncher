@@ -55,13 +55,13 @@ public sealed class UserArtServiceTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task A_chosen_image_is_copied_to_the_games_own_name_baked_and_indexed_at_once()
+    public async Task A_chosen_image_is_copied_to_the_games_name_baked_and_indexed_at_once()
     {
         var result = await _service.SetAsync(Key, MediaKinds.Back, Download("back.png", ScrapeBed.Png("back")), Ct);
 
         Assert.Equal(UserArtStatus.Set, result.Status);
-        Assert.Equal("media/megadrive/back/Sonic the Hedgehog 3 (Europe).md.png", result.Path);
-        Assert.True(File.Exists(Path.Combine(_bed.Paths.DataDir, "media", "megadrive", "back", "Sonic the Hedgehog 3 (Europe).md.png")));
+        Assert.Equal("media/megadrive/backcovers/Sonic the Hedgehog 3 (Europe).png", result.Path);
+        Assert.True(File.Exists(Path.Combine(_bed.Paths.DataDir, "media", "megadrive", "backcovers", "Sonic the Hedgehog 3 (Europe).png")));
         var back = (await Media(MediaKinds.Back))!;
         Assert.Equal(result.Path, back.Media.Path);
         Assert.Equal((24, 32), (back.Width, back.Height));
@@ -83,8 +83,8 @@ public sealed class UserArtServiceTests : IAsyncLifetime
 
         var result = await _service.SetAsync(Key, MediaKinds.Cover, Download("b.jpg", TestSupport.TestImages.Jpeg(40, 56)), Ct);
 
-        Assert.Equal("media/megadrive/cover/Sonic the Hedgehog 3 (Europe).md.jpg", result.Path);
-        Assert.False(File.Exists(Path.Combine(_bed.Paths.DataDir, "media", "megadrive", "cover", "Sonic the Hedgehog 3 (Europe).md.png")));
+        Assert.Equal("media/megadrive/covers/Sonic the Hedgehog 3 (Europe).jpg", result.Path);
+        Assert.False(File.Exists(Path.Combine(_bed.Paths.DataDir, "media", "megadrive", "covers", "Sonic the Hedgehog 3 (Europe).png")));
         var cover = (await Media(MediaKinds.Cover))!;
         Assert.Equal(result.Path, cover.Media.Path);
         Assert.Equal((40, 56), (cover.Width, cover.Height));
@@ -112,16 +112,16 @@ public sealed class UserArtServiceTests : IAsyncLifetime
         using var scraper = _bed.Service();
         await scraper.ScrapeGameAsync(Key, Ct);
         var scraped = (await Media(MediaKinds.Cover))!;
-        Assert.Equal("media/megadrive/cover/Sonic the Hedgehog 3 (Europe).md.png", scraped.Media.Path);
+        Assert.Equal("media/megadrive/covers/Sonic the Hedgehog 3 (Europe).png", scraped.Media.Path);
 
         // One file per kind: the user's replaces the scraped one, whatever its format.
         await _service.SetAsync(Key, MediaKinds.Cover, Download("mine.jpg", TestSupport.TestImages.Jpeg(40, 56)), Ct);
-        Assert.Equal("media/megadrive/cover/Sonic the Hedgehog 3 (Europe).md.jpg", (await Media(MediaKinds.Cover))!.Media.Path);
+        Assert.Equal("media/megadrive/covers/Sonic the Hedgehog 3 (Europe).jpg", (await Media(MediaKinds.Cover))!.Media.Path);
         Assert.False(File.Exists(Path.Combine(_bed.Paths.DataDir, scraped.Media.Path)));
 
         // A scrape leaves it alone.
         await scraper.ScrapeGameAsync(Key, Ct);
-        Assert.Equal("media/megadrive/cover/Sonic the Hedgehog 3 (Europe).md.jpg", (await Media(MediaKinds.Cover))!.Media.Path);
+        Assert.Equal("media/megadrive/covers/Sonic the Hedgehog 3 (Europe).jpg", (await Media(MediaKinds.Cover))!.Media.Path);
         _changes.Clear();
 
         var result = await _service.RemoveAsync(Key, MediaKinds.Cover, Ct);
@@ -154,19 +154,34 @@ public sealed class UserArtServiceTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task An_image_shared_by_name_isnt_removed_for_one_game()
+    public async Task An_image_named_without_the_roms_extension_is_removed_for_every_game_of_that_name()
     {
         _bed.Rom("megadrive/Shared.md");
         _bed.Rom("megadrive/Shared.gen");
-        var art = _bed.Dir.File("user/media/megadrive/cover/Shared.png");
+        var art = _bed.Dir.File("user/media/megadrive/covers/Shared.png");
         File.WriteAllBytes(art, ScrapeBed.Png("shared"));
         await _bed.ScanAsync();
 
         var result = await _service.RemoveAsync(new GameKey("megadrive", "shared.md"), MediaKinds.Cover, Ct);
 
-        Assert.Equal(UserArtStatus.Shared, result.Status);
-        Assert.Equal("media/megadrive/cover/Shared.png", result.Path);
-        Assert.True(File.Exists(art));
+        Assert.Equal((UserArtStatus.Removed, "media/megadrive/covers/Shared.png"), (result.Status, result.Path));
+        Assert.False(File.Exists(art));
+        var other = await _bed.Game("megadrive", "Shared.gen");
+        Assert.DoesNotContain(await _bed.Library.GetGameMediaInfoAsync(other.GameId, Ct), m => m.Kind == MediaKinds.Cover);
+    }
+
+    [Fact]
+    public async Task A_chosen_image_replaces_one_named_after_the_whole_rom_name()
+    {
+        var own = _bed.Dir.File("user/media/megadrive/covers/Sonic the Hedgehog 3 (Europe).md.png");
+        File.WriteAllBytes(own, ScrapeBed.Png("own"));
+        await _bed.ScanAsync();
+
+        var result = await _service.SetAsync(Key, MediaKinds.Cover, Download("mine.jpg", TestSupport.TestImages.Jpeg(40, 56)), Ct);
+
+        Assert.Equal("media/megadrive/covers/Sonic the Hedgehog 3 (Europe).jpg", result.Path);
+        Assert.False(File.Exists(own));
+        Assert.Equal(result.Path, (await Media(MediaKinds.Cover))!.Media.Path);
     }
 
     [Fact]
@@ -176,6 +191,6 @@ public sealed class UserArtServiceTests : IAsyncLifetime
 
         await _bed.Library.RebuildAsync(null, Ct);
 
-        Assert.Equal("media/megadrive/spine/Sonic the Hedgehog 3 (Europe).md.png", (await Media(MediaKinds.Spine))!.Media.Path);
+        Assert.Equal("media/megadrive/spines/Sonic the Hedgehog 3 (Europe).png", (await Media(MediaKinds.Spine))!.Media.Path);
     }
 }

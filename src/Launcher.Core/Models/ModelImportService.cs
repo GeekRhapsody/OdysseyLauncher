@@ -22,7 +22,7 @@ public enum ModelImportStatus
 
 /// <summary>What importing a model for a game did.</summary>
 /// <param name="ModelPath">
-/// Where the model is now, '/'-separated: a game's as stored (<c>media/ps2/model/Game.iso.glb</c>), a
+/// Where the model is now, '/'-separated: a game's as stored (<c>media/ps2/models/Game.glb</c>), a
 /// system's relative to ConfigDir (<c>models/systems/ps2.glb</c>).
 /// </param>
 /// <param name="Converted">True when it was converted from an OBJ model.</param>
@@ -47,15 +47,9 @@ public enum ModelRemoveStatus
 
     /// <summary>The game had no model of its own.</summary>
     None,
-
-    /// <summary>
-    /// Its model is a file every game with its name uses (<c>Game.glb</c> for <c>Game.cue</c> and <c>Game.chd</c>), so
-    /// it was left alone; <see cref="ModelRemoveResult.SharedPath"/> says which.
-    /// </summary>
-    Shared,
 }
 
-public sealed record ModelRemoveResult(ModelRemoveStatus Status, string? SharedPath);
+public sealed record ModelRemoveResult(ModelRemoveStatus Status);
 
 /// <summary>
 /// The user's own models for games (A7), as a service the game options panel (M7) and <c>odyssey-scrape
@@ -63,7 +57,9 @@ public sealed record ModelRemoveResult(ModelRemoveStatus Status, string? SharedP
 /// textures) or a bare <c>.obj</c>; converts OBJ to glTF (<see cref="ObjConverter"/>); fits it to the per-game
 /// budget (<see cref="ModelProcessor"/>: textures scaled down, counts checked, a broken or more-than-2×-over file
 /// rejected with nothing changed); writes it to the game's model slot in the media folder,
-/// <c>&lt;media folder&gt;/&lt;system&gt;/model/&lt;rel path&gt;.glb</c>, atomically; primes the processed-model cache so
+/// <c>&lt;media folder&gt;/&lt;system&gt;/models/&lt;name&gt;.glb</c> (the ROM's name without its extension, so every ROM of
+/// that name shares it, as the rest of its media), atomically, removing the game's other model file (named after its
+/// whole ROM name), which would win over it; primes the processed-model cache so
 /// the app doesn't process it again; indexes it (<see cref="LibraryService.RefreshMediaAsync"/>, which raises
 /// <c>MediaChanged</c>, so a running grid swaps the game's model in place); and logs the outcome to the model log.
 /// Clearing a game's metadata (<c>ScrapeService.ClearGameAsync</c>) removes its model too.
@@ -89,9 +85,9 @@ public sealed class ModelImportService
     /// <summary>The files <see cref="ImportGameModelAsync"/> takes.</summary>
     public static IReadOnlyList<string> Extensions { get; } = [".glb", ".zip", ".obj"];
 
-    /// <summary>The game's model slot, as stored: <c>media/&lt;system&gt;/model/&lt;rel path&gt;.glb</c> (<see cref="MediaFolder"/>).</summary>
+    /// <summary>The game's model slot, as stored: <c>media/&lt;system&gt;/models/&lt;name&gt;.glb</c> (<see cref="MediaStore.PathFor"/>).</summary>
     public static string ModelPathFor(GameKey game, string relPath) =>
-        MediaStore.RelativePathFor(game.SystemId, relPath, MediaKinds.Model, ".glb");
+        MediaStore.PathFor(game.SystemId, relPath, MediaKinds.Model, ".glb");
 
     public async Task<ModelImportResult> ImportGameModelAsync(GameKey game, string sourceFile, CancellationToken cancellationToken)
     {
@@ -107,6 +103,17 @@ public sealed class ModelImportService
         var result = await ImportAsync(sourceFile, _library.MediaPath(relative), relative, ModelKind.PerGame, $"{Path.GetFileName(sourceFile)} for {game.SystemId}/{details.RelPath}", cancellationToken).ConfigureAwait(false);
         if (result.Status == ModelImportStatus.Imported)
         {
+            // One model a game: one named after its whole ROM name would be used instead.
+            await Task.Run(() =>
+            {
+                foreach (var other in new MediaStore(_library.MediaDir).FilesOf(game.SystemId, details.RelPath, MediaKinds.Model))
+                {
+                    if (!string.Equals(other, relative, StringComparison.Ordinal))
+                    {
+                        Forget(other, game, details.RelPath);
+                    }
+                }
+            }, cancellationToken).ConfigureAwait(false);
             await _library.RefreshMediaAsync(game.SystemId, cancellationToken).ConfigureAwait(false);
         }
 
@@ -114,42 +121,44 @@ public sealed class ModelImportService
     }
 
     /// <summary>
-    /// Removes the game's own model (its file in the model slot) and re-indexes, so it shows its system's template again.
-    /// A model file every game of that name shares is left alone (<see cref="ModelRemoveStatus.Shared"/>).
+    /// Removes the game's model (its files in the model slot, named with or without the ROM's extension, so every ROM
+    /// of that name loses it) and re-indexes, so it shows its system's template again.
     /// </summary>
     public async Task<ModelRemoveResult> RemoveGameModelAsync(GameKey game, CancellationToken cancellationToken)
     {
         var details = await _library.GetGameAsync(game, cancellationToken).ConfigureAwait(false);
         if (details is null)
         {
-            return new ModelRemoveResult(ModelRemoveStatus.None, null);
+            return new ModelRemoveResult(ModelRemoveStatus.None);
         }
 
-        var rows = await _library.GetGameMediaAsync([details.GameId], [MediaKinds.Model], cancellationToken).ConfigureAwait(false);
-        var own = ModelPathFor(game, details.RelPath);
         var removed = await Task.Run(() =>
         {
-            var target = _library.MediaPath(own);
-            if (!File.Exists(target))
+            var files = new MediaStore(_library.MediaDir).FilesOf(game.SystemId, details.RelPath, MediaKinds.Model);
+            foreach (var file in files)
             {
-                return false;
+                Forget(file, game, details.RelPath);
             }
 
-            File.Delete(target);
-            _cache.Forget(target);
-            _log.Write(Diagnostics.LogLevel.Info, $"{own}: removed for {game.SystemId}/{details.RelPath}");
-            return true;
+            return files.Count > 0;
         }, cancellationToken).ConfigureAwait(false);
 
-        if (removed)
+        if (!removed)
         {
-            await _library.RefreshMediaAsync(game.SystemId, cancellationToken).ConfigureAwait(false);
-            return new ModelRemoveResult(ModelRemoveStatus.Removed, null);
+            return new ModelRemoveResult(ModelRemoveStatus.None);
         }
 
-        return rows.Count > 0 && !string.Equals(rows[0].Media.Path, own, StringComparison.Ordinal)
-            ? new ModelRemoveResult(ModelRemoveStatus.Shared, rows[0].Media.Path)
-            : new ModelRemoveResult(ModelRemoveStatus.None, null);
+        await _library.RefreshMediaAsync(game.SystemId, cancellationToken).ConfigureAwait(false);
+        return new ModelRemoveResult(ModelRemoveStatus.Removed);
+    }
+
+    /// <summary>Deletes a game's model file (as stored) and its processed copy, and logs it.</summary>
+    private void Forget(string stored, GameKey game, string relPath)
+    {
+        var target = _library.MediaPath(stored);
+        File.Delete(target);
+        _cache.Forget(target);
+        _log.Write(Diagnostics.LogLevel.Info, $"{stored}: removed for {game.SystemId}/{relPath}");
     }
 
     /// <summary>The report for the game's current model (processing it if the cache has none), or null if it has none.</summary>

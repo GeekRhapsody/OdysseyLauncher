@@ -5,8 +5,9 @@ using Launcher.Core.Scanning;
 namespace Launcher.Core.Media;
 
 /// <summary>
-/// One file in the media folder, <c>&lt;media folder&gt;/&lt;system&gt;/&lt;kind&gt;/&lt;rel path&gt;.&lt;ext&gt;</c>: an image,
-/// a video (kind <c>video</c>) or a per-game model (kind <c>model</c>), scraped or the user's own alike.
+/// One file in the media folder, <c>&lt;media folder&gt;/&lt;system&gt;/&lt;folder&gt;/&lt;name&gt;.&lt;ext&gt;</c> (the folder
+/// <see cref="MediaKinds.FolderOf"/>): an image, a video (kind <c>video</c>), a manual (kind <c>manual</c>, a PDF) or
+/// a per-game model (kind <c>model</c>), scraped or the user's own alike.
 /// </summary>
 /// <param name="Path">'/'-separated, as stored in <c>media.path</c>: <c>media/&lt;system&gt;/...</c>, <c>media</c> standing for the media folder (<see cref="MediaFolder"/>).</param>
 /// <param name="MatchKey">
@@ -54,7 +55,8 @@ public static class MediaScanner
 
         foreach (var kind in MediaKinds.All)
         {
-            var kindDir = System.IO.Path.Combine(systemDir, kind);
+            var folder = MediaKinds.FolderOf(kind);
+            var kindDir = System.IO.Path.Combine(systemDir, folder);
             if (!Directory.Exists(kindDir))
             {
                 continue;
@@ -68,7 +70,7 @@ public static class MediaScanner
             foreach (var (relPath, size, mtime) in found)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                var stored = $"{FolderName}/{systemId}/{kind}/{relPath}";
+                var stored = $"{FolderName}/{systemId}/{folder}/{relPath}";
                 var matchKey = PathKeys.ToPathKey(relPath[..^System.IO.Path.GetExtension(relPath).Length]);
                 if (keys.TryGetValue(matchKey, out var first))
                 {
@@ -77,7 +79,7 @@ public static class MediaScanner
                     continue;
                 }
 
-                // Only an image's header is read; a model is inspected when the app loads it, and nothing plays a video yet.
+                // Only an image's header is read; a model is inspected when the app loads it, and a video or a manual when it's opened.
                 int? width = null, height = null;
                 if (image)
                 {

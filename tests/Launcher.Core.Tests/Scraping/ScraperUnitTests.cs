@@ -189,10 +189,11 @@ public sealed class ScraperUnitTests
         Assert.Equal("Plateforme", game.Genre);
         Assert.Equal(0.8, game.Rating!.Value, 3);
         var kinds = game.MediaOrEmpty.Select(m => m.Kind).Order(StringComparer.Ordinal).ToList();
-        Assert.Equal(["back", "cover", "hero", "label", "logo", "screenshot", "spine", "video"], kinds);   // no box_texture
+        Assert.Equal(["back", "cover", "hero", "label", "logo", "manual", "screenshot", "spine", "video"], kinds);   // no box_texture
         Assert.EndsWith("media=wheel-hd(wor)", game.MediaOrEmpty.Single(m => m.Kind == "logo").Url, StringComparison.Ordinal);
         Assert.EndsWith("media=video-normalized", game.MediaOrEmpty.Single(m => m.Kind == "video").Url, StringComparison.Ordinal);
         Assert.EndsWith("media=support-texture(eu)", game.MediaOrEmpty.Single(m => m.Kind == "label").Url, StringComparison.Ordinal);
+        Assert.EndsWith("media=manuel(us)", game.MediaOrEmpty.Single(m => m.Kind == "manual").Url, StringComparison.Ordinal);   // no jp: the fallback order
         Assert.DoesNotContain(game.MediaOrEmpty, m => m.Url.Contains("mediaGroup", StringComparison.Ordinal));   // the publisher's logo isn't the game's
     }
 
@@ -457,7 +458,7 @@ public sealed class ScraperUnitTests
     }
 
     [Fact]
-    public async Task A_video_must_be_an_mp4_and_an_image_kind_must_be_an_image()
+    public async Task A_video_must_be_an_mp4_a_manual_a_pdf_and_an_image_kind_must_be_an_image()
     {
         using var dir = new TempDir();
         var store = new MediaStore(dir.Combine("media"));
@@ -465,11 +466,16 @@ public sealed class ScraperUnitTests
 
         var video = (await store.SaveAsync("megadrive", "Sonic.md", MediaKinds.Video, ScrapeBed.Mp4("clip"), ct))!;
 
-        Assert.Equal("media/megadrive/video/Sonic.md.mp4", video.RelativePath);
+        Assert.Equal("media/megadrive/videos/Sonic.mp4", video.RelativePath);
         Assert.Equal((0, 0), (video.Width, video.Height));
         Assert.Contains(store.FullPath(video.RelativePath), store.FilesOf("megadrive", "Sonic.md"));
         await Assert.ThrowsAsync<InvalidDataException>(() => store.SaveAsync("megadrive", "Sonic.md", MediaKinds.Video, ScrapeBed.Png("x"), ct));
         await Assert.ThrowsAsync<InvalidDataException>(() => store.SaveAsync("megadrive", "Sonic.md", MediaKinds.Cover, ScrapeBed.Mp4("x"), ct));
+
+        await Assert.ThrowsAsync<InvalidDataException>(() => store.SaveAsync("megadrive", "Sonic.md", MediaKinds.Manual, ScrapeBed.Png("x"), ct));
+        var manual = (await store.SaveAsync("megadrive", "Sonic.md", MediaKinds.Manual, ScrapeBed.Pdf("manual"), ct))!;
+        Assert.Equal("media/megadrive/manuals/Sonic.pdf", manual.RelativePath);
+        Assert.Equal((0, 0), (manual.Width, manual.Height));
     }
 
     [Fact]
@@ -478,8 +484,8 @@ public sealed class ScraperUnitTests
         using var dir = new TempDir();
         var store = new MediaStore(dir.Combine("media"));
         var ct = TestContext.Current.CancellationToken;
-        var shared = dir.File("media/megadrive/cover/Sonic.jpg", "the user's");
-        var own = dir.File("media/megadrive/logo/Sonic.md.webp", "the user's");
+        var shared = dir.File("media/megadrive/covers/Sonic.jpg", "the user's");
+        var own = dir.File("media/megadrive/logos/Sonic.md.webp", "the user's");
 
         Assert.Null(await store.SaveAsync("megadrive", "Sonic.md", MediaKinds.Cover, ScrapeBed.Png("cover"), ct));
         Assert.Null(await store.SaveAsync("megadrive", "Sonic.md", MediaKinds.Logo, ScrapeBed.Png("logo"), ct));
@@ -488,7 +494,7 @@ public sealed class ScraperUnitTests
         Assert.Equal(("the user's", "the user's"), (File.ReadAllText(shared), File.ReadAllText(own)));
         Assert.Equal(["Sonic.jpg", "Sonic.md.webp"], Directory.EnumerateFiles(dir.Combine("media/megadrive"), "*", SearchOption.AllDirectories)
             .Where(f => !f.Contains("label", StringComparison.Ordinal)).Select(Path.GetFileName).Order());
-        Assert.Equal("media/megadrive/label/Sonic.md.png", label!.RelativePath);
+        Assert.Equal("media/megadrive/labels/Sonic.png", label!.RelativePath);
         Assert.Null(await store.SaveAsync("megadrive", "Sonic.md", MediaKinds.Label, ScrapeBed.Png("another"), ct));
     }
 
@@ -516,7 +522,7 @@ public sealed class DerivativeServiceTests : IAsyncLifetime
     public async Task Missing_derivatives_are_baked_and_regenerated_when_their_source_changes()
     {
         _bed.Rom("megadrive/Game.md");
-        var art = _bed.Dir.File("user/media/megadrive/cover/Game.png");
+        var art = _bed.Dir.File("user/media/megadrive/covers/Game.png");
         File.WriteAllBytes(art, TestImages.RealPng(40, 56, (_, _) => (200, 10, 10, 255)));
         File.SetLastWriteTimeUtc(art, new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc));
         await _bed.ScanAsync();
@@ -549,7 +555,7 @@ public sealed class DerivativeServiceTests : IAsyncLifetime
     public async Task Theme_logos_are_baked_apart_from_the_librarys_derivatives_and_kept_for_the_active_theme_only()
     {
         _bed.Rom("megadrive/Game.md");
-        File.WriteAllBytes(_bed.Dir.File("user/media/megadrive/cover/Game.png"), TestImages.RealPng(40, 56, (_, _) => (200, 10, 10, 255)));
+        File.WriteAllBytes(_bed.Dir.File("user/media/megadrive/covers/Game.png"), TestImages.RealPng(40, 56, (_, _) => (200, 10, 10, 255)));
         await _bed.ScanAsync();
         using var service = _bed.Service(derivatives: true);
         Assert.SkipUnless(service.Derivatives.CanBake, "no image decoder on this platform");
@@ -580,7 +586,7 @@ public sealed class DerivativeServiceTests : IAsyncLifetime
     public async Task Without_a_decoder_nothing_is_baked_and_nothing_fails_loudly()
     {
         _bed.Rom("megadrive/Game.md");
-        File.WriteAllBytes(_bed.Dir.File("user/media/megadrive/cover/Game.png"), ScrapeBed.Png("x"));
+        File.WriteAllBytes(_bed.Dir.File("user/media/megadrive/covers/Game.png"), ScrapeBed.Png("x"));
         await _bed.ScanAsync();
         using var service = _bed.Service(derivatives: false);
 

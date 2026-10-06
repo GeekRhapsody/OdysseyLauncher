@@ -56,7 +56,7 @@ public sealed class LibraryService : ILibrary, IPlayHistory, IDisposable
     /// </summary>
     public string MediaDir => MediaFolder.Of(Config.Settings, DataDir);
 
-    /// <summary>A stored media path's file (<c>media/ps2/cover/Game.iso.png</c>) in the current media folder.</summary>
+    /// <summary>A stored media path's file (<c>media/ps2/covers/Game.png</c>) in the current media folder.</summary>
     public string MediaPath(string stored) => MediaFolder.FullPath(MediaDir, stored);
 
     /// <summary>Why library.db was recreated, if it was.</summary>
@@ -75,7 +75,7 @@ public sealed class LibraryService : ILibrary, IPlayHistory, IDisposable
     public const int DefaultScanParallelism = 8;
 
     /// <summary>
-    /// Whether scans index the media folder, <c>&lt;media folder&gt;/&lt;system&gt;/&lt;kind&gt;/</c> (art, videos and per-game
+    /// Whether scans index the media folder, <c>&lt;media folder&gt;/&lt;system&gt;/&lt;folder&gt;/</c> (art, videos and per-game
     /// models). Off indexes nothing and leaves existing rows alone. Set it before scanning.
     /// </summary>
     public bool IndexMedia { get; set; }

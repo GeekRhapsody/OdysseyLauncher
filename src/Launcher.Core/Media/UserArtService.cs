@@ -13,12 +13,6 @@ public enum UserArtStatus
     /// <summary>The game had no image of that kind.</summary>
     None,
 
-    /// <summary>
-    /// Its image is a file every game with its name uses (<c>Game.png</c> for <c>Game.cue</c> and <c>Game.chd</c>), so it
-    /// was left alone; <see cref="UserArtResult.Path"/> says which.
-    /// </summary>
-    Shared,
-
     /// <summary>The file isn't a PNG, JPEG or WebP image the launcher can read: nothing changed.</summary>
     NotAnImage,
 
@@ -27,22 +21,23 @@ public enum UserArtStatus
 }
 
 /// <summary>What setting or removing one of a game's images did.</summary>
-/// <param name="Path">The image's file as stored, '/'-separated (<c>media/ps2/cover/Game.iso.png</c>).</param>
+/// <param name="Path">The image's file as stored, '/'-separated (<c>media/ps2/covers/Game.png</c>).</param>
 /// <param name="Message">Why it was refused, for the user.</param>
 public sealed record UserArtResult(UserArtStatus Status, string? Path, string? Message = null);
 
 /// <summary>
 /// The user's own images for a game (M7's game options panel): one per media kind, chosen with the image picker.
 /// <para>
-/// Setting one copies the file to the game's own name in the media folder,
-/// <c>&lt;media folder&gt;/&lt;system&gt;/&lt;kind&gt;/&lt;rel path&gt;.&lt;ext&gt;</c> (the ROM's whole name, so no other game
-/// takes it; A4), replacing the game's file of that kind (a scraped one too: there's one file per kind), bakes its
-/// derivative, and indexes it without a ROM scan (<see cref="LibraryService.RefreshMediaAsync"/>, which raises
-/// <c>MediaChanged</c>, so the grid shows it at once). Scraping never replaces it.
+/// Setting one copies the file to the game's name in the media folder,
+/// <c>&lt;media folder&gt;/&lt;system&gt;/&lt;folder&gt;/&lt;name&gt;.&lt;ext&gt;</c> (the ROM's name without its extension, as
+/// ES-DE names media, so every ROM of that name shares it; A4), replacing the game's files of that kind (a scraped
+/// one too: there's one file per kind), bakes its derivative, and indexes it without a ROM scan
+/// (<see cref="LibraryService.RefreshMediaAsync"/>, which raises <c>MediaChanged</c>, so the grid shows it at once).
+/// Scraping never replaces it.
 /// </para>
 /// <para>
-/// Removing deletes the game's own file of that kind, whoever put it there; the slot stays empty until a scrape
-/// fills it. A file every game of that name shares isn't removed for one game.
+/// Removing deletes the game's files of that kind (<see cref="MediaStore.FilesOf(string, string, string)"/>), whoever
+/// put them there, so every ROM of that name loses it; the slot stays empty until a scrape fills it.
 /// </para>
 /// It's just files in the folder the scanner indexes, so a rebuild keeps them. Clearing a game's metadata removes them.
 /// </summary>
@@ -50,11 +45,11 @@ public sealed class UserArtService(LibraryService library, DerivativeService? de
 {
     private readonly LibraryService _library = library ?? throw new ArgumentNullException(nameof(library));
 
-    /// <summary>The game's own file for a kind, as stored: <c>media/&lt;system&gt;/&lt;kind&gt;/&lt;rel path&gt;&lt;ext&gt;</c>.</summary>
+    /// <summary>The game's file for a kind, as stored: <c>media/&lt;system&gt;/&lt;folder&gt;/&lt;name&gt;&lt;ext&gt;</c> (<see cref="MediaStore.PathFor"/>).</summary>
     public static string PathFor(GameKey game, string relPath, string kind, string extension)
     {
         ArgumentNullException.ThrowIfNull(extension);
-        return MediaStore.RelativePathFor(game.SystemId, relPath, kind, extension.ToLowerInvariant());
+        return MediaStore.PathFor(game.SystemId, relPath, kind, extension.ToLowerInvariant());
     }
 
     public async Task<UserArtResult> SetAsync(GameKey game, string kind, string sourceFile, CancellationToken cancellationToken)
@@ -94,8 +89,8 @@ public sealed class UserArtService(LibraryService library, DerivativeService? de
                     File.Move(temporary, target, overwrite: true);
                 }
 
-                // One image per kind: the game's own file in another format would be a second one.
-                foreach (var other in OwnFiles(game, details.RelPath, kind))
+                // One image per kind: the game's file in another format, or named after its whole ROM name, would be a second one.
+                foreach (var other in OwnFiles(details.RelPath, game.SystemId, kind))
                 {
                     if (!string.Equals(other, relative, StringComparison.Ordinal))
                     {
@@ -139,7 +134,7 @@ public sealed class UserArtService(LibraryService library, DerivativeService? de
 
         var removed = await Task.Run(() =>
         {
-            var files = OwnFiles(game, details.RelPath, kind);
+            var files = OwnFiles(details.RelPath, game.SystemId, kind);
             foreach (var file in files)
             {
                 File.Delete(Full(file));
@@ -150,31 +145,16 @@ public sealed class UserArtService(LibraryService library, DerivativeService? de
 
         if (removed is null)
         {
-            var rows = await _library.GetGameMediaInfoAsync(details.GameId, cancellationToken).ConfigureAwait(false);
-            return rows.FirstOrDefault(r => r.Kind == kind) is { } shared
-                ? new UserArtResult(UserArtStatus.Shared, shared.Media.Path)
-                : new UserArtResult(UserArtStatus.None, null);
+            return new UserArtResult(UserArtStatus.None, null);
         }
 
         await _library.RefreshMediaAsync(game.SystemId, cancellationToken).ConfigureAwait(false);
         return new UserArtResult(UserArtStatus.Removed, removed);
     }
 
-    /// <summary>The game's own files of a kind (its whole ROM name, any image extension), as stored.</summary>
-    private List<string> OwnFiles(GameKey game, string relPath, string kind)
-    {
-        var files = new List<string>();
-        foreach (var extension in MediaKinds.ImageExtensions)
-        {
-            var relative = PathFor(game, relPath, kind, extension);
-            if (File.Exists(Full(relative)))
-            {
-                files.Add(relative);
-            }
-        }
-
-        return files;
-    }
+    /// <summary>The game's files of a kind (its name with or without the ROM's extension, any image extension), as stored.</summary>
+    private IReadOnlyList<string> OwnFiles(string relPath, string systemId, string kind) =>
+        new MediaStore(_library.MediaDir).FilesOf(systemId, relPath, kind);
 
     private string Full(string relative) => _library.MediaPath(relative);
 

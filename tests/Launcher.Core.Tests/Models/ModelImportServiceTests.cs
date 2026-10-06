@@ -60,16 +60,16 @@ public sealed class ModelImportServiceTests : IAsyncLifetime
         var result = await _service.ImportGameModelAsync(Game, Source("tv.glb", ModelFixtures.Model(800, ["screenshot", "body"])), Ct);
 
         Assert.Equal(ModelImportStatus.Imported, result.Status);
-        Assert.Equal("media/ps2/model/Sub/Crimson Odyssey (Europe).iso.glb", result.ModelPath);
+        Assert.Equal("media/ps2/models/Sub/Crimson Odyssey (Europe).glb", result.ModelPath);
         Assert.False(result.Converted);
-        Assert.True(File.Exists(Path.Combine(_paths.DataDir, "media", "ps2", "model", "Sub", "Crimson Odyssey (Europe).iso.glb")));
+        Assert.True(File.Exists(Path.Combine(_paths.DataDir, "media", "ps2", "models", "Sub", "Crimson Odyssey (Europe).glb")));
         Assert.Equal(result.ModelPath, Assert.Single(await Models()).Media.Path);
         Assert.Equal([Game], Assert.Single(changes)!);
 
         // The cache already has it, so the app doesn't process it again.
         var cached = new ModelCache(_paths.CacheDir, null, null).Get(Path.Combine(_paths.DataDir, result.ModelPath!), ModelKind.PerGame);
         Assert.True(cached.FromCache);
-        Assert.Contains(ModelLog.ReadRecent(_paths.DataDir), l => l.Contains("Imported as media/ps2/model/", StringComparison.Ordinal));
+        Assert.Contains(ModelLog.ReadRecent(_paths.DataDir), l => l.Contains("Imported as media/ps2/models/", StringComparison.Ordinal));
         Assert.Equal(result.ModelPath, (await _service.GetGameModelAsync(Game, Ct))!.Value.Path);
     }
 
@@ -132,15 +132,29 @@ public sealed class ModelImportServiceTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task A_model_shared_by_name_isnt_removed_for_one_game()
+    public async Task A_model_named_without_the_roms_extension_is_removed()
     {
-        ModelFixtures.Write(_dir, "user/media/ps2/model/Other.glb", ModelFixtures.Model(100));
+        var model = ModelFixtures.Write(_dir, "user/media/ps2/models/Other.glb", ModelFixtures.Model(100));
         await _library.RefreshMediaAsync("ps2", Ct);
 
         var result = await _service.RemoveGameModelAsync(new GameKey("ps2", "other.iso"), Ct);
 
-        Assert.Equal((ModelRemoveStatus.Shared, "media/ps2/model/Other.glb"), (result.Status, result.SharedPath));
-        Assert.Single(await Models());
+        Assert.Equal(ModelRemoveStatus.Removed, result.Status);
+        Assert.False(File.Exists(model));
+        Assert.Empty(await Models());
+    }
+
+    [Fact]
+    public async Task Importing_replaces_a_model_named_after_the_whole_rom_name()
+    {
+        var own = ModelFixtures.Write(_dir, "user/media/ps2/models/Sub/Crimson Odyssey (Europe).iso.glb", ModelFixtures.Model(100));
+        await _library.RefreshMediaAsync("ps2", Ct);
+
+        var result = await _service.ImportGameModelAsync(Game, Source("tv.glb", ModelFixtures.Model(200)), Ct);
+
+        Assert.Equal("media/ps2/models/Sub/Crimson Odyssey (Europe).glb", result.ModelPath);
+        Assert.False(File.Exists(own));
+        Assert.Equal(result.ModelPath, Assert.Single(await Models()).Media.Path);
     }
 
     [Fact]

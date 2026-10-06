@@ -6,36 +6,61 @@ public sealed record StoredMedia(string RelativePath, long SizeBytes, long Mtime
 
 /// <summary>
 /// Scraped downloads on disk (ARCHITECTURE.md A4), in the media folder every game's media is indexed from:
-/// <c>&lt;media folder&gt;/&lt;system&gt;/&lt;kind&gt;/&lt;rel path&gt;.&lt;ext&gt;</c>, the ROM's whole name, as the user's own
-/// art is named. A download never replaces a file: what's in the folder is the game's, wherever it came from. Writes
-/// are atomic (a temporary file, then a move), so a crash never leaves a half-written image where the grid would
-/// read it. Does file I/O: never on the main thread.
+/// <c>&lt;media folder&gt;/&lt;system&gt;/&lt;folder&gt;/&lt;name&gt;.&lt;ext&gt;</c>, the name being the ROM's <c>rel_path</c>
+/// without its extension, as ES-DE names media (2026-10-06), and as the user's own art is named. A download never
+/// replaces a file: what's in the folder is the game's, wherever it came from. Writes are atomic (a temporary file,
+/// then a move), so a crash never leaves a half-written image where the grid would read it. Does file I/O: never on
+/// the main thread.
 /// </summary>
 /// <param name="mediaDir">The media folder (<see cref="MediaFolder.Of"/>).</param>
 public sealed class MediaStore(string mediaDir)
 {
     public string MediaDir { get; } = mediaDir ?? throw new ArgumentNullException(nameof(mediaDir));
 
-    /// <summary>A game's own file of a kind: <c>media/&lt;system&gt;/&lt;kind&gt;/&lt;rel path&gt;&lt;extension&gt;</c>.</summary>
-    /// <param name="relPath">The ROM's <c>rel_path</c>, its extension included.</param>
-    /// <param name="extension">With its dot: ".png", ".jpg", ".webp", ".mp4" or ".glb".</param>
-    public static string RelativePathFor(string systemId, string relPath, string kind, string extension)
+    /// <summary>
+    /// A file of a kind, as stored: <c>media/&lt;system&gt;/&lt;folder&gt;/&lt;name&gt;&lt;extension&gt;</c>, the folder being
+    /// <see cref="MediaKinds.FolderOf"/>.
+    /// </summary>
+    /// <param name="name">The path under the kind's folder without the file's extension: <see cref="NameOf"/> for the file a game's media is written as.</param>
+    /// <param name="extension">With its dot: ".png", ".jpg", ".webp", ".mp4", ".pdf" or ".glb".</param>
+    public static string RelativePathFor(string systemId, string name, string kind, string extension)
     {
         ArgumentNullException.ThrowIfNull(systemId);
-        ArgumentNullException.ThrowIfNull(relPath);
+        ArgumentNullException.ThrowIfNull(name);
         ArgumentNullException.ThrowIfNull(kind);
         ArgumentNullException.ThrowIfNull(extension);
-        return $"{MediaScanner.FolderName}/{systemId}/{kind}/{relPath}{extension}";
+        return $"{MediaScanner.FolderName}/{systemId}/{MediaKinds.FolderOf(kind)}/{name}{extension}";
+    }
+
+    /// <summary>
+    /// The file a game's media of a kind is written as: <c>media/&lt;system&gt;/&lt;folder&gt;/&lt;name&gt;&lt;extension&gt;</c>,
+    /// named after the ROM without its extension (<see cref="NameOf"/>).
+    /// </summary>
+    /// <param name="relPath">The ROM's <c>rel_path</c>, its extension included.</param>
+    public static string PathFor(string systemId, string relPath, string kind, string extension) =>
+        RelativePathFor(systemId, NameOf(relPath), kind, extension);
+
+    /// <summary>
+    /// The name a game's media files are written with: its <c>rel_path</c> without the ROM's extension
+    /// (<c>sub/Albion (1995).zip</c> is <c>sub/Albion (1995)</c>), so every ROM of that name shares them, as in ES-DE.
+    /// A name with no extension is kept whole.
+    /// </summary>
+    public static string NameOf(string relPath)
+    {
+        ArgumentNullException.ThrowIfNull(relPath);
+        var dot = relPath.LastIndexOf('.');
+        return dot > relPath.LastIndexOf('/') + 1 ? relPath[..dot] : relPath;
     }
 
     public string FullPath(string relativePath) => MediaFolder.FullPath(MediaDir, relativePath);
 
     /// <summary>
-    /// Writes a download (an image, or for <see cref="MediaKinds.Video"/> a video) as the game's file of that kind,
-    /// unless the game has one already (<see cref="HasFile"/>). A video has no size: its width and height are 0.
+    /// Writes a download (an image, for <see cref="MediaKinds.Video"/> a video, for <see cref="MediaKinds.Manual"/> a
+    /// PDF) as the game's file of that kind, unless the game has one already (<see cref="HasFile"/>). A video or a
+    /// manual has no size: its width and height are 0.
     /// </summary>
     /// <returns>The file written, or null when the game already had a file of that kind, which is left as it is.</returns>
-    /// <exception cref="InvalidDataException">The content isn't a PNG, JPEG or WebP image, or for a video an MP4.</exception>
+    /// <exception cref="InvalidDataException">The content isn't a PNG, JPEG or WebP image, for a video an MP4, or for a manual a PDF.</exception>
     public async Task<StoredMedia?> SaveAsync(string systemId, string relPath, string kind, ReadOnlyMemory<byte> content, CancellationToken cancellationToken)
     {
         int width = 0, height = 0;
@@ -43,6 +68,10 @@ public sealed class MediaStore(string mediaDir)
         if (kind == MediaKinds.Video)
         {
             extension = VideoFormats.Sniff(content.Span) ?? throw new InvalidDataException("the download isn't an MP4 video");
+        }
+        else if (kind == MediaKinds.Manual)
+        {
+            extension = DocumentFormats.Sniff(content.Span) ?? throw new InvalidDataException("the download isn't a PDF");
         }
         else
         {
@@ -60,7 +89,7 @@ public sealed class MediaStore(string mediaDir)
             return null;
         }
 
-        var relative = RelativePathFor(systemId, relPath, kind, extension);
+        var relative = PathFor(systemId, relPath, kind, extension);
         var full = FullPath(relative);
         Directory.CreateDirectory(Path.GetDirectoryName(full)!);
         var temp = full + ".tmp-" + Guid.NewGuid().ToString("N");
@@ -91,26 +120,40 @@ public sealed class MediaStore(string mediaDir)
     }
 
     /// <summary>
-    /// Whether the game has a file of the kind on disk, in any of the kind's formats: its own (its whole ROM name), or
-    /// the one every game of its name shares (the ROM's name without its extension), as a scan matches them.
+    /// Whether the game has a file of the kind on disk, in any of the kind's formats, as a scan matches them: the one
+    /// every game of its name shares (<see cref="NameOf"/>, as the app writes them), or one named after its whole ROM
+    /// name (that ROM's alone, which the user can add).
     /// </summary>
-    public bool HasFile(string systemId, string relPath, string kind)
+    public bool HasFile(string systemId, string relPath, string kind) => FilesOf(systemId, relPath, kind).Count > 0;
+
+    /// <summary>
+    /// The game's files of a kind on disk, as stored (<see cref="HasFile"/>): what the user's own file replaces, and
+    /// what removing the kind deletes.
+    /// </summary>
+    public IReadOnlyList<string> FilesOf(string systemId, string relPath, string kind)
     {
-        var dot = relPath.LastIndexOf('.');
-        var stem = dot > relPath.LastIndexOf('/') + 1 ? relPath[..dot] : null;
+        ArgumentNullException.ThrowIfNull(relPath);
+        var files = new List<string>();
+        var name = NameOf(relPath);
         foreach (var extension in MediaKinds.ExtensionsOf(kind))
         {
-            if (File.Exists(FullPath(RelativePathFor(systemId, relPath, kind, extension)))
-                || (stem is not null && File.Exists(FullPath(RelativePathFor(systemId, stem, kind, extension)))))
+            foreach (var named in (ReadOnlySpan<string>)[name, relPath])
             {
-                return true;
+                var relative = RelativePathFor(systemId, named, kind, extension);
+                if (File.Exists(FullPath(relative)) && !files.Contains(relative))
+                {
+                    files.Add(relative);
+                }
             }
         }
 
-        return false;
+        return files;
     }
 
-    /// <summary>Every file named after the game (its whole ROM name), of every kind and format: what clearing it deletes.</summary>
+    /// <summary>
+    /// Every file named after the game, of every kind and format (<see cref="FilesOf(string, string, string)"/>), as
+    /// full paths: what clearing it deletes, except a file another game also uses.
+    /// </summary>
     public IReadOnlyList<string> FilesOf(string systemId, string relPath)
     {
         var files = new List<string>();
@@ -121,13 +164,9 @@ public sealed class MediaStore(string mediaDir)
 
         foreach (var kind in MediaKinds.All)
         {
-            foreach (var extension in MediaKinds.ExtensionsOf(kind))
+            foreach (var relative in FilesOf(systemId, relPath, kind))
             {
-                var path = FullPath(RelativePathFor(systemId, relPath, kind, extension));
-                if (File.Exists(path))
-                {
-                    files.Add(path);
-                }
+                files.Add(FullPath(relative));
             }
         }
 
@@ -166,4 +205,15 @@ public static class VideoFormats
     /// <summary>".mp4" (an ISO base media file: an <c>ftyp</c> box first), or null for anything else.</summary>
     public static string? Sniff(ReadOnlySpan<byte> data) =>
         data.Length >= 12 && data[4..8].SequenceEqual("ftyp"u8) ? ".mp4" : null;
+}
+
+/// <summary>Recognises the document formats scraping stores (a game's manual) by their first bytes.</summary>
+public static class DocumentFormats
+{
+    /// <summary>How far into a file a PDF's header may be: PDF readers accept it anywhere in the first 1 KB.</summary>
+    public const int HeaderWindow = 1024;
+
+    /// <summary>".pdf" (<c>%PDF-</c> in the first KB), or null for anything else.</summary>
+    public static string? Sniff(ReadOnlySpan<byte> data) =>
+        data[..Math.Min(data.Length, HeaderWindow)].IndexOf("%PDF-"u8) >= 0 ? ".pdf" : null;
 }

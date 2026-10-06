@@ -28,7 +28,7 @@ public static class MediaFolder
     }
 
     /// <summary>
-    /// A stored path's file: <c>media/ps2/cover/Game.iso.png</c> is <c>&lt;media folder&gt;\ps2\cover\Game.iso.png</c>.
+    /// A stored path's file: <c>media/ps2/covers/Game.png</c> is <c>&lt;media folder&gt;\ps2\covers\Game.png</c>.
     /// Either separator is read.
     /// </summary>
     public static string FullPath(string mediaDir, string stored)

@@ -1002,7 +1002,7 @@ public sealed partial class SystemPage : ListPanel
         {
             var kinds = plan.FilesByKind();
             var parts = new List<string>();
-            foreach (var (kind, label) in (ReadOnlySpan<(string, string)>)[(MediaKinds.Cover, "covers"), (MediaKinds.Screenshot, "screenshots"), (MediaKinds.Logo, "logos"), (MediaKinds.Video, "videos")])
+            foreach (var (kind, label) in (ReadOnlySpan<(string, string)>)[(MediaKinds.Cover, "covers"), (MediaKinds.Screenshot, "screenshots"), (MediaKinds.Logo, "logos"), (MediaKinds.Video, "videos"), (MediaKinds.Manual, "manuals")])
             {
                 if (kinds.TryGetValue(kind, out var count))
                 {

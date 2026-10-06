@@ -52,6 +52,7 @@ public static class GamelistReader
         ("image", MediaKinds.Screenshot),
         ("marquee", MediaKinds.Logo),
         ("video", MediaKinds.Video),
+        ("manual", MediaKinds.Manual),
     ];
 
     public static GamelistReadResult Read(Stream xml, string sourceName)

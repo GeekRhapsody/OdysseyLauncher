@@ -50,7 +50,8 @@ const string Usage = """
                                   Imports an ES-DE gamelist.xml (the system's own, found in its ROM folders or
                                   ~/ES-DE/gamelists/<system>/, or --from): titles and metadata as your own edits,
                                   favourites and ScreenScraper matches, filling only what's missing; its thumbnails,
-                                  images, marquees and videos copied in as covers, screenshots, logos and videos
+                                  images, marquees, videos and manuals copied in as covers, screenshots, logos,
+                                  videos and manuals
 
     <rel path> is the ROM's path under its system's ROM folder, as on disk: megadrive/Sonic the Hedgehog 3 (Europe).md
     Credentials: ConfigDir/secrets.toml ([screenscraper] dev_id, dev_password, username, password;
@@ -236,7 +237,6 @@ try
                 Console.WriteLine(result.Status switch
                 {
                     ModelRemoveStatus.Removed => "Removed: the game shows its system's template again.",
-                    ModelRemoveStatus.Shared => $"Not removed: {result.SharedPath} is the model of every game with that name. Delete the file to remove it for all of them.",
                     _ => "The game has no model of its own.",
                 });
                 return result.Status == ModelRemoveStatus.Removed ? 0 : 1;

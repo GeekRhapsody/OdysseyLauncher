@@ -153,11 +153,11 @@ public sealed class ScrapeBed : IAsyncDisposable
     public string? SuppliedBy(GameKey game, string kind) =>
         Scraped.TryGetValue(game, out var result) && result.MediaSources.TryGetValue(kind, out var provider) ? provider : null;
 
-    /// <summary>A game's own file of a kind in the media folder, absolute: <c>media/&lt;system&gt;/&lt;kind&gt;/&lt;rel path&gt;&lt;ext&gt;</c>.</summary>
+    /// <summary>The file a game's media of a kind is written as, absolute: <c>media/&lt;system&gt;/&lt;folder&gt;/&lt;name&gt;&lt;ext&gt;</c>.</summary>
     public string MediaFile(string systemAndRelPath, string kind, string extension)
     {
         var slash = systemAndRelPath.IndexOf('/', StringComparison.Ordinal);
-        return Path.Combine(Paths.DataDir, MediaStore.RelativePathFor(systemAndRelPath[..slash], systemAndRelPath[(slash + 1)..], kind, extension)
+        return Path.Combine(Paths.DataDir, MediaStore.PathFor(systemAndRelPath[..slash], systemAndRelPath[(slash + 1)..], kind, extension)
             .Replace('/', Path.DirectorySeparatorChar));
     }
 
@@ -233,7 +233,9 @@ public sealed class ScrapeBed : IAsyncDisposable
         Http.On("GET", u => Is(u, "screenscraper.fr", "jeuRecherche.php"), _ => FakeHttpHandler.Json(Fill("ss_jeurecherche_empty.json")));
         Http.On("GET", u => Is(u, "screenscraper.fr", "mediaJeu.php"), r => (r.Query("media") ?? "x") is var media && media.StartsWith("video", StringComparison.Ordinal)
             ? FakeHttpHandler.Bytes(Mp4(media), "video/mp4")
-            : FakeHttpHandler.Bytes(Png(media)));
+            : media.StartsWith("manuel", StringComparison.Ordinal)
+                ? FakeHttpHandler.Bytes(Pdf(media), "application/pdf")
+                : FakeHttpHandler.Bytes(Png(media)));
 
         // Twitch and IGDB.
         Http.On("POST", u => u.Host == "id.twitch.tv", _ =>
@@ -282,6 +284,10 @@ public sealed class ScrapeBed : IAsyncDisposable
     /// <summary>The start of an MP4 (an <c>ftyp</c> box) and some bytes that depend on <paramref name="seed"/>.</summary>
     public static byte[] Mp4(string seed) =>
         [0, 0, 0, 0x18, .. "ftypisom"u8, 0, 0, 2, 0, .. "isommp42"u8, .. System.Text.Encoding.UTF8.GetBytes(seed)];
+
+    /// <summary>The start of a PDF and some bytes that depend on <paramref name="seed"/>.</summary>
+    public static byte[] Pdf(string seed) =>
+        [.. "%PDF-1.7 "u8, .. System.Text.Encoding.UTF8.GetBytes(seed)];
 
     public async Task<GameDetails> Game(string system, string relPath) =>
         (await Library.GetGameAsync(new GameKey(system, relPath.ToLowerInvariant()), TestContext.Current.CancellationToken))!;

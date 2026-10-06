@@ -48,9 +48,10 @@ public sealed partial class ScreenScraperScraper : IScraper
         [MediaKinds.Hero] = ["fanart"],
         [MediaKinds.Label] = ["support-texture"],
         [MediaKinds.Video] = ["video-normalized", "video"],
+        [MediaKinds.Manual] = ["manuel"],
     };
 
-    /// <summary>How long a video's download may take: they're megabytes, and ScreenScraper's servers can be slow.</summary>
+    /// <summary>How long a video's or a manual's download may take: they're megabytes, and ScreenScraper's servers can be slow.</summary>
     private static readonly TimeSpan VideoTimeout = TimeSpan.FromMinutes(5);
 
     /// <summary>Asked after <c>[scraping] regions</c>, in this order, when none of those has a name, date or medium.</summary>
@@ -370,7 +371,7 @@ public sealed partial class ScreenScraperScraper : IScraper
             throw new ProviderException(Id, ProviderFailure.Rejected, $"{media.Kind}: the media URL isn't on screenscraper.fr");
         }
 
-        var timeout = media.Kind == MediaKinds.Video ? VideoTimeout : (TimeSpan?)null;
+        var timeout = media.Kind is MediaKinds.Video or MediaKinds.Manual ? VideoTimeout : (TimeSpan?)null;
         var (reply, kind) = await _http.SendAsync(Id, Gate, () => Get(uri.AbsoluteUri), ClassifyMedia, media.Kind + " download", cancellationToken, timeout).ConfigureAwait(false);
         if (kind == ReplyKind.NotFound)
         {

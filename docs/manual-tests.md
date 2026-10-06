@@ -342,11 +342,11 @@ This checks what the scripts can't: a real Steam game handed to Steam and follow
 
 ## Scraped media kinds
 
-This checks what the fixtures can't: that ScreenScraper really names its media as the scraper expects (`box-2D-back`, `box-2D-side`, `ss`, `wheel-hd`, `fanart`, `support-texture`, `video-normalized`), and the Media page on a real pad. It uses the M3 set-up (`C:\OdysseyTest`) with the M5 Mega Drive ROMs and your credentials from M7 part 1, and the export full screen: `& .\artifacts\export\windows\OdysseyLauncher.exe --fullscreen ++ --user-dir=C:\OdysseyTest`.
+This checks what the fixtures can't: that ScreenScraper really names its media as the scraper expects (`box-2D-back`, `box-2D-side`, `ss`, `wheel-hd`, `fanart`, `support-texture`, `video-normalized`, `manuel`), and the Media page on a real pad. It uses the M3 set-up (`C:\OdysseyTest`) with the M5 Mega Drive ROMs and your credentials from M7 part 1, and the export full screen: `& .\artifacts\export\windows\OdysseyLauncher.exe --fullscreen ++ --user-dir=C:\OdysseyTest`.
 
-1. **The Media page.** Settings, then Providers, media and credentials, then Media to scrape. Front cover, box back, box spine, screenshot and wheel say Yes; fan art, support texture and video say No. Turn on fan art, support texture and video (A, or right). `C:\OdysseyTest\settings.toml` now has a `media` line under `[scraping]` listing all eight, and your own comments are still there.
+1. **The Media page.** Settings, then Providers, media and credentials, then Media to scrape. Front cover, box back, box spine, screenshot and wheel say Yes; fan art, support texture, video and manual say No. Turn on fan art, support texture, video and manual (A, or right). `C:\OdysseyTest\settings.toml` now has a `media` line under `[scraping]` listing all nine, and your own comments are still there.
 2. **Scrape a game.** Close the settings, press X on a well-known game (Sonic the Hedgehog 2), then Scrape this game. Then Images: the back, spine, screenshot, logo, hero art and disc or cartridge label cards show ScreenScraper's art.
-3. **The files.** `Get-ChildItem C:\OdysseyTest\scraped\media\megadrive -Recurse -File | Select Directory, Name, Length`: a file in `back`, `spine`, `screenshot`, `logo`, `hero`, `label` and `video` (an `.mp4` of a few MB that plays in a video player), and none new in `box_texture`.
+3. **The files.** `Get-ChildItem C:\OdysseyTest\media\megadrive -Recurse -File | Select Directory, Name, Length`: a file named `Sonic the Hedgehog 2 (World).<ext>`, without the ROM's `.md`, in `covers`, `backcovers`, `spines`, `screenshots`, `logos`, `heroes`, `labels`, `videos` (an `.mp4` of a few MB that plays in a video player) and `manuals` (a `.pdf` that opens in a PDF reader), and none new in `box_texture`.
 4. **Off again.** Turn video off on the Media page and scrape another game: no `.mp4` for it.
 
 ### Send back
@@ -483,11 +483,11 @@ A release carries ScreenScraper's developer credentials (ARCHITECTURE.md A5, "Se
 
 An import copies a whole system's media off the NAS (the NES folder has 4.7 GB of videos), so it's yours to run. Use a user folder of its own, so your library isn't changed: `C:\OdysseyGamelist\systems.toml` with `[systems.nes]` and `rom_dirs = ['S:/Nintendo Entertainment System']`, then `godot --path godot -- --user-dir=C:\OdysseyGamelist` (or the export, with `-- --user-dir=...`).
 
-1. **Find it.** Once NES is scanned, X on it, then down to Import > "Import gamelist.xml". The question names `S:\Nintendo Entertainment System\gamelist.xml` and says all 1,196 of its games are in the library, how many get metadata, about 1,150 of each kind of file, and the ScreenScraper matches.
+1. **Find it.** Once NES is scanned, X on it, then down to Import > "Import gamelist.xml". The question names `S:\Nintendo Entertainment System\gamelist.xml` and says all 1,196 of its games are in the library, how many get metadata, about 1,150 of each kind of file (and its manuals, if the gamelist names any), and the ScreenScraper matches.
 2. **Import.** Choose Import, then B back to the grid. The progress card counts files; titles change at once (Adventure Island 2 becomes Adventure Island II), and covers appear in the grid as the import goes. It should take about a quarter of an hour.
 3. **Cancel and finish.** Cancel the card part way (its Cancel), then import again: the question now offers only what's left, and the import finishes it.
 4. **A game.** Y on 720 Degrees: its description, release date (1 November 1989), developer, publisher, genre and players, "Metadata: Yours", and cards for its video (it plays), front cover, screenshot and logo. X > Metadata shows the values as yours.
-5. **Nothing moved.** In Explorer, `S:\Nintendo Entertainment System\images` and `videos` still have their files (the share is read-only anyway); the copies are in `C:\OdysseyGamelist\media\nes\{cover,screenshot,logo,video}\`.
+5. **Nothing moved.** In Explorer, `S:\Nintendo Entertainment System\images` and `videos` still have their files (the share is read-only anyway); the copies are in `C:\OdysseyGamelist\media\nes\{covers,screenshots,logos,videos,manuals}\`, named without the ROM's extension (`720 Degrees (USA).png`), as ES-DE names them.
 6. **Again.** Import once more: "Nothing new to import".
 
 ### Send back
@@ -501,7 +501,7 @@ A live scrape needs your credentials, so it's yours to run. Use a user folder of
 
 1. **Regions.** Settings, then Providers, media and credentials, then Preferred regions: Europe 1st, World 2nd, USA 3rd, Japan 4th, the rest Off. Move USA up twice (left, or its ↑): it's 1st, the focus stays on it, and `settings.toml` has `regions = ["us", "eu", "wor", "jp"]`. Turn Japan off and United Kingdom on. Turning off the last one left says it needs at least one.
 2. **A region at work.** X on a game with different US and European covers (Sonic the Hedgehog 3, say), Clear metadata, then Scrape this game: the cover is the US box. Put Europe first again and repeat: the European box.
-3. **No front cover.** On Mega Drive's options, delete one game's cover file in `media\megadrive\cover\` first and rescan (F5). "Scrape games without a front cover" says 1 game of the system's; start it. Only that game is scraped (the progress card counts 1), and it gets its cover back.
+3. **No front cover.** On Mega Drive's options, delete one game's cover file in `media\megadrive\covers\` first and rescan (F5). "Scrape games without a front cover" says 1 game of the system's; start it. Only that game is scraped (the progress card counts 1), and it gets its cover back.
 4. **No screenshot.** With Screenshot on under Media to scrape, "Scrape games without a screenshot" counts the games without one; start it, then open it again: the count is now the games no provider has a screenshot for.
 5. **Not scraped recently.** Right after step 4, "Scrape games not scraped in the last 30 days" counts only the games steps 2 to 4 didn't scrape; with every game scraped today it says there's nothing to scrape.
 

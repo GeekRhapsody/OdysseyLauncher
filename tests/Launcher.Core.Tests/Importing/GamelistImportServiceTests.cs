@@ -68,6 +68,7 @@ public sealed class GamelistImportServiceTests : IAsyncLifetime
             <genre>Sports / Skateboard</genre>
             <image>./images/720 Degrees (USA)-image.png</image>
             <video>./videos/720 Degrees (USA)-video.mp4</video>
+            <manual>./manuals/720 Degrees (USA)-manual.pdf</manual>
             <marquee>./images/720 Degrees (USA)-marquee.png</marquee>
             <thumbnail>./images/720 Degrees (USA)-thumb.png</thumbnail>
             <rating>0.55</rating>
@@ -86,6 +87,7 @@ public sealed class GamelistImportServiceTests : IAsyncLifetime
         Art("images/720 Degrees (USA)-marquee.png", ScrapeBed.Png("marquee"));
         Art("images/720 Degrees (USA)-thumb.png", ScrapeBed.Png("thumb"));
         Art("videos/720 Degrees (USA)-video.mp4", Mp4());
+        Art("manuals/720 Degrees (USA)-manual.pdf", ScrapeBed.Pdf("manual"));
     }
 
     private async Task<GamelistImportResult> ImportAsync(string file, List<IReadOnlyList<GameKey>>? saved = null)
@@ -110,17 +112,17 @@ public sealed class GamelistImportServiceTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Imports_metadata_as_the_users_own_and_copies_media_to_the_games_own_names()
+    public async Task Imports_metadata_as_the_users_own_and_copies_media_to_the_games_names()
     {
         SkateArt();
         var file = Gamelist(SkateEntry);
         var saved = new List<IReadOnlyList<GameKey>>();
 
         var plan = await _service.PlanAsync("nes", file, Ct);
-        Assert.Equal((1, 1, 0, 1, 1, 1, 4), (plan.Entries, plan.InLibrary, plan.NotInLibrary, plan.WithMetadata, plan.Favourites, plan.Matches, plan.Files));
+        Assert.Equal((1, 1, 0, 1, 1, 1, 5), (plan.Entries, plan.InLibrary, plan.NotInLibrary, plan.WithMetadata, plan.Favourites, plan.Matches, plan.Files));
         var result = await _service.ImportAsync(plan, null, keys => saved.Add(keys), Ct);
 
-        Assert.Equal((1, 1, 1, 4, 0, 0, 0), (result.MetadataGames, result.Favourites, result.Matches, result.CopiedTotal, result.AlreadyThere, result.Missing, result.Unreadable));
+        Assert.Equal((1, 1, 1, 5, 0, 0, 0), (result.MetadataGames, result.Favourites, result.Matches, result.CopiedTotal, result.AlreadyThere, result.Missing, result.Unreadable));
         Assert.Equal([SkateKey], Assert.Single(saved));
 
         var edit = (await _bed.Library.GetMetadataEditAsync(SkateKey, Ct))!;
@@ -132,12 +134,13 @@ public sealed class GamelistImportServiceTests : IAsyncLifetime
         Assert.Equal("720°", game.Title);
         Assert.True(game.IsFavourite);
 
-        // Each kind, at the game's own name; the gamelist's files are copied, not moved.
+        // Each kind, at the game's name without the ROM's extension, as ES-DE names them; the gamelist's files are copied, not moved.
         var media = (await Media(Skate)).ToDictionary(m => m.Kind, m => m.Media.Path);
-        Assert.Equal("media/nes/cover/720 Degrees (USA).zip.png", media[MediaKinds.Cover]);
-        Assert.Equal("media/nes/screenshot/720 Degrees (USA).zip.png", media[MediaKinds.Screenshot]);
-        Assert.Equal("media/nes/logo/720 Degrees (USA).zip.png", media[MediaKinds.Logo]);
-        Assert.Equal("media/nes/video/720 Degrees (USA).zip.mp4", media[MediaKinds.Video]);
+        Assert.Equal("media/nes/covers/720 Degrees (USA).png", media[MediaKinds.Cover]);
+        Assert.Equal("media/nes/screenshots/720 Degrees (USA).png", media[MediaKinds.Screenshot]);
+        Assert.Equal("media/nes/logos/720 Degrees (USA).png", media[MediaKinds.Logo]);
+        Assert.Equal("media/nes/videos/720 Degrees (USA).mp4", media[MediaKinds.Video]);
+        Assert.Equal("media/nes/manuals/720 Degrees (USA).pdf", media[MediaKinds.Manual]);
         Assert.True(File.Exists(Path.Combine(RomDir, "images", "720 Degrees (USA)-thumb.png")));
         Assert.True(File.Exists(Path.Combine(RomDir, "videos", "720 Degrees (USA)-video.mp4")));
         Assert.Equal(ScrapeBed.Png("thumb"), File.ReadAllBytes(_bed.MediaFile("nes/" + Skate, MediaKinds.Cover, ".png")));
@@ -166,7 +169,7 @@ public sealed class GamelistImportServiceTests : IAsyncLifetime
         await _bed.Library.RefreshMediaAsync("nes", Ct);
 
         var first = await ImportAsync(file);
-        Assert.Equal(3, first.CopiedTotal);
+        Assert.Equal(4, first.CopiedTotal);
         Assert.False(first.Copied.ContainsKey(MediaKinds.Cover));
         Assert.Equal("Skating", (await _bed.Library.GetMetadataEditAsync(SkateKey, Ct))!.Overrides.Genre);
         Assert.Equal(ScrapeBed.Png("mine"), File.ReadAllBytes(cover));

@@ -18,7 +18,7 @@ using Launcher.Core.Models;
 // hardlinked from the spike's DDS files, so the library costs almost no disk. With --slots, those games also get art
 // of each named kind (a different spike image for each), for themes whose templates use more slots than the cover.
 // With --models, that many PlayStation 2 games, spread evenly, get a per-game model of their own
-// (DataDir/media/ps2/model/<rel path>.glb, M6): a lathed figure on a plinth, about 1,000 triangles, with a cover
+// (DataDir/media/ps2/models/<name>.glb, M6): a lathed figure on a plinth, about 1,000 triangles, with a cover
 // slot on the plinth and, on every third, a small texture of its own. Then it scans the library, so the app boots warm.
 //
 // The folder is deleted and recreated, but only if it's empty or was made by this tool.
@@ -135,7 +135,7 @@ foreach (var system in generatedSystems)
         games++;
         if (system.Id == "ps2" && options.Models > 0 && i % Math.Max(1, count / options.Models) == 0 && models < options.Models)
         {
-            var model = Path.Combine(root, MediaScanner.FolderName, "ps2", MediaKinds.Model, stem + extension + ".glb");
+            var model = Path.Combine(root, MediaScanner.FolderName, "ps2", MediaKinds.FolderOf(MediaKinds.Model), stem + ".glb");
             Directory.CreateDirectory(Path.GetDirectoryName(model)!);
             File.WriteAllBytes(model, SyntheticModels.Make(random, models));
             models++;
@@ -180,7 +180,7 @@ void Link(string systemId, string kind, string stem, int n)
 {
     var sourceJpeg = Path.Combine(options.Covers, "jpg", n.ToString("D5", CultureInfo.InvariantCulture) + ".jpg");
     var sourceDds = Path.Combine(options.Covers, "dds-bc7", n.ToString("D5", CultureInfo.InvariantCulture) + ".dds");
-    var relative = $"{MediaScanner.FolderName}/{systemId}/{kind}/{stem}.jpg";
+    var relative = MediaStore.RelativePathFor(systemId, stem, kind, ".jpg");
     var art = Path.Combine(root, relative.Replace('/', Path.DirectorySeparatorChar));
     Directory.CreateDirectory(Path.GetDirectoryName(art)!);
     HardLink(art, sourceJpeg);

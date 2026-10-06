@@ -37,7 +37,7 @@ public sealed class ModelCache
     public string Folder { get; }
 
     /// <summary>The processed model for a source file, processing it now if the cache has no current entry.</summary>
-    /// <param name="description">How the log names the model: "your media/ps2/model/Game.glb".</param>
+    /// <param name="description">How the log names the model: "your media/ps2/models/Game.glb".</param>
     public CachedModel Get(string sourcePath, ModelKind kind, string? description = null)
     {
         ArgumentNullException.ThrowIfNull(sourcePath);

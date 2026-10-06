@@ -62,7 +62,7 @@ public sealed record LogoFile(string ThemeId, string Relative, string Path)
 /// <summary>Where a model candidate comes from, in precedence order (A7).</summary>
 public enum ModelLevel
 {
-    /// <summary><c>&lt;media folder&gt;/&lt;system&gt;/model/&lt;rel path&gt;.glb</c>, indexed by the scanner.</summary>
+    /// <summary><c>&lt;media folder&gt;/&lt;system&gt;/models/&lt;name&gt;.glb</c>, indexed by the scanner.</summary>
     UserGame,
 
     /// <summary><c>ConfigDir/models/templates/&lt;system&gt;.glb</c>, or for a card <c>ConfigDir/models/systems/&lt;system&gt;.glb</c>.</summary>

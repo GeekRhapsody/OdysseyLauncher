@@ -38,6 +38,10 @@ public sealed record ProviderLog(string Provider, string Status, string? Detail)
 /// <param name="Metadata">Null leaves the game's metadata as it is (nothing was found).</param>
 /// <param name="Matches">Provider → (id, method).</param>
 /// <param name="Status">'ok', 'partial', 'not_found' or 'error'.</param>
+/// <param name="Gone">
+/// Media rows whose files are no longer on disk (deleted by hand since the last scan): removed, unless a download
+/// in <paramref name="Media"/> takes their kind's place.
+/// </param>
 public sealed record ScrapeWrite(
     MergedMetadata? Metadata,
     IReadOnlyDictionary<string, (string Id, string Method)> Matches,
@@ -45,7 +49,8 @@ public sealed record ScrapeWrite(
     IReadOnlyList<ProviderLog> Log,
     string Status,
     IReadOnlyList<string> Providers,
-    long At);
+    long At,
+    IReadOnlyList<(string Kind, string Path)>? Gone = null);
 
 /// <summary>A scrape job taken from the queue.</summary>
 public sealed record QueuedJob(long BatchId, long Seq, GameKey Game);
@@ -304,9 +309,18 @@ internal static class ScrapeStore
                 match.ExecuteNonQuery();
             }
 
+            foreach (var (kind, path) in write.Gone ?? [])
+            {
+                using var gone = Command("DELETE FROM media WHERE game_id = $id AND kind = $kind AND path = $path");
+                gone.Parameters.AddWithValue("$id", gameId);
+                gone.Parameters.AddWithValue("$kind", kind);
+                gone.Parameters.AddWithValue("$path", path);
+                gone.ExecuteNonQuery();
+            }
+
             foreach (var (kind, stored) in write.Media)
             {
-                // A download is the game's own file (its whole ROM name), which a scan matches before a shared one.
+                // A download is the game's file, named without the ROM's extension (MediaStore.PathFor), as a scan finds it.
                 using var media = Command("""
                     INSERT INTO media (game_id, kind, path, width, height, size_bytes, mtime_ms)
                     VALUES ($id, $kind, $path, $width, $height, $size, $mtime)
@@ -455,7 +469,12 @@ internal static class ScrapeStore
     /// <param name="RelPath">The game's <c>rel_path</c>, which its own media files are named after; null if it isn't in the library.</param>
     /// <param name="Media">Every media row the game had: (kind, path, size, mtime), for its file and derivative.</param>
     /// <param name="Shared">Media files another game also uses (matched by stem): their rows went, but the files stay.</param>
-    public sealed record Cleared(bool Found, string? RelPath, IReadOnlyList<(string Kind, string Path, long? SizeBytes, long? MtimeMs)> Media, IReadOnlyList<string> Shared);
+    /// <param name="NameShared">
+    /// Another of the system's games has the same name without its extension (<c>Game.chd</c> beside <c>Game.cue</c>), so
+    /// media named that way (<see cref="MediaStore.NameOf"/>) is that game's too, indexed or not.
+    /// </param>
+    public sealed record Cleared(bool Found, string? RelPath, IReadOnlyList<(string Kind, string Path, long? SizeBytes, long? MtimeMs)> Media, IReadOnlyList<string> Shared,
+        bool NameShared = false);
 
     /// <summary>
     /// Clears everything scraped and every metadata override: metadata, scrape state and log, every match (manual
@@ -489,6 +508,7 @@ internal static class ScrapeStore
 
         var media = new List<(string, string, long?, long?)>();
         var shared = new List<string>();
+        var nameShared = false;
         if (gameId is { } id)
         {
             using (var select = Command("SELECT kind, path, size_bytes, mtime_ms FROM media WHERE game_id = $id"))
@@ -509,6 +529,25 @@ internal static class ScrapeStore
                 if ((long)others.ExecuteScalar()! > 0)
                 {
                     shared.Add(path);
+                }
+            }
+
+            // Other games named the same but for the extension: path keys starting with the name and a dot.
+            var name = PathKeys.ToPathKey(MediaStore.NameOf(relPath!));
+            if (name.Length < key.PathKey.Length)
+            {
+                using var siblings = Command("SELECT path_key FROM games WHERE system_id = $system AND game_id <> $id AND substr(path_key, 1, $length) = $prefix");
+                siblings.Parameters.AddWithValue("$id", id);
+                siblings.Parameters.AddWithValue("$length", name.Length + 1);
+                siblings.Parameters.AddWithValue("$prefix", name + ".");
+                using var reader = siblings.ExecuteReader();
+                while (reader.Read())
+                {
+                    if (string.Equals(MediaStore.NameOf(reader.GetString(0)), name, StringComparison.Ordinal))
+                    {
+                        nameShared = true;
+                        break;
+                    }
                 }
             }
 
@@ -543,7 +582,7 @@ internal static class ScrapeStore
         }
 
         transaction.Commit();
-        return new Cleared(gameId is not null, relPath, media, shared);
+        return new Cleared(gameId is not null, relPath, media, shared, nameShared);
     }
 
     // ---- Selection --------------------------------------------------------------------------------

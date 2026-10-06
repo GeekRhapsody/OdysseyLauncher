@@ -183,7 +183,7 @@ public sealed partial class GameOptionsPanel : ListPanel
         var images = _mediaRows.Count(m => m.Kind != MediaKinds.Model);
         _media.Detail = images == 0
             ? "None yet: scrape it, or choose your own"
-            : images.ToString(CultureInfo.InvariantCulture) + " · " + string.Join(", ", MediaKinds.Images.Append(MediaKinds.Video).Where(k => _mediaRows.Any(m => m.Kind == k)).Select(GameMediaPanel.SlotName));
+            : images.ToString(CultureInfo.InvariantCulture) + " · " + string.Join(", ", MediaKinds.Images.Append(MediaKinds.Video).Append(MediaKinds.Manual).Where(k => _mediaRows.Any(m => m.Kind == k)).Select(GameMediaPanel.SlotName));
 
         var metadata = _game.Metadata;
         var filled = metadata is null ? 0 : new[] { metadata.Description, metadata.ReleaseDate, metadata.Developer, metadata.Publisher, metadata.Genre, metadata.Players }
@@ -327,7 +327,6 @@ public sealed partial class GameOptionsPanel : ListPanel
                         ShowStatus(result.Status switch
                         {
                             ModelRemoveStatus.Removed => "Its model was removed.",
-                            ModelRemoveStatus.Shared => $"{result.SharedPath} is every game of that name's, so it was left alone.",
                             _ => "It had no model of its own.",
                         }, result.Status == ModelRemoveStatus.Removed ? UiStyle.Good : UiStyle.Warning, 6);
                         Reload();

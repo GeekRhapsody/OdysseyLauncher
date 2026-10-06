@@ -202,10 +202,10 @@ public sealed class ModelResolverTests
     [Fact]
     public void A_per_game_model_is_the_users_indexed_file()
     {
-        var candidate = Resolver().PerGame("media/ps2/model/Sub/Game.glb");
+        var candidate = Resolver().PerGame("media/ps2/models/Sub/Game.glb");
 
         Assert.Equal((ModelLevel.UserGame, ThemeOrigin.User), (candidate.Level, candidate.Origin));
-        Assert.Equal(Path.GetFullPath(Path.Combine(DataDir, "media", "ps2", "model", "Sub", "Game.glb")), candidate.Path);
+        Assert.Equal(Path.GetFullPath(Path.Combine(DataDir, "media", "ps2", "models", "Sub", "Game.glb")), candidate.Path);
         Assert.Equal(SlotChain.Default(MediaSlots.Back), candidate.ChainFor(MediaSlots.Back, systemCard: false));
     }
 

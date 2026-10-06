@@ -71,6 +71,7 @@ public sealed class GamelistReaderTests
                 new GamelistMedia(MediaKinds.Screenshot, "./images/720 Degrees (USA)-image.png"),
                 new GamelistMedia(MediaKinds.Logo, "./images/720 Degrees (USA)-marquee.png"),
                 new GamelistMedia(MediaKinds.Video, "./videos/720 Degrees (USA)-video.mp4"),
+                new GamelistMedia(MediaKinds.Manual, "./manuals/720 Degrees (USA)-manual.pdf"),
             ],
             game.Media);
 

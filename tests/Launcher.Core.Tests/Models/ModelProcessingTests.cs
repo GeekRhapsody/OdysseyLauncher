@@ -275,7 +275,7 @@ public sealed class ModelProcessingTests : IDisposable
     [Fact]
     public void The_cache_processes_a_model_once_and_again_when_its_file_changes()
     {
-        var source = ModelFixtures.Write(_dir, "data/media/ps2/model/Game.iso.glb", ModelFixtures.Model(100));
+        var source = ModelFixtures.Write(_dir, "data/media/ps2/models/Game.iso.glb", ModelFixtures.Model(100));
         var log = new ModelLog(_dir.Combine("data"));
         var cache = new ModelCache(_dir.Combine("cache"), null, log);
 
@@ -288,7 +288,7 @@ public sealed class ModelProcessingTests : IDisposable
         Assert.True(File.Exists(first.Path));
         Assert.Contains(ModelLog.ReadRecent(_dir.Combine("data")), l => l.Contains("your Game.glb: accepted as a per-game model", StringComparison.Ordinal));
 
-        ModelFixtures.Write(_dir, "data/media/ps2/model/Game.iso.glb", ModelFixtures.Model(200), new DateTime(2021, 1, 1, 0, 0, 0, DateTimeKind.Utc));
+        ModelFixtures.Write(_dir, "data/media/ps2/models/Game.iso.glb", ModelFixtures.Model(200), new DateTime(2021, 1, 1, 0, 0, 0, DateTimeKind.Utc));
         var changed = cache.Get(source, ModelKind.PerGame);
 
         Assert.False(changed.FromCache);

@@ -629,12 +629,18 @@ public sealed class ScrapeService : IDisposable
                 }
             }
 
-            // Files named after the game that no scan has indexed yet.
+            // Files named after the game that no scan has indexed yet; not one another game of its name uses.
             if (cleared.RelPath is { } relPath)
             {
+                var shared = cleared.Shared.Select(MediaFiles.FullPath).ToHashSet(StringComparer.OrdinalIgnoreCase);
+                var name = Path.GetFileName(MediaStore.NameOf(relPath));
                 foreach (var file in MediaFiles.FilesOf(game.SystemId, relPath))
                 {
-                    Delete(file);
+                    var namedShared = cleared.NameShared && string.Equals(Path.GetFileNameWithoutExtension(file), name, StringComparison.OrdinalIgnoreCase);
+                    if (!shared.Contains(file) && !namedShared)
+                    {
+                        Delete(file);
+                    }
                 }
             }
 
@@ -1070,8 +1076,14 @@ public sealed class ScrapeService : IDisposable
         var order = context.ManualOrder.Concat(settings.ProviderOrder).Distinct(StringComparer.Ordinal).Where(_scrapers.ContainsKey).ToList();
         var hashes = await HashAsync(context, system, order, settings, cancellationToken).ConfigureAwait(false);
 
-        // A kind the game has a file for, wherever it came from, isn't downloaded again (A4).
-        var wanted = settings.Media.Where(k => !context.Media.ContainsKey(k)).ToHashSet(StringComparer.Ordinal);
+        // A kind the game has a file for on disk, wherever it came from, isn't downloaded again (A4). The disk decides, not
+        // the media rows: a file deleted since the last scan is fetched again, and its row goes even if nothing replaces it.
+        var (wanted, gone) = await Task.Run(() =>
+        {
+            var missing = settings.Media.Where(k => !MediaFiles.HasFile(key.SystemId, context.RelPath, k)).ToHashSet(StringComparer.Ordinal);
+            var stale = context.Media.Where(m => !File.Exists(MediaFiles.FullPath(m.Value.Path))).Select(m => (m.Key, m.Value.Path)).ToList();
+            return (missing, stale);
+        }, cancellationToken).ConfigureAwait(false);
         var merge = new ScrapeMerge(wanted);
         var query = new ScrapeQuery(key, system, Path.GetFileName(context.RelPath), TitleMatcher.SearchTerm(context.FileTitle),
             context.SizeBytes, hashes, wanted);
@@ -1235,7 +1247,7 @@ public sealed class ScrapeService : IDisposable
             }, cancellationToken).ConfigureAwait(false);
         }
 
-        var write = new ScrapeWrite(found.Count > 0 ? merge.Metadata() : null, matches, saved, log, status, found, now);
+        var write = new ScrapeWrite(found.Count > 0 ? merge.Metadata() : null, matches, saved, log, status, found, now, gone);
         if (replaced.Count > 0)
         {
             await _library.WriteAsync(c => ScrapeStore.SaveReplacing(c, key, write, replaced), cancellationToken).ConfigureAwait(false);
