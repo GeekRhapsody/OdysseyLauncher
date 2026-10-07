@@ -142,12 +142,16 @@ public sealed class BuiltInModelTests
             materials.Add(name);
             if (Slots.Contains(name))
             {
-                aspects[name] = material.TryGetProperty("extras", out var extras) && extras.TryGetProperty("aspect", out var aspect)
-                    ? aspect.GetSingle()
-                    : 0;
-                if (whiteSlots)
+                // extras.aspect is optional (a hand-made model may leave it out); when present it must be positive.
+                if (material.TryGetProperty("extras", out var extras) && extras.TryGetProperty("aspect", out var aspect))
                 {
-                    var factor = material.GetProperty("pbrMetallicRoughness").GetProperty("baseColorFactor");
+                    aspects[name] = aspect.GetSingle();
+                }
+                // A material without a base colour factor is white (glTF's default).
+                if (whiteSlots
+                    && material.TryGetProperty("pbrMetallicRoughness", out var pbr)
+                    && pbr.TryGetProperty("baseColorFactor", out var factor))
+                {
                     Assert.All(factor.EnumerateArray(), c => Assert.Equal(1.0, c.GetDouble(), 3));
                 }
             }
@@ -175,6 +179,13 @@ public sealed class BuiltInModelTests
                 if (Slots.Contains(name))
                 {
                     var uv = accessors[attributes.GetProperty("TEXCOORD_0").GetInt32()];
+
+                    // glTF only requires min and max on POSITION; a model without them isn't range-checked.
+                    if (!uv.TryGetProperty("min", out _) || !uv.TryGetProperty("max", out _))
+                    {
+                        continue;
+                    }
+
                     var low = Math.Min(uv.GetProperty("min")[0].GetSingle(), uv.GetProperty("min")[1].GetSingle());
                     var high = Math.Max(uv.GetProperty("max")[0].GetSingle(), uv.GetProperty("max")[1].GetSingle());
                     uvs[name] = (low, high);
