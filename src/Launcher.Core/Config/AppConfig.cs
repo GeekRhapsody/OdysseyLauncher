@@ -323,7 +323,37 @@ public sealed record SystemConfig(
     GamesLayout? GamesLayout = null,
     GameSort? GamesSort = null,
     SortOrder? GamesSortOrder = null,
-    string? Description = null);
+    string? Description = null)
+{
+    /// <summary>
+    /// The built-in definition's <c>emulator</c>, when it's a configured profile; null for a system the user defined, or
+    /// one whose built-in emulator is gone. It's <see cref="Emulator"/> unless the user chose another.
+    /// </summary>
+    public string? DefaultEmulator { get; init; }
+
+    /// <summary>
+    /// The emulators the system offers, each once: its default (the built-in one, else its own), its alternatives,
+    /// then the one it uses if that's neither (a profile the user named in systems.toml).
+    /// </summary>
+    public IReadOnlyList<string> OfferedEmulators()
+    {
+        var offered = new List<string>(AltEmulators.Count + 2) { DefaultEmulator ?? Emulator };
+        foreach (var alt in AltEmulators)
+        {
+            if (!offered.Contains(alt))
+            {
+                offered.Add(alt);
+            }
+        }
+
+        if (!offered.Contains(Emulator))
+        {
+            offered.Add(Emulator);
+        }
+
+        return offered;
+    }
+}
 
 /// <summary>An <c>[emulators.&lt;id&gt;]</c> entry.</summary>
 /// <param name="Executable">Expanded absolute path, with no placeholders left.</param>

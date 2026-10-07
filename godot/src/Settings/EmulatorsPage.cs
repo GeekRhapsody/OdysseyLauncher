@@ -10,13 +10,22 @@ using Launcher.Core.Files;
 namespace Launcher.App.Settings;
 
 /// <summary>
-/// Emulator profiles and their executables (M7). Each row says whether its program is there (checked off the main
-/// thread); A picks another with the file picker (.exe only: batch files are rejected, A5). Several profiles
-/// sharing one install (every RetroArch core) can be moved together: when they share it through a variable in
-/// settings.toml ({retroarch}), that variable is what changes, so their cores move with it.
+/// Emulator profiles and their executables (M7). First the folders the built-in profiles look in, as the ROM root is
+/// for ROMs: the emulators folder (<c>{emulators}</c>, a folder per emulator under it, named as ES-DE names them) and
+/// RetroArch's (<c>{retroarch}</c>), each a variable in settings.toml. Then each profile: whether its program is there
+/// (checked off the main thread); A picks another with the file picker (.exe only: batch files are rejected, A5).
+/// Several profiles sharing one install (every RetroArch core) can be moved together: when they share it through a
+/// variable in settings.toml ({retroarch}), that variable is what changes, so their cores move with it.
 /// </summary>
 public sealed partial class EmulatorsPage : ListPanel
 {
+    /// <summary>The variables the built-in profiles' programs sit under, with their rows' titles and what they're for.</summary>
+    private static readonly (string Variable, string Title, string Detail)[] Folders =
+    [
+        ("emulators", "Emulators folder", "A folder per emulator, named as ES-DE names them"),
+        ("retroarch", "RetroArch folder", "RetroArch and its cores"),
+    ];
+
     private readonly SettingsController _settings;
     private readonly Dictionary<string, SettingRow> _rows = new(StringComparer.Ordinal);
     private int _check;
@@ -25,9 +34,9 @@ public sealed partial class EmulatorsPage : ListPanel
         : base("Emulators")
     {
         _settings = settings;
-        Subtitle = "Profiles used by systems that have games; each system chooses one on its own page";
+        Subtitle = "Where your emulators are, and the profiles your systems with games offer";
         Build();
-        SetHints("A  Choose the program     B  Back");
+        SetHints("A  Change     B  Back");
         _settings.ConfigApplied += Rebuild;
     }
 
@@ -45,8 +54,20 @@ public sealed partial class EmulatorsPage : ListPanel
     {
         var config = _settings.Services.Config;
 
+        AddSection("Folders");
+        foreach (var (variable, title, detail) in Folders)
+        {
+            if (config.Settings.Variables.TryGetValue(variable, out var folder))
+            {
+                var captured = variable;
+                AddRow(title, $"{ExpandedFolder(folder)} · {detail}", "Change", () => ChooseFolder(captured, title));
+            }
+        }
+
+        AddNote("The built-in profiles look for their programs under these folders. A profile given a program of its own keeps it.");
+
         // The built-in catalogue has hundreds of profiles, so with empty systems hidden only the profiles that
-        // systems with games use are listed (every profile can still be chosen on a system's own page).
+        // systems with games offer (their default and alternatives) are listed.
         var hideEmpty = config.Settings.Display.HideEmptySystems;
         var withGames = new HashSet<string>(StringComparer.Ordinal);
         foreach (var summary in _settings.Services.Systems)
@@ -65,7 +86,7 @@ public sealed partial class EmulatorsPage : ListPanel
                 continue;
             }
 
-            foreach (var id in system.AltEmulators.Prepend(system.Emulator))
+            foreach (var id in system.OfferedEmulators())
             {
                 if (!used.TryGetValue(id, out var names))
                 {
@@ -136,6 +157,24 @@ public sealed partial class EmulatorsPage : ListPanel
                 }
             });
         });
+    }
+
+    /// <summary>Points <paramref name="variable"/> at another folder; every profile under it moves with it.</summary>
+    private void ChooseFolder(string variable, string title)
+    {
+        var current = _settings.Services.Config.Settings.Variables.GetValueOrDefault(variable);
+        FilePicker.Open(_settings.Ui, new PickerRequest(
+            $"Choose the {title.ToLowerInvariant()}",
+            PickerMode.Folder,
+            PickerUses.EmulatorsFolder,
+            folder => _settings.Save(this,
+                [new ConfigEdit(ConfigFileKind.Settings, ["variables", variable], ConfigWriter.PathValue(folder))],
+                $"{title} saved: {{{variable}}} is now {folder}.",
+                check: () => ConfigInput.CheckFolder(folder)),
+            Start: current,
+            Subtitle: variable == "retroarch"
+                ? "Open the folder with retroarch.exe, then press X or choose Use this folder"
+                : "Open the folder that holds a folder per emulator, then press X or choose Use this folder"));
     }
 
     private void ChooseProgram(Launcher.Core.Config.EmulatorConfig profile)

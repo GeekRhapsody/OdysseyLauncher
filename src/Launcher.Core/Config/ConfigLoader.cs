@@ -74,7 +74,8 @@ public sealed class ConfigLoader : IConfigLoader
             var settingsDefaults = ParseDefault(sources.DefaultSettings);
             var settingsTree = LoadLayered(sources.DefaultSettings, sources.Settings, out _);
             var emulatorsTree = LoadLayered(sources.DefaultEmulators, sources.Emulators, out var builtInEmulators);
-            var systemsTree = LoadLayered(sources.DefaultSystems, sources.Systems, out var builtInSystems);
+            var builtInEmulatorOf = new Dictionary<string, string>(StringComparer.Ordinal);
+            var systemsTree = LoadLayered(sources.DefaultSystems, sources.Systems, out var builtInSystems, defaults => ReadBuiltInEmulators(defaults, builtInEmulatorOf));
 
             var settings = ReadSettings(settingsTree, settingsDefaults);
             CheckRoot(emulatorsTree, EmulatorsRootKeys);
@@ -82,7 +83,7 @@ public sealed class ConfigLoader : IConfigLoader
 
             var rawEmulators = SubTable(emulatorsTree, "emulators", "emulators");
             var emulators = ReadEmulators(rawEmulators, builtInEmulators);
-            var systems = ReadSystems(SubTable(systemsTree, "systems", "systems"), builtInSystems, rawEmulators, emulators);
+            var systems = ReadSystems(SubTable(systemsTree, "systems", "systems"), builtInSystems, builtInEmulatorOf, rawEmulators, emulators);
             if (sources.FileExists is { } fileExists)
             {
                 CheckInstalls(emulators, systems, rawEmulators, fileExists, sources.CheckInstallsFor ?? (_ => true));
@@ -93,10 +94,14 @@ public sealed class ConfigLoader : IConfigLoader
 
         // ---- Files and layering ------------------------------------------------------------------
 
-        /// <summary>Parses the default and the user file and merges them. Also returns the ids the default defines.</summary>
-        private TomlTableNode LoadLayered(ConfigFile defaults, ConfigFile? user, out HashSet<string> builtInIds)
+        /// <summary>
+        /// Parses the default and the user file and merges them. Also returns the ids the default defines;
+        /// <paramref name="readDefaults"/> sees the default tree before the user's file is merged into it.
+        /// </summary>
+        private TomlTableNode LoadLayered(ConfigFile defaults, ConfigFile? user, out HashSet<string> builtInIds, Action<TomlTableNode>? readDefaults = null)
         {
             var merged = ParseDefault(defaults);
+            readDefaults?.Invoke(merged);
 
             // The ids of [section.<id>] tables in the default file: a new id must be complete, a built-in one needn't be.
             builtInIds = new HashSet<string>(StringComparer.Ordinal);
@@ -121,6 +126,24 @@ public sealed class ConfigLoader : IConfigLoader
             }
 
             return merged;
+        }
+
+        /// <summary>Each built-in system's own <c>emulator</c>, before the user's file can change it.</summary>
+        private static void ReadBuiltInEmulators(TomlTableNode defaults, Dictionary<string, string> emulatorOf)
+        {
+            if (!defaults.TryGet("systems", out var node) || node is not TomlTableNode systems)
+            {
+                return;
+            }
+
+            foreach (var id in systems.Keys)
+            {
+                if (systems.TryGet(id, out var entry) && entry is TomlTableNode table
+                    && table.TryGet("emulator", out var emulator) && emulator is TomlScalar { Kind: TomlKind.String, Value: string value })
+                {
+                    emulatorOf[id] = value;
+                }
+            }
         }
 
         private TomlTableNode ParseDefault(ConfigFile defaults) =>
@@ -920,6 +943,7 @@ public sealed class ConfigLoader : IConfigLoader
         private List<SystemConfig> ReadSystems(
             TomlTableNode? table,
             HashSet<string> builtIn,
+            Dictionary<string, string> builtInEmulatorOf,
             TomlTableNode? rawEmulators,
             Dictionary<string, EmulatorConfig> emulators)
         {
@@ -1132,7 +1156,11 @@ public sealed class ConfigLoader : IConfigLoader
                 result.Add(new SystemConfig(
                     id, name, manufacturer, (int?)year, aliases, extensions, emulator, altEmulators, gameModel,
                     (int?)screenScraperId, romDirs, romDirSource, recursive, exclude, igdbPlatforms, steamStore, gamesColumns, gamesRows, gamesLayout,
-                    gamesSort, gamesSortOrder, string.IsNullOrWhiteSpace(description) ? null : description));
+                    gamesSort, gamesSortOrder, string.IsNullOrWhiteSpace(description) ? null : description)
+                {
+                    // The built-in definition's own emulator, offered with the alternatives once the user has chosen another.
+                    DefaultEmulator = builtInEmulatorOf.TryGetValue(id, out var builtInEmulator) && emulators.ContainsKey(builtInEmulator) ? builtInEmulator : null,
+                });
             }
 
             return result;

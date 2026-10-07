@@ -212,7 +212,7 @@ public sealed partial class GameOptionsPanel : ListPanel
         var suggested = new HashSet<string>(StringComparer.Ordinal);
         if (system is not null)
         {
-            suggested.UnionWith(system.AltEmulators.Prepend(system.Emulator));
+            suggested.UnionWith(system.OfferedEmulators());
         }
 
         var systemsName = system is not null && config.Emulators.TryGetValue(system.Emulator, out var e) ? e.Name : system?.Emulator ?? "?";

@@ -10,6 +10,7 @@ public static class PickerUses
     public const string RomRoot = "rom-root";
     public const string RomFolder = "rom-folder";
     public const string Emulator = "emulator";
+    public const string EmulatorsFolder = "emulators-folder";
     public const string Image = "image";
     public const string Model = "model";
     public const string Gamelist = "gamelist";

@@ -87,9 +87,16 @@ public static class DetailsFormatter
         Add(rows, "Last scanned", summary?.ScannedAt is { } scanned ? Relative(scanned, now) : "Never");
 
         Add(rows, "Emulator", EmulatorName(config, system.Emulator));
-        Add(rows, "Alternatives", system.AltEmulators.Count == 0
-            ? null
-            : string.Join("\n", Array.ConvertAll([.. system.AltEmulators], id => EmulatorName(config, id))));
+        var alternatives = new List<string>();
+        foreach (var id in system.OfferedEmulators())
+        {
+            if (id != system.Emulator)
+            {
+                alternatives.Add(EmulatorName(config, id));
+            }
+        }
+
+        Add(rows, "Alternatives", alternatives.Count == 0 ? null : string.Join("\n", alternatives));
         Add(rows, system.RomDirs.Count > 1 && system.RomDirSource == RomDirSource.Configured ? "ROM folders" : "ROM folder", RomFolders(system));
         Add(rows, "Subfolders", system.Recursive ? "Scanned too" : "Not scanned");
         Add(rows, "Left out", system.Exclude.Count == 0 ? null : string.Join(", ", system.Exclude));

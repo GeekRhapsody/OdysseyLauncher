@@ -410,6 +410,42 @@ public class ConfigLoaderTests
     }
 
     [Fact]
+    public void A_system_offers_its_built_in_emulator_and_alternatives_after_the_user_chooses_another()
+    {
+        var builtIn = Load().Config.FindSystem("megadrive")!;
+        Assert.Equal(builtIn.Emulator, builtIn.DefaultEmulator);
+        Assert.Equal([builtIn.Emulator, .. builtIn.AltEmulators], builtIn.OfferedEmulators());
+
+        var alternative = builtIn.AltEmulators[0];
+        var chosen = Load(systems: $"""
+            [systems.megadrive]
+            emulator = "{alternative}"
+            """).Config.FindSystem("megadrive")!;
+        Assert.Equal(alternative, chosen.Emulator);
+        Assert.Equal(builtIn.Emulator, chosen.DefaultEmulator);
+        Assert.Equal(builtIn.OfferedEmulators().Order(), chosen.OfferedEmulators().Order());
+        Assert.Equal(builtIn.Emulator, chosen.OfferedEmulators()[0]);
+
+        // A profile that's none of them is offered too, as the one in use; nothing else is.
+        var other = Load(systems: """
+            [systems.megadrive]
+            emulator = "pcsx2"
+            """).Config.FindSystem("megadrive")!;
+        Assert.Equal([.. builtIn.OfferedEmulators(), "pcsx2"], other.OfferedEmulators());
+
+        // A system of the user's own has no built-in emulator: its own comes first.
+        var own = Load(systems: """
+            [systems.mine]
+            name = "Mine"
+            extensions = [".bin"]
+            emulator = "pcsx2"
+            alt_emulators = ["dolphin"]
+            """).Config.FindSystem("mine")!;
+        Assert.Null(own.DefaultEmulator);
+        Assert.Equal(["pcsx2", "dolphin"], own.OfferedEmulators());
+    }
+
+    [Fact]
     public void An_unknown_placeholder_is_an_error_that_disables_the_emulator_and_its_systems()
     {
         var result = Load(emulators: """

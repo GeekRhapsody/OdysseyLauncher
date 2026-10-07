@@ -116,9 +116,10 @@ public sealed partial class SystemPage : ListPanel
         AddSection("Emulator");
         var emulator = config.Emulators.TryGetValue(system.Emulator, out var profile) ? profile.Name : system.Emulator;
         AddRow("Emulator", emulator, "Change", ChooseEmulator);
-        if (system.AltEmulators.Count > 0)
+        var others = system.OfferedEmulators().Where(id => id != system.Emulator).ToList();
+        if (others.Count > 0)
         {
-            AddNote($"Also suggested for {system.Name}: {string.Join(", ", system.AltEmulators.Select(id => config.Emulators.TryGetValue(id, out var e) ? e.Name : id))}.");
+            AddNote($"Also offered for {system.Name}: {string.Join(", ", others.Select(id => config.Emulators.TryGetValue(id, out var e) ? e.Name : id))}.");
         }
 
         AddSection("Games view");
@@ -287,12 +288,17 @@ public sealed partial class SystemPage : ListPanel
     {
         var config = _settings.Services.Config;
         var system = config.FindSystem(_systemId)!;
-        var suggested = new HashSet<string>(system.AltEmulators.Prepend(system.Emulator), StringComparer.Ordinal);
-        var choices = config.Emulators.Values
-            .OrderBy(e => suggested.Contains(e.Id) ? 0 : 1)
-            .ThenBy(e => e.Name, StringComparer.CurrentCultureIgnoreCase)
-            .Select(e => new Choice(e.Id, e.Name, (suggested.Contains(e.Id) ? "Suggested · " : string.Empty) + e.ProgramText))
-            .ToList();
+        // Only what the system offers: its default and its alternatives (a profile the user named in systems.toml too).
+        var offered = system.OfferedEmulators();
+        var choices = new List<Choice>(offered.Count);
+        for (var i = 0; i < offered.Count; i++)
+        {
+            if (config.Emulators.TryGetValue(offered[i], out var e))
+            {
+                choices.Add(new Choice(e.Id, e.Name, (i == 0 ? "Default · " : string.Empty) + e.ProgramText));
+            }
+        }
+
         Layer.Push(new ChoicePanel($"Emulator for {system.Name}", "Games can still choose their own", choices, system.Emulator, choice =>
             _settings.Save(this, [new ConfigEdit(ConfigFileKind.Systems, ["systems", _systemId, "emulator"], choice.Id)], $"{system.Name} now launches with {choice.Title}.")));
     }
