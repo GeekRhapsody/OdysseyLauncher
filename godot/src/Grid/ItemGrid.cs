@@ -1671,8 +1671,8 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
                 continue;
             }
 
-            var cover = source.TryGetMedia(item, MediaSlots.Cover, out var media) ? media.Aspect : 0;
-            var (width, height) = BoxShape.Unit(RestOf(template), cover);
+            var front = source.TryGetMedia(item, template.ShapeSlot, out var media) ? media.Aspect : 0;
+            var (width, height) = BoxShape.Unit(RestOf(template), front);
             _envelopeWidth = Math.Max(_envelopeWidth, width);
             _envelopeHeight = Math.Max(_envelopeHeight, height);
         }
@@ -1681,11 +1681,12 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
     private static BoxSize RestOf(ItemTemplate template) => new(template.Size.X, template.Size.Y, template.Size.Z);
 
     /// <summary>
-    /// A reshaped box's two texels (item.gdshader), from its game's cover and spine (<see cref="BoxShape"/>): how much
+    /// A reshaped box's two texels (item.gdshader), from its game's front and spine (<see cref="BoxShape"/>): how much
     /// each half of the rest mesh moves out (half the width's growth, the height's, half the depth's) and the height
     /// above which a vertex is in the top half; then the faces' new aspects (front and back, spine: on the sides as deep
     /// over high as the box, or for a template whose spine face is wider than high, on the top and bottom, as wide over
-    /// deep). Zeros for every other cell, which the shader leaves as it is.
+    /// deep), and which slot is the front (the cover, or a flat card's screenshot). Zeros for every other cell, which
+    /// the shader leaves as it is.
     /// </summary>
     private void WriteShape(int cell)
     {
@@ -1704,21 +1705,24 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
         }
 
         var rest = RestOf(model);
-        var size = ShapeOf(item, rest);
+        var size = ShapeOf(item, model);
         _stateImage.SetPixel(ShapeColumn, cell, new Color(
             (size.Width - rest.Width) / 2, size.Height - rest.Height, (size.Depth - rest.Depth) / 2, rest.Height / 2));
         var spineFace = model.SlotAspect(MediaSlots.Spine) > 1 ? size.Width / size.Depth : size.Depth / size.Height;
-        _stateImage.SetPixel(ShapeColumn + 1, cell, new Color(size.Width / size.Height, spineFace, 0, 0));
+        _stateImage.SetPixel(ShapeColumn + 1, cell, new Color(size.Width / size.Height, spineFace, model.ShapeSlot, 0));
         _shaped[cell] = true;
         _stateDirty = true;
     }
 
-    /// <summary>A reshaped box's size for its item's cover and spine (<see cref="BoxShape.Fit"/>), in model units.</summary>
-    private BoxSize ShapeOf(int item, BoxSize rest)
+    /// <summary>
+    /// A reshaped box's size for its item's front (the cover, or the screenshot: <see cref="ItemTemplate.ShapeSlot"/>)
+    /// and spine (<see cref="BoxShape.Fit"/>), in model units.
+    /// </summary>
+    private BoxSize ShapeOf(int item, ItemTemplate model)
     {
-        var cover = _source!.TryGetMedia(item, MediaSlots.Cover, out var coverMedia) ? coverMedia.Aspect : 0;
+        var front = _source!.TryGetMedia(item, model.ShapeSlot, out var frontMedia) ? frontMedia.Aspect : 0;
         var spine = _source.TryGetMedia(item, MediaSlots.Spine, out var spineMedia) ? spineMedia.Aspect : 0;
-        return BoxShape.Fit(rest, cover, spine, _envelopeWidth, _envelopeHeight);
+        return BoxShape.Fit(RestOf(model), front, spine, _envelopeWidth, _envelopeHeight);
     }
 
     /// <summary>
@@ -1737,7 +1741,7 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
             return model.Size;
         }
 
-        var size = ShapeOf(_cellItem[cell], RestOf(model));
+        var size = ShapeOf(_cellItem[cell], model);
         return new Vector3(size.Width, size.Height, size.Depth);
     }
 

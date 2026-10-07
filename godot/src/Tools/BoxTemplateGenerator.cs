@@ -153,6 +153,12 @@ public partial class BoxTemplateGenerator : Node
         }
 
         ok &= ExportMesh(ArcadeCabinetBuilder.Build(out var cabinetTriangles), "arcade_cabinet", cabinetTriangles, $"{TemplatesDir}/arcade_cabinet.glb");
+
+        // Flat cards, chosen per game or system, each shaped by its art (the theme's shape = "media"): the cover (3:4
+        // without one), and the screenshot (4:3 and dark without one).
+        ok &= ExportMesh(FlatBuilder.Build("cover", 0.75f, null, out var coverTriangles), "flat_cover", coverTriangles, $"{TemplatesDir}/flat_cover.glb");
+        ok &= ExportMesh(FlatBuilder.Build("screenshot", 4 / 3f, ImageTexture.CreateFromImage(FlatBuilder.DarkPanel()), out var screenshotTriangles),
+            "flat_screenshot", screenshotTriangles, $"{TemplatesDir}/flat_screenshot.glb");
         ok &= Export(GenericSystem, $"{SystemsDir}/{GenericSystem.Id}.glb");
         DirAccess.MakeDirRecursiveAbsolute(ProjectSettings.GlobalizePath(SlabSystemsDir));
         ok &= Export(SlabSystem, $"{SlabSystemsDir}/{SlabSystem.Id}.glb");

@@ -32,6 +32,7 @@ public sealed class ItemTemplate
 
         // A6 shape = "media": only for a static game template, whose one merged mesh the shader reshapes.
         ShapeFromMedia = !systemCard && !PerGame && candidate.Template?.ShapeFromMedia == true && model.Scene is null;
+        ShapeSlot = model.SlotAspects[MediaSlots.Cover] > 0 || model.SlotAspects[MediaSlots.Screenshot] <= 0 ? MediaSlots.Cover : MediaSlots.Screenshot;
         Mesh = model.Mesh;
         Scene = model.Scene;
         Size = model.Size;
@@ -83,6 +84,12 @@ public sealed class ItemTemplate
     /// the item shader). Only a static game template's.
     /// </summary>
     public bool ShapeFromMedia { get; }
+
+    /// <summary>
+    /// The front slot a reshaped box takes its proportions from: the cover, or for a model with no cover but a
+    /// screenshot (a flat screenshot card), the screenshot.
+    /// </summary>
+    public int ShapeSlot { get; }
 
     /// <summary>The textures its materials were authored with, by the index their faces carry.</summary>
     public Texture2D?[] Authored { get; }

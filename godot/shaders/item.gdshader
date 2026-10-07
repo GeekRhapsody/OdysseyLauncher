@@ -18,7 +18,8 @@ render_mode cull_back, depth_draw_opaque;
 // 0 authored; plus 2 when the art is drawn whole over that, and 4 more when it's a logo), the media's aspect (0 when
 // none is wanted), its fade in, and its layer. Two more columns per cell reshape a box to its game's art (A6 shape = "media"):
 // SHAPE_COLUMN = (half the width's growth, the height's, half the depth's, the height where the top half starts; all 0
-// for every other model), then (the front and back faces' aspect, the spine's).
+// for every other model), then (the front and back faces' aspect, the spine's, the front's slot: the cover, or a flat
+// card's screenshot).
 // (Godot 4 multiplies a MultiMesh's instance colour into COLOR, which carries the material data here.)
 
 // Media slots, in Launcher.Core.Theming.MediaSlots order.
@@ -130,8 +131,8 @@ void vertex() {
 		VERTEX.x += sign(VERTEX.x) * shape.x;
 		VERTEX.z += sign(VERTEX.z) * shape.z;
 		VERTEX.y += step(shape.w, VERTEX.y) * shape.y;
-		vec2 faces = texelFetch(slot_state, ivec2(SHAPE_COLUMN + 1, cell), 0).xy;
-		if (v_slot == SLOT_COVER || v_slot == SLOT_BACK) {
+		vec3 faces = texelFetch(slot_state, ivec2(SHAPE_COLUMN + 1, cell), 0).xyz;
+		if (v_slot == int(faces.z + 0.5) || v_slot == SLOT_BACK) {
 			v_face_aspect = faces.x;
 		} else if (v_slot == SLOT_SPINE) {
 			v_face_aspect = faces.y;

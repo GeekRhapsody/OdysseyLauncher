@@ -39,8 +39,9 @@ public sealed record Look(LookBackground Background, LookAmbient Ambient, IReadO
 /// <param name="Model">The <c>.glb</c>, relative to the theme's folder, '/'-separated.</param>
 /// <param name="Slots">The chains the theme writes, by slot number; a slot it doesn't list uses <see cref="SlotChain.Default"/>.</param>
 /// <param name="ShapeFromMedia">
-/// <c>shape = "media"</c>: each game's box takes its front's proportions from its cover and its depth from its spine
-/// (<see cref="BoxShape"/>); otherwise the model's own shape.
+/// <c>shape = "media"</c>: each game's box takes its front's proportions from its cover (or, for a model with no
+/// <c>cover</c> material, its screenshot) and its depth from its spine (<see cref="BoxShape"/>); otherwise the model's
+/// own shape.
 /// </param>
 /// <param name="WholeSlots">
 /// <c>[templates.&lt;id&gt;.fit]</c>: the slots whose art is drawn whole, fitted inside the face over its fallback (a

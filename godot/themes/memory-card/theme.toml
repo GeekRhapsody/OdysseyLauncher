@@ -75,6 +75,14 @@ shape = "media"
 [templates.generic_box_logo.slots]
 spine = ["logo", "generated"]      # the logo, whole, over the cover's colour; else the generated spine with the title
 
+[templates.flat_cover]             # Just the cover, a flat card shaped by it; 3:4 without one. Chosen per game or system
+model = "models/templates/flat_cover.glb"
+shape = "media"                    # the cover's proportions; it has no thickness, so a spine image changes nothing
+
+[templates.flat_screenshot]        # Just the screenshot, a flat card shaped by it; 4:3 and dark without one. Chosen per game or system
+model = "models/templates/flat_screenshot.glb"
+shape = "media"                    # no cover material, so the screenshot's proportions
+
 [templates.clamshell]              # Mega Drive, Master System: 136 x 190 x 24 mm
 model = "models/templates/clamshell.glb"
 

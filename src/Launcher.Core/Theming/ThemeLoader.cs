@@ -407,10 +407,11 @@ public static class ThemeLoader
                 // The base's model is checked by Core's tests, not here.
                 if (model is not null && !modelFromBase && CheckMaterials(entry, prefix, model, slots) is { } present)
                 {
-                    if (shapeFromMedia && !present[MediaSlots.Cover])
+                    // The front is the cover, else (a flat screenshot card) the screenshot.
+                    if (shapeFromMedia && !present[MediaSlots.Cover] && !present[MediaSlots.Screenshot])
                     {
                         entry.TryGet("shape", out var shapeNode);
-                        v.Warning(shapeNode, prefix + ".shape", $"'{model}' has no 'cover' material, so its shape can't follow the cover; it keeps its own");
+                        v.Warning(shapeNode, prefix + ".shape", $"'{model}' has no 'cover' or 'screenshot' material, so its shape can't follow either; it keeps its own");
                         shapeFromMedia = false;
                     }
 

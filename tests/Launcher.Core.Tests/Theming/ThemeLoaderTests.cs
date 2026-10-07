@@ -417,14 +417,23 @@ public sealed class ThemeLoaderTests
     }
 
     [Fact]
-    public void A_shape_from_media_needs_a_cover_material()
+    public void A_shape_from_media_needs_a_cover_or_screenshot_material()
     {
-        var result = ThemeFixtures.Parse(MinimalTemplate + "\nshape = \"media\"", Box("screenshot", "case"));
+        var result = ThemeFixtures.Parse(MinimalTemplate + "\nshape = \"media\"", Box("label", "case"));
 
         var warning = Single(result, Severity.Warning);
         Assert.Equal("templates.box.shape", warning.Key);
-        Assert.Contains("has no 'cover' material", warning.Message, StringComparison.Ordinal);
+        Assert.Contains("has no 'cover' or 'screenshot' material", warning.Message, StringComparison.Ordinal);
         Assert.False(result.Theme!.Templates["box"].ShapeFromMedia);
+    }
+
+    [Fact]
+    public void A_shape_from_media_follows_the_screenshot_on_a_model_with_no_cover()
+    {
+        var result = ThemeFixtures.Parse(MinimalTemplate + "\nshape = \"media\"", Box("screenshot", "case"));
+
+        Assert.Empty(result.Diagnostics);
+        Assert.True(result.Theme!.Templates["box"].ShapeFromMedia);
     }
 
     [Fact]
