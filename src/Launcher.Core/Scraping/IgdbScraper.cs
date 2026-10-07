@@ -285,10 +285,14 @@ public sealed class IgdbScraper : IScraper
     /// <summary>IGDB has no ROM index.</summary>
     public Task<ScrapeCandidate?> IdentifyFileAsync(ScrapeQuery query, CancellationToken cancellationToken) => Task.FromResult<ScrapeCandidate?>(null);
 
+    /// <summary>The search asks for each hit's cover (<c>t_cover_big</c>, 264×374), so no request.</summary>
+    public Task<ScrapedMedia?> SearchCoverAsync(ScrapeCandidate candidate, CancellationToken cancellationToken) =>
+        Task.FromResult(candidate?.Cover);
+
     public async Task<IReadOnlyList<ScrapeCandidate>> SearchAsync(string title, SystemConfig system, CancellationToken cancellationToken)
     {
         var text = await QueryAsync(
-            $"fields name,first_release_date; search \"{Escape(title)}\"; where platforms = ({Platforms(system)}); limit 20;",
+            $"fields name,first_release_date,cover.image_id; search \"{Escape(title)}\"; where platforms = ({Platforms(system)}); limit 20;",
             "search", cancellationToken).ConfigureAwait(false);
         using var document = LenientJson.Parse(text);
         var candidates = new List<ScrapeCandidate>();
@@ -301,7 +305,10 @@ public sealed class IgdbScraper : IScraper
                     var year = game.Num("first_release_date") is { } seconds
                         ? DateTimeOffset.FromUnixTimeSeconds((long)seconds).Year.ToString(CultureInfo.InvariantCulture)
                         : null;
-                    candidates.Add(new ScrapeCandidate(id, name, year));
+                    var cover = game.Obj("cover")?.Str("image_id") is { } image
+                        ? new ScrapedMedia(MediaKinds.Cover, ImageBaseUrl + "t_cover_big/" + image + ".jpg")
+                        : null;
+                    candidates.Add(new ScrapeCandidate(id, name, year, Cover: cover));
                 }
             }
         }

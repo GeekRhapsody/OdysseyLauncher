@@ -51,6 +51,12 @@ public sealed partial class ScreenScraperScraper : IScraper
         [MediaKinds.Manual] = ["manuel"],
     };
 
+    /// <summary>
+    /// The largest side a search hit's cover is asked at (<c>mediaJeu.php</c>'s <c>maxwidth</c> and <c>maxheight</c>):
+    /// it's a thumbnail beside the hit, so it comes in a few kilobytes rather than a full scan's megabyte.
+    /// </summary>
+    public const int SearchCoverSide = 256;
+
     /// <summary>How long a video's or a manual's download may take: they're megabytes, and ScreenScraper's servers can be slow.</summary>
     private static readonly TimeSpan VideoTimeout = TimeSpan.FromMinutes(5);
 
@@ -243,9 +249,11 @@ public sealed partial class ScreenScraperScraper : IScraper
         ArgumentNullException.ThrowIfNull(query);
         ThrowIfQuotaUsed();
         var (game, method, _) = await FileLookupAsync(query, cancellationToken).ConfigureAwait(false);
+        var cover = game?.MediaOrEmpty.FirstOrDefault(m => m.Kind == MediaKinds.Cover);
         return game is null
             ? null
-            : new ScrapeCandidate(game.ProviderGameId, game.Title ?? query.FileName, game.ReleaseDate is { Length: >= 4 } date ? date[..4] : null, method);
+            : new ScrapeCandidate(game.ProviderGameId, game.Title ?? query.FileName, game.ReleaseDate is { Length: >= 4 } date ? date[..4] : null, method,
+                cover is null ? null : cover with { Url = SearchCoverUrl(cover.Url) });
     }
 
     /// <summary>
@@ -288,6 +296,10 @@ public sealed partial class ScreenScraperScraper : IScraper
             : ProviderResult.NotFound;
     }
 
+    /// <summary>The search's answer carries each hit's media, so no request.</summary>
+    public Task<ScrapedMedia?> SearchCoverAsync(ScrapeCandidate candidate, CancellationToken cancellationToken) =>
+        Task.FromResult(candidate?.Cover);
+
     public async Task<IReadOnlyList<ScrapeCandidate>> SearchAsync(string title, SystemConfig system, CancellationToken cancellationToken)
     {
         ThrowIfQuotaUsed();
@@ -316,9 +328,14 @@ public sealed partial class ScreenScraperScraper : IScraper
                 continue;
             }
 
-            var name = Pick(jeu.Arr("noms"), "region", Regions()) ?? string.Empty;
-            var date = Pick(jeu.Arr("dates"), "region", Regions());
-            candidates.Add(new ScrapeCandidate(id, WebUtility.HtmlDecode(name), date is { Length: >= 4 } ? date[..4] : null));
+            var regions = Regions();
+            var name = Pick(jeu.Arr("noms"), "region", regions) ?? string.Empty;
+            var date = Pick(jeu.Arr("dates"), "region", regions);
+
+            // A hit carries its media, as a fetched game does: its cover, made small, tells games of one name apart.
+            var cover = PickMedia(jeu.Arr("medias").Where(m => m.Str("parent") == "jeu" && m.Str("url") is not null).ToList(), "box-2D", regions);
+            candidates.Add(new ScrapeCandidate(id, WebUtility.HtmlDecode(name), date is { Length: >= 4 } ? date[..4] : null,
+                Cover: cover is { } c ? new ScrapedMedia(MediaKinds.Cover, SearchCoverUrl(c.Str("url")!), c.Str("region")) : null));
         }
 
         return candidates;
@@ -437,17 +454,11 @@ public sealed partial class ScreenScraperScraper : IScraper
         {
             foreach (var type in types)
             {
-                var offered = gameMedia.Where(m => m.Str("type") == type).ToList();
-                if (offered.Count == 0)
+                if (PickMedia(gameMedia, type, regions) is { } chosen)
                 {
-                    continue;
+                    media.Add(new ScrapedMedia(kind, chosen.Str("url")!, chosen.Str("region")));
+                    break;
                 }
-
-                var chosen = offered
-                    .OrderBy(m => m.Str("region") is { } r && Array.IndexOf(regions, r) is var i and >= 0 ? i : regions.Length)
-                    .First();
-                media.Add(new ScrapedMedia(kind, chosen.Str("url")!, chosen.Str("region")));
-                break;
             }
         }
 
@@ -465,6 +476,35 @@ public sealed partial class ScreenScraperScraper : IScraper
     }
 
     private string[] Regions() => RegionOrder(_settings);
+
+    /// <summary>The game's medium of <paramref name="type"/> in the region that comes first in <paramref name="regions"/>, else the first one; null when it has none.</summary>
+    private static JsonElement? PickMedia(List<JsonElement> gameMedia, string type, string[] regions)
+    {
+        JsonElement? best = null;
+        var bestRank = int.MaxValue;
+        foreach (var medium in gameMedia)
+        {
+            if (medium.Str("type") != type)
+            {
+                continue;
+            }
+
+            var rank = medium.Str("region") is { } r && Array.IndexOf(regions, r) is var i and >= 0 ? i : regions.Length;
+            if (rank < bestRank)
+            {
+                (best, bestRank) = (medium, rank);
+            }
+        }
+
+        return best;
+    }
+
+    /// <summary>A medium's URL asking for it at most <see cref="SearchCoverSide"/> pixels on a side.</summary>
+    private static string SearchCoverUrl(string url)
+    {
+        var side = SearchCoverSide.ToString(CultureInfo.InvariantCulture);
+        return url + (url.Contains('?', StringComparison.Ordinal) ? "&" : "?") + "maxwidth=" + side + "&maxheight=" + side;
+    }
 
     private static string[] RegionOrder(ScrapingSettings settings) => [.. settings.Regions.Concat(FallbackRegions).Distinct(StringComparer.Ordinal)];
 

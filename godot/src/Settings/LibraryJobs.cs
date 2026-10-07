@@ -246,6 +246,16 @@ public sealed class LibraryJobs : IDisposable
     }
 
     /// <summary>
+    /// Manual matching: a search hit's cover, small (PNG, JPEG or WebP bytes), or null when it has none. Thread pool;
+    /// throws <see cref="ProviderException"/> when the download failed.
+    /// </summary>
+    public async Task<byte[]?> GetMatchCoverAsync(MatchCover cover, CancellationToken cancellationToken)
+    {
+        using var cancel = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _shutdown.Token);
+        return await Scraper().GetMatchCoverAsync(cover, cancel.Token).ConfigureAwait(false);
+    }
+
+    /// <summary>
     /// Scrapes one game in the background (the game options panel, M7), ahead of any batch. Main thread; false if that
     /// game is being scraped already. <paramref name="done"/> gets the outcome, on the main thread. With
     /// <paramref name="match"/> (the match panel's choice: a provider and its game's id), that game comes first.

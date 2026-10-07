@@ -3,7 +3,12 @@
   "response": {
     "ssuser": { "id": "{{SSID}}", "maxthreads": "{{MAXTHREADS}}", "requeststoday": "{{TODAY}}", "maxrequestspermin": "1024", "maxrequestsperday": "20000", "maxrequestskoperday": "2000", "requestskotoday": "1" },
     "jeux": [
-      { "id": "1190", "noms": [ { "region": "wor", "text": "Sonic &amp; Knuckles" } ], "dates": [ { "region": "wor", "text": "1994" } ] },
+      { "id": "1190", "noms": [ { "region": "wor", "text": "Sonic &amp; Knuckles" } ], "dates": [ { "region": "wor", "text": "1994" } ], "medias": [
+        { "type": "box-2D", "parent": "jeu", "url": "https://neoclone.screenscraper.fr/api2/mediaJeu.php?devid={{DEVID}}&devpassword={{DEVPASSWORD}}&softname=OdysseyLauncher-0.1.0&ssid={{SSID}}&sspassword={{SSPASSWORD}}&systemeid=1&jeuid=1190&media=box-2D(us)", "region": "us", "format": "png" },
+        { "type": "box-2D", "parent": "jeu", "url": "https://neoclone.screenscraper.fr/api2/mediaJeu.php?devid={{DEVID}}&devpassword={{DEVPASSWORD}}&softname=OdysseyLauncher-0.1.0&ssid={{SSID}}&sspassword={{SSPASSWORD}}&systemeid=1&jeuid=1190&media=box-2D(wor)", "region": "wor", "format": "png" },
+        { "type": "box-2D", "parent": "support", "url": "https://neoclone.screenscraper.fr/api2/mediaJeu.php?devid={{DEVID}}&devpassword={{DEVPASSWORD}}&softname=OdysseyLauncher-0.1.0&ssid={{SSID}}&sspassword={{SSPASSWORD}}&systemeid=1&jeuid=1190&media=support-box(eu)", "region": "eu", "format": "png" },
+        { "type": "ss", "parent": "jeu", "url": "https://neoclone.screenscraper.fr/api2/mediaJeu.php?devid={{DEVID}}&devpassword={{DEVPASSWORD}}&softname=OdysseyLauncher-0.1.0&ssid={{SSID}}&sspassword={{SSPASSWORD}}&systemeid=1&jeuid=1190&media=ss(eu)", "region": "eu", "format": "png" }
+      ] },
       { "id": "1187", "noms": [ { "region": "eu", "text": "Sonic the Hedgehog 3" } ], "dates": [ { "region": "eu", "text": "1994-02-24" } ] }
     ]
   }

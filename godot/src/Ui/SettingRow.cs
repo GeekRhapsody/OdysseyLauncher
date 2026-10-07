@@ -5,16 +5,23 @@ namespace Launcher.App.Ui;
 
 /// <summary>
 /// One row of a settings list (M7): a button with a title, an optional second line (a path, a status) and a value on
-/// the right. A (or a click) activates it; a row that can be adjusted also takes left and right (a choice cycled in
-/// place, as the default provider is).
+/// the right, and from 2026-10-07 an optional picture before them (a search hit's cover). A (or a click) activates it;
+/// a row that can be adjusted also takes left and right (a choice cycled in place, as the default provider is).
 /// </summary>
 public sealed partial class SettingRow : Button
 {
+    /// <summary>The picture's frame: dark, a thin border, the picture a few pixels in.</summary>
+    private static readonly StyleBoxFlat PictureFrame = MakePictureFrame();
+
+    private readonly HBoxContainer _line;
     private readonly Label _title;
     private readonly Label _detail;
     private readonly Label _value;
     private readonly LabelSettings _valueSettings;
     private readonly LabelSettings _detailSettings;
+    private TextureRect? _picture;
+    private Label? _pictureCaption;
+    private float _pictureHeight;
 
     public SettingRow(string title, string? detail = null, string? value = null, Action? activated = null)
     {
@@ -33,6 +40,7 @@ public sealed partial class SettingRow : Button
         var row = new HBoxContainer { MouseFilter = MouseFilterEnum.Ignore };
         row.AddThemeConstantOverride("separation", 16);
         margins.AddChild(row);
+        _line = row;
 
         var text = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill, Alignment = BoxContainer.AlignmentMode.Center, MouseFilter = MouseFilterEnum.Ignore };
         text.AddThemeConstantOverride("separation", 0);
@@ -76,7 +84,7 @@ public sealed partial class SettingRow : Button
         {
             _detail.Text = value ?? string.Empty;
             _detail.Visible = !string.IsNullOrEmpty(value);
-            CustomMinimumSize = new Vector2(0, _detail.Visible ? 66 : 46);
+            UpdateHeight();
         }
     }
 
@@ -94,6 +102,65 @@ public sealed partial class SettingRow : Button
     public Color DetailColour
     {
         set => _detailSettings.FontColor = value;
+    }
+
+    /// <summary>
+    /// Puts a picture frame of <paramref name="size"/> before the text (a search hit's cover), the row made tall enough
+    /// for it. <see cref="SetPicture"/> fills it; until then it's empty.
+    /// </summary>
+    public void ShowPicture(Vector2 size)
+    {
+        if (_picture is not null)
+        {
+            return;
+        }
+
+        var frame = new PanelContainer { CustomMinimumSize = size, SizeFlagsVertical = SizeFlags.ShrinkCenter, MouseFilter = MouseFilterEnum.Ignore };
+        frame.AddThemeStyleboxOverride("panel", PictureFrame);
+        _picture = new TextureRect
+        {
+            ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
+            StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered,
+            MouseFilter = MouseFilterEnum.Ignore,
+        };
+        frame.AddChild(_picture);
+        _pictureCaption = UiStyle.Label(string.Empty, new LabelSettings { FontSize = UiStyle.HintSize - 2, FontColor = UiStyle.Faint }, wrap: true);
+        _pictureCaption.HorizontalAlignment = HorizontalAlignment.Center;
+        _pictureCaption.VerticalAlignment = VerticalAlignment.Center;
+        frame.AddChild(_pictureCaption);
+        _line.AddChild(frame);
+        _line.MoveChild(frame, 0);
+        _pictureHeight = size.Y;
+        UpdateHeight();
+    }
+
+    /// <summary>
+    /// The picture (<see cref="ShowPicture"/>), or, when <paramref name="texture"/> is null, <paramref name="caption"/>
+    /// in its frame ("No cover"). The row doesn't own the texture.
+    /// </summary>
+    public void SetPicture(Texture2D? texture, string? caption = null)
+    {
+        if (_picture is null || _pictureCaption is null)
+        {
+            return;
+        }
+
+        _picture.Texture = texture;
+        _pictureCaption.Text = texture is null ? caption ?? string.Empty : string.Empty;
+    }
+
+    private void UpdateHeight()
+    {
+        var text = _detail.Visible ? 66 : 46;
+        CustomMinimumSize = new Vector2(0, Math.Max(text, _pictureHeight + 12));
+    }
+
+    private static StyleBoxFlat MakePictureFrame()
+    {
+        var box = UiStyle.RowBox(new Color(0.02f, 0.03f, 0.1f, 0.9f), new Color("#2E3D86"), 1);
+        box.SetCornerRadiusAll(4);
+        box.SetContentMarginAll(3);
+        return box;
     }
 
     /// <summary>Left (−1) or right (+1) on the row; null when it can't be adjusted, and the focus moves instead.</summary>

@@ -81,6 +81,86 @@ public sealed class ManualMatchTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Each_hits_cover_is_fetched_small_only_when_asked_for_and_kept()
+    {
+        _bed.Rom(Sonic);
+        await _bed.ScanAsync();
+        using var service = _bed.Service();
+        var search = (await service.SearchMatchesAsync(Key(Sonic), null, Ct))!;
+        MatchCandidate Hit(string provider, string id) => search.Providers.Single(p => p.Provider == provider).Candidates.Single(c => c.ProviderGameId == id);
+
+        // The search downloads nothing, and asks SteamGridDB for no art: covers are fetched as they're shown.
+        Assert.Equal(0, _bed.Http.Count("mediaJeu.php") + _bed.Http.Count("images.igdb.com") + _bed.Http.Count("/grids/"));
+        Assert.All(search.Providers.Where(p => p.Problem is null), p => Assert.All(p.Candidates, c => Assert.NotNull(c.Cover)));
+        Assert.Contains(_bed.Http.Requests, r => r.Uri.Host == "api.igdb.com" && r.Body!.Contains("cover.image_id", StringComparison.Ordinal));
+
+        // ScreenScraper: the file's own match takes its cover from the ROM index's answer, a title search's hit from
+        // the search's answer, each in the first wanted region (eu, then wor) and made small.
+        Assert.NotNull(await service.GetMatchCoverAsync(Hit("screenscraper", "1187").Cover!, Ct));
+        Assert.NotNull(await service.GetMatchCoverAsync(Hit("screenscraper", "1190").Cover!, Ct));
+        var ss = _bed.Http.Requests.Where(r => r.Uri.AbsolutePath.EndsWith("mediaJeu.php", StringComparison.Ordinal)).ToList();
+        Assert.Equal(["box-2D(eu)", "box-2D(wor)"], ss.Select(r => r.Query("media")));
+        Assert.All(ss, r => Assert.Equal(("256", "256"), (r.Query("maxwidth"), r.Query("maxheight"))));
+
+        // IGDB: the search asked for each hit's cover; one without has none, and nothing is asked.
+        var igdb = (await service.GetMatchCoverAsync(Hit("igdb", "1234").Cover!, Ct))!;
+        Assert.NotNull(ImageFormats.Sniff(igdb));
+        Assert.Contains(_bed.Http.Requests, r => r.Uri.AbsoluteUri == IgdbScraper.ImageBaseUrl + "t_cover_big/co1abc.jpg");
+        Assert.Null(await service.GetMatchCoverAsync(Hit("igdb", "99").Cover!, Ct));
+        Assert.Equal(1, _bed.Http.Count("images.igdb.com"));
+
+        // SteamGridDB: one request for the game's grids, then the case-shaped grid's thumbnail.
+        Assert.NotNull(await service.GetMatchCoverAsync(Hit("steamgriddb", "5170").Cover!, Ct));
+        Assert.Equal(1, _bed.Http.Count("/grids/game/5170"));
+        Assert.Equal(1, _bed.Http.Count("cdn2.steamgriddb.com/thumb/b660.jpg"));
+
+        // Asked again (the panel reopened): kept, so nothing is downloaded again.
+        var requests = _bed.Http.Requests.Count;
+        Assert.NotNull(await service.GetMatchCoverAsync(Hit("steamgriddb", "5170").Cover!, Ct));
+        Assert.Null(await service.GetMatchCoverAsync(Hit("igdb", "99").Cover!, Ct));
+        Assert.Equal(requests, _bed.Http.Requests.Count);
+
+        // Nothing was scraped or written.
+        Assert.Null((await _bed.Game("megadrive", "Sonic the Hedgehog 3 (Europe).md")).Scrape);
+        Assert.False(Directory.Exists(Path.GetDirectoryName(_bed.MediaFile("megadrive/Sonic the Hedgehog 3 (Europe).md", MediaKinds.Cover, ".png"))));
+    }
+
+    [Fact]
+    public async Task A_cover_the_provider_no_longer_has_is_no_cover()
+    {
+        _bed.Rom(Odd);
+        await _bed.ScanAsync();
+        _bed.Http.On("GET", u => ScrapeBed.Is(u, "screenscraper.fr", "mediaJeu.php"), _ => FakeHttpHandler.Text("NOMEDIA", HttpStatusCode.OK));
+        _bed.Http.On("GET", u => ScrapeBed.Is(u, "steamgriddb.com", "/api/v2/grids/game/"), _ => FakeHttpHandler.Json("""{"success":true,"data":[]}"""));
+        using var service = _bed.Service();
+
+        var search = (await service.SearchMatchesAsync(Key(Odd), "Sonic", Ct))!;
+
+        Assert.Null(await service.GetMatchCoverAsync(search.Providers[0].Candidates.Single(c => c.ProviderGameId == "1190").Cover!, Ct));
+        Assert.Equal(1, _bed.Http.Count("mediaJeu.php"));
+        var sgdb = (await service.SearchMatchesAsync(Key(Odd), "Sonic the Hedgehog 3", Ct))!.Providers.Single(p => p.Provider == "steamgriddb");
+        Assert.Null(await service.GetMatchCoverAsync(sgdb.Candidates[0].Cover!, Ct));
+        Assert.Equal(0, _bed.Http.Count("cdn2.steamgriddb.com"));
+    }
+
+    [Fact]
+    public async Task A_steam_store_hit_carries_its_library_capsule()
+    {
+        const string Portal = "steam/Portal 2.url";
+        _bed.Rom(Portal, "[InternetShortcut]\nURL=steam://rungameid/620\n");
+        await _bed.ScanAsync();
+        using var service = _bed.Service();
+
+        var steam = (await service.SearchMatchesAsync(Key(Portal), null, Ct))!.Providers.Single(p => p.Provider == "steam");
+        var portal = steam.Candidates.Single(c => c.ProviderGameId == "620");
+
+        Assert.Equal(0, _bed.Http.Count(SteamStoreScraper.ImageHost));
+        Assert.NotNull(await service.GetMatchCoverAsync(portal.Cover!, Ct));
+        var download = Assert.Single(_bed.Http.Requests, r => r.Uri.Host == SteamStoreScraper.ImageHost);
+        Assert.EndsWith("/steam/apps/620/library_600x900.jpg", download.Uri.AbsolutePath, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task The_users_title_is_searched_by_default_a_typed_name_replaces_it_and_the_current_match_is_reported()
     {
         _bed.Rom(Odd);

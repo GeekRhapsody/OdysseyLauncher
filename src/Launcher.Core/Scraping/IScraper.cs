@@ -93,7 +93,8 @@ public sealed record ScrapedGame(
 
 /// <summary>A search hit, for choosing a manual match (M7).</summary>
 /// <param name="Method">How the file itself matched it (<see cref="MatchMethods.Filename"/> or <see cref="MatchMethods.Hash"/>): a hit from <see cref="IScraper.IdentifyFileAsync"/>; null for a title search's.</param>
-public sealed record ScrapeCandidate(string ProviderGameId, string Name, string? Year, string? Method = null);
+/// <param name="Cover">Its front cover, small, when the provider's answer carried one (2026-10-07: shown beside the hit, so games of one name can be told apart). Its URL may hold credentials: never log it.</param>
+public sealed record ScrapeCandidate(string ProviderGameId, string Name, string? Year, string? Method = null, ScrapedMedia? Cover = null);
 
 /// <summary>A provider's result for one game.</summary>
 /// <param name="Game">Null when not found.</param>
@@ -184,6 +185,13 @@ public interface IScraper
     /// when the file isn't known, or the provider has no such index.
     /// </summary>
     Task<ScrapeCandidate?> IdentifyFileAsync(ScrapeQuery query, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// A search hit's front cover, small, to show beside it (manual matching): the one the search's answer carried
+    /// (<see cref="ScrapeCandidate.Cover"/>), or, for a provider whose search has no art (SteamGridDB), one more request.
+    /// Null when it has none. <see cref="DownloadAsync"/> fetches it.
+    /// </summary>
+    Task<ScrapedMedia?> SearchCoverAsync(ScrapeCandidate candidate, CancellationToken cancellationToken);
 
     /// <summary>Downloads one image. The bytes are checked (and rejected if they aren't an image) by the media store.</summary>
     Task<byte[]> DownloadAsync(ScrapedMedia media, CancellationToken cancellationToken);

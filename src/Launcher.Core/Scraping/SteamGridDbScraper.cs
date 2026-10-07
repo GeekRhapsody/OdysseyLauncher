@@ -164,6 +164,35 @@ public sealed class SteamGridDbScraper : IScraper
         return candidates;
     }
 
+    /// <summary>
+    /// Its search has no art, so this asks for the game's grids (one request) and takes the cover a scrape would
+    /// (<see cref="CoverDimensions"/>), at the size SteamGridDB shows in its own lists (<c>thumb</c>). Null when it has none.
+    /// </summary>
+    public async Task<ScrapedMedia?> SearchCoverAsync(ScrapeCandidate candidate, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(candidate);
+        var path = $"grids/game/{Uri.EscapeDataString(candidate.ProviderGameId)}?dimensions={string.Join(',', CoverDimensions)}&types=static&nsfw=false&humor=false";
+        var (reply, kind) = await _http.SendAsync(Id, _gate, () => Get(path), Classify, "cover list", cancellationToken).ConfigureAwait(false);
+        if (kind != ReplyKind.Ok)
+        {
+            return null;
+        }
+
+        using var document = LenientJson.Parse(reply.Text);
+        if (document?.RootElement.TryGetProperty("data", out var data) != true || data.ValueKind != JsonValueKind.Array)
+        {
+            return null;
+        }
+
+        var grids = data.EnumerateArray().ToList();
+        var cover = CoverDimensions
+            .Select(d => grids.FirstOrDefault(g => $"{g.Str("width")}x{g.Str("height")}" == d))
+            .FirstOrDefault(g => g.ValueKind == JsonValueKind.Object);
+        return cover.ValueKind == JsonValueKind.Object && (cover.Str("thumb") ?? cover.Str("url")) is { } url
+            ? new ScrapedMedia(MediaKinds.Cover, url)
+            : null;
+    }
+
     public async Task<byte[]> DownloadAsync(ScrapedMedia media, CancellationToken cancellationToken)
     {
         if (!Uri.TryCreate(media.Url, UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps

@@ -102,7 +102,30 @@ public enum SystemScrapeFilter
 /// <summary>One search hit for a manual match.</summary>
 /// <param name="Similarity">How close its name is to the search, 0 to 1 (<see cref="TitleMatcher.Similarity"/>).</param>
 /// <param name="MatchedBy">How the game's file matched it, for a hit from the provider's ROM index (<see cref="MatchMethods.Filename"/> or <see cref="MatchMethods.Hash"/>); null for a title search's.</param>
-public sealed record MatchCandidate(string ProviderGameId, string Name, string? Year, double Similarity, string? MatchedBy = null);
+/// <param name="Cover">Its front cover, to fetch with <see cref="ScrapeService.GetMatchCoverAsync"/>; null when the provider has no covers.</param>
+public sealed record MatchCandidate(string ProviderGameId, string Name, string? Year, double Similarity, string? MatchedBy = null, MatchCover? Cover = null);
+
+/// <summary>
+/// A search hit's front cover (2026-10-07), shown beside it so that games of one name can be told apart, fetched with
+/// <see cref="ScrapeService.GetMatchCoverAsync"/>. What to download stays in Core: a provider's URL may hold
+/// credentials (ScreenScraper's do).
+/// </summary>
+public sealed class MatchCover
+{
+    internal MatchCover(string provider, ScrapeCandidate candidate)
+    {
+        Provider = provider;
+        Candidate = candidate;
+    }
+
+    public string Provider { get; }
+
+    public string ProviderGameId => Candidate.ProviderGameId;
+
+    internal ScrapeCandidate Candidate { get; }
+
+    public override string ToString() => $"{Provider} {ProviderGameId} cover";
+}
 
 /// <summary>One provider's answer to a manual match search.</summary>
 /// <param name="InOrder">Whether config's provider and fallback list names it; one that doesn't is still used for the game if the user chooses one of its results.</param>
@@ -224,6 +247,9 @@ public sealed class ScrapeService : IDisposable
     /// <summary>A game scraped within this long is skipped by <see cref="SystemScrapeFilter.NotRecent"/>.</summary>
     public static readonly TimeSpan RecentScrape = TimeSpan.FromDays(30);
 
+    /// <summary>How many search hits' covers <see cref="GetMatchCoverAsync"/> keeps (a few megabytes at most).</summary>
+    public const int MatchCoverCache = 200;
+
     private readonly ScrapeServiceOptions _options;
     private readonly LibraryService _library;
     private readonly Dictionary<string, IScraper> _scrapers;
@@ -240,6 +266,7 @@ public sealed class ScrapeService : IDisposable
     private readonly ConcurrentDictionary<long, CancellationTokenSource> _batchTokens = new();
     private readonly ConcurrentDictionary<long, ConcurrentQueue<ProviderNotice>> _notices = new();
     private readonly ConcurrentDictionary<string, ProviderNotice> _resting = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<(string Provider, string Id), byte[]> _matchCovers = new();
     private readonly HashSet<long> _startedBatches = [];
     private Task? _runner;
     private long _generation;
@@ -492,17 +519,20 @@ public sealed class ScrapeService : IDisposable
             var identify = file is null ? Task.FromResult<ScrapeCandidate?>(null) : IdentifyAsync(scraper, file, cancellationToken);
             var hits = term.Length == 0 ? [] : await scraper.SearchAsync(term, system, cancellationToken).ConfigureAwait(false);
             var fileHit = await identify.ConfigureAwait(false);
+            var covers = scraper.Capabilities.Media.Contains(MediaKinds.Cover);
+            MatchCover? Cover(ScrapeCandidate hit) => covers ? new MatchCover(id, hit) : null;
             var candidates = hits
                 .DistinctBy(h => h.ProviderGameId, StringComparer.Ordinal)
                 .Where(h => h.ProviderGameId != fileHit?.ProviderGameId)
-                .Select((h, index) => (Candidate: new MatchCandidate(h.ProviderGameId, h.Name, h.Year, TitleMatcher.Similarity(term, h.Name)), Index: index))
+                .Select((h, index) => (Candidate: new MatchCandidate(h.ProviderGameId, h.Name, h.Year, TitleMatcher.Similarity(term, h.Name), Cover: Cover(h)), Index: index))
                 .OrderByDescending(c => c.Candidate.Similarity)
                 .ThenBy(c => c.Index)
                 .Select(c => c.Candidate)
                 .ToList();
             if (fileHit is not null)
             {
-                candidates.Insert(0, new MatchCandidate(fileHit.ProviderGameId, fileHit.Name, fileHit.Year, TitleMatcher.Similarity(term, fileHit.Name), fileHit.Method ?? MatchMethods.Filename));
+                candidates.Insert(0, new MatchCandidate(fileHit.ProviderGameId, fileHit.Name, fileHit.Year, TitleMatcher.Similarity(term, fileHit.Name),
+                    fileHit.Method ?? MatchMethods.Filename, Cover(fileHit)));
             }
 
             return Answer(candidates, null);
@@ -512,6 +542,57 @@ public sealed class ScrapeService : IDisposable
             Rest(e);
             return Answer([], _redactor.Redact(e.Message));
         }
+    }
+
+    /// <summary>
+    /// A search hit's front cover, small (a few hundred pixels on its longer side), as the provider serves it: PNG,
+    /// JPEG or WebP. Null when the provider has none for it (or sent something that isn't an image). It goes through
+    /// the provider's limits like any request, so a resting provider is skipped; the last <see cref="MatchCoverCache"/>
+    /// are kept, so reopening the panel doesn't download them again. Throws <see cref="ProviderException"/> when the
+    /// download failed (the message redacted).
+    /// </summary>
+    public async Task<byte[]?> GetMatchCoverAsync(MatchCover cover, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(cover);
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        var key = (cover.Provider, cover.ProviderGameId);
+        if (_matchCovers.TryGetValue(key, out var kept))
+        {
+            return kept.Length == 0 ? null : kept;
+        }
+
+        if (!_scrapers.TryGetValue(cover.Provider, out var scraper) || IsResting(cover.Provider, out _))
+        {
+            return null;
+        }
+
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _lifetime.Token);
+        byte[] image;
+        try
+        {
+            var media = await scraper.SearchCoverAsync(cover.Candidate, linked.Token).ConfigureAwait(false);
+            var bytes = media is null ? [] : await scraper.DownloadAsync(media, linked.Token).ConfigureAwait(false);
+            image = ImageFormats.Sniff(bytes) is null ? [] : bytes;
+        }
+        catch (ProviderException e) when (e.Failure == ProviderFailure.Rejected)
+        {
+            // Refused or gone (ScreenScraper's NOMEDIA): it has no cover to show.
+            image = [];
+        }
+        catch (ProviderException e)
+        {
+            Rest(e);
+            throw new ProviderException(e.Provider, e.Failure, _redactor.Redact(e.Message), e.Until);
+        }
+
+        // A crude bound: the panel shows a search or two's worth at a time.
+        if (_matchCovers.Count >= MatchCoverCache)
+        {
+            _matchCovers.Clear();
+        }
+
+        _matchCovers[key] = image;
+        return image.Length == 0 ? null : image;
     }
 
     private static async Task<ScrapeCandidate?> IdentifyAsync(IScraper scraper, Task<ScrapeQuery> file, CancellationToken cancellationToken)

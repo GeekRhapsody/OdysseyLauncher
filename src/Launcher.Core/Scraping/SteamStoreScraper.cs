@@ -147,6 +147,10 @@ public sealed class SteamStoreScraper : IScraper
     /// <summary>The Steam store has no ROM index.</summary>
     public Task<ScrapeCandidate?> IdentifyFileAsync(ScrapeQuery query, CancellationToken cancellationToken) => Task.FromResult<ScrapeCandidate?>(null);
 
+    /// <summary>The search's store items carry their assets, so no request.</summary>
+    public Task<ScrapedMedia?> SearchCoverAsync(ScrapeCandidate candidate, CancellationToken cancellationToken) =>
+        Task.FromResult(candidate?.Cover);
+
     public async Task<IReadOnlyList<ScrapeCandidate>> SearchAsync(string title, SystemConfig system, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(title);
@@ -167,7 +171,7 @@ public sealed class SteamStoreScraper : IScraper
         {
             if (item.Str("appid") is { } id && item.Str("name") is { } name)
             {
-                candidates.Add(new ScrapeCandidate(id, name, ReleaseDate(item)?[..4]));
+                candidates.Add(new ScrapeCandidate(id, name, ReleaseDate(item)?[..4], Cover: SearchCover(item)));
             }
         }
 
@@ -269,6 +273,13 @@ public sealed class SteamStoreScraper : IScraper
     /// <summary>The store items in an answer that Steam found (<c>success</c> 1), in its order.</summary>
     public static IEnumerable<JsonElement> StoreItems(JsonElement root) =>
         (root.Obj("response") ?? default).Arr("store_items").Where(i => i.Num("success") == 1 && i.Str("appid") is not null);
+
+    /// <summary>A store item's library capsule at its 1× size (300×450), for a search hit; null when it has none.</summary>
+    private static ScrapedMedia? SearchCover(JsonElement item) =>
+        item.Obj("assets") is { } a && a.Str("asset_url_format") is { } format && format.Contains("${FILENAME}", StringComparison.Ordinal)
+            && (a.Str("library_capsule") ?? a.Str("library_capsule_2x")) is { } file
+            ? new ScrapedMedia(MediaKinds.Cover, ImageBaseUrl + format.Replace("${FILENAME}", file, StringComparison.Ordinal))
+            : null;
 
     private static string LogoUrl(string appId) => ImageBaseUrl + "steam/apps/" + appId + "/logo.png";
 
