@@ -221,6 +221,10 @@ public sealed class ScrollBench : IDisposable
             var (smallCount, smallMs, smallMax) = s.SmallUploadStats;
             GD.Print(FormattableString.Invariant(
                 $"Scroll bench: uploads of 512² layers {largeCount} (mean {(largeCount > 0 ? largeMs / largeCount : 0):0.000} ms, max {largeMax:0.0} ms), of 256² layers {smallCount} (mean {(smallCount > 0 ? smallMs / smallCount : 0):0.000} ms, max {smallMax:0.0} ms); slots {s.Layout}"));
+            var (peakLarge, peakSmall) = s.PeakLayersInUse;
+            GD.Print(FormattableString.Invariant(
+                $"Scroll bench: layers {s.LayersFor(s.Layout, true)} × 512² and {s.LayersFor(s.Layout, false)} × 256², most in use {peakLarge} and {peakSmall}, evictions {s.Evictions}, decodes {s.Decodes}, textured min {scroll.TexturedFractionMin:P1}"));
+            GD.Print("Scroll bench: pools " + s.PoolReport());
         }
         DebugHooks.CompleteScroll(scroll, textures, new BenchLibrary(_systems, _games, _system, _systemGames));
     }

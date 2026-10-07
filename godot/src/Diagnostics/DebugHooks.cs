@@ -355,7 +355,7 @@ public partial class DebugHooks : Node
         _finished = true;
         Unhook();
         SetProcess(false);
-        GetTree().Quit(exitCode);
+        Launcher.App.Boot.AppQuit.Request(GetTree(), exitCode);
     }
 
     private void Unhook()

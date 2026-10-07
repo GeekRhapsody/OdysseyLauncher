@@ -34,6 +34,9 @@ public sealed partial class MediaMovePanel : UiPanel
     private readonly Button _stop;
     private MediaMoveProgress _shown = new(-1, 0, 0, 0);
     private SceneTree? _tree;
+
+    /// <summary>Moves running: while one is, closing the window is this panel's to handle (it stops, then quits).</summary>
+    public static int Moving { get; private set; }
     private bool _started;
     private bool _saving;
     private bool _quitWhenDone;
@@ -121,6 +124,7 @@ public sealed partial class MediaMovePanel : UiPanel
     {
         _tree = GetTree();
         _tree.AutoAcceptQuit = false;
+        Moving++;
         var writer = _settings.Writer();
         var queue = _settings.Ui.Queue;
         var token = _cancel.Token;
@@ -199,7 +203,8 @@ public sealed partial class MediaMovePanel : UiPanel
         _tree = null;
         if (tree is not null)
         {
-            tree.AutoAcceptQuit = true;
+            // POC: the main scene keeps AutoAcceptQuit off and quits gracefully itself (Boot/AppQuit).
+            Moving--;
         }
 
         Close();
@@ -211,7 +216,7 @@ public sealed partial class MediaMovePanel : UiPanel
         if (_quitWhenDone && tree is not null)
         {
             GD.Print($"Media folder: {title.ToLowerInvariant()}; quitting, as the window was closed.");
-            tree.Quit();
+            Launcher.App.Boot.AppQuit.Request(tree);
         }
         else if (layer is not null)
         {

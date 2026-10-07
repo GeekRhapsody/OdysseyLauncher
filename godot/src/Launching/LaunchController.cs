@@ -403,7 +403,7 @@ public partial class LaunchController : Node
         LaunchEnded?.Invoke(failed ? message : null);
         if (_quitAfterLaunch)
         {
-            GetTree().Quit(failed ? 1 : 0);
+            Launcher.App.Boot.AppQuit.Request(GetTree(), failed ? 1 : 0);
         }
     }
 

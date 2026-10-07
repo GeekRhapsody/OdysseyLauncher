@@ -1213,6 +1213,34 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
         _fadingSlots++;
     }
 
+    public void OnArraysChanged()
+    {
+        foreach (var material in _materials)
+        {
+            SetArrays(material);
+        }
+    }
+
+    public void OnLayerEvicted(int cell, int channel)
+    {
+        var slot = _streamer!.Layout.Slots[channel];
+        var i = cell * Slots + slot;
+        if (!_textured[i])
+        {
+            return;
+        }
+
+        // The media is still wanted: the streamer brings it back when the cell nears the view again.
+        if (_fade[i] < 1)
+        {
+            _fadingSlots--;
+        }
+
+        _textured[i] = false;
+        _fade[i] = 0;
+        WriteState(cell, slot);
+    }
+
     public void OnLayerMissing(int cell, int channel)
     {
         var item = _cellItem[cell];
@@ -1635,8 +1663,8 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
         if (_wanted[i])
         {
             aspect = _media[i].Aspect > 0 ? _media[i].Aspect : _cellModel[cell]?.SlotAspect(slot) ?? 1;
-            var channel = _streamer!.Layout.ChannelOf(slot);
-            layer = _streamer.Layout.LayerOf(cell, channel);
+            // POC: layers are handed out as media streams in, so it's whichever the streamer gave the cell's channel.
+            layer = _textured[i] ? _streamer!.ShownLayer(cell, _streamer.Layout.ChannelOf(slot)) : 0;
         }
 
         _stateImage.SetPixel(slot, cell, new Color(_fallback[i], aspect, _textured[i] ? _fade[i] : 0, layer));

@@ -21,6 +21,15 @@ public interface ITextureSink
 
     /// <summary>Main thread: the media has no usable derivative, so the slot moves on down its fallback chain.</summary>
     void OnLayerMissing(int cell, int channel);
+
+    /// <summary>
+    /// Main thread (POC, streamed layer pool): the cell's layer for the channel was given to a request nearer the view.
+    /// The slot shows its fallback until the streamer brings the media back (<see cref="OnLayerReady"/>).
+    /// </summary>
+    void OnLayerEvicted(int cell, int channel);
+
+    /// <summary>Main thread (POC): an array was built on first demand; materials sampling the arrays need it.</summary>
+    void OnArraysChanged();
 }
 
 /// <summary>
@@ -39,6 +48,12 @@ public interface ITextureSink
 /// <item>POC (direct source images): a streamer made with <c>directSources</c> reads the media folder's images
 /// themselves (PNG, JPEG, WebP), decodes them with Godot, squeezes them to the layer's square with mips, and keeps
 /// RGBA8 arrays (4× the VRAM of BC7). Workers allocate per image then, and decodes take tens of milliseconds.</item>
+/// <item>POC (streamed layer pool): layers aren't fixed per cell and channel. Each class's array is a pool that may be
+/// smaller than cells × channels; a request gets a layer when a worker takes it, so slots with no media (or showing
+/// their fallback) hold none, and when the pool is full it takes the layer of the shown or waiting request farthest
+/// from the view, if that one is clearly farther than itself. The loser goes back to pending, its cell shows the
+/// fallback (<see cref="ITextureSink.OnLayerEvicted"/>), and it's streamed again when it nears the view. A freed
+/// layer isn't written until the frame after the grid has stopped showing it.</item>
 /// </list>
 /// </summary>
 public sealed class TextureStreamer : IDisposable
@@ -68,6 +83,23 @@ public sealed class TextureStreamer : IDisposable
     /// <summary>Workers prefer covers: another slot's request counts as this many rows further away.</summary>
     private const float SmallSlotPenaltyRows = 0.35f;
 
+    /// <summary>POC: a request takes a busy layer only from one at least this many rows farther from the view.</summary>
+    private const float StealMarginRows = 1.0f;
+
+    /// <summary>POC: how often a worker looks again while requests wait for layers (the view moves; nothing pulses).</summary>
+    private const int StarvedWaitMs = 30;
+
+    /// <summary>POC: a layer no upload has to wait for.</summary>
+    private const int NotHeld = int.MinValue;
+
+    /// <summary>
+    /// POC: frames a layer stays unwritten after the grid stops sampling it. The GPU can still be drawing earlier
+    /// frames that sample it (Godot queues 2 frames, with 3 swapchain images), and writing it then means uploading into
+    /// a texture the GPU is reading. Every crash of the Deck's AMD driver in this spike came seconds after a run that
+    /// did that constantly (a full pool, with 1 frame of hold).
+    /// </summary>
+    private const int InFlightFrames = 4;
+
     private static readonly long Bc7SmallChainBytes = ChainBytes(SmallSize, DerivativeFormat);
 
     private readonly bool _direct;
@@ -82,7 +114,9 @@ public sealed class TextureStreamer : IDisposable
     private readonly int[] _generation;
     private readonly int[] _row;
     private readonly bool[] _large;
-    private readonly int[] _layer;
+    private readonly int[] _layer;           // the allocated layer, or -1 (under the gate)
+    private readonly int[] _shownLayer;      // main thread: the layer the grid shows for the unit, or -1
+    private readonly int[] _evictedLayer;    // a shown layer a worker took, for the main thread to retire, or -1
     private readonly string?[] _relPath;
     private readonly long[] _size;
     private readonly long[] _mtime;
@@ -95,6 +129,27 @@ public sealed class TextureStreamer : IDisposable
     private readonly ConcurrentDictionary<string, string?> _derivativePaths = new(StringComparer.Ordinal);
     private Texture2DArray? _largeArray;
     private Texture2DArray? _smallArray;
+
+    // POC: each class's layer pool (0 = 512², 1 = 256²), under the gate. A layer's owner is a unit or -1. A layer
+    // freed, or taken from a shown unit, isn't uploaded into until _frame > its hold (int.MaxValue until the main
+    // thread has retired the shown unit).
+    private readonly int _largePool;
+    private readonly int _smallPool;
+    private readonly int[][] _owner = [[], []];
+    private readonly int[][] _free = [[], []];
+    private readonly int[][] _hold = [[], []];
+    private readonly int[] _freeCount = new int[2];
+    private readonly int[] _peakInUse = new int[2];
+    private int _frame;
+    private bool _evictionsPending;
+
+    // POC: a pooled class's array is built by a worker when its first request arrives (a layout's slots that the shown
+    // games have no media for cost nothing), then installed by the main thread. Under the gate.
+    private readonly int[] _lazyLayers = new int[2];
+    private readonly bool[] _building = new bool[2];
+    private readonly Texture2DArray?[] _built = new Texture2DArray?[2];
+    private bool _builtPending;
+    private int _arraysVersion;
     private bool _stopping;
     private float _viewRow;
     private float _direction = 1;
@@ -106,10 +161,14 @@ public sealed class TextureStreamer : IDisposable
 
     /// <summary>Starts the workers. <see cref="SetFolders"/> must be called before the first request.</summary>
     /// <param name="directSources">POC: read the media folder's images instead of their baked derivatives.</param>
-    public TextureStreamer(int cells, int workers, bool directSources = false)
+    /// <param name="largePool">POC: the 512² layers shared by every cell; 0 keeps one per cell and channel.</param>
+    /// <param name="smallPool">POC: the 256² layers shared by every cell; 0 keeps one per cell and channel.</param>
+    public TextureStreamer(int cells, int workers, bool directSources = false, int largePool = 0, int smallPool = 0)
     {
         Cells = cells;
         _direct = directSources;
+        _largePool = largePool;
+        _smallPool = smallPool;
         Format = directSources ? DirectFormat : DerivativeFormat;
         _largeLayerBytes = ChainBytes(LargeSize, Format);
         _smallLayerBytes = ChainBytes(SmallSize, Format);
@@ -119,6 +178,11 @@ public sealed class TextureStreamer : IDisposable
         _row = new int[units];
         _large = new bool[units];
         _layer = new int[units];
+        _shownLayer = new int[units];
+        _evictedLayer = new int[units];
+        Array.Fill(_layer, -1);
+        Array.Fill(_shownLayer, -1);
+        Array.Fill(_evictedLayer, -1);
         _relPath = new string?[units];
         _size = new long[units];
         _mtime = new long[units];
@@ -162,8 +226,12 @@ public sealed class TextureStreamer : IDisposable
     /// <summary>Every other slot's layers (256²); null while evicted or unused.</summary>
     public Texture2DArray? Small => _smallArray;
 
-    /// <summary>Whether the arrays the layout needs exist (they don't while a game runs, or before they're built).</summary>
-    public bool HasArrays => (Layout.LargeCount == 0 || _largeArray is not null) && (Layout.SmallCount == 0 || _smallArray is not null);
+    /// <summary>
+    /// Whether the arrays the layout needs exist, or will be built on first demand (POC); not while a game runs, or
+    /// before they're built.
+    /// </summary>
+    public bool HasArrays => (Layout.LargeCount == 0 || _largeArray is not null || _lazyLayers[0] > 0)
+        && (Layout.SmallCount == 0 || _smallArray is not null || _lazyLayers[1] > 0);
 
     public int Uploads { get; private set; }
 
@@ -178,6 +246,66 @@ public sealed class TextureStreamer : IDisposable
     public int Failures { get; private set; }
 
     public int Discarded { get; private set; }
+
+    /// <summary>POC: layers taken from a request farther from the view (shown, or waiting to be uploaded).</summary>
+    public int Evictions { get; private set; }
+
+    /// <summary>POC: the most layers of each class in use at once since the last install.</summary>
+    public (int Large, int Small) PeakLayersInUse => (_peakInUse[0], _peakInUse[1]);
+
+    /// <summary>POC, for the bench log: per class, the layers by their owner's state, blocked layers, and waiting requests.</summary>
+    public string PoolReport()
+    {
+        lock (_gate)
+        {
+            var text = new System.Text.StringBuilder();
+            var centre = Volatile.Read(ref _viewRow);
+            for (var c = 0; c < 2; c++)
+            {
+                int free = _freeCount[c], loading = 0, ready = 0, idle = 0, other = 0, blocked = 0, pending = 0;
+                float nearestPending = float.MaxValue, farthestOwner = float.MinValue;
+                for (var layer = 0; layer < _owner[c].Length; layer++)
+                {
+                    if (_hold[c][layer] == int.MaxValue)
+                    {
+                        blocked++;
+                    }
+
+                    var owner = _owner[c][layer];
+                    if (owner < 0)
+                    {
+                        continue;
+                    }
+
+                    farthestOwner = Math.Max(farthestOwner, MathF.Abs(_row[owner] - centre));
+                    switch (_state[owner])
+                    {
+                        case Loading: loading++; break;
+                        case Ready: ready++; break;
+                        case Idle: idle++; break;
+                        default: other++; break;
+                    }
+                }
+
+                for (var unit = 0; unit < _state.Length; unit++)
+                {
+                    if (_state[unit] == Pending && (_large[unit] ? 0 : 1) == c)
+                    {
+                        pending++;
+                        nearestPending = Math.Min(nearestPending, MathF.Abs(_row[unit] - centre));
+                    }
+                }
+
+                text.Append(FormattableString.Invariant(
+                    $"{(c == 0 ? "512²" : "256²")}: {_owner[c].Length} layers, free {free}, owners loading {loading} ready {ready} shown {idle} other {other}, blocked {blocked}; pending {pending}, nearest pending {nearestPending:0.0} rows, farthest owner {farthestOwner:0.0} rows. "));
+            }
+
+            return text.ToString();
+        }
+    }
+
+    /// <summary>Main thread: the layer the grid samples for a cell's channel (0 when none is shown).</summary>
+    public int ShownLayer(int cell, int channel) => Math.Max(0, _shownLayer[cell * Channels + channel]);
 
     /// <summary>Upload counts, total and longest times, for 512² and 256² layers apart (the bench log).</summary>
     public (int Count, double TotalMs, double MaxMs) LargeUploadStats => (_largeUploads, _largeUploadMs, _largeUploadMax);
@@ -227,15 +355,28 @@ public sealed class TextureStreamer : IDisposable
     /// The arrays a layout needs, reusing the current ones where they already fit. Any thread: a worker, so a new
     /// array's creation and first layer update (each can take tens of milliseconds) never land on the main thread.
     /// </summary>
+    /// <remarks>POC: a pooled class's array isn't built here unless it can be reused: a worker builds it on first demand.</remarks>
     public (Texture2DArray? Large, Texture2DArray? Small) BuildArrays(SlotLayout layout, Texture2DArray? currentLarge, Texture2DArray? currentSmall)
     {
-        var large = layout.LargeCount == 0 ? null
-            : currentLarge is not null && currentLarge.GetLayers() == Cells * layout.LargeCount ? currentLarge
-            : Warm(CreateArray(LargeSize, Cells * layout.LargeCount), LargeSize);
-        var small = layout.SmallCount == 0 ? null
-            : currentSmall is not null && currentSmall.GetLayers() == Cells * layout.SmallCount ? currentSmall
-            : Warm(CreateArray(SmallSize, Cells * layout.SmallCount), SmallSize);
+        var largeLayers = LayersFor(layout, large: true);
+        var smallLayers = LayersFor(layout, large: false);
+        var large = largeLayers == 0 ? null
+            : currentLarge is not null && currentLarge.GetLayers() == largeLayers ? currentLarge
+            : _largePool > 0 ? null
+            : Warm(CreateArray(LargeSize, largeLayers), LargeSize);
+        var small = smallLayers == 0 ? null
+            : currentSmall is not null && currentSmall.GetLayers() == smallLayers ? currentSmall
+            : _smallPool > 0 ? null
+            : Warm(CreateArray(SmallSize, smallLayers), SmallSize);
         return (large, small);
+    }
+
+    /// <summary>A class's layers: one per cell and channel, or the pool's size if that's smaller (POC).</summary>
+    public int LayersFor(SlotLayout layout, bool large)
+    {
+        var whole = Cells * (large ? layout.LargeCount : layout.SmallCount);
+        var pool = large ? _largePool : _smallPool;
+        return pool > 0 ? Math.Min(whole, pool) : whole;
     }
 
     private Texture2DArray? Warm(Texture2DArray? array, int size)
@@ -267,15 +408,147 @@ public sealed class TextureStreamer : IDisposable
         }
 
         Layout = layout;
+        SetArrays(large, small);
+        GD.Print(FormattableString.Invariant($"Textures: layers for {layout}: {large?.GetLayers() ?? 0} × {LargeSize}² and {small?.GetLayers() ?? 0} × {SmallSize}² now, {ArrayMiB(large, LargeSize) + ArrayMiB(small, SmallSize):0.0} MiB of {Format}; on demand {_lazyLayers[0]} and {_lazyLayers[1]} ({Cells} cells; pools {_largePool}, {_smallPool})."));
+    }
+
+    /// <summary>
+    /// Main thread, with no request holding a layer: the arrays in use, each class's pool fitted to its array, and a
+    /// missing array that the layout needs left to be built on first demand.
+    /// </summary>
+    private void SetArrays(Texture2DArray? large, Texture2DArray? small)
+    {
         _largeArray = large;
         _smallArray = small;
+        lock (_gate)
+        {
+            _arraysVersion++;
+            for (var c = 0; c < 2; c++)
+            {
+                _built[c]?.Dispose();
+                _built[c] = null;
+            }
+
+            _builtPending = false;
+            ResetPool(0, large?.GetLayers() ?? 0);
+            ResetPool(1, small?.GetLayers() ?? 0);
+            _lazyLayers[0] = large is null ? LayersFor(Layout, large: true) : 0;
+            _lazyLayers[1] = small is null ? LayersFor(Layout, large: false) : 0;
+        }
+    }
+
+    /// <summary>
+    /// Main thread: installs arrays workers built on first demand, and points the grid's materials at them. Workers
+    /// can then give their requests layers.
+    /// </summary>
+    private void InstallBuilt(ITextureSink sink)
+    {
+        lock (_gate)
+        {
+            _builtPending = false;
+            for (var c = 0; c < 2; c++)
+            {
+                if (_built[c] is not { } array)
+                {
+                    continue;
+                }
+
+                _built[c] = null;
+                if (c == 0)
+                {
+                    _largeArray = array;
+                }
+                else
+                {
+                    _smallArray = array;
+                }
+
+                ResetPool(c, array.GetLayers());
+                _lazyLayers[c] = 0;
+                GD.Print(FormattableString.Invariant($"Textures: {array.GetLayers()} × {(c == 0 ? LargeSize : SmallSize)}² layers built on first demand ({ArrayMiB(array, c == 0 ? LargeSize : SmallSize):0.0} MiB)."));
+            }
+
+            Monitor.PulseAll(_gate);
+        }
+
+        sink.OnArraysChanged();
+    }
+
+    /// <summary>Under the gate: a pooled class whose array a waiting request needs and no worker is building, or -1.</summary>
+    private int ArrayToBuild()
+    {
+        for (var c = 0; c < 2; c++)
+        {
+            if (_lazyLayers[c] > 0 && !_building[c] && _built[c] is null && AnyPending(c))
+            {
+                return c;
+            }
+        }
+
+        return -1;
+    }
+
+    /// <summary>A worker: builds and warms a class's array (tens of milliseconds) for the main thread to install.</summary>
+    private void BuildOnDemand(int c, int layers, int version)
+    {
+        var size = c == 0 ? LargeSize : SmallSize;
+        var array = Warm(CreateArray(size, layers), size);
+        lock (_gate)
+        {
+            _building[c] = false;
+            if (array is not null && version == _arraysVersion && _lazyLayers[c] == layers)
+            {
+                _built[c] = array;
+                _builtPending = true;
+                return;
+            }
+        }
+
+        array?.Dispose();
+    }
+
+    /// <summary>Under the gate: whether any request of the class is waiting.</summary>
+    private bool AnyPending(int c)
+    {
+        for (var unit = 0; unit < _state.Length; unit++)
+        {
+            if (_state[unit] == Pending && (_large[unit] ? 0 : 1) == c)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private double ArrayMiB(Texture2DArray? array, int size) => (array?.GetLayers() ?? 0) * ChainBytes(size, Format) / (1024.0 * 1024.0);
+
+    /// <summary>Under the gate: every layer of the class free (no unit holds one after <see cref="DropAll"/>).</summary>
+    private void ResetPool(int c, int layers)
+    {
+        if (_owner[c].Length != layers)
+        {
+            _owner[c] = new int[layers];
+            _free[c] = new int[layers];
+            _hold[c] = new int[layers];
+        }
+
+        for (var i = 0; i < layers; i++)
+        {
+            _owner[c][i] = -1;
+            _free[c][i] = layers - 1 - i;
+            _hold[c][i] = NotHeld;
+        }
+
+        _freeCount[c] = layers;
+        _peakInUse[c] = 0;
     }
 
     /// <summary>
     /// Main thread, at boot: the cover-class array for a whole pool, before the theme's layout is known. Every game
     /// template has a cover (A7), so it's nearly always needed, and making it now overlaps the DB opening.
     /// </summary>
-    public void CreateBootArray() => _largeArray ??= CreateArray(LargeSize, Cells);
+    public void CreateBootArray() => _largeArray ??= CreateArray(LargeSize, _largePool > 0 ? Math.Min(Cells, _largePool) : Cells);
 
     /// <summary>
     /// Main thread, during boot: the first layer update can take tens of milliseconds, so it's done once before
@@ -299,17 +572,20 @@ public sealed class TextureStreamer : IDisposable
         DropAll();
         EmptyPool();
         _largeArray?.Dispose();
-        _largeArray = null;
         _smallArray?.Dispose();
-        _smallArray = null;
+        SetArrays(null, null);
+        lock (_gate)
+        {
+            _lazyLayers[0] = 0;
+            _lazyLayers[1] = 0;
+        }
     }
 
-    /// <summary>Main thread, after a game: recreates the layout's arrays.</summary>
+    /// <summary>Main thread, after a game: recreates the layout's arrays (POC: pooled ones on first demand, by a worker).</summary>
     public void Restore()
     {
         var (large, small) = BuildArrays(Layout, _largeArray, _smallArray);
-        _largeArray = large;
-        _smallArray = small;
+        SetArrays(large, small);
     }
 
     /// <summary>Main thread, once per frame: where the view is, for the workers' priorities.</summary>
@@ -327,13 +603,15 @@ public sealed class TextureStreamer : IDisposable
     public void Request(int cell, int channel, int row, in MediaRef media)
     {
         var unit = cell * Channels + channel;
+        _shownLayer[unit] = -1;
         lock (_gate)
         {
             DropResult(unit);
+            ReleaseLayer(unit);
+            ForgetEviction(unit);
             _generation[unit]++;
             _row[unit] = row;
             _large[unit] = Layout.IsLarge(channel);
-            _layer[unit] = Layout.LayerOf(cell, channel);
             _relPath[unit] = media.Path;
             _size[unit] = media.SizeBytes;
             _mtime[unit] = media.MtimeMs;
@@ -346,6 +624,7 @@ public sealed class TextureStreamer : IDisposable
     public void Cancel(int cell, int channel)
     {
         var unit = cell * Channels + channel;
+        _shownLayer[unit] = -1;
         lock (_gate)
         {
             CancelUnit(unit);
@@ -359,6 +638,7 @@ public sealed class TextureStreamer : IDisposable
         {
             for (var unit = cell * Channels; unit < (cell + 1) * Channels; unit++)
             {
+                _shownLayer[unit] = -1;
                 CancelUnit(unit);
             }
         }
@@ -374,6 +654,17 @@ public sealed class TextureStreamer : IDisposable
         long spent = 0;
         var quarters = 0;
         var uploads = 0;
+        Volatile.Write(ref _frame, _frame + 1);
+        if (Volatile.Read(ref _builtPending))
+        {
+            InstallBuilt(sink);
+        }
+
+        if (Volatile.Read(ref _evictionsPending))
+        {
+            RetireEvicted(sink);
+        }
+
         for (var unit = 0; unit < _state.Length; unit++)
         {
             var state = Volatile.Read(ref _state[unit]);
@@ -423,8 +714,14 @@ public sealed class TextureStreamer : IDisposable
                     continue;
                 }
 
-                image = _result[unit];
+                // A layer freed or taken lately may still be sampled by a frame the GPU hasn't finished: wait it out.
                 layer = _layer[unit];
+                if (layer < 0 || _hold[large ? 0 : 1][layer] >= _frame)
+                {
+                    continue;
+                }
+
+                image = _result[unit];
                 _result[unit] = null;
                 _state[unit] = Idle;
             }
@@ -438,6 +735,7 @@ public sealed class TextureStreamer : IDisposable
 
             var start = Stopwatch.GetTimestamp();
             array.UpdateLayer(image, layer);
+            _shownLayer[unit] = layer;
             var ms = Stopwatch.GetElapsedTime(start).TotalMilliseconds;
             Recycle(image);
             if (Uploads < StatsCapacity)
@@ -489,6 +787,84 @@ public sealed class TextureStreamer : IDisposable
         _largeArray = null;
         _smallArray?.Dispose();
         _smallArray = null;
+        _built[0]?.Dispose();
+        _built[1]?.Dispose();
+    }
+
+    /// <summary>
+    /// Main thread: the grid stops showing the layers workers took from shown units, and each may be written from the
+    /// next frame on (once the grid's slot state, now showing the fallback, is on the GPU).
+    /// </summary>
+    private void RetireEvicted(ITextureSink sink)
+    {
+        Volatile.Write(ref _evictionsPending, false);
+        for (var unit = 0; unit < _state.Length; unit++)
+        {
+            int layer;
+            lock (_gate)
+            {
+                layer = _evictedLayer[unit];
+                if (layer < 0)
+                {
+                    continue;
+                }
+
+                _evictedLayer[unit] = -1;
+                _hold[_large[unit] ? 0 : 1][layer] = _frame + InFlightFrames;
+            }
+
+            if (_shownLayer[unit] == layer)
+            {
+                _shownLayer[unit] = -1;
+                sink.OnLayerEvicted(unit / Channels, unit % Channels);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Under the gate: the unit's layer back to its pool. A main-thread release (a re-bind or cancel) comes before the
+    /// grid's slot state is uploaded in this frame's tick, or during this frame's uploads; either way the layer is
+    /// written from the next upload pass that is safe (see the hold check in <see cref="PumpUploads"/>).
+    /// </summary>
+    private void ReleaseLayer(int unit)
+    {
+        var layer = _layer[unit];
+        if (layer < 0)
+        {
+            return;
+        }
+
+        var c = _large[unit] ? 0 : 1;
+        _layer[unit] = -1;
+        if (layer < _owner[c].Length && _owner[c][layer] == unit)
+        {
+            _owner[c][layer] = -1;
+            _free[c][_freeCount[c]++] = layer;
+            if (_hold[c][layer] != int.MaxValue)
+            {
+                _hold[c][layer] = Math.Max(_hold[c][layer], Volatile.Read(ref _frame) + InFlightFrames);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Under the gate, from the main thread re-binding or cancelling the unit (the grid has stopped showing it first):
+    /// a layer taken from it and not yet retired needn't wait for <see cref="RetireEvicted"/> any longer.
+    /// </summary>
+    private void ForgetEviction(int unit)
+    {
+        var layer = _evictedLayer[unit];
+        if (layer < 0)
+        {
+            return;
+        }
+
+        _evictedLayer[unit] = -1;
+        var hold = _hold[_large[unit] ? 0 : 1];
+        if (layer < hold.Length)
+        {
+            hold[layer] = Volatile.Read(ref _frame) + InFlightFrames;
+        }
     }
 
     private void DropAll()
@@ -506,6 +882,8 @@ public sealed class TextureStreamer : IDisposable
     private void CancelUnit(int unit)
     {
         DropResult(unit);
+        ReleaseLayer(unit);
+        ForgetEviction(unit);
         _generation[unit]++;
         _state[unit] = Idle;
         _relPath[unit] = null;
@@ -574,7 +952,7 @@ public sealed class TextureStreamer : IDisposable
         var buffer = new byte[512 * 1024];
         while (true)
         {
-            int unit;
+            var unit = -1;
             int generation;
             string relPath;
             string cacheDir;
@@ -582,11 +960,16 @@ public sealed class TextureStreamer : IDisposable
             long size;
             long mtime;
             bool large;
+            var build = -1;
+            var buildLayers = 0;
+            var buildVersion = 0;
             lock (_gate)
             {
-                while (!_stopping && (unit = PickNearest()) < 0)
+                var starved = false;
+                while (!_stopping && (build = ArrayToBuild()) < 0 && (unit = PickNearest(out starved)) < 0)
                 {
-                    Monitor.Wait(_gate);
+                    // Requests waiting for a layer may win one as the view moves, which nothing signals.
+                    Monitor.Wait(_gate, starved ? StarvedWaitMs : Timeout.Infinite);
                 }
 
                 if (_stopping)
@@ -594,15 +977,34 @@ public sealed class TextureStreamer : IDisposable
                     return;
                 }
 
-                unit = PickNearest();
-                _state[unit] = Loading;
-                generation = _generation[unit];
-                relPath = _relPath[unit]!;
-                cacheDir = _cacheDir;
-                mediaDir = _mediaDir;
-                size = _size[unit];
-                mtime = _mtime[unit];
-                large = _large[unit];
+                if (build >= 0)
+                {
+                    // POC: a pooled class's array, wanted for the first time.
+                    _building[build] = true;
+                    buildLayers = _lazyLayers[build];
+                    buildVersion = _arraysVersion;
+                    generation = 0;
+                    relPath = cacheDir = mediaDir = string.Empty;
+                    size = mtime = 0;
+                    large = false;
+                }
+                else
+                {
+                    _state[unit] = Loading;
+                    generation = _generation[unit];
+                    relPath = _relPath[unit]!;
+                    cacheDir = _cacheDir;
+                    mediaDir = _mediaDir;
+                    size = _size[unit];
+                    mtime = _mtime[unit];
+                    large = _large[unit];
+                }
+            }
+
+            if (build >= 0)
+            {
+                BuildOnDemand(build, buildLayers, buildVersion);
+                continue;
             }
 
             var start = Stopwatch.GetTimestamp();
@@ -669,6 +1071,10 @@ public sealed class TextureStreamer : IDisposable
                 {
                     _result[unit] = image;
                     _state[unit] = image is null ? Missing : Ready;
+                    if (image is null)
+                    {
+                        ReleaseLayer(unit);
+                    }
                 }
                 else
                 {
@@ -862,11 +1268,52 @@ public sealed class TextureStreamer : IDisposable
         return true;
     }
 
-    /// <summary>The pending request nearest the view centre; rows ahead of the scroll count as nearer. Under the gate.</summary>
-    private int PickNearest()
+    /// <summary>A request's distance from the view in rows: rows ahead of the scroll count as nearer, covers first.</summary>
+    private float Score(int unit, float centre, float direction)
     {
+        var d = _row[unit] - centre;
+        return MathF.Abs(d) * (d * direction > 0 ? 0.6f : 1.0f) + (_large[unit] ? 0 : SmallSlotPenaltyRows) + unit * 0.00001f;
+    }
+
+    /// <summary>
+    /// Under the gate: the pending request nearest the view that can have a layer, and gives it one: a free layer, or
+    /// the layer of the farthest shown or waiting request of its class if that's <see cref="StealMarginRows"/> farther.
+    /// -1 if none; <paramref name="starved"/> says whether requests are left waiting for layers.
+    /// </summary>
+    private int PickNearest(out bool starved)
+    {
+        starved = false;
         var centre = Volatile.Read(ref _viewRow);
         var direction = Volatile.Read(ref _direction);
+
+        // Per class with no free layer: the farthest unit holding one it could give up (not one being decoded into).
+        Span<int> victim = [-1, -1];
+        Span<float> victimScore = [float.MinValue, float.MinValue];
+        for (var c = 0; c < 2; c++)
+        {
+            if (_freeCount[c] > 0)
+            {
+                continue;
+            }
+
+            var owners = _owner[c];
+            for (var layer = 0; layer < owners.Length; layer++)
+            {
+                var owner = owners[layer];
+                if (owner < 0 || _state[owner] == Loading)
+                {
+                    continue;
+                }
+
+                var score = Score(owner, centre, direction);
+                if (score > victimScore[c])
+                {
+                    victimScore[c] = score;
+                    victim[c] = owner;
+                }
+            }
+        }
+
         var best = -1;
         var bestScore = float.MaxValue;
         for (var unit = 0; unit < _state.Length; unit++)
@@ -876,8 +1323,15 @@ public sealed class TextureStreamer : IDisposable
                 continue;
             }
 
-            var d = _row[unit] - centre;
-            var score = MathF.Abs(d) * (d * direction > 0 ? 0.6f : 1.0f) + (_large[unit] ? 0 : SmallSlotPenaltyRows) + unit * 0.00001f;
+            var c = _large[unit] ? 0 : 1;
+            var score = Score(unit, centre, direction);
+            if (_freeCount[c] == 0 && (victim[c] < 0 || score + StealMarginRows >= victimScore[c]))
+            {
+                // Waiting for a layer (a class with no layers at all has no arrays, so nothing to wait for).
+                starved |= _owner[c].Length > 0;
+                continue;
+            }
+
             if (score < bestScore)
             {
                 bestScore = score;
@@ -885,7 +1339,58 @@ public sealed class TextureStreamer : IDisposable
             }
         }
 
+        if (best >= 0)
+        {
+            var c = _large[best] ? 0 : 1;
+            if (_freeCount[c] == 0)
+            {
+                Evict(victim[c]);
+            }
+
+            // The free layer held the shortest (the GPU long done with it), rather than the one freed last.
+            var free = _free[c];
+            var pick = _freeCount[c] - 1;
+            for (var i = 0; i < _freeCount[c]; i++)
+            {
+                if (_hold[c][free[i]] < _hold[c][free[pick]])
+                {
+                    pick = i;
+                }
+            }
+
+            var layer = free[pick];
+            free[pick] = free[--_freeCount[c]];
+            _owner[c][layer] = best;
+            _layer[best] = layer;
+            _peakInUse[c] = Math.Max(_peakInUse[c], _owner[c].Length - _freeCount[c]);
+        }
+
         return best;
+    }
+
+    /// <summary>
+    /// Under the gate: takes a unit's layer for another request. The unit goes back to pending, to be streamed again
+    /// when it's near enough; if it was uploaded (so the grid may show it) the layer is held until the main thread has
+    /// retired it.
+    /// </summary>
+    private void Evict(int unit)
+    {
+        var c = _large[unit] ? 0 : 1;
+        var layer = _layer[unit];
+        DropResult(unit);
+        _layer[unit] = -1;
+        _owner[c][layer] = -1;
+        _free[c][_freeCount[c]++] = layer;
+        if (_state[unit] == Idle)
+        {
+            _hold[c][layer] = int.MaxValue;
+            _evictedLayer[unit] = layer;
+            _evictionsPending = true;
+        }
+
+        _generation[unit]++;
+        _state[unit] = Pending;
+        Evictions++;
     }
 
     /// <summary>

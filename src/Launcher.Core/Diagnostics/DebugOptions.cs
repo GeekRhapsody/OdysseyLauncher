@@ -55,6 +55,7 @@ public sealed record DebugOptions
     public const string SaveResponsesArg = "--save-responses";
     public const string LayoutArg = "--layout";
     public const string MemoryLogArg = "--memory-log";
+    public const string LayerPoolArg = "--layer-pool";
 
     /// <summary>
     /// What <c>--open</c> can show once the app is interactive (M7), for captures of each settings screen and shared
@@ -83,7 +84,7 @@ public sealed record DebugOptions
         CaptureArg, CaptureFrameArg, BenchArg, BenchFramesArg, BenchScenarioArg, BenchSystemArg, BenchScrollSecondsArg,
         NoTexturesArg, RenderScaleArg, UpscalerArg, UploadCapArg, StartSystemArg, StartIndexArg, NavScriptArg, LaunchArg,
         UserDirArg, QuitAfterLaunchArg, ThemeArg, NoOverlayArg, OpenArg, OpenPathArg,
-        FakeStatusArg, SaveResponsesArg, LayoutArg, MemoryLogArg,
+        FakeStatusArg, SaveResponsesArg, LayoutArg, MemoryLogArg, LayerPoolArg,
     ];
 
     /// <summary>
@@ -139,6 +140,13 @@ public sealed record DebugOptions
 
     /// <summary>Cover uploads per frame, at most; 0 means no cap.</summary>
     public int UploadCap { get; init; } = DefaultUploadCap;
+
+    /// <summary>
+    /// POC (streamed layer pool): the games grid's 512² and 256² layers, shared by every cell and slot and handed out
+    /// as media arrives; 0 for a class keeps a layer for every cell and slot (the whole pool, as before). Null: the
+    /// streamer's defaults.
+    /// </summary>
+    public (int Large, int Small)? LayerPool { get; init; }
 
     /// <summary>Enter this system once interactive (for captures), or null.</summary>
     public string? StartSystem { get; init; }
@@ -266,6 +274,7 @@ public sealed record DebugOptions
                 RenderScaleArg => options with { RenderScale = ParseDouble(name, value, 0.25, 1, errors) },
                 UpscalerArg => options with { Upscaler = ParseEnum(name, value, Upscaler.Bilinear, errors) },
                 UploadCapArg => options with { UploadCap = ParseInt(name, value, 0, 64, errors) ?? DefaultUploadCap },
+                LayerPoolArg => options with { LayerPool = ParseLayerPool(name, value, errors) },
                 StartSystemArg => options with { StartSystem = ParseId(name, value, errors) },
                 StartIndexArg => options with { StartIndex = ParseInt(name, value, 0, MaxFrames, errors) },
                 NavScriptArg => options with { NavScript = ParseNavScript(value, errors) },
@@ -486,6 +495,21 @@ public sealed record DebugOptions
         return null;
     }
 
+    private static (int, int)? ParseLayerPool(string name, string value, List<string> errors)
+    {
+        var comma = value.IndexOf(',', StringComparison.Ordinal);
+        if (comma > 0
+            && int.TryParse(value.AsSpan(0, comma), NumberStyles.None, CultureInfo.InvariantCulture, out var large)
+            && int.TryParse(value.AsSpan(comma + 1), NumberStyles.None, CultureInfo.InvariantCulture, out var small)
+            && large <= 4096 && small <= 4096)
+        {
+            return (large, small);
+        }
+
+        errors.Add($"{name} needs two whole numbers from 0 to 4,096 (512² layers, 256² layers; 0 = a layer per cell and slot), e.g. {Example(name)}; got '{value}'.");
+        return null;
+    }
+
     private static double? ParseDouble(string name, string value, double min, double max, List<string> errors)
     {
         if (double.TryParse(value, NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out var number) && number >= min && number <= max)
@@ -546,6 +570,7 @@ public sealed record DebugOptions
         FakeStatusArg => $"{FakeStatusArg}=42+/wifi2",
         LayoutArg => $"{LayoutArg}=grid:4x2/list",
         MemoryLogArg => $"{MemoryLogArg}=C:/bench/memory.csv",
+        LayerPoolArg => $"{LayerPoolArg}=40,64",
         _ => $"{BenchFramesArg}={DefaultBenchFrames}",
     };
 }

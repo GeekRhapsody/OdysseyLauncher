@@ -46,6 +46,10 @@ public partial class Main : Node3D
     public const int MaxRenderHeight = 1080;
 
     private const int CoverSlots = 64;
+
+    /// <summary>POC: the games grid's 512² and 256² layers (<c>--layer-pool</c> overrides them; 0 = one per cell and slot).</summary>
+    private const int LargeLayerPool = 48;
+    private const int SmallLayerPool = 96;
     private const int MaxSystemSlots = 64;
     private const float SystemRowsVisible = 2.7f;
     private const float GameRowsVisible = 3.2f;
@@ -80,6 +84,11 @@ public partial class Main : Node3D
     private int _warmUpFrame;
     private SubViewport? _glyphWarmUp;
     private bool _waitingForFirstFrame;
+
+    /// <summary>POC: while quitting, the exit code and the frames left to draw before the tree quits.</summary>
+    private int _quitCode = -1;
+    private int _quitFramesLeft;
+    private const int QuitFrames = 3;
     private bool _headless;
 
     private enum Stage
@@ -135,6 +144,8 @@ public partial class Main : Node3D
             return;
         }
 
+        AppQuit.SetHandler(QuitGracefully);
+        GetTree().AutoAcceptQuit = false;
         NavInput.RegisterActions();
         _camera = new Camera3D { Fov = FieldOfView, Position = new Vector3(0, 0, CameraDistance), Current = true };
         AddChild(_camera);
@@ -150,7 +161,9 @@ public partial class Main : Node3D
         if (!_options.NoTextures)
         {
             // POC: the games grid reads the scraped images themselves, not baked BC7 derivatives.
-            _streamer = new TextureStreamer(CoverSlots, TextureStreamer.DefaultWorkers, directSources: true);
+            // POC (streamed layer pool): fewer layers than cells × slots, handed out as media streams in.
+            var (largePool, smallPool) = _options.LayerPool ?? (LargeLayerPool, SmallLayerPool);
+            _streamer = new TextureStreamer(CoverSlots, TextureStreamer.DefaultWorkers, directSources: true, largePool, smallPool);
             _streamer.CreateBootArray();
 
             // The first layer update can take tens of milliseconds (M1), so it's done now, while the DB opens, rather
@@ -176,8 +189,55 @@ public partial class Main : Node3D
         AddChild(_gamesGrid);
     }
 
+    /// <summary>
+    /// POC: frees the media arrays (as a game launch does: the grids stop sampling them, the streamers release them),
+    /// lets a few frames draw so the GPU has finished with them, then quits. The process then ends with far less GPU
+    /// memory for the driver to clean up.
+    /// </summary>
+    private void QuitGracefully(int exitCode)
+    {
+        if (_quitCode >= 0)
+        {
+            return;
+        }
+
+        _quitCode = exitCode;
+        _quitFramesLeft = QuitFrames;
+        if (GetTree().Paused || !RenderingServer.RenderLoopEnabled)
+        {
+            // While a game runs nothing processes or draws, and the arrays are already freed (game mode).
+            GetTree().Quit(exitCode);
+            return;
+        }
+        if (_navigator is { } navigator)
+        {
+            navigator.OnGameModeEntered();
+        }
+        else
+        {
+            _gamesGrid?.DisableTextures();
+            _streamer?.Evict();
+            _systemsGrid?.DisableTextures();
+            _cardStreamer?.Evict();
+        }
+
+        GD.Print(FormattableString.Invariant($"Quit: media arrays freed; quitting with {exitCode} after {QuitFrames} frames (Godot's texture memory now {Performance.GetMonitor(Performance.Monitor.RenderTextureMemUsed) / (1024 * 1024):0.0} MiB)."));
+    }
+
+    public override void _Notification(int what)
+    {
+        base._Notification(what);
+
+        // POC: closing the window quits gracefully too, unless a media move is running (it stops, then quits).
+        if (what == NotificationWMCloseRequest && !_headless && MediaMovePanel.Moving == 0)
+        {
+            QuitGracefully(0);
+        }
+    }
+
     public override void _ExitTree()
     {
+        AppQuit.SetHandler(null);
         _shutdown.Cancel();
         if (_waitingForFirstFrame)
         {
@@ -197,6 +257,19 @@ public partial class Main : Node3D
 
     public override void _Process(double delta)
     {
+        if (_quitCode >= 0)
+        {
+            // Nothing streams while quitting: the arrays are gone, and the GPU gets a few frames to let go of them.
+            if (--_quitFramesLeft <= 0)
+            {
+                _quitFramesLeft = int.MaxValue;
+                GD.Print(FormattableString.Invariant($"Quit: now (Godot's texture memory {Performance.GetMonitor(Performance.Monitor.RenderTextureMemUsed) / (1024 * 1024):0.0} MiB, video memory {Performance.GetMonitor(Performance.Monitor.RenderVideoMemUsed) / (1024 * 1024):0.0} MiB)."));
+                GetTree().Quit(_quitCode);
+            }
+
+            return;
+        }
+
         _queue.Drain();
         switch (_stage)
         {
@@ -779,7 +852,7 @@ public partial class Main : Node3D
     }
 
     private void OpenPowerMenu() =>
-        _ui!.Push(new PowerMenu(_power ??= PlatformServices.CreatePowerControl(), _queue, () => GetTree().Quit()));
+        _ui!.Push(new PowerMenu(_power ??= PlatformServices.CreatePowerControl(), _queue, () => AppQuit.Request(GetTree())));
 
     /// <summary>
     /// The nav script's input steps: real events through <see cref="Input.ParseInputEvent"/>, as the mouse and

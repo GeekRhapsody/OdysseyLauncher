@@ -29,7 +29,10 @@ param(
     [ValidateRange(10, 3600)] [int] $TimeoutSeconds = 300,
     # The executable to export to and bench (default artifacts/export/windows/OdysseyLauncher.exe), so two builds
     # can be benched side by side.
-    [string] $Executable = ''
+    [string] $Executable = '',
+    # Seconds to wait after each run quits, before the next starts (the Deck's AMD driver has bugchecked seconds after
+    # a heavy run quit, while it freed the process's GPU memory).
+    [ValidateRange(0, 600)] [int] $PauseSeconds = 0
 )
 
 $ErrorActionPreference = 'Stop'
@@ -91,6 +94,10 @@ for ($run = 0; $run -le $Runs; $run++) {
     }
     if ($process.ExitCode -ne 0) {
         throw "The app exited with code $($process.ExitCode). See the log in %APPDATA%\Godot\app_userdata\Odyssey Launcher\logs."
+    }
+
+    if ($PauseSeconds -gt 0) {
+        Start-Sleep -Seconds $PauseSeconds
     }
 
     if ($run -eq 0) {
