@@ -105,7 +105,7 @@ public sealed partial class GameMediaPanel : UiPanel
         return false;
     }
 
-    /// <summary>Which slots its system's template shows (a game with its own model may show others).</summary>
+    /// <summary>Which slots its template shows (the one chosen for it, else its system's; a game with its own model may show others).</summary>
     private bool[] ShownSlots()
     {
         var shown = new bool[MediaSlots.Count];
@@ -116,7 +116,7 @@ public sealed partial class GameMediaPanel : UiPanel
             return shown;
         }
 
-        var template = templates[Math.Clamp(theme.GameTemplateOf(_game.Key.SystemId), 0, templates.Count - 1)];
+        var template = templates[Math.Clamp(theme.GameTemplateOf(_game.Key.SystemId, _game.TemplateOverride), 0, templates.Count - 1)];
         for (var slot = 0; slot < shown.Length; slot++)
         {
             shown[slot] = template.HasSlot(slot);

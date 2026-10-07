@@ -203,6 +203,19 @@ public sealed class LibraryService : ILibrary, IPlayHistory, IDisposable
         }, cancellationToken);
     }
 
+    public Task SetGameTemplateAsync(GameKey game, string? templateId, CancellationToken cancellationToken)
+    {
+        var id = string.IsNullOrWhiteSpace(templateId) ? null : templateId.Trim();
+        return _writer.RunAsync(c =>
+        {
+            LibraryStore.SetGameTemplate(c, game, id);
+            return true;
+        }, cancellationToken);
+    }
+
+    public Task<IReadOnlyList<string>> GetChosenGameTemplatesAsync(CancellationToken cancellationToken) =>
+        _readers.RunAsync<IReadOnlyList<string>>(LibraryStore.GetChosenTemplates, cancellationToken);
+
     public Task<long> BeginSessionAsync(GameKey game, string emulatorId, DateTimeOffset startedAt, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(emulatorId);

@@ -295,6 +295,38 @@ public sealed class LibraryServiceTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task A_games_chosen_template_comes_with_its_rows_and_details_and_the_chosen_ids_once()
+    {
+        Rom("snes/Alpha.sfc");
+        Rom("snes/Beta.sfc");
+        Rom("nes/Gamma.nes");
+        await _library.RescanAsync(null, null, Ct);
+        var alpha = new GameKey("snes", "alpha.sfc");
+        Assert.Empty(await _library.GetChosenGameTemplatesAsync(Ct));
+
+        await _library.SetGameTemplateAsync(alpha, "snes_box_vertical", Ct);
+        await _library.SetGameTemplateAsync(new GameKey("nes", "gamma.nes"), " snes_box_vertical ", Ct);
+        await _library.SetGameTemplateAsync(new GameKey("snes", "beta.sfc"), "dvd_case", Ct);
+        await _library.SetTitleOverrideAsync(alpha, "Alpha Two", Ct);           // the same row, another column
+        await _library.SetFavouriteAsync(alpha, true, Ct);
+        UserData("INSERT INTO play_stats (system_id, path_key, play_count, last_played_at) VALUES ('snes', 'alpha.sfc', 1, 100)");
+
+        Assert.Equal([("Alpha Two", "snes_box_vertical"), ("Beta", "dvd_case")], (await _library.GetGamesAsync("snes", Ct)).Games.Select(g => (g.Title, g.Template)));
+        Assert.Equal("snes_box_vertical", (await _library.GetFavouritesAsync(Ct)).Single().Game.Template);
+        Assert.Equal("snes_box_vertical", (await _library.GetRecentlyPlayedAsync(10, Ct)).Single().Game.Template);
+        Assert.Equal("snes_box_vertical", (await _library.GetGameAsync(alpha, Ct))!.TemplateOverride);
+        Assert.Equal(["dvd_case", "snes_box_vertical"], await _library.GetChosenGameTemplatesAsync(Ct));
+
+        await _library.SetGameTemplateAsync(alpha, null, Ct);
+        await _library.SetGameTemplateAsync(new GameKey("snes", "beta.sfc"), "  ", Ct);
+
+        var game = (await _library.GetGameAsync(alpha, Ct))!;
+        Assert.Null(game.TemplateOverride);
+        Assert.Equal("Alpha Two", game.Title);
+        Assert.Equal(["snes_box_vertical"], await _library.GetChosenGameTemplatesAsync(Ct));
+    }
+
+    [Fact]
     public async Task Recently_played_lists_newest_first()
     {
         Rom("snes/A.sfc");

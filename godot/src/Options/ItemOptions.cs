@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Godot;
@@ -98,6 +99,30 @@ public sealed class ItemOptions
 
     /// <summary>Main thread: a game's title, metadata or emulator was edited.</summary>
     public void GameEdited(GameKey game) => Jobs.GameEdited(game);
+
+    /// <summary>
+    /// The game templates a system or a game can choose (M7 part 2; a game's from 2026-10-07): the active theme's, then
+    /// the base theme's, each id once, in id order within each theme.
+    /// </summary>
+    public static List<Choice> TemplateChoices(Launcher.Core.Theming.ModelResolver resolver)
+    {
+        var choices = new List<Choice>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var theme in (Launcher.Core.Theming.Theme[])[resolver.Active, resolver.Base])
+        {
+            var ids = new List<string>(theme.Templates.Keys);
+            ids.Sort(StringComparer.Ordinal);
+            foreach (var id in ids)
+            {
+                if (seen.Add(id))
+                {
+                    choices.Add(new Choice(id, id, $"From {theme.Name}"));
+                }
+            }
+        }
+
+        return choices;
+    }
 
     /// <summary>The system's name, from config.</summary>
     public string SystemName(string systemId) => Settings.Services.Config.FindSystem(systemId)?.Name ?? systemId;

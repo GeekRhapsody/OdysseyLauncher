@@ -128,6 +128,7 @@ public sealed class GamesSource : IGridSource
     private readonly List<MediaRef> _modelFiles = [];
     private Dictionary<long, int>? _index;
     private int[] _systemTemplate = [];
+    private int[] _template = [];
     private ItemTemplate?[] _models = [];
     private bool[] _usesTemplate = [];
 
@@ -259,15 +260,22 @@ public sealed class GamesSource : IGridSource
     }
 
     /// <summary>
-    /// Main thread: which grid template each of its systems uses. Per-game models are given as they load
-    /// (<see cref="SetModel"/>); until then a game shows its system's template.
+    /// Main thread: which grid template each game uses: the template the user chose for it, when the theme has it
+    /// loaded (<paramref name="chosenTemplate"/>, -1 when not), else its system's. Per-game models are given as they
+    /// load (<see cref="SetModel"/>); until then a game shows its template.
     /// </summary>
-    public void BindTemplates(Func<string, int> systemTemplate, int templateCount)
+    public void BindTemplates(Func<string, int> systemTemplate, Func<string, int> chosenTemplate, int templateCount)
     {
         _systemTemplate = new int[_systemIds.Length];
         for (var s = 0; s < _systemIds.Length; s++)
         {
             _systemTemplate[s] = systemTemplate(_systemIds[s]);
+        }
+
+        _template = new int[_rows.Length];
+        for (var i = 0; i < _rows.Length; i++)
+        {
+            _template[i] = _rows[i].Template is { } chosen && chosenTemplate(chosen) is var t and >= 0 ? t : _systemTemplate[_system[i]];
         }
 
         _models = new ItemTemplate?[_modelPaths.Count];
@@ -402,7 +410,7 @@ public sealed class GamesSource : IGridSource
     /// <summary>
     /// Main thread: the list read again after titles changed (M7). When it holds the same games in the same order, the
     /// titles are updated in place and the indices that changed returned; otherwise null, and the list must be bound
-    /// again.
+    /// again. A game whose chosen template changed (2026-10-07) also needs the list bound again, to its templates.
     /// </summary>
     public List<int>? UpdateTitles(IReadOnlyList<GameRow> rows)
     {
@@ -413,7 +421,7 @@ public sealed class GamesSource : IGridSource
 
         for (var i = 0; i < rows.Count; i++)
         {
-            if (rows[i].GameId != _rows[i].GameId)
+            if (rows[i].GameId != _rows[i].GameId || !string.Equals(rows[i].Template, _rows[i].Template, StringComparison.Ordinal))
             {
                 return null;
             }
@@ -440,7 +448,7 @@ public sealed class GamesSource : IGridSource
         cell = new CellInfo
         {
             Title = row.Title,
-            Template = _systemTemplate[_system[index]],
+            Template = _template[index],
             Model = model >= 0 ? _models[model] : null,
             Plain = _colours[index],
         };
@@ -562,7 +570,7 @@ public sealed class GamesSource : IGridSource
     private void UpdateUses(int templateCount)
     {
         _usesTemplate = new bool[templateCount];
-        foreach (var template in _systemTemplate)
+        foreach (var template in _template)
         {
             if (template >= 0 && template < templateCount)
             {

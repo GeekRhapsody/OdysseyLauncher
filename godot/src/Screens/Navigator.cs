@@ -642,7 +642,7 @@ public sealed partial class Navigator : Node
         }
 
         _games = source;
-        source.BindTemplates(_theme.GameTemplateOf, _gamesGrid.Templates.Count);
+        source.BindTemplates(_theme.GameTemplateOf, _theme.ChosenTemplateOf, _gamesGrid.Templates.Count);
         ReleasePerGameModels();
         RequestPerGameModels(source);
         var focus = focusIndex
@@ -1033,7 +1033,7 @@ public sealed partial class Navigator : Node
                     {
                         var focusIndex = Math.Max(0, _gamesGrid.FocusIndex);
                         LoadGames(entry, null, focusIndex < source.Count ? source.Row(focusIndex).GameId : 0);
-                        GD.Print($"Titles: {source.Id}'s order changed, so it was bound again.");
+                        GD.Print($"Titles: {source.Id}'s order or a game's template changed, so it was bound again.");
                         return;
                     }
 
@@ -1065,7 +1065,7 @@ public sealed partial class Navigator : Node
 
     /// <summary>
     /// The theme resolved again and applied (a system's own model was imported or removed, or its <c>game_model</c>
-    /// changed: M7), as a switch to the same theme is.
+    /// changed: M7; a game chose a template the theme hadn't loaded: 2026-10-07), as a switch to the same theme is.
     /// </summary>
     public void ReloadTheme() => SwitchTheme(ThemeId);
 
@@ -1094,7 +1094,7 @@ public sealed partial class Navigator : Node
         _themeRequestedAt = _clock;
         _overlay.SetStatus($"Loading the theme '{target}'…");
         var services = _services;
-        _ = Task.Run(() =>
+        _ = Task.Run(async () =>
         {
             try
             {
@@ -1104,10 +1104,13 @@ public sealed partial class Navigator : Node
                     GD.Print(diagnostic.ToString());
                 }
 
+                // The templates games chose are loaded with the theme's, so its slot layout covers them.
+                var choices = await services.Library.GetChosenGameTemplatesAsync(CancellationToken.None).ConfigureAwait(false);
                 _queue.Post(() =>
                 {
                     _loader.ForgetUserModels();
                     _pendingTheme = new ThemeRuntime(plan, _loader);
+                    _pendingTheme.UseGameChoices(choices);
                 });
             }
             catch (Exception e)
@@ -1178,7 +1181,7 @@ public sealed partial class Navigator : Node
             // theme's chains name.
             var focusIndex = Math.Max(0, _gamesGrid.FocusIndex);
             var focusGame = focusIndex < games.Count ? games.Row(focusIndex).GameId : 0;
-            games.BindTemplates(theme.GameTemplateOf, _gamesGrid.Templates.Count);
+            games.BindTemplates(theme.GameTemplateOf, theme.ChosenTemplateOf, _gamesGrid.Templates.Count);
             BindGames(games, focusIndex);
             LoadGames(shownEntry, null, focusGame);
         }

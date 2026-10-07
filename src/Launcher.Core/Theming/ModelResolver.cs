@@ -65,6 +65,9 @@ public enum ModelLevel
     /// <summary><c>&lt;media folder&gt;/&lt;system&gt;/models/&lt;name&gt;.glb</c>, indexed by the scanner.</summary>
     UserGame,
 
+    /// <summary>The template the user chose for the game (<c>game_overrides.template</c>, 2026-10-07): a template id in the active theme, else the base theme.</summary>
+    GameChoice,
+
     /// <summary><c>ConfigDir/models/templates/&lt;system&gt;.glb</c>, or for a card <c>ConfigDir/models/systems/&lt;system&gt;.glb</c>.</summary>
     User,
 
@@ -128,7 +131,7 @@ public sealed record ModelCandidate(
 /// and colour. Pure: the user's model files are listed beforehand (<see cref="UserModels.Find"/>) and per-game models
 /// come from the library, so nothing is probed per item.
 /// <para>
-/// Games: the per-game model; <c>ConfigDir/models/templates/&lt;system&gt;.glb</c>; the user's <c>game_model</c>; the
+/// Games: the per-game model; the game's chosen template (<see cref="GameChoice"/>); <c>ConfigDir/models/templates/&lt;system&gt;.glb</c>; the user's <c>game_model</c>; the
 /// active theme's template for the system; its default template; then the base theme's two. Cards:
 /// <c>ConfigDir/models/systems/&lt;system&gt;.glb</c>; the active theme's model for the system; its default; then the
 /// base theme's. The app loads candidates in order and uses the first that loads, so a broken or rejected model
@@ -204,15 +207,22 @@ public sealed class ModelResolver
 
         void Add(ModelLevel level, GameTemplate template, string where)
         {
-            // The model's file is in the base theme's folder when the template is the base's, or extends it without a model.
-            var folder = template.ModelFromBase || template.ThemeId != Active.Id ? Base : Active;
-            var candidate = new ModelCandidate(level, folder.Origin, folder.PathOf(template.Model), template, false,
-                $"theme '{template.ThemeId}' template '{template.Id}' ({where})");
+            var candidate = CandidateFor(level, template, where);
             if (!candidates.Exists(c => c.Key == candidate.Key))
             {
                 candidates.Add(candidate);
             }
         }
+    }
+
+    /// <summary>
+    /// The template the user chose for one game (2026-10-07): <paramref name="id"/> in the active theme (its own, or its
+    /// extension of the base's), else in the base theme; null when neither has it, and the game shows its system's.
+    /// </summary>
+    public ModelCandidate? GameChoice(string id)
+    {
+        ArgumentNullException.ThrowIfNull(id);
+        return TemplateOf(Active, id) is { } template ? CandidateFor(ModelLevel.GameChoice, template, "chosen for a game") : null;
     }
 
     /// <summary>The per-game model, from its <c>media</c> row (kind <c>model</c>, a stored path: <c>media/...</c>).</summary>
@@ -299,6 +309,14 @@ public sealed class ModelResolver
         ArgumentNullException.ThrowIfNull(theme);
         ArgumentNullException.ThrowIfNull(id);
         return theme.Templates.TryGetValue(id, out var own) ? own : Base.Templates.GetValueOrDefault(id);
+    }
+
+    private ModelCandidate CandidateFor(ModelLevel level, GameTemplate template, string where)
+    {
+        // The model's file is in the base theme's folder when the template is the base's, or extends it without a model.
+        var folder = template.ModelFromBase || template.ThemeId != Active.Id ? Base : Active;
+        return new ModelCandidate(level, folder.Origin, folder.PathOf(template.Model), template, false,
+            $"theme '{template.ThemeId}' template '{template.Id}' ({where})");
     }
 
     /// <summary>A theme's chains for a system's card: <c>[systems.&lt;id&gt;.slots]</c> over <c>[defaults.system_slots]</c>.</summary>

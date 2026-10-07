@@ -236,13 +236,14 @@ For each game and each system card, the launcher tries these candidates in order
 1. The user's own model for that game, in the media folder with its art: `DataDir/media/<system>/models/<name>.glb`, where `<name>` is the ROM's path under its ROM folder without its extension (`Albion (1995).glb` for `Albion (1995).zip`, shared by every ROM of that name), or with it for that ROM alone (`Albion (1995).zip.glb`, which wins).
    - With the extension kept (`Game (Europe).iso.glb`), it's for that ROM only.
    - Without it (`Game (Europe).glb`), it's for every ROM of that name.
-   - Users choose one in the game's options (X on the game, then Model), or import one with `odyssey-scrape import-model` (section 10).
-2. The user's template for the system: `ConfigDir/models/templates/<system>.glb`. Users choose one in the system's options (X on the system, then Game template).
-3. The user's `game_model` for the system in `systems.toml`: a template id in the active theme, else in Memory Card. The system's options list your theme's templates, then Memory Card's, for this.
-4. Your theme's `[systems.<system>] game_template`.
-5. Your theme's `[defaults] game_template`.
-6. Memory Card's template for the system.
-7. Memory Card's default template.
+   - Users choose one in the game's options (X on the game, then Model, then Your own model), or import one with `odyssey-scrape import-model` (section 10).
+2. The template the user chose for that game: a template id in the active theme, else in Memory Card. The game's options (X on the game, then Model) list your theme's templates, then Memory Card's, for this, so a template no system uses (Memory Card's `snes_box_vertical`, the Super Famicom's box) still has a use.
+3. The user's template for the system: `ConfigDir/models/templates/<system>.glb`. Users choose one in the system's options (X on the system, then Game template).
+4. The user's `game_model` for the system in `systems.toml`: a template id in the active theme, else in Memory Card. The system's options list your theme's templates, then Memory Card's, for this.
+5. Your theme's `[systems.<system>] game_template`.
+6. Your theme's `[defaults] game_template`.
+7. Memory Card's template for the system.
+8. Memory Card's default template.
 
 **A system's card** (and its slot chains: section 4, "System cards and logos"):
 1. The user's `ConfigDir/models/systems/<system>.glb`, chosen in the system's options (X on the system, then System model).
@@ -250,7 +251,7 @@ For each game and each system card, the launcher tries these candidates in order
 3. Your theme's `[defaults] system_model`.
 4. Memory Card's generic card (a memory-card slab with the system's name, in its colour).
 
-User models (levels 1 and 2) use the default slot chains. Nothing is looked for per game while the grid scrolls: per-game models are indexed when the library is scanned.
+User models (levels 1 and 3) use the default slot chains; a chosen template (levels 2 and 4) uses its theme's. Nothing is looked for per game while the grid scrolls: per-game models are indexed when the library is scanned.
 
 The card is also shown large on the system's details screen (Y on the system): about two thirds of the height or width of a view on the left of the screen, in the system's look, focused (its `focused` clip plays) and turned by the player with the right stick, so its back and underside show too. That's what the system model's bigger budget is for: textures up to 2048² are worth it there.
 

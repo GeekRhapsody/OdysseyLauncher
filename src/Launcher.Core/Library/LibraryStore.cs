@@ -96,7 +96,7 @@ internal static class LibraryStore
     // overridden; the COALESCE keeps overridden titles in their own place. Another order (A4 Grid queries) joins what
     // it sorts by, and sorts in a temporary B-tree.
     private const string GamesSelect = """
-        SELECT g.game_id, COALESCE(o.title, g.title), m.path, f.added_at IS NOT NULL, m.width, m.height, m.size_bytes, m.mtime_ms
+        SELECT g.game_id, COALESCE(o.title, g.title), m.path, f.added_at IS NOT NULL, m.width, m.height, m.size_bytes, m.mtime_ms, o.template
         FROM games g
         LEFT JOIN user.game_overrides o ON o.system_id = g.system_id AND o.path_key = g.path_key
         LEFT JOIN user.favourites f ON f.system_id = g.system_id AND f.path_key = g.path_key
@@ -150,7 +150,7 @@ internal static class LibraryStore
     }
 
     private const string FavouritesSql = """
-        SELECT g.system_id, g.game_id, COALESCE(o.title, g.title), m.path, 1, m.width, m.height, m.size_bytes, m.mtime_ms
+        SELECT g.system_id, g.game_id, COALESCE(o.title, g.title), m.path, 1, m.width, m.height, m.size_bytes, m.mtime_ms, o.template
         FROM user.favourites f
         JOIN games g ON g.system_id = f.system_id AND g.path_key = f.path_key
         LEFT JOIN user.game_overrides o ON o.system_id = g.system_id AND o.path_key = g.path_key
@@ -161,7 +161,7 @@ internal static class LibraryStore
 
     // Uses the partial index play_stats_recent.
     private const string RecentSql = """
-        SELECT g.system_id, g.game_id, COALESCE(o.title, g.title), m.path, f.added_at IS NOT NULL, m.width, m.height, m.size_bytes, m.mtime_ms
+        SELECT g.system_id, g.game_id, COALESCE(o.title, g.title), m.path, f.added_at IS NOT NULL, m.width, m.height, m.size_bytes, m.mtime_ms, o.template
         FROM user.play_stats p
         JOIN games g ON g.system_id = p.system_id AND g.path_key = p.path_key
         LEFT JOIN user.game_overrides o ON o.system_id = g.system_id AND o.path_key = g.path_key
@@ -188,7 +188,8 @@ internal static class LibraryStore
                 reader.GetBoolean(3),
                 Aspect(reader, 4),
                 reader.IsDBNull(6) ? 0 : reader.GetInt64(6),
-                reader.IsDBNull(7) ? 0 : reader.GetInt64(7)));
+                reader.IsDBNull(7) ? 0 : reader.GetInt64(7),
+                NullableString(reader, 8)));
         }
 
         return games;
@@ -342,7 +343,8 @@ internal static class LibraryStore
                 reader.GetBoolean(4),
                 Aspect(reader, 5),
                 reader.IsDBNull(7) ? 0 : reader.GetInt64(7),
-                reader.IsDBNull(8) ? 0 : reader.GetInt64(8))));
+                reader.IsDBNull(8) ? 0 : reader.GetInt64(8),
+                NullableString(reader, 9))));
         }
 
         return rows;
@@ -369,7 +371,7 @@ internal static class LibraryStore
                COALESCE(o.description, mt.description), COALESCE(o.release_date, mt.release_date),
                COALESCE(o.developer, mt.developer), COALESCE(o.publisher, mt.publisher), COALESCE(o.genre, mt.genre),
                COALESCE(o.players, mt.players), COALESCE(o.rating, mt.rating),
-               ss.status, ss.providers, ss.scraped_at
+               ss.status, ss.providers, ss.scraped_at, o.template
         FROM games g
         JOIN rom_dirs d ON d.dir_id = g.dir_id
         LEFT JOIN user.game_overrides o ON o.system_id = g.system_id AND o.path_key = g.path_key
@@ -435,7 +437,8 @@ internal static class LibraryStore
             reader.IsDBNull(24) ? null : new ScrapeInfo(
                 reader.GetString(24),
                 NullableString(reader, 25) is { } providers ? providers.Split(',') : [],
-                DateTimeOffset.FromUnixTimeMilliseconds(reader.GetInt64(26))));
+                DateTimeOffset.FromUnixTimeMilliseconds(reader.GetInt64(26))),
+            NullableString(reader, 27));
     }
 
     public static PlayStats? GetPlayStats(SqliteConnection connection, GameKey game)
@@ -533,6 +536,35 @@ internal static class LibraryStore
         command.Parameters.AddWithValue("$key", game.PathKey);
         command.Parameters.AddWithValue("$emulator", (object?)emulator ?? DBNull.Value);
         command.ExecuteNonQuery();
+    }
+
+    /// <summary>The template the user chose for one game (2026-10-07); null goes back to its system's.</summary>
+    public static void SetGameTemplate(SqliteConnection connection, GameKey game, string? template)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            INSERT INTO user.game_overrides (system_id, path_key, template) VALUES ($system, $key, $template)
+            ON CONFLICT (system_id, path_key) DO UPDATE SET template = excluded.template
+            """;
+        command.Parameters.AddWithValue("$system", game.SystemId);
+        command.Parameters.AddWithValue("$key", game.PathKey);
+        command.Parameters.AddWithValue("$template", (object?)template ?? DBNull.Value);
+        command.ExecuteNonQuery();
+    }
+
+    /// <summary>Every template id some game has chosen, each once, for the theme to load with its own.</summary>
+    public static List<string> GetChosenTemplates(SqliteConnection connection)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT DISTINCT template FROM user.game_overrides WHERE template IS NOT NULL ORDER BY template";
+        using var reader = command.ExecuteReader();
+        var ids = new List<string>();
+        while (reader.Read())
+        {
+            ids.Add(reader.GetString(0));
+        }
+
+        return ids;
     }
 
     /// <summary>

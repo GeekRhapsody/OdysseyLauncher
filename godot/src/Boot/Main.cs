@@ -80,6 +80,7 @@ public partial class Main : Node3D
     private int _warmUpFrame;
     private SubViewport? _glyphWarmUp;
     private bool _waitingForFirstFrame;
+    private bool _choicesGiven;
     private bool _headless;
 
     private enum Stage
@@ -274,6 +275,13 @@ public partial class Main : Node3D
             // User models are processed into CacheDir/models/ and their problems logged to DataDir/logs/models.log (A7).
             _loader.UseFolders(plan.Paths.CacheDir, plan.Paths.DataDir, PlatformServices.CreateImageDecoder());
             _theme = new ThemeRuntime(plan, _loader);
+        }
+
+        // The templates games chose are known once the library is open, which can be after the theme is ready.
+        if (_theme is not null && _services is { } opened && !_choicesGiven)
+        {
+            _choicesGiven = true;
+            _theme.UseGameChoices(opened.GameTemplateChoices);
         }
 
         try

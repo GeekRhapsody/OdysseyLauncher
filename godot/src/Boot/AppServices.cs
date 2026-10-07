@@ -74,6 +74,9 @@ public sealed class AppServices : IDisposable
     /// <summary><c>--save-responses</c>: scraping saves each provider's response for this run, to debug it (A4).</summary>
     public bool SaveResponses { get; private init; }
 
+    /// <summary>The templates games chose at boot (<c>game_overrides.template</c>), for the boot theme to load with its own.</summary>
+    public IReadOnlyList<string> GameTemplateChoices { get; private init; } = [];
+
     /// <summary>The app's own themes, read once at boot, for theme switches.</summary>
     public IReadOnlyList<Launcher.Core.Theming.ThemeSource> BuiltInThemes { get; }
 
@@ -203,6 +206,7 @@ public sealed class AppServices : IDisposable
         {
             var systems = await library.GetSystemsAsync(cancellationToken).ConfigureAwait(false);
             DebugHooks.Timeline.Mark(BootMarks.SystemsLoaded);
+            var choices = themeResolved is null ? [] : await library.GetChosenGameTemplatesAsync(cancellationToken).ConfigureAwait(false);
             var systemsMs = stopwatch.Elapsed.TotalMilliseconds;
             var (builtInThemes, theme, themeMs) = resolving is null ? ([], null, 0) : await resolving.ConfigureAwait(false);
             GD.Print(string.Create(CultureInfo.InvariantCulture,
@@ -222,7 +226,7 @@ public sealed class AppServices : IDisposable
                 GD.Print($"Boot: closed {library.ClosedOrphanSessions} play session(s) left open by a crash.");
             }
 
-            return new AppServices(paths, config, library, systems, theme, builtInThemes) { SaveResponses = options.SaveResponses };
+            return new AppServices(paths, config, library, systems, theme, builtInThemes) { SaveResponses = options.SaveResponses, GameTemplateChoices = choices };
         }
         catch
         {

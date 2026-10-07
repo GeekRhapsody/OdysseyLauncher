@@ -1007,6 +1007,7 @@ public sealed class ScrapeServiceTests : IAsyncLifetime
         await _bed.Library.SetMetadataOverrideAsync(key, new MetadataOverride(Genre: "Mine"), Ct);
         await _bed.Library.SetFavouriteAsync(key, true, Ct);
         await _bed.Library.SetEmulatorOverrideAsync(key, "blastem", Ct);
+        await _bed.Library.SetGameTemplateAsync(key, "dvd_case", Ct);
         _bed.Execute("INSERT INTO manual_matches VALUES ('megadrive', 'sonic the hedgehog 3 (europe).md', 'igdb', '1234', 1)");
         using var service = _bed.Service(derivatives: true, saveResponses: true);
         await service.ScrapeGameAsync(key, Ct);
@@ -1035,6 +1036,7 @@ public sealed class ScrapeServiceTests : IAsyncLifetime
         Assert.Null(game.TitleOverride);
         Assert.True(game.IsFavourite);
         Assert.Equal("blastem", game.EmulatorOverride);
+        Assert.Equal("dvd_case", game.TemplateOverride);                          // a choice, like the emulator
         Assert.Equal(0L, _bed.Query<long>("SELECT COUNT(*) FROM media"));
         Assert.Equal(0L, _bed.Query<long>("SELECT COUNT(*) FROM scraper_matches"));
         Assert.Equal(0L, _bed.Query<long>("SELECT COUNT(*) FROM user.manual_matches"));

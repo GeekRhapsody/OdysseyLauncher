@@ -17,13 +17,16 @@ using Launcher.Core.Models;
 namespace Launcher.App.Options;
 
 /// <summary>
-/// One game's options (M7 part 2), opened with X on the game: the emulator it launches with, its own model, its
-/// title and metadata, its images (one per media slot, the user's own or scraped), "scrape this game", "clear
+/// One game's options (M7 part 2), opened with X on the game: the emulator it launches with, its model (a template of
+/// the theme's or the base theme's, from 2026-10-07, or its own), its title and metadata, its images (one per media slot, the user's own or scraped), "scrape this game", "clear
 /// metadata" and, last, "delete this game" (its file, and a playlist's files, from the ROM folder). Every change is saved at once (userdata.db for edits and the emulator, files in the media folder for
 /// images and the model) and shows in the grid without a restart.
 /// </summary>
 public sealed partial class GameOptionsPanel : ListPanel
 {
+    private const string OwnModel = "*own";
+    private const string SystemsTemplate = "";
+
     private readonly ItemOptions _options;
     private readonly SettingRow _emulator;
     private readonly SettingRow _model;
@@ -50,7 +53,7 @@ public sealed partial class GameOptionsPanel : ListPanel
         _emulator = AddRow("Emulator", activated: ChooseEmulator);
 
         AddSection("Look");
-        _model = AddRow("Model", activated: PickModel);
+        _model = AddRow("Model", activated: ChooseModel);
         _media = AddRow("Images", "Reading…", "Open", () => Layer.Push(new GameMediaPanel(_options, _game)));
 
         AddSection("Title and metadata");
@@ -84,7 +87,15 @@ public sealed partial class GameOptionsPanel : ListPanel
     {
         if (command == NavCommand.Secondary && GetViewport().GuiGetFocusOwner() == _model)
         {
-            RemoveModel();
+            if (_ownModel is null && _game.TemplateOverride is not null)
+            {
+                SetTemplate(null);
+            }
+            else
+            {
+                RemoveModel();
+            }
+
             return true;
         }
 
@@ -172,11 +183,23 @@ public sealed partial class GameOptionsPanel : ListPanel
         if (_ownModel is { } model)
         {
             _model.Detail = $"Its own, {ItemOptions.ModelsText(model.Report).Split('\n')[0]} · Y removes it";
+            _model.DetailColour = UiStyle.Dim;
             _model.Value = "Its own";
+        }
+        else if (_game.TemplateOverride is { } chosen)
+        {
+            var resolver = _options.Theme.Plan.Resolver;
+            var known = resolver.TemplateOf(resolver.Active, chosen) is not null;
+            _model.Detail = known
+                ? $"'{chosen}', chosen for this game · Y goes back to the system's"
+                : $"'{chosen}', which the theme doesn't have: it shows the system's template · Y goes back to it";
+            _model.DetailColour = known ? UiStyle.Dim : UiStyle.Warning;
+            _model.Value = "Chosen";
         }
         else
         {
-            _model.Detail = $"The system's: {_options.Theme.GameModelInUse(_game.Key.SystemId)?.Description ?? "its template"} · A chooses a .glb";
+            _model.Detail = $"The system's: {_options.Theme.GameModelInUse(_game.Key.SystemId)?.Description ?? "its template"} · A chooses a template or a .glb";
+            _model.DetailColour = UiStyle.Dim;
             _model.Value = "Change";
         }
 
@@ -258,6 +281,85 @@ public sealed partial class GameOptionsPanel : ListPanel
 
     // ---- Model ---------------------------------------------------------------------------------------
 
+    /// <summary>The system's template, the user's own model, or any template of the theme's or the base theme's.</summary>
+    private void ChooseModel()
+    {
+        var choices = new List<Choice>
+        {
+            new(SystemsTemplate, "The system's template", _options.Theme.GameModelInUse(_game.Key.SystemId)?.Description ?? "Whatever the theme gives it"),
+            new(OwnModel, "Your own model…", "A .glb, or a zip of an OBJ model, for this game only"),
+        };
+        choices.AddRange(ItemOptions.TemplateChoices(_options.Theme.Plan.Resolver));
+        var current = _ownModel is not null ? OwnModel : _game.TemplateOverride ?? SystemsTemplate;
+        Layer.Push(new ChoicePanel($"Model for {_game.Title}",
+            _ownModel is null ? "Only this game; the others keep the system's" : "Only this game. Choosing a template deletes its own model",
+            choices, current, choice =>
+            {
+                if (choice.Id == OwnModel)
+                {
+                    PickModel();
+                    return;
+                }
+
+                SetTemplate(choice.Id.Length == 0 ? null : choice.Id);
+            }));
+    }
+
+    /// <summary>
+    /// Saves the game's template (null: its system's), deleting its own model first, which would still be drawn instead.
+    /// A template the grid has loaded shows at once; another loads the theme again, so its slots are streamed.
+    /// </summary>
+    private void SetTemplate(string? templateId)
+    {
+        var options = _options;
+        var key = _game.Key;
+        var removeModel = _ownModel is not null;
+        ShowStatus("Saving…", UiStyle.Dim);
+        _ = Task.Run(async () =>
+        {
+            string? failure = null;
+            try
+            {
+                if (removeModel)
+                {
+                    await options.Models.RemoveGameModelAsync(key, CancellationToken.None).ConfigureAwait(false);
+                }
+
+                await options.Library.SetGameTemplateAsync(key, templateId, CancellationToken.None).ConfigureAwait(false);
+            }
+            catch (Exception e)
+            {
+                failure = e.Message;
+            }
+
+            options.Ui.Queue.Post(() =>
+            {
+                string message;
+                if (failure is not null)
+                {
+                    message = $"Not saved: {failure}";
+                }
+                else if (templateId is null || options.Theme.UseGameChoice(templateId))
+                {
+                    options.GameEdited(key);
+                    message = templateId is null ? "It shows its system's template." : $"It shows '{templateId}'.";
+                }
+                else
+                {
+                    // The grid reads the list again when the theme is applied.
+                    options.SystemModelsChanged();
+                    message = $"Saved: '{templateId}'. Reloading the theme…";
+                }
+
+                if (IsInstanceValid(this))
+                {
+                    ShowStatus(message, failure is null ? UiStyle.Good : UiStyle.Bad, 5);
+                    Reload();
+                }
+            });
+        });
+    }
+
     private void PickModel()
     {
         FilePicker.Open(_options.Ui, new PickerRequest(
@@ -304,13 +406,14 @@ public sealed partial class GameOptionsPanel : ListPanel
     {
         if (_ownModel is not { } model)
         {
-            ShowStatus("It shows the system's template: there's no model of its own to remove.", UiStyle.Dim, 4);
+            ShowStatus("It shows a template: there's no model of its own to remove.", UiStyle.Dim, 4);
             return;
         }
 
         var options = _options;
         var key = _game.Key;
-        ConfirmDialog.Ask(Layer, "Remove its model?", $"{model.Path} is deleted, and the game shows its system's template again.", "Remove it", "Keep it", yes =>
+        var after = _game.TemplateOverride is { } chosen ? $"'{chosen}', the template chosen for it" : "its system's template";
+        ConfirmDialog.Ask(Layer, "Remove its model?", $"{model.Path} is deleted, and the game shows {after} again.", "Remove it", "Keep it", yes =>
         {
             if (!yes)
             {
@@ -387,7 +490,7 @@ public sealed partial class GameOptionsPanel : ListPanel
             "• all its images, including the ones you chose yourself (their files are deleted)\n" +
             "• its own model\n" +
             "• your edits to its title and metadata\n\n" +
-            "Its favourite, play history and emulator stay. Scrape it again to get its metadata back.",
+            "Its favourite, play history, emulator and chosen template stay. Scrape it again to get its metadata back.",
             "Clear it", "Keep it", yes =>
             {
                 if (yes)

@@ -129,6 +129,8 @@ public sealed class ThemeRuntime
     private readonly List<ItemTemplate> _cardTemplates = [];
     private readonly Dictionary<string, int> _gameTemplateOf = new(StringComparer.Ordinal);
     private readonly Dictionary<string, int> _cardTemplateOf = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, ModelCandidate> _choices = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, int> _chosenTemplateOf = new(StringComparer.Ordinal);
 
     public ThemeRuntime(ThemePlan plan, ModelLoader loader)
     {
@@ -172,7 +174,8 @@ public sealed class ThemeRuntime
 
         _loader.Poll();
         var waiting = Advance(Plan.GameCandidates, _gameChoice, systemCard: false)
-            | Advance(Plan.CardCandidates, _cardChoice, systemCard: true);
+            | Advance(Plan.CardCandidates, _cardChoice, systemCard: true)
+            | AdvanceChoices();
         if (waiting)
         {
             return false;
@@ -180,6 +183,7 @@ public sealed class ThemeRuntime
 
         Collect(Plan.GameCandidates, _gameChoice, false, _gameTemplates, _gameTemplateOf);
         Collect(Plan.CardCandidates, _cardChoice, true, _cardTemplates, _cardTemplateOf);
+        CollectChoices();
         if (_gameTemplates.Count == 0 || _cardTemplates.Count == 0)
         {
             throw new InvalidOperationException($"No model of the theme '{Plan.Active.Id}' or the base theme could be loaded (see the warnings above).");
@@ -193,6 +197,69 @@ public sealed class ThemeRuntime
 
     /// <summary>The games grid template index for a system's games (the first template for a system it doesn't know).</summary>
     public int GameTemplateOf(string systemId) => _gameTemplateOf.TryGetValue(systemId, out var t) ? t : 0;
+
+    /// <summary>The games grid template index a game shows: its chosen template's when that's loaded, else its system's.</summary>
+    public int GameTemplateOf(string systemId, string? chosen) =>
+        chosen is not null && ChosenTemplateOf(chosen) is var t and >= 0 ? t : GameTemplateOf(systemId);
+
+    /// <summary>The games grid template index of a template some game chose (2026-10-07), or -1 when it isn't loaded.</summary>
+    public int ChosenTemplateOf(string templateId) => _chosenTemplateOf.TryGetValue(templateId, out var t) ? t : -1;
+
+    /// <summary>
+    /// Before the theme is applied: the templates games chose (<c>game_overrides.template</c>), loaded with the systems'
+    /// so the slot layout covers them. An id neither theme has is left out (its games show their system's). Called
+    /// after <see cref="Ready"/> (at boot the library opens after the theme), it makes the theme collect again.
+    /// </summary>
+    public void UseGameChoices(IReadOnlyCollection<string> templateIds)
+    {
+        var added = false;
+        foreach (var id in templateIds)
+        {
+            if (!_choices.ContainsKey(id) && Plan.Resolver.GameChoice(id) is { } candidate)
+            {
+                _choices[id] = candidate;
+                added = true;
+            }
+        }
+
+        if (added && Ready)
+        {
+            Ready = false;
+            _gameTemplates.Clear();
+            _cardTemplates.Clear();
+            _gameTemplateOf.Clear();
+            _cardTemplateOf.Clear();
+            _chosenTemplateOf.Clear();
+        }
+    }
+
+    /// <summary>
+    /// Main thread, once applied: a game's template was just chosen. True when the grid can draw it as it is: the
+    /// template is one it already has (a system's, or another game's choice), or no theme has it (the game shows its
+    /// system's). False when it must be loaded, and the theme loaded again with it, for its slots to be streamed.
+    /// </summary>
+    public bool UseGameChoice(string templateId)
+    {
+        if (_chosenTemplateOf.ContainsKey(templateId))
+        {
+            return true;
+        }
+
+        if (Plan.Resolver.GameChoice(templateId) is not { } candidate)
+        {
+            return true;
+        }
+
+        var index = _loader.Get(candidate, systemCard: false) is { } template ? _gameTemplates.IndexOf(template) : -1;
+        if (index < 0)
+        {
+            return false;
+        }
+
+        _choices[templateId] = candidate;
+        _chosenTemplateOf[templateId] = index;
+        return true;
+    }
 
     /// <summary>The systems grid template index for a card; null for Favourites and Recently played.</summary>
     public int CardTemplateOf(string? systemId) =>
@@ -253,6 +320,39 @@ public sealed class ThemeRuntime
         }
 
         return waiting;
+    }
+
+    /// <summary>Requests the games' chosen templates. True while any is still loading; one that fails is left out.</summary>
+    private bool AdvanceChoices()
+    {
+        var waiting = false;
+        foreach (var candidate in _choices.Values)
+        {
+            waiting |= _loader.Request(candidate, systemCard: false) == ModelState.Loading;
+        }
+
+        return waiting;
+    }
+
+    private void CollectChoices()
+    {
+        foreach (var (id, candidate) in _choices)
+        {
+            if (_loader.Get(candidate, systemCard: false) is not { } template)
+            {
+                GD.PushWarning($"Themes: the template '{id}' a game chose couldn't be loaded; its games show their system's.");
+                continue;
+            }
+
+            var index = _gameTemplates.IndexOf(template);
+            if (index < 0)
+            {
+                index = _gameTemplates.Count;
+                _gameTemplates.Add(template);
+            }
+
+            _chosenTemplateOf[id] = index;
+        }
     }
 
     private void Collect(

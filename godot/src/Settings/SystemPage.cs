@@ -602,17 +602,7 @@ public sealed partial class SystemPage : ListPanel
             new(ThemesChoice, "The theme's choice", ThemeDefault(resolver, system.Id) is { } themes ? $"'{themes}' in {resolver.Active.Name}" : "Whatever the theme gives it"),
             new(OwnTemplate, "Your own model…", "A .glb (or an OBJ zip) for every game of this system"),
         };
-        var seen = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var theme in (Launcher.Core.Theming.Theme[])[resolver.Active, resolver.Base])
-        {
-            foreach (var id in theme.Templates.Keys.Order(StringComparer.Ordinal))
-            {
-                if (seen.Add(id))
-                {
-                    choices.Add(new Choice(id, id, $"From {theme.Name}"));
-                }
-            }
-        }
+        choices.AddRange(ItemOptions.TemplateChoices(resolver));
 
         var current = _ownTemplate is not null ? OwnTemplate : system.GameModel ?? ThemesChoice;
         Layer.Push(new ChoicePanel($"Game template for {system.Name}", "What its games show, unless one has a model of its own", choices, current, choice =>

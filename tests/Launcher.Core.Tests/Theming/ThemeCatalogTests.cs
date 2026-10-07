@@ -32,7 +32,7 @@ public sealed class ThemeCatalogTests : IDisposable
         Assert.All(sources, s => Assert.Equal(ThemeOrigin.BuiltIn, s.Origin));
         Assert.All(sources, s => Assert.Null(s.Files.MaterialsOf("models/systems/gb.glb", out _)));
         Assert.True(sources[0].Files.Exists("models/systems/gb.glb"));
-        Assert.False(sources[0].Files.Exists("models/systems/saturn.glb"));
+        Assert.False(sources[0].Files.Exists("models/systems/psp.glb"));
     }
 
     [Fact]

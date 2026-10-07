@@ -16,6 +16,7 @@ public sealed record SystemSummary(string SystemId, string Name, int GameCount, 
 /// <param name="CoverAspect">The cover's width over its height, which the grid crops it by; 0 when unknown.</param>
 /// <param name="CoverSizeBytes">The cover file's size when it was indexed, for its derivative's key; 0 when unknown.</param>
 /// <param name="CoverMtimeMs">The cover file's modification time (unix ms) when it was indexed; 0 when unknown.</param>
+/// <param name="Template">The template the user chose for this game (<c>game_overrides.template</c>); null for its system's.</param>
 public readonly record struct GameRow(
     long GameId,
     string Title,
@@ -23,7 +24,8 @@ public readonly record struct GameRow(
     bool IsFavourite,
     float CoverAspect = 0,
     long CoverSizeBytes = 0,
-    long CoverMtimeMs = 0);
+    long CoverMtimeMs = 0,
+    string? Template = null);
 
 /// <summary>One indexed media file: what the grid needs to name its derivative and crop it.</summary>
 /// <param name="Path">Relative to DataDir (<c>media/&lt;system&gt;/&lt;folder&gt;/...</c>).</param>
@@ -50,6 +52,7 @@ public readonly record struct VirtualGameRow(string SystemId, GameRow Game);
 
 /// <summary>Everything about one game, for the focused item and for launching.</summary>
 /// <param name="RomPath">Absolute path, with native separators.</param>
+/// <param name="TemplateOverride">The template the user chose for it (2026-10-07); null for its system's.</param>
 public sealed record GameDetails(
     GameKey Key,
     long GameId,
@@ -68,7 +71,8 @@ public sealed record GameDetails(
     string? TitleOverride,
     string? EmulatorOverride = null,
     GameMetadata? Metadata = null,
-    ScrapeInfo? Scrape = null);
+    ScrapeInfo? Scrape = null,
+    string? TemplateOverride = null);
 
 /// <summary>A game's last scrape (<c>scrape_state</c>, M4). Null on <see cref="GameDetails"/> means never scraped.</summary>
 /// <param name="Status">'ok', 'partial' (a provider failed), 'not_found' or 'error'.</param>
@@ -203,6 +207,12 @@ public interface ILibrary
 
     /// <summary>The emulator profile this game launches with. Null goes back to the system's emulator.</summary>
     Task SetEmulatorOverrideAsync(GameKey game, string? emulatorId, CancellationToken cancellationToken);
+
+    /// <summary>The template the game shows (a template id in the active theme, else the base theme); null = its system's.</summary>
+    Task SetGameTemplateAsync(GameKey game, string? templateId, CancellationToken cancellationToken);
+
+    /// <summary>Every template id some game has chosen, each once (the theme loads them with its own).</summary>
+    Task<IReadOnlyList<string>> GetChosenGameTemplatesAsync(CancellationToken cancellationToken);
 
     /// <summary>Null restores the scraped or file-name title.</summary>
     Task SetTitleOverrideAsync(GameKey game, string? title, CancellationToken cancellationToken);

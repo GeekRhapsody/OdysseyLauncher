@@ -200,6 +200,42 @@ public sealed class ModelResolverTests
     }
 
     [Fact]
+    public void A_games_chosen_template_is_the_active_themes_else_the_bases_and_shares_its_key_with_a_systems_use()
+    {
+        var extends = ThemeFixtures.Parse("""
+            name = "Extends"
+
+            [templates.dvd_case.slots]
+            back = ["screenshot", "generated"]
+
+            [templates.tall]
+            model = "tall.glb"
+            """, new FakeThemeFiles().Model("tall.glb", "cover"), Base, id: "extends").Theme!;
+        var resolver = Resolver(extends);
+
+        // Its own template, from its folder.
+        var own = resolver.GameChoice("tall")!;
+        Assert.Equal((ModelLevel.GameChoice, "extends", ThemeOrigin.User), (own.Level, own.Template!.ThemeId, own.Origin));
+        Assert.Equal("tall.glb", Path.GetFileName(own.Path));
+
+        // A base template it doesn't name, from the base's folder.
+        var borrowed = resolver.GameChoice("jewel_case")!;
+        Assert.Equal(("memory-card", ThemeOrigin.BuiltIn), (borrowed.Template!.ThemeId, borrowed.Origin));
+        Assert.Equal(Path.GetFullPath("C:/app/themes/memory-card/models/templates/jewel_case.glb"), borrowed.Path);
+
+        // Its extension of a base template: the base's model with its own chains.
+        var extended = resolver.GameChoice("dvd_case")!;
+        Assert.Equal(("extends", true), (extended.Template!.ThemeId, extended.Template.ModelFromBase));
+        Assert.Equal([SlotSource.Media(MediaSlots.Screenshot), SlotSource.Generated], extended.ChainFor(MediaSlots.Back, systemCard: false).Sources);
+
+        // The same template as a system's level is the same grid template, so the grid draws it without loading it again.
+        Assert.Equal(Resolver().GameTemplates("ps2")[0].Key, Resolver().GameChoice("dvd_case")!.Key);
+
+        // An id neither theme has: the game shows its system's.
+        Assert.Null(resolver.GameChoice("no_such_box"));
+    }
+
+    [Fact]
     public void A_per_game_model_is_the_users_indexed_file()
     {
         var candidate = Resolver().PerGame("media/ps2/models/Sub/Game.glb");
