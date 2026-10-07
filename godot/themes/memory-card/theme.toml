@@ -89,6 +89,9 @@ model = "models/templates/clamshell.glb"
 [templates.umd_case]               # PSP: 104 x 180 x 14 mm
 model = "models/templates/umd_case.glb"
 
+[templates.switch_case]            # Switch: 105 x 172 x 11.5 mm
+model = "models/templates/switch_case.glb"
+
 [templates.arcade_cabinet]         # Arcade: the top half of an upright cabinet, its marquee and screen the slots
 model = "models/templates/arcade_cabinet.glb"
 
@@ -932,7 +935,7 @@ game_template = "cartridge_box"
 
 [systems.switch]                       # Switch
 colour = "#9E605C"
-game_template = "umd_case"
+game_template = "switch_case"
 
 [systems.symbian]                       # Symbian
 colour = "#5C629E"
