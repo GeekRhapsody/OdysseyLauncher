@@ -15,6 +15,6 @@ public class ArchitectureTests
     [Fact]
     public void Core_reports_the_repository_version()
     {
-        Assert.StartsWith("0.11.0", CoreInfo.Version, StringComparison.Ordinal);
+        Assert.StartsWith("0.12.0", CoreInfo.Version, StringComparison.Ordinal);
     }
 }
