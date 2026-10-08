@@ -44,6 +44,15 @@ public partial class BoxTemplateGenerator : Node
             CaseColour: new Color("#2A2D35"), CaseRoughness: 0.2f, ArtRoughness: 0.22f,
             Split: FrontSplit.SpineStrip, SplitAt: 15),
 
+        // PlayStation: the same jewel case sized by ScreenScraper's PAL art, so none of it is cut off: a 680 x 680 front
+        // (1:1), a 765 x 680 back (1.125) and a 65 x 680 spine (0.0956). The art spans the caps inside the chamfers, and
+        // the corners' radii are the bevel's, so the caps are square-cornered: the cover is 123.4 x 123.4 beside a
+        // 16.23 mm hinge strip, the back 138.83 x 123.4, and the spine wall 11.8 x 123.4 (deeper than a real case's
+        // 10.4, which would crop the spine's ends). The theme's psx_jewel_case.
+        new("psx_jewel_case", 140.43f, 125, 13.4f, SpineRadius: 0.8f, OpeningRadius: 0.8f, Bevel: 0.8f,
+            CaseColour: new Color("#2A2D35"), CaseRoughness: 0.2f, ArtRoughness: 0.22f,
+            Split: FrontSplit.SpineStrip, SplitAt: 16.23f, ArtInsideBevels: true),
+
         // NES, N64 and Game Boy Advance: a cardboard box, 135 x 185 x 32, printed on both sides.
         new("cartridge_box", 135, 185, 32, SpineRadius: 0.6f, OpeningRadius: 0.6f, Bevel: 0.5f,
             CaseColour: new Color("#D9D3C3"), CaseRoughness: 0.9f, ArtRoughness: 0.75f, PrintedOpeningSide: true),

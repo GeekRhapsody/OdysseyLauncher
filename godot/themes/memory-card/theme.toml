@@ -45,8 +45,11 @@ game_template = "generic_box_spine"                    # for systems this theme 
 [templates.dvd_case]               # PlayStation 2, GameCube: 135 x 190 x 14 mm
 model = "models/templates/dvd_case.glb"
 
-[templates.jewel_case]             # PlayStation, Saturn, Dreamcast: 142 x 125 x 10.4 mm
+[templates.jewel_case]             # Saturn, Dreamcast, the other CD systems: 142 x 125 x 10.4 mm
 model = "models/templates/jewel_case.glb"
+
+[templates.psx_jewel_case]         # PlayStation: the jewel case sized by ScreenScraper's PAL art (1:1 front, 765 x 680 back, 65 x 680 spine): 140.43 x 125 x 13.4 mm
+model = "models/templates/psx_jewel_case.glb"
 
 [templates.cartridge_box]          # NES, N64, Game Boy Advance: 135 x 185 x 32 mm
 model = "models/templates/cartridge_box.glb"
@@ -378,7 +381,7 @@ energy = 0.25
 
 [systems.psx]                      # PlayStation
 colour = "#7C8594"
-game_template = "jewel_case"
+game_template = "psx_jewel_case"
 
 [systems.psx.look.background]
 top_left     = "#42464C"

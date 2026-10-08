@@ -41,6 +41,10 @@ public enum FrontSplit
 /// The front and back chamfers belong to the front and back slots, showing the art's edge, so a printed box has no
 /// band of plain case round its faces. Only for a whole front (<see cref="FrontSplit.None"/>).
 /// </param>
+/// <param name="ArtInsideBevels">
+/// The front and back slots' art spans their caps, inside the chamfers, rather than the whole outline, so the chamfers
+/// hide none of it (the corners neither, when their radii are the bevel's). Their aspects are the caps'.
+/// </param>
 /// <param name="LowerSlot">For <see cref="FrontSplit.LowerPanel"/>, the lower part's slot.</param>
 /// <param name="TestCardOnLowerSlot">Give the lower slot's material an authored texture (a test card), its last fallback.</param>
 /// <param name="SlotColour">
@@ -66,6 +70,7 @@ public sealed record BoxSpec(
     bool PrintedOpeningSide = false,
     bool SpineOnTop = false,
     bool PrintedBevels = false,
+    bool ArtInsideBevels = false,
     string? LowerSlot = null,
     bool TestCardOnLowerSlot = false,
     Color? SlotColour = null);
@@ -104,15 +109,18 @@ public sealed class BoxBuilder
         // less both corners.
         "spine" when spec.SpineOnTop => (spec.Width - spec.SpineRadius - spec.OpeningRadius) / (spec.Depth - 2 * spec.Bevel),
         "spine" => (spec.Depth - 2 * spec.Bevel) / (spec.Height - 2 * spec.SpineRadius),
-        "back" => spec.Width / spec.Height,
-        _ when slot == spec.LowerSlot => spec.Width / spec.SplitAt,
+        "back" => (spec.Width - 2 * ArtInset(spec)) / (spec.Height - 2 * ArtInset(spec)),
+        _ when slot == spec.LowerSlot => (spec.Width - 2 * ArtInset(spec)) / (spec.SplitAt - ArtInset(spec)),
         _ => spec.Split switch
         {
-            FrontSplit.SpineStrip => (spec.Width - spec.SplitAt) / spec.Height,
-            FrontSplit.TopLabel or FrontSplit.LowerPanel => spec.Width / (spec.Height - spec.SplitAt),
-            _ => spec.Width / spec.Height,
+            FrontSplit.SpineStrip => (spec.Width - spec.SplitAt - ArtInset(spec)) / (spec.Height - 2 * ArtInset(spec)),
+            FrontSplit.TopLabel or FrontSplit.LowerPanel => (spec.Width - 2 * ArtInset(spec)) / (spec.Height - spec.SplitAt - ArtInset(spec)),
+            _ => (spec.Width - 2 * ArtInset(spec)) / (spec.Height - 2 * ArtInset(spec)),
         },
     };
+
+    /// <summary>How far in from the outline the front and back art starts (<see cref="BoxSpec.ArtInsideBevels"/>).</summary>
+    private static float ArtInset(BoxSpec spec) => spec.ArtInsideBevels ? spec.Bevel : 0;
 
     private void BuildAll()
     {
@@ -127,14 +135,15 @@ public sealed class BoxBuilder
 
         // The chamfers from each cap out to the sides: plain case, or on a printed box the art's edge, each point taking
         // the UV of the cap's edge next to it.
-        var left = -s.Width / 2;
-        var right = s.Width / 2;
+        var inset = ArtInset(s);
+        var left = -s.Width / 2 + inset;
+        var right = s.Width / 2 - inset;
         var printFront = s.PrintedBevels && s.Split == FrontSplit.None;
         var printBack = s.PrintedBevels && s.HasBackSlot;
         Ring(inner, halfDepth, outer, halfDepth - s.Bevel, +1,
-            printFront ? s.FrontSlot : "case", printFront ? i => PlanarUv(inner[i].Position, left, right, 0, s.Height) : null);
+            printFront ? s.FrontSlot : "case", printFront ? i => PlanarUv(inner[i].Position, left, right, inset, s.Height - inset) : null);
         Ring(outer, -halfDepth + s.Bevel, inner, -halfDepth, -1,
-            printBack ? "back" : "case", printBack ? i => PlanarUv(inner[i].Position, right, left, 0, s.Height) : null);
+            printBack ? "back" : "case", printBack ? i => PlanarUv(inner[i].Position, right, left, inset, s.Height - inset) : null);
 
         // The sides.
         Walls(outer, halfDepth - s.Bevel, -halfDepth + s.Bevel);
@@ -218,15 +227,18 @@ public sealed class BoxBuilder
             polygon.Add(point.Position);
         }
 
-        var left = -s.Width / 2;
-        var right = s.Width / 2;
+        var inset = ArtInset(s);
+        var left = -s.Width / 2 + inset;
+        var right = s.Width / 2 - inset;
+        var bottom = inset;
+        var top = s.Height - inset;
         switch (s.Split)
         {
             case FrontSplit.SpineStrip:
             {
-                var split = left + s.SplitAt;
-                Cap(Clip(polygon, split, keepAbove: false, vertical: true), z, Vector3.Back, "case", p => PlanarUv(p, left, split, 0, s.Height));
-                Cap(Clip(polygon, split, keepAbove: true, vertical: true), z, Vector3.Back, s.FrontSlot, p => PlanarUv(p, split, right, 0, s.Height));
+                var split = -s.Width / 2 + s.SplitAt;
+                Cap(Clip(polygon, split, keepAbove: false, vertical: true), z, Vector3.Back, "case", p => PlanarUv(p, left, split, bottom, top));
+                Cap(Clip(polygon, split, keepAbove: true, vertical: true), z, Vector3.Back, s.FrontSlot, p => PlanarUv(p, split, right, bottom, top));
                 break;
             }
 
@@ -234,13 +246,13 @@ public sealed class BoxBuilder
             {
                 var split = s.SplitAt;
                 var lower = s.Split == FrontSplit.LowerPanel ? s.LowerSlot! : "case";
-                Cap(Clip(polygon, split, keepAbove: true, vertical: false), z, Vector3.Back, s.FrontSlot, p => PlanarUv(p, left, right, split, s.Height));
-                Cap(Clip(polygon, split, keepAbove: false, vertical: false), z, Vector3.Back, lower, p => PlanarUv(p, left, right, 0, split));
+                Cap(Clip(polygon, split, keepAbove: true, vertical: false), z, Vector3.Back, s.FrontSlot, p => PlanarUv(p, left, right, split, top));
+                Cap(Clip(polygon, split, keepAbove: false, vertical: false), z, Vector3.Back, lower, p => PlanarUv(p, left, right, bottom, split));
                 break;
             }
 
             default:
-                Cap(polygon, z, Vector3.Back, s.FrontSlot, p => PlanarUv(p, left, right, 0, s.Height));
+                Cap(polygon, z, Vector3.Back, s.FrontSlot, p => PlanarUv(p, left, right, bottom, top));
                 break;
         }
     }
@@ -257,7 +269,9 @@ public sealed class BoxBuilder
         }
 
         // Seen from behind, +X is on the left.
-        Cap(polygon, z, Vector3.Forward, s.HasBackSlot ? "back" : "case", p => PlanarUv(p, s.Width / 2, -s.Width / 2, 0, s.Height));
+        var inset = ArtInset(s);
+        Cap(polygon, z, Vector3.Forward, s.HasBackSlot ? "back" : "case",
+            p => PlanarUv(p, s.Width / 2 - inset, -s.Width / 2 + inset, inset, s.Height - inset));
     }
 
     /// <summary>u across the face from <paramref name="uFrom"/> to <paramref name="uTo"/>; v from the top down.</summary>
