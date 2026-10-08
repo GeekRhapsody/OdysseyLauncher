@@ -62,8 +62,6 @@ public sealed partial class MediaMovePanel : UiPanel
         ShowCounts(new MediaMoveProgress(0, plan.Files.Count, 0, plan.Bytes));
     }
 
-    protected override string BackLabel => "Stop";
-
     /// <summary>Menu would close the settings under it: it's ignored until the move is done.</summary>
     public override bool Handle(NavCommand command) => command == NavCommand.Menu;
 

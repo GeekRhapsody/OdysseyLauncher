@@ -130,8 +130,6 @@ public sealed partial class FilePicker : UiPanel
             : "A  Open or choose     B  Up     Y  Type a path     LB RB  Page     LT RT  Letter");
     }
 
-    protected override string BackLabel => "Cancel";
-
     public override Control? DefaultFocus => _list;
 
     public override void _Ready()

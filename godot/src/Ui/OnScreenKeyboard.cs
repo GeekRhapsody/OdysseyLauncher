@@ -93,8 +93,6 @@ public sealed partial class OnScreenKeyboard : UiPanel
         SetHints("A  Type     X  Delete     Y  Space     LB RB  Move     LT  Shift     RT  Symbols     Menu  Done     B  Cancel");
     }
 
-    protected override string BackLabel => "Cancel";
-
     public override bool CapturesKeyboard => true;
 
     public override Control? DefaultFocus => _characterKeys.Count > 13 ? _characterKeys[13] : null;

@@ -5,9 +5,8 @@ namespace Launcher.App.Ui;
 
 /// <summary>
 /// The progress of long operations, over the grid (M7): a card per job, top right, with a bar, what it's counted and
-/// its note, and a Cancel button for the mouse (the settings screen's Library section cancels from a pad). It never
-/// takes the focus, so browsing carries on while a scan or scrape runs. A finished job shows its outcome for a few
-/// seconds. It only changes when a job does, never per frame.
+/// its note. It never takes the focus, so browsing carries on while a scan or scrape runs, and it has no buttons: the
+/// settings screen's Library section cancels a job. A finished job shows its outcome for a few seconds. It only changes when a job does, never per frame.
 /// </summary>
 public sealed partial class JobsHud : CanvasLayer
 {
@@ -69,14 +68,6 @@ public sealed partial class JobsHud : CanvasLayer
         title.ClipText = true;
         title.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
         top.AddChild(title);
-        if (job.CanCancel)
-        {
-            var cancel = new Button { Text = "Cancel", FocusMode = Control.FocusModeEnum.None, CustomMinimumSize = new Vector2(0, 28) };
-            cancel.AddThemeFontSizeOverride("font_size", 14);
-            cancel.Pressed += job.Cancel;
-            top.AddChild(cancel);
-        }
-
         if (job.State == JobState.Running)
         {
             column.AddChild(Bar(job.Fraction));

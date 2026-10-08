@@ -93,11 +93,6 @@ public sealed partial class MediaViewer : UiPanel
         _controls = UiStyle.Label(string.Empty, UiStyle.Hint);
         _controls.VerticalAlignment = VerticalAlignment.Center;
         line.AddChild(_controls);
-
-        // For the mouse: the pad and keyboard have B and Escape.
-        var back = new Button { Text = "Back", FocusMode = FocusModeEnum.None };
-        back.Pressed += () => GoBack();
-        line.AddChild(back);
         _progress = new ProgressBar { ShowPercentage = false, CustomMinimumSize = new Vector2(0, 6), MaxValue = 1, MouseFilter = MouseFilterEnum.Ignore };
         lines.AddChild(_progress);
 

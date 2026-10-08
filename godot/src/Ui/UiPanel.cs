@@ -19,8 +19,8 @@ public enum PanelPlacement
 /// <summary>
 /// One screen or dialog of the settings UI (M7), stacked on a <see cref="UiLayer"/>: a framed panel with a title, a
 /// body the subclass fills, a status line and the controls' hints. Every panel is driven the same way: D-pad or
-/// arrows move the focus, A or Enter activates, B or Escape goes back; the mouse clicks, scrolls, and uses the
-/// header's Back button. A panel can take commands first (<see cref="Handle"/>) for its own controls.
+/// arrows move the focus, A or Enter activates, B or Escape goes back; the mouse clicks and scrolls, but there's no
+/// button for going back (the launcher is for a pad). A panel can take commands first (<see cref="Handle"/>) for its own controls.
 /// </summary>
 public abstract partial class UiPanel : Control
 {
@@ -90,11 +90,6 @@ public abstract partial class UiPanel : Control
         _subtitle.Visible = false;
         headings.AddChild(_subtitle);
 
-        // For the mouse: the gamepad and keyboard have B and Escape.
-        var back = new Button { Text = BackLabel, FocusMode = FocusModeEnum.None, SizeFlagsVertical = SizeFlags.ShrinkBegin };
-        back.Pressed += () => GoBack();
-        header.AddChild(back);
-
         Body = new VBoxContainer { SizeFlagsVertical = SizeFlags.ExpandFill, MouseFilter = MouseFilterEnum.Ignore };
         Body.AddThemeConstantOverride("separation", 6);
         column.AddChild(Body);
@@ -113,9 +108,6 @@ public abstract partial class UiPanel : Control
 
     /// <summary>Where subclasses put their content.</summary>
     protected VBoxContainer Body { get; }
-
-    /// <summary>The header's mouse button: "Back" for screens, "Cancel" for dialogs.</summary>
-    protected virtual string BackLabel => "Back";
 
     /// <summary>
     /// A dialog shows over the panel below it (dimmed); a page replaces it, since two translucent frames would show
@@ -178,7 +170,7 @@ public abstract partial class UiPanel : Control
     {
     }
 
-    /// <summary>B, Escape or the Back button: closes the panel unless a subclass does something else first.</summary>
+    /// <summary>B or Escape: closes the panel unless a subclass does something else first.</summary>
     public virtual void GoBack() => Close();
 
     public void Close() => Layer?.Pop(this);

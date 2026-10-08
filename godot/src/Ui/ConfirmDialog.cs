@@ -42,8 +42,6 @@ public sealed partial class ConfirmDialog : UiPanel
         SetHints(no is null ? "A  OK" : "A  Choose     B  " + no);
     }
 
-    protected override string BackLabel => "Cancel";
-
     public override Control? DefaultFocus => _startOnNo && _no is not null ? _no : _yes;
 
     /// <summary>Asks a question. <paramref name="answered"/> gets true for <paramref name="yes"/>, false for anything else.</summary>

@@ -38,8 +38,6 @@ public sealed partial class PowerMenu : ListPanel
         SetHints("A  Choose     B / View  Cancel");
     }
 
-    protected override string BackLabel => "Cancel";
-
     public override bool Handle(NavCommand command)
     {
         if (command != NavCommand.Power)

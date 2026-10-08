@@ -336,7 +336,7 @@ public sealed partial class SettingsHome : ListPanel
             text.Append(' ').Append(skipped.DisplayName).Append(skipped.State == ProviderState.MissingCredentials ? " has no credentials, so it's skipped." : " is resting, so it's skipped for now.");
         }
 
-        text.Append("\n\nIt runs in the background: you can keep browsing, and stop it here or with the Cancel button on its progress card.");
+        text.Append("\n\nIt runs in the background: you can keep browsing, and stop it in the settings, from its row under Library.");
         ConfirmDialog.Ask(Layer, $"Scrape {missing.Games:N0} games?", text.ToString(), "Start scraping", "Not now", yes =>
         {
             if (yes)
