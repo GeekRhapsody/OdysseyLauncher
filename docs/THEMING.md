@@ -4,8 +4,8 @@ This guide is for theme authors. It covers the folder and manifest, the media sl
 
 Four themes come with the repo:
 - **Memory Card**, the base theme ([`godot/themes/memory-card/`](../godot/themes/memory-card/theme.toml)). It isn't a theme to choose: every theme builds on it, and anything a theme leaves out (a look, a template, a model, a system's colour) is Memory Card's (section 2). Its templates (the DVD case, jewel case, cartridge box and the rest) are there for every theme to use.
-- **Console**, the default theme ([`godot/themes/console/`](../godot/themes/console/theme.toml)): each system's console as its card (for Windows, a gaming PC and its monitor; the Switch's focused clip slides a Joy-Con off and back), and a Mega Drive cartridge for that system's games (its art on the cartridge's label). It's small, because everything else comes from Memory Card.
-- **Slab** ([`godot/themes/slab/`](../godot/themes/slab/theme.toml)): one dark grey card, Memory Card's slab shape, for every system, with the system's image on its front (section 4, "System cards and logos"). It's a manifest, one model and an image per system: the way to show every system's logo without a model for each.
+- **Console** ([`godot/themes/console/`](../godot/themes/console/theme.toml)): each system's console as its card (for Windows, a gaming PC and its monitor; the Switch's focused clip slides a Joy-Con off and back), and a Mega Drive cartridge for that system's games (its art on the cartridge's label). It's small, because everything else comes from Memory Card.
+- **Slab**, the default theme ([`godot/themes/slab/`](../godot/themes/slab/theme.toml)): one dark grey card, Memory Card's slab shape, for every system, with the system's image on its front (section 4, "System cards and logos"). It's a manifest, one model and an image per system: the way to show every system's logo without a model for each.
 - **Retro TV**, the sample theme ([`samples/themes/retro-tv/`](../samples/themes/retro-tv/theme.toml)). It has a CRT television as its game template, a console as its system model, and animation clips. It's the best place to start.
 
 ## Contents
@@ -140,7 +140,7 @@ bottom_right = "#100A08"
   user/themes/neon-arcade/theme.toml:12:1: error: templates.box.model: 'box.glb' doesn't exist in the theme's folder
   ```
 
-  - A TOML syntax error, or an unsupported `format`, rejects the whole theme, and the default theme (Console) is used.
+  - A TOML syntax error, or an unsupported `format`, rejects the whole theme, and the default theme (Slab) is used.
   - A bad look block falls back to Memory Card's.
   - A template whose model is missing, or isn't a `.glb` inside the folder, is left out. Whatever named it falls through to the next model in line (section 5); if it extended one of Memory Card's, Memory Card's is used.
   - A template id that's neither yours nor Memory Card's is an error, with a "did you mean" suggestion, and the next model in line is used.

@@ -13,6 +13,9 @@ rom_root = "{home}/ROMs"
 # file or folder name at any depth; an excluded folder isn't listed at all, which matters most on network
 # shares. The defaults skip ES-DE's per-system media folders and gamelist files. Set your own list to replace it.
 exclude = ["images", "manuals", "videos", "gamelist.xml"]
+# Rescan every system each time the app starts, in the background, for games added, moved or removed since. false
+# scans only systems never scanned; Settings > Rescan the library (or F5) scans the rest when you ask.
+scan_at_launch = false
 
 [variables]
 # Expanded when config loads. Values may use {home} and other variables.
@@ -22,7 +25,7 @@ emulators = "C:/Emulators"
 
 [display]
 # A theme in the app's themes/ folder or in yours. memory-card is the base every theme builds on, not a theme to choose.
-theme = "console"
+theme = "slab"
 # "borderless" (a window covering the screen), "fullscreen" (exclusive) or "windowed". Both fullscreen modes use the
 # desktop's resolution.
 screen_mode = "borderless"

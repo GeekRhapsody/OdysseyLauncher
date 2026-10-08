@@ -14,11 +14,11 @@ internal static class ThemeFixtures
     /// <summary>The base theme, as the app ships it: <c>godot/themes/memory-card</c>.</summary>
     public static string BaseFolder => Path.Combine(BuiltInThemesFolder, ThemeCatalog.BaseId);
 
-    /// <summary>The default theme, built in: <c>godot/themes/console</c>.</summary>
-    public static string ConsoleFolder => Path.Combine(BuiltInThemesFolder, ThemeCatalog.DefaultId);
+    /// <summary>The built-in theme whose cards are each system's console: <c>godot/themes/console</c>.</summary>
+    public static string ConsoleFolder => Path.Combine(BuiltInThemesFolder, "console");
 
-    /// <summary>The built-in theme whose cards show each system's logo: <c>godot/themes/slab</c>.</summary>
-    public static string SlabFolder => Path.Combine(BuiltInThemesFolder, "slab");
+    /// <summary>The default theme, built in, whose cards show each system's logo: <c>godot/themes/slab</c>.</summary>
+    public static string SlabFolder => Path.Combine(BuiltInThemesFolder, ThemeCatalog.DefaultId);
 
     /// <summary>The M6 test theme: <c>tests/themes/slot-showcase</c>.</summary>
     public static string SlotShowcaseFolder => Path.Combine(RepoRoot, "tests", "themes", "slot-showcase");

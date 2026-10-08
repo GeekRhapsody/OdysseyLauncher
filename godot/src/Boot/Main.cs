@@ -34,7 +34,8 @@ namespace Launcher.App.Boot;
 /// <item>When both are done, the look and the grids are built and the systems grid is bound; the next drawn frame is
 /// <c>interactive</c>.</item>
 /// <item>After that, a warm-up spread over a few frames: every pipeline drawn once, the first cover upload, the
-/// glyphs, the launch controller and the status indicators. Nothing is scanned at boot; systems never scanned are scanned after it.</item>
+/// glyphs, the launch controller and the status indicators. Nothing is scanned at boot; systems never scanned are scanned after it
+/// (every system, with <c>[scanning] scan_at_launch</c>).</item>
 /// </list>
 /// </summary>
 public partial class Main : Node3D
@@ -602,8 +603,8 @@ public partial class Main : Node3D
             OpenForDebug(open);
         }
 
-        // A3: nothing is scanned at boot. Systems that have never been scanned are scanned now, in the background
-        // (but not during a bench, which measures a library as it is).
+        // A3: nothing is scanned at boot. Systems that have never been scanned are scanned now, in the background, or
+        // every system with [scanning] scan_at_launch (but not during a bench, which measures a library as it is).
         if (!_options.BenchRequested)
         {
             var unscanned = new List<string>();
@@ -620,7 +621,11 @@ public partial class Main : Node3D
             _navigator!.BakeAfterScans = true;
             _navigator.BakeLogos();
             _ = services.CheckInstallsAsync();
-            if (unscanned.Count > 0)
+            if (services.Config.Settings.Scanning.ScanAtLaunch)
+            {
+                _navigator.Rescan(null);
+            }
+            else if (unscanned.Count > 0)
             {
                 _navigator.Rescan(unscanned.Count == services.Systems.Count ? null : unscanned);
             }

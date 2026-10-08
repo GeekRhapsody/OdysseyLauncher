@@ -79,7 +79,7 @@ public sealed class ConfigWriterTests : IDisposable
 
         writer.Save(
         [
-            new ConfigEdit(ConfigFileKind.Settings, ["display", "theme"], "console"),
+            new ConfigEdit(ConfigFileKind.Settings, ["display", "theme"], "slab"),
             new ConfigEdit(ConfigFileKind.Settings, ["scraping", "provider"], "screenscraper"),
         ]);
 

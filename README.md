@@ -85,7 +85,7 @@ Odyssey Launcher is built with Godot 4 and C# for Windows, and is tuned on a Ste
 
 ### Themes
 
-The **Console** theme (the default) shows each system as its console. **Slab** shows each system as a dark slab with its logo. Switch themes from the settings or with <kbd>T</kbd>, without a restart.
+The **Slab** theme (the default) shows each system as a dark slab with its logo. **Console** shows each system as its console (still a work in progress: four consoles and a PC so far). Switch themes from the settings or with <kbd>T</kbd>, without a restart.
 
 ![Switching from the Console theme to Slab](docs/readme/themes.webp)
 

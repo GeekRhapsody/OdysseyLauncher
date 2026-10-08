@@ -328,7 +328,7 @@ public class ConfigLoaderTests
 
         var error = Single(result, Severity.Error);
         Assert.Equal(3, error.Line);
-        Assert.Equal("console", result.Config.Settings.Display.Theme);
+        Assert.Equal("slab", result.Config.Settings.Display.Theme);
     }
 
     [Fact]
@@ -807,6 +807,26 @@ public class ConfigLoaderTests
             """);
         Assert.Empty(on.Diagnostics);
         Assert.True(on.Config.Settings.Ui.ShowPerformance);
+    }
+
+    [Fact]
+    public void Scanning_at_launch_is_off_unless_the_scanning_settings_turn_it_on()
+    {
+        Assert.False(Load().Config.Settings.Scanning.ScanAtLaunch);
+
+        var on = Load(settings: """
+            [scanning]
+            scan_at_launch = true
+            """);
+        Assert.Empty(on.Diagnostics);
+        Assert.True(on.Config.Settings.Scanning.ScanAtLaunch);
+
+        var bad = Load(settings: """
+            [scanning]
+            scan_at_launch = "yes"
+            """);
+        Assert.Single(bad.Diagnostics, d => d.IsError && d.Key == "scanning.scan_at_launch");
+        Assert.False(bad.Config.Settings.Scanning.ScanAtLaunch);
     }
 
     // ---- Graphics (2026-10-08) -------------------------------------------------------------------

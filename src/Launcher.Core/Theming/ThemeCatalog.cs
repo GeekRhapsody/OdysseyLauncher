@@ -22,7 +22,7 @@ public static class ThemeCatalog
     public const string BaseId = "memory-card";
 
     /// <summary>The default theme (settings.toml's default <c>[display] theme</c>).</summary>
-    public const string DefaultId = "console";
+    public const string DefaultId = "slab";
 
     /// <summary>Every <c>&lt;id&gt;/theme.toml</c> under the user's themes folder. Does file I/O: never on the main thread.</summary>
     public static List<ThemeSource> UserSources(string themesDir, List<Diagnostic> diagnostics) =>

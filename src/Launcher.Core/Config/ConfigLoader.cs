@@ -39,7 +39,7 @@ public sealed class ConfigLoader : IConfigLoader
     ];
     private static readonly string[] UiKeys = ["show_clock", "show_battery", "show_network", "show_performance"];
     private static readonly string[] ScrapingKeys = ["provider", "fallback", "regions", "languages", "media", "hash_limit_mb"];
-    private static readonly string[] ScanningKeys = ["exclude"];
+    private static readonly string[] ScanningKeys = ["exclude", "scan_at_launch"];
 
     private static readonly string[] SystemKeys =
     [
@@ -332,7 +332,7 @@ public sealed class ConfigLoader : IConfigLoader
                     GamesSort = gamesSort,
                 },
                 new ScrapingSettings(provider, fallback, regions, languages, media, hashLimitMb * 1024 * 1024),
-                new ScanningSettings(_globalExcludes),
+                new ScanningSettings(_globalExcludes, SettingBool(tree, defaults, "scanning", "scan_at_launch") ?? false),
                 uiSettings)
             {
                 MediaDir = mediaDir,

@@ -17,7 +17,7 @@ namespace Launcher.App.Settings;
 
 /// <summary>
 /// The main settings screen (M7): ROM folders, the media folder, emulators, the theme and layout, graphics, the status indicators, scraping, and the
-/// library's actions (rescan, scrape all missing) with their progress and a way to cancel them. Menu, B or the Back
+/// library's actions (rescan, scrape all missing, and whether it's scanned at launch) with their progress and a way to cancel them. Menu, B or the Back
 /// button closes it; every change is saved as it's made, and applies without a restart.
 /// </summary>
 public sealed partial class SettingsHome : ListPanel
@@ -34,6 +34,7 @@ public sealed partial class SettingsHome : ListPanel
     private readonly SettingRow _network;
     private readonly SettingRow _scraping;
     private readonly SettingRow _rescan;
+    private readonly SettingRow _scanAtLaunch;
     private readonly SettingRow _scrapeMissing;
     private readonly SettingRow _problems;
     private readonly Dictionary<int, SettingRow> _jobRows = [];
@@ -66,6 +67,9 @@ public sealed partial class SettingsHome : ListPanel
 
         AddSection("Library");
         _rescan = AddRow("Rescan the library", "Look for new, moved and removed games in every ROM folder", activated: Rescan);
+        _scanAtLaunch = AddRow("Auto scan the library at launch", "Rescan every ROM folder in the background each time the app starts",
+            activated: () => SetScanAtLaunch(null));
+        _scanAtLaunch.Adjuster = direction => SetScanAtLaunch(direction > 0);
         _scrapeMissing = AddRow("Scrape all missing metadata", "Games never scraped, not found, or without a front cover", activated: ScrapeMissing);
         _jobs = new VBoxContainer { MouseFilter = MouseFilterEnum.Ignore };
         _jobs.AddThemeConstantOverride("separation", 4);
@@ -116,6 +120,7 @@ public sealed partial class SettingsHome : ListPanel
         ShowIndicator(_clock, config.Settings.Ui.ShowClock);
         ShowIndicator(_battery, config.Settings.Ui.ShowBattery);
         ShowIndicator(_network, config.Settings.Ui.ShowNetwork);
+        ShowIndicator(_scanAtLaunch, config.Settings.Scanning.ScanAtLaunch);
         if (_settings.DeviceStatus?.Current is { Battery.Present: false })
         {
             _battery.Detail = "This PC has no battery, so it never shows";
@@ -226,6 +231,20 @@ public sealed partial class SettingsHome : ListPanel
         }
 
         _settings.Rescan?.Invoke(null);
+    }
+
+    /// <param name="on">Scanned at launch or not; null turns it the other way. It's saved as <c>[scanning] scan_at_launch</c>.</param>
+    private void SetScanAtLaunch(bool? on)
+    {
+        var current = _settings.Services.Config.Settings.Scanning.ScanAtLaunch;
+        var wanted = on ?? !current;
+        if (current == wanted)
+        {
+            return;
+        }
+
+        _settings.Save(this, [new ConfigEdit(ConfigFileKind.Settings, ["scanning", "scan_at_launch"], wanted)],
+            wanted ? "The library is scanned each time the app starts." : "The library isn't scanned at launch (only systems never scanned).");
     }
 
     /// <summary>Counts what it would scrape first, and asks, saying which providers will be used.</summary>

@@ -43,7 +43,11 @@ public sealed record Settings(
 }
 
 /// <param name="Exclude">Glob patterns applied to every system; already folded into each <see cref="SystemConfig.Exclude"/>.</param>
-public sealed record ScanningSettings(IReadOnlyList<string> Exclude);
+/// <param name="ScanAtLaunch">
+/// <c>scan_at_launch</c> (2026-10-08): every system is rescanned once the app is interactive, not only those never
+/// scanned. Off by default.
+/// </param>
+public sealed record ScanningSettings(IReadOnlyList<string> Exclude, bool ScanAtLaunch = false);
 
 /// <param name="ScreenMode"><c>screen_mode</c> (2026-10-08): fullscreen (exclusive), borderless fullscreen (the default) or a window.</param>
 /// <param name="HideEmptySystems">The systems grid leaves out systems with no games (like ES-DE), so the built-in catalogue only shows what the user has.</param>

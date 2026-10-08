@@ -28,7 +28,7 @@ public sealed class ThemeCatalogTests : IDisposable
     {
         var sources = BuiltIns();
 
-        Assert.Equal([ThemeCatalog.DefaultId, ThemeCatalog.BaseId, "slab"], sources.Select(s => s.Id));
+        Assert.Equal(["console", ThemeCatalog.BaseId, ThemeCatalog.DefaultId], sources.Select(s => s.Id));
         Assert.All(sources, s => Assert.Equal(ThemeOrigin.BuiltIn, s.Origin));
         Assert.All(sources, s => Assert.Null(s.Files.MaterialsOf("models/systems/gb.glb", out _)));
         Assert.True(sources[0].Files.Exists("models/systems/gb.glb"));
@@ -56,14 +56,14 @@ public sealed class ThemeCatalogTests : IDisposable
     }
 
     [Fact]
-    public void The_default_theme_is_console_over_the_base()
+    public void The_default_theme_is_slab_over_the_base()
     {
         var diagnostics = new List<Diagnostic>();
 
         var set = ThemeCatalog.Load(BuiltIns(), [], ThemeCatalog.DefaultId, diagnostics);
 
         Assert.Empty(diagnostics);
-        Assert.Equal(("console", ThemeOrigin.BuiltIn), (set.Active.Id, set.Active.Origin));
+        Assert.Equal(("slab", ThemeOrigin.BuiltIn), (set.Active.Id, set.Active.Origin));
         Assert.Equal("memory-card", set.Base.Id);
         Assert.NotSame(set.Base, set.Active);
     }
@@ -100,10 +100,10 @@ public sealed class ThemeCatalogTests : IDisposable
 
         var set = ThemeCatalog.Load(BuiltIns(), [], ThemeCatalog.BaseId, diagnostics);
 
-        Assert.Equal("console", set.Active.Id);
+        Assert.Equal("slab", set.Active.Id);
         var warning = Assert.Single(diagnostics);
         Assert.Equal((Severity.Warning, "display.theme"), (warning.Severity, warning.Key));
-        Assert.Contains("'memory-card' is the base every theme builds on, not a theme to choose, so 'console' is used", warning.Message, StringComparison.Ordinal);
+        Assert.Contains("'memory-card' is the base every theme builds on, not a theme to choose, so 'slab' is used", warning.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -126,11 +126,11 @@ public sealed class ThemeCatalogTests : IDisposable
 
         var set = ThemeCatalog.Load(BuiltIns(), ThemeCatalog.UserSources(Themes, diagnostics), "neom", diagnostics);
 
-        Assert.Equal("console", set.Active.Id);
+        Assert.Equal("slab", set.Active.Id);
         var warning = Assert.Single(diagnostics);
         Assert.Equal((Severity.Warning, "display.theme"), (warning.Severity, warning.Key));
         Assert.Contains("did you mean 'neon'?", warning.Message, StringComparison.Ordinal);
-        Assert.Contains("so 'console' is used", warning.Message, StringComparison.Ordinal);
+        Assert.Contains("so 'slab' is used", warning.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -141,7 +141,7 @@ public sealed class ThemeCatalogTests : IDisposable
 
         var set = ThemeCatalog.Load(BuiltIns(), ThemeCatalog.UserSources(Themes, diagnostics), "broken", diagnostics);
 
-        Assert.Equal("console", set.Active.Id);
+        Assert.Equal("slab", set.Active.Id);
         Assert.Equal(["format", string.Empty], diagnostics.Select(d => d.Key));
         Assert.All(diagnostics, d => Assert.Equal(Path.Combine(Themes, "broken", "theme.toml"), d.Source));
         Assert.Equal(2, diagnostics[0].Line);
@@ -150,10 +150,10 @@ public sealed class ThemeCatalogTests : IDisposable
     [Fact]
     public void A_broken_default_theme_leaves_the_base_theme_alone()
     {
-        UserTheme("console", "name = \"Broken\"\nformat = 3\n");
+        UserTheme("slab", "name = \"Broken\"\nformat = 3\n");
         var diagnostics = new List<Diagnostic>();
 
-        var set = ThemeCatalog.Load(BuiltIns(), ThemeCatalog.UserSources(Themes, diagnostics), "console", diagnostics);
+        var set = ThemeCatalog.Load(BuiltIns(), ThemeCatalog.UserSources(Themes, diagnostics), "slab", diagnostics);
 
         Assert.Same(set.Base, set.Active);
         Assert.Contains("so the base theme 'memory-card' is used", diagnostics[^1].Message, StringComparison.Ordinal);
