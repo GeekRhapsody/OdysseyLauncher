@@ -55,8 +55,8 @@ public sealed partial class ScrapeMediaPage : ListPanel
         MediaKinds.Logo => "The game's logo",
         MediaKinds.Hero => "Wide artwork, for the hero slot",
         MediaKinds.Label => "A disc's or cartridge's art, for the label slot",
-        MediaKinds.Video => "A gameplay clip, several MB a game; nothing plays it yet",
-        MediaKinds.Manual => "The game's manual, a PDF of several MB; nothing opens it yet",
+        MediaKinds.Video => "A gameplay clip",
+        MediaKinds.Manual => "The game's manual",
         _ => string.Empty,
     };
 
