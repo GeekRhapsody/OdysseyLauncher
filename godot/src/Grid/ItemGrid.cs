@@ -138,6 +138,16 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
     private readonly List<ItemTemplate> _templates = [];
     private readonly List<MultiMesh?> _multiMeshes = [];
     private readonly List<MultiMeshInstance3D?> _instances = [];
+
+    // Each template's MultiMesh draws only the instances in use (2026-10-08): its cells are packed into the first ones,
+    // and VisibleInstanceCount says how many. Every instance is vertex-shaded, hidden or not, so drawing all of them
+    // ran each template's whole mesh once per cell: 9 million vertices a frame for the console theme's models.
+    private readonly List<int[]> _instanceCell = [];
+    private readonly List<int> _instancesUsed = [];
+    private readonly int[] _cellInstance;
+    private readonly Transform3D[] _cellDrawn;
+    private readonly Color[] _cellData;
+    private readonly List<MultiMeshInstance3D> _warmInstances = [];
     private readonly List<ShaderMaterial> _materials = [];
     private readonly List<ItemTemplate> _materialOwners = [];
     private readonly List<int> _templateMaterial = [];
@@ -284,6 +294,14 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
         Array.Fill(_cellItem, -1);
         Array.Fill(_cellTemplate, -1);
         Array.Fill(_cellCurve, 1f);
+        _cellInstance = new int[maxCells];
+        _cellDrawn = new Transform3D[maxCells];
+        _cellData = new Color[maxCells];
+        Array.Fill(_cellInstance, -1);
+        for (var cell = 0; cell < maxCells; cell++)
+        {
+            _cellData[cell] = new Color(cell, 0, 0, 0);
+        }
 
         // A node per cell for the items drawn on their own (per-game models), made now so binding one allocates nothing.
         for (var cell = 0; cell < maxCells; cell++)
@@ -473,6 +491,8 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
         _templates.Clear();
         _multiMeshes.Clear();
         _instances.Clear();
+        _instanceCell.Clear();
+        _instancesUsed.Clear();
         _materials.Clear();
         _materialOwners.Clear();
         _templateMaterial.Clear();
@@ -511,6 +531,7 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
                 UseCustomData = true,
                 Mesh = template.Mesh,
                 InstanceCount = _maxCells,
+                VisibleInstanceCount = 0,
             };
             for (var cell = 0; cell < _maxCells; cell++)
             {
@@ -539,6 +560,8 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
         _templates.Add(template);
         _multiMeshes.Add(multiMesh);
         _instances.Add(instance);
+        _instanceCell.Add(new int[_maxCells]);
+        _instancesUsed.Add(0);
         _fit.Add(1);
 
         // A batched template with focused or launch clips needs its node tree for the focused cell and the one it
@@ -1117,7 +1140,8 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
     /// <summary>
     /// Warm-up after interactive: shows one instance of every template, faded into the background, so each pipeline
     /// is compiled before it's first needed (A3), the node variant too (a per-game model's, drawn with template 0's
-    /// mesh). <see cref="EndWarmUp"/> hides them again.
+    /// mesh). Each template's instance is in a one-instance MultiMesh of its own (the same mesh, material and format,
+    /// so the same pipeline), which leaves the grid's instances to its cells. <see cref="EndWarmUp"/> frees them.
     /// </summary>
     public void BeginWarmUp()
     {
@@ -1125,10 +1149,26 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
         for (var t = 0; t < _templates.Count; t++)
         {
             _materials[_templateMaterial[t]].SetShaderParameter(ShaderParams.GridFade, 1.0f);
-            if (_multiMeshes[t] is { } multiMesh)
+            if (_multiMeshes[t] is not null)
             {
-                _instances[t]!.Visible = true;
+                var multiMesh = new MultiMesh
+                {
+                    TransformFormat = MultiMesh.TransformFormatEnum.Transform3D,
+                    UseCustomData = true,
+                    Mesh = _templates[t].Mesh,
+                    InstanceCount = 1,
+                };
                 multiMesh.SetInstanceTransform(0, new Transform3D(Basis.Identity, new Vector3(t * 0.3f, 0, -2)));
+                multiMesh.SetInstanceCustomData(0, new Color(0, 0, 0, 0));
+                var warm = new MultiMeshInstance3D
+                {
+                    Name = "WarmUp" + t,
+                    Multimesh = multiMesh,
+                    MaterialOverride = _materials[_templateMaterial[t]],
+                    CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+                };
+                _root.AddChild(warm);
+                _warmInstances.Add(warm);
             }
         }
 
@@ -1145,14 +1185,14 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
 
     public void EndWarmUp()
     {
+        foreach (var warm in _warmInstances)
+        {
+            warm.QueueFree();
+        }
+
+        _warmInstances.Clear();
         for (var t = 0; t < _templates.Count; t++)
         {
-            if (_multiMeshes[t] is { } multiMesh)
-            {
-                multiMesh.SetInstanceTransform(0, _cellTemplate[0] == t && _cellNode[0] is null ? _cellBase[0] : Hidden);
-                _instances[t]!.Visible = _source?.UsesTemplate(t) ?? false;
-            }
-
             _materials[_templateMaterial[t]].SetShaderParameter(ShaderParams.GridFade, _gridFade);
         }
 
@@ -1317,11 +1357,7 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
     private void ShowModel(int cell, int template, ItemTemplate model)
     {
         ReleaseNode(cell);
-        if (_cellTemplate[cell] >= 0 && _multiMeshes[_cellTemplate[cell]] is { } previous)
-        {
-            previous.SetInstanceTransform(cell, Hidden);
-        }
-
+        RemoveInstance(cell);
         _cellModel[cell] = model;
         _cellTemplate[cell] = model.PerGame ? -1 : template;
         _cellFit[cell] = model.PerGame
@@ -1361,11 +1397,7 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
             return;
         }
 
-        if (_cellTemplate[cell] >= 0 && _multiMeshes[_cellTemplate[cell]] is { } multiMesh)
-        {
-            multiMesh.SetInstanceTransform(cell, Hidden);
-        }
-
+        RemoveInstance(cell);
         if (_cellNode[cell] is MeshInstance3D mesh)
         {
             mesh.Visible = false;
@@ -1430,13 +1462,13 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
     private void UseBatched(int cell)
     {
         var template = _cellTemplate[cell];
-        if (_cellScene[cell] is null || template < 0 || _multiMeshes[template] is not { } multiMesh)
+        if (_cellScene[cell] is null || template < 0 || _multiMeshes[template] is null)
         {
             return;
         }
 
         ReleaseNode(cell);
-        multiMesh.SetInstanceTransform(cell, _cellBase[cell]);
+        PlaceInstance(cell, _cellBase[cell]);
         WriteCustom(cell);
     }
 
@@ -1599,11 +1631,7 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
     private void HideCell(int cell)
     {
         ReleaseNode(cell);
-        if (_cellTemplate[cell] >= 0 && _cellTemplate[cell] < _multiMeshes.Count && _multiMeshes[_cellTemplate[cell]] is { } multiMesh)
-        {
-            multiMesh.SetInstanceTransform(cell, Hidden);
-        }
-
+        RemoveInstance(cell);
         _cellTemplate[cell] = -1;
         _cellModel[cell] = null;
         _inspectedCell[cell] = false;
@@ -1790,9 +1818,13 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
         {
             mesh.SetInstanceShaderParameter(ShaderParams.NodeCustom, node);
         }
-        else if (_cellTemplate[cell] >= 0 && _multiMeshes[_cellTemplate[cell]] is { } multiMesh)
+        else
         {
-            multiMesh.SetInstanceCustomData(cell, new Color(cell, packed, phase, animated));
+            _cellData[cell] = new Color(cell, packed, phase, animated);
+            if (_cellInstance[cell] >= 0 && _multiMeshes[_cellTemplate[cell]] is { } multiMesh)
+            {
+                multiMesh.SetInstanceCustomData(_cellInstance[cell], _cellData[cell]);
+            }
         }
     }
 
@@ -2117,10 +2149,63 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
         {
             node.Transform = transform;
         }
-        else if (_cellTemplate[cell] >= 0 && _multiMeshes[_cellTemplate[cell]] is { } multiMesh)
+        else if (_cellTemplate[cell] >= 0 && _multiMeshes[_cellTemplate[cell]] is not null)
         {
-            multiMesh.SetInstanceTransform(cell, transform);
+            PlaceInstance(cell, transform);
         }
+    }
+
+    /// <summary>
+    /// Draws the cell with an instance of its template's MultiMesh at <paramref name="transform"/>: the one it has, or
+    /// the next unused one, which then counts as visible.
+    /// </summary>
+    private void PlaceInstance(int cell, Transform3D transform)
+    {
+        var template = _cellTemplate[cell];
+        var multiMesh = _multiMeshes[template]!;
+        var instance = _cellInstance[cell];
+        if (instance < 0)
+        {
+            instance = _instancesUsed[template];
+            _instancesUsed[template] = instance + 1;
+            _instanceCell[template][instance] = cell;
+            _cellInstance[cell] = instance;
+            multiMesh.SetInstanceCustomData(instance, _cellData[cell]);
+            multiMesh.VisibleInstanceCount = instance + 1;
+        }
+
+        _cellDrawn[cell] = transform;
+        multiMesh.SetInstanceTransform(instance, transform);
+    }
+
+    /// <summary>
+    /// Stops drawing the cell with its template's MultiMesh (it's hidden, drawn as a node, or changing template): the
+    /// last instance in use takes its place, so the ones in use stay the first.
+    /// </summary>
+    private void RemoveInstance(int cell)
+    {
+        var instance = _cellInstance[cell];
+        var template = _cellTemplate[cell];
+        if (instance < 0 || template < 0 || template >= _multiMeshes.Count || _multiMeshes[template] is not { } multiMesh)
+        {
+            _cellInstance[cell] = -1;
+            return;
+        }
+
+        _cellInstance[cell] = -1;
+        var last = _instancesUsed[template] - 1;
+        if (instance != last)
+        {
+            var moved = _instanceCell[template][last];
+            _instanceCell[template][instance] = moved;
+            _cellInstance[moved] = instance;
+            multiMesh.SetInstanceTransform(instance, _cellDrawn[moved]);
+            multiMesh.SetInstanceCustomData(instance, _cellData[moved]);
+        }
+
+        multiMesh.SetInstanceTransform(last, Hidden);
+        _instancesUsed[template] = last;
+        multiMesh.VisibleInstanceCount = last;
     }
 
     private void AnimateFades(float dt)

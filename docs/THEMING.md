@@ -253,7 +253,7 @@ For each game and each system card, the launcher tries these candidates in order
 
 User models (levels 1 and 3) use the default slot chains; a chosen template (levels 2 and 4) uses its theme's. Nothing is looked for per game while the grid scrolls: per-game models are indexed when the library is scanned.
 
-The card is also shown large on the system's details screen (Y on the system): about two thirds of the height or width of a view on the left of the screen, in the system's look, focused (its `focused` clip plays) and turned by the player with the right stick, so its back and underside show too. That's what the system model's bigger budget is for: textures up to 2048² are worth it there.
+The card is also shown large on the system's details screen (Y on the system): about two thirds of the height or width of a view on the left of the screen, in the system's look, focused (its `focused` clip plays) and turned by the player with the right stick, so its back and underside show too. That's what the system model's bigger budget is for (more triangles and textures). Every model's textures are drawn at most 1024 pixels on their longer side, though (section 7), which holds up at that size: a bigger image only makes a larger file.
 
 In a grid, each row is as tall as the tallest model in it, and a shorter model is drawn centred in the row's height. So a landscape console stands level with the middle of the cards beside it, not their bottoms. Game boxes that take their shape from their art (`shape = "media"`) are the exception: they stand on the row's floor.
 
@@ -286,6 +286,7 @@ Skins have at most 64 joints, and meshes at most 8 morph targets.
 - **Over a budget,** the model is used, with a warning.
 - **More than twice over** a count (triangles, textures, materials, joints or morph targets), the model is **rejected**, and the next model in line is used (section 5).
 - **A texture larger than the budget's side** is scaled down when the model is first processed. Its size alone never rejects a model.
+- **Every texture is drawn at most 1024 pixels on its longer side.** A larger one (a system model's 2048², an app theme's) is scaled down when it's loaded, keeping its proportions, because textures are held uncompressed on the graphics card: a 2048² texture takes 21 MB there and a 1024² one 5 MB. A model is never drawn taller than 1080p, so the difference doesn't show. Lay out several parts in one texture by all means, but give each part room at 1024.
 - **A broken file** (bad JSON, data out of range, an index past the end, a loop in its nodes, a missing image) is rejected with the reason. It never crashes the launcher: models are checked before Godot parses them.
 
 Every rejection and warning goes to the **model log**, `DataDir/logs/models.log`:

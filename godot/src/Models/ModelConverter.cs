@@ -76,6 +76,9 @@ public static class ModelConverter
 
     private const float MaxLaunchSeconds = 2;
 
+    /// <summary>A model's textures are scaled down to at most this on their longer side when loaded (2026-10-08).</summary>
+    public const int MaxTextureSide = 1024;
+
     /// <summary>
     /// Converts a <c>.glb</c> whose bytes are <paramref name="glb"/> (already checked by <see cref="ModelInspector"/>
     /// for a user's file, or committed and tested for a built-in one). Worker thread; returns null with a reason.
@@ -502,6 +505,7 @@ public static class ModelConverter
             Texture2D? texture = null;
             if (loaded == Error.Ok && !decoded.IsEmpty())
             {
+                CapSize(decoded);
                 decoded.GenerateMipmaps();
                 texture = ImageTexture.CreateFromImage(decoded);
             }
@@ -512,6 +516,36 @@ public static class ModelConverter
 
             _images[image] = texture;
             return texture;
+        }
+
+        /// <summary>
+        /// Scales an image down to at most <see cref="MaxTextureSide"/> on its longer side, keeping its aspect
+        /// (2026-10-08). Textures are uncompressed on the GPU (an export can't compress at run time), so a 2048² one
+        /// costs 21 MB with its mips and a 1024² one 5 MB; a model is drawn no taller than 1080p, and at most two thirds
+        /// of that in a system's details, so the larger image added memory, not detail.
+        /// </summary>
+        private static void CapSize(Image image)
+        {
+            // Halving averages 2×2 blocks, which is fast; Lanczos (several times slower on a 2048² image, and on the
+            // boot path) only takes what's left, from the smaller image.
+            while (Math.Max(image.GetWidth(), image.GetHeight()) >= MaxTextureSide * 2)
+            {
+                image.ShrinkX2();
+            }
+
+            var width = image.GetWidth();
+            var height = image.GetHeight();
+            var longer = Math.Max(width, height);
+            if (longer <= MaxTextureSide)
+            {
+                return;
+            }
+
+            var scale = (double)MaxTextureSide / longer;
+            image.Resize(
+                Math.Max(1, (int)Math.Round(width * scale)),
+                Math.Max(1, (int)Math.Round(height * scale)),
+                Image.Interpolation.Lanczos);
         }
 
         /// <summary>The authored texture's index (shared by materials using the same texture), or -1.</summary>

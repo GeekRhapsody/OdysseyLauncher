@@ -2,6 +2,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
 using Godot;
 using Launcher.Core.Media;
@@ -30,6 +31,12 @@ public enum ModelState
 public sealed class ModelLoader
 {
     private const double PollBudgetMs = 2;
+
+    /// <summary>
+    /// The model files read since the last collection, in bytes, above which the end of a batch of loads collects
+    /// (<see cref="CollectAfterLoads"/>).
+    /// </summary>
+    private const long CollectAfterBytes = 8L * 1024 * 1024;
     private const string PerGameSuffix = "|" + nameof(ModelKind.PerGame);
 
     private readonly Dictionary<string, Entry> _entries = new(StringComparer.Ordinal);
@@ -38,6 +45,7 @@ public sealed class ModelLoader
     private readonly HashSet<string> _loading = new(StringComparer.Ordinal);
     private readonly List<ConvertedModel> _retired = [];
     private readonly ConcurrentQueue<(string File, ConvertedModel? Model, string? Error, double WorkerMs)> _parsed = new();
+    private long _bytesSinceCollect;
     private ModelCache? _cache;
     private ModelLog? _log;
 
@@ -120,7 +128,30 @@ public sealed class ModelLoader
             changed = true;
         }
 
+        if (changed && _loading.Count == 0)
+        {
+            CollectAfterLoads();
+        }
+
         return changed;
+    }
+
+    /// <summary>
+    /// Main thread, when the last load of a batch is adopted (2026-10-08): converting models leaves garbage several
+    /// times their files' size (the parsed glTF's arrays, the meshes' lists, the decoded images: about 60 MB for the
+    /// console theme's system models), which the app's SustainedLowLatency mode, avoiding blocking full collections,
+    /// left in the working set. After enough has been read, a background full collection frees it without stopping
+    /// the main thread.
+    /// </summary>
+    private void CollectAfterLoads()
+    {
+        if (Interlocked.Read(ref _bytesSinceCollect) < CollectAfterBytes)
+        {
+            return;
+        }
+
+        Interlocked.Exchange(ref _bytesSinceCollect, 0);
+        GC.Collect(2, GCCollectionMode.Forced, blocking: false);
     }
 
     /// <summary>
@@ -260,6 +291,7 @@ public sealed class ModelLoader
                     bytes = File.ReadAllBytes(cached.Path);
                 }
 
+                Interlocked.Add(ref _bytesSinceCollect, bytes.Length);
                 var model = ModelConverter.Convert(bytes, Path.GetFileNameWithoutExtension(path), out var error);
                 if (model is null && !builtIn)
                 {
