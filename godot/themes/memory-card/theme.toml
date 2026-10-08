@@ -457,7 +457,6 @@ game_template = "jewel_case"
 
 [systems.adam]                       # Adam
 colour = "#9E5E5C"
-game_template = "cartridge_box"
 
 [systems.ags]                       # Adventure Game Studio Game Engine
 colour = "#8D9E5C"
@@ -481,7 +480,6 @@ game_template = "dvd_case"
 
 [systems.apple2]                       # Apple II
 colour = "#5C9E8C"
-game_template = "cartridge_box"
 
 [systems.apple2gs]                       # Apple IIGS
 colour = "#5C9E88"
@@ -493,7 +491,6 @@ game_template = "arcade_cabinet"
 
 [systems.arcadia]                       # Emerson Arcadia 2001
 colour = "#9E905C"
-game_template = "cartridge_box"
 
 [systems.archimedes]                       # Archimedes
 colour = "#829E5C"
@@ -501,31 +498,24 @@ game_template = "dvd_case"
 
 [systems.arduboy]                       # Arduboy Miniature Game System
 colour = "#9E955C"
-game_template = "cartridge_box"
 
 [systems.astrocde]                       # Bally Astrocade
 colour = "#9E5C71"
-game_template = "cartridge_box"
 
 [systems.atari2600]                       # Atari 2600
 colour = "#9E7A5C"
-game_template = "cartridge_box"
 
 [systems.atari5200]                       # Atari 5200
 colour = "#9E725C"
-game_template = "cartridge_box"
 
 [systems.atari7800]                       # Atari 7800 ProSystem
 colour = "#9E6B5C"
-game_template = "cartridge_box"
 
 [systems.atari800]                       # Atari 800
 colour = "#9E895C"
-game_template = "cartridge_box"
 
 [systems.atarijaguar]                       # Atari Jaguar
 colour = "#9E895C"
-game_template = "cartridge_box"
 
 [systems.atarijaguarcd]                       # Atari Jaguar CD
 colour = "#9E715C"
@@ -533,15 +523,12 @@ game_template = "jewel_case"
 
 [systems.atarilynx]                       # Atari Lynx
 colour = "#9E855C"
-game_template = "cartridge_box"
 
 [systems.atarist]                       # Atari ST
 colour = "#9E785C"
-game_template = "cartridge_box"
 
 [systems.atarixe]                       # Atari XE
 colour = "#9E725C"
-game_template = "cartridge_box"
 
 [systems.atomiswave]                       # Atomiswave
 colour = "#9E855C"
@@ -549,11 +536,9 @@ game_template = "arcade_cabinet"
 
 [systems.bbcmicro]                       # Acorn Computers BBC Micro
 colour = "#769E5C"
-game_template = "cartridge_box"
 
 [systems.c64]                       # Commodore 64
 colour = "#5C859E"
-game_template = "cartridge_box"
 
 [systems.cdimono1]                       # CD-i
 colour = "#5C7D9E"
@@ -569,15 +554,12 @@ game_template = "dvd_case"
 
 [systems.channelf]                       # Channel F
 colour = "#969E5C"
-game_template = "cartridge_box"
 
 [systems.coco]                       # Tandy Color Computer
 colour = "#9E875C"
-game_template = "cartridge_box"
 
 [systems.colecovision]                       # ColecoVision
 colour = "#9E5C5C"
-game_template = "cartridge_box"
 
 [systems.consolearcade]                       # Console Arcade Systems
 colour = "#655C9E"
@@ -601,7 +583,6 @@ game_template = "arcade_cabinet"
 
 [systems.crvision]                       # CreatiVision
 colour = "#5C9E6D"
-game_template = "cartridge_box"
 
 [systems.daphne]                       # Daphne / LaserDisc
 colour = "#9E5C6A"
@@ -621,7 +602,6 @@ game_template = "generic_box_spine"
 
 [systems.dragon32]                       # Dragon Data Dragon 32
 colour = "#689E5C"
-game_template = "cartridge_box"
 
 [systems.easyrpg]                       # EasyRPG Game Engine
 colour = "#755C9E"
@@ -629,7 +609,6 @@ game_template = "dvd_case"
 
 [systems.electron]                       # Electron
 colour = "#719E5C"
-game_template = "cartridge_box"
 
 [systems.fbneo]                       # FinalBurn Neo
 colour = "#8A9E5C"
@@ -637,7 +616,6 @@ game_template = "arcade_cabinet"
 
 [systems.fds]                       # Famicom Disk System
 colour = "#9E5C5E"
-game_template = "cartridge_box"
 
 [systems.flash]                       # Adobe Flash
 colour = "#945C9E"
@@ -657,15 +635,12 @@ game_template = "dvd_case"
 
 [systems.gamate]                       # Gamate
 colour = "#5C9E6B"
-game_template = "cartridge_box"
 
 [systems.gameandwatch]                       # Game and Watch
 colour = "#9E625C"
-game_template = "cartridge_box"
 
 [systems.gamecom]                       # Game.com
 colour = "#9E5C71"
-game_template = "cartridge_box"
 
 [systems.gamegear]                       # Game Gear
 colour = "#5C619E"
@@ -673,15 +648,12 @@ game_template = "clamshell"
 
 [systems.gmaster]                       # Hartung Game Master
 colour = "#899E5C"
-game_template = "cartridge_box"
 
 [systems.gx4000]                       # Amstrad GX4000
 colour = "#5C9E69"
-game_template = "cartridge_box"
 
 [systems.intellivision]                       # Intellivision
 colour = "#9E615C"
-game_template = "cartridge_box"
 
 [systems.j2me]                       # Java 2 Micro Edition (J2ME)
 colour = "#9E705C"
@@ -689,11 +661,9 @@ game_template = "dvd_case"
 
 [systems.lcdgames]                       # LCD Handheld Games
 colour = "#9E5C78"
-game_template = "cartridge_box"
 
 [systems.lowresnx]                       # LowRes NX Fantasy Console
 colour = "#9E9B5C"
-game_template = "cartridge_box"
 
 [systems.lutro]                       # Lutro Game Engine
 colour = "#5C9E89"
@@ -709,7 +679,6 @@ game_template = "arcade_cabinet"
 
 [systems.megaduck]                       # Mega Duck
 colour = "#729E5C"
-game_template = "cartridge_box"
 
 [systems.mess]                       # Multi Emulator Super System
 colour = "#949E5C"
@@ -729,19 +698,15 @@ game_template = "dvd_case"
 
 [systems.msx]                       # MSX
 colour = "#9E5C92"
-game_template = "cartridge_box"
 
 [systems.msx1]                       # MSX1
 colour = "#5C999E"
-game_template = "cartridge_box"
 
 [systems.msx2]                       # MSX2
 colour = "#5C9E9C"
-game_template = "cartridge_box"
 
 [systems.msxturbor]                       # MSX Turbo R
 colour = "#5C7A9E"
-game_template = "cartridge_box"
 
 [systems.mugen]                       # M.U.G.E.N Game Engine
 colour = "#5C729E"
@@ -789,15 +754,12 @@ game_template = "umd_case"
 
 [systems.ngp]                       # Neo Geo Pocket
 colour = "#9E935C"
-game_template = "cartridge_box"
 
 [systems.ngpc]                       # Neo Geo Pocket Color
 colour = "#9E825C"
-game_template = "cartridge_box"
 
 [systems.odyssey2]                       # Odyssey 2 / Videopac
 colour = "#9E8D5C"
-game_template = "cartridge_box"
 
 [systems.openbor]                       # OpenBOR Game Engine
 colour = "#5C819E"
@@ -805,7 +767,6 @@ game_template = "dvd_case"
 
 [systems.oric]                       # Tangerine Computer Systems Oric
 colour = "#5C9E5C"
-game_template = "cartridge_box"
 
 [systems.palm]                       # Palm OS
 colour = "#5C7D9E"
@@ -839,15 +800,12 @@ game_template = "jewel_case"
 
 [systems.pico8]                       # PICO-8 Fantasy Console
 colour = "#5C9E65"
-game_template = "cartridge_box"
 
 [systems.plus4]                       # Commodore Plus/4
 colour = "#5C809E"
-game_template = "cartridge_box"
 
 [systems.pokemini]                       # Pokémon Mini
 colour = "#9E5C5C"
-game_template = "cartridge_box"
 
 [systems.ports]                       # Ports
 colour = "#709E5C"
@@ -863,7 +821,6 @@ game_template = "dvd_case"
 
 [systems.pv1000]                       # PV-1000
 colour = "#5C8B9E"
-game_template = "cartridge_box"
 
 [systems.quake]                       # Quake
 colour = "#789E5C"
@@ -871,11 +828,9 @@ game_template = "dvd_case"
 
 [systems.samcoupe]                       # SAM Coupé
 colour = "#9B5C9E"
-game_template = "cartridge_box"
 
 [systems.satellaview]                       # Satellaview
 colour = "#9E705C"
-game_template = "cartridge_box"
 
 [systems.scummvm]                       # ScummVM
 colour = "#5C9E5E"
@@ -883,7 +838,6 @@ game_template = "dvd_case"
 
 [systems.scv]                       # Epoch Super Cassette Vision
 colour = "#8F5C9E"
-game_template = "cartridge_box"
 
 [systems.sega32x]                       # 32X
 colour = "#5C7C9E"
@@ -907,7 +861,6 @@ game_template = "dvd_case"
 
 [systems.spectravideo]                       # Spectravideo
 colour = "#825C9E"
-game_template = "cartridge_box"
 
 [systems.steam]                       # Steam
 colour = "#5C649E"
@@ -919,7 +872,6 @@ game_template = "arcade_cabinet"
 
 [systems.sufami]                       # SuFami Turbo
 colour = "#9E5C71"
-game_template = "cartridge_box"
 
 [systems.supergrafx]                       # SuperGrafx
 colour = "#9E7A5C"
@@ -927,11 +879,9 @@ game_template = "clamshell"
 
 [systems.supervision]                       # Watara Supervision
 colour = "#5C9E7E"
-game_template = "cartridge_box"
 
 [systems.supracan]                       # Super A'Can
 colour = "#875C9E"
-game_template = "cartridge_box"
 
 [systems.switch]                       # Switch
 colour = "#9E605C"
@@ -943,15 +893,12 @@ game_template = "dvd_case"
 
 [systems.tanodragon]                       # Tano Dragon
 colour = "#779E5C"
-game_template = "cartridge_box"
 
 [systems.ti99]                       # Texas Instruments TI-99
 colour = "#9E655C"
-game_template = "cartridge_box"
 
 [systems.tic80]                       # TIC-80 Fantasy Computer
 colour = "#5C909E"
-game_template = "cartridge_box"
 
 [systems.to8]                       # Thomson TO8
 colour = "#5C919E"
@@ -963,7 +910,6 @@ game_template = "arcade_cabinet"
 
 [systems.trs-80]                       # Tandy TRS-80
 colour = "#9E915C"
-game_template = "cartridge_box"
 
 [systems.type-x]                       # Type X
 colour = "#9E5C6A"
@@ -971,23 +917,18 @@ game_template = "dvd_case"
 
 [systems.uzebox]                       # Uzebox Open Source Console
 colour = "#9E5C80"
-game_template = "cartridge_box"
 
 [systems.vectrex]                       # Vectrex
 colour = "#9C9E5C"
-game_template = "cartridge_box"
 
 [systems.vic20]                       # Commodore VIC-20
 colour = "#5C759E"
-game_template = "cartridge_box"
 
 [systems.vircon32]                       # Vircon32 Virtual Console
 colour = "#5E5C9E"
-game_template = "cartridge_box"
 
 [systems.virtualboy]                       # Virtual Boy
 colour = "#9E5F5C"
-game_template = "cartridge_box"
 
 [systems.vpinball]                       # Visual Pinball
 colour = "#9E845C"
@@ -995,11 +936,9 @@ game_template = "dvd_case"
 
 [systems.vsmile]                       # V.Smile
 colour = "#5C9E6A"
-game_template = "cartridge_box"
 
 [systems.wasm4]                       # WASM-4 Fantasy Console
 colour = "#5C9E96"
-game_template = "cartridge_box"
 
 [systems.wii]                       # Wii
 colour = "#9E6A5C"
@@ -1023,11 +962,9 @@ game_template = "dvd_case"
 
 [systems.wonderswan]                       # WonderSwan
 colour = "#9E5C87"
-game_template = "cartridge_box"
 
 [systems.wonderswancolor]                       # WonderSwan Color
 colour = "#9E5C7B"
-game_template = "cartridge_box"
 
 [systems.x1]                       # Sharp X1
 colour = "#9E615C"
@@ -1051,12 +988,9 @@ game_template = "dvd_case"
 
 [systems.zx81]                       # Sinclair ZX81
 colour = "#9E5C6F"
-game_template = "cartridge_box"
 
 [systems.zxnext]                       # Sinclair ZX Spectrum Next
 colour = "#9E615C"
-game_template = "cartridge_box"
 
 [systems.zxspectrum]                       # Sinclair ZX Spectrum
 colour = "#9E5C73"
-game_template = "cartridge_box"
