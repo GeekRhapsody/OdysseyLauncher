@@ -475,7 +475,6 @@ game_template = "jewel_case"
 
 [systems.amstradcpc]                       # Amstrad CPC
 colour = "#5C9E81"
-game_template = "jewel_case"
 
 [systems.android]                       # Google Android
 colour = "#9E815C"
