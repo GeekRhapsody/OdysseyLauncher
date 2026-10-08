@@ -54,7 +54,7 @@ File.WriteAllText(Path.Combine(root, ConfigSources.SettingsFileName), $"""
     rom_root = '{romRoot}'
 
     [display]
-    fullscreen = false
+    screen_mode = "windowed"
     """);
 
 var extra = new (string Id, string Name, string Model)[]

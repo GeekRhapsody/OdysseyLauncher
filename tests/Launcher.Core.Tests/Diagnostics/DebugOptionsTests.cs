@@ -88,7 +88,7 @@ public class DebugOptionsTests
         Assert.Equal("grid:4x2/list", layout.ToString());
 
         // The sizes it names replace settings.toml's; the others stay, and so do a system's own.
-        var display = new DisplaySettings("memory-card", true) { GamesGrid = new GridSize(6, 3) };
+        var display = new DisplaySettings("memory-card") { GamesGrid = new GridSize(6, 3) };
         var applied = layout.ApplyTo(display);
         Assert.Equal(SystemsLayout.Grid, applied.SystemsLayout);
         Assert.Equal(new GridSize(4, 2), applied.SystemsGrid);

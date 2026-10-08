@@ -73,7 +73,7 @@ public sealed class ConfigWriterTests : IDisposable
         Write("settings.toml", "[display]\ntheme = \"retro-tv\"\n\n[scraping]\nprovider = \"igdb\" # I prefer it\n");
         var writer = Writer();
 
-        var noop = writer.Save([new ConfigEdit(ConfigFileKind.Settings, ["display", "fullscreen"], true)]);
+        var noop = writer.Save([new ConfigEdit(ConfigFileKind.Settings, ["display", "screen_mode"], "borderless")]);
         Assert.True(noop.Saved);
         Assert.Empty(noop.ChangedFiles);
 

@@ -616,6 +616,7 @@ game_template = "arcade_cabinet"
 
 [systems.fds]                       # Famicom Disk System
 colour = "#9E5C5E"
+game_template = "generic_box_top_spine"
 
 [systems.flash]                       # Adobe Flash
 colour = "#945C9E"

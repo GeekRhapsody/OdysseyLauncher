@@ -1,3 +1,5 @@
+using System.Globalization;
+
 namespace Launcher.Core.Config;
 
 /// <summary>The merged, validated configuration. Only enabled, valid entries are present.</summary>
@@ -43,9 +45,37 @@ public sealed record Settings(
 /// <param name="Exclude">Glob patterns applied to every system; already folded into each <see cref="SystemConfig.Exclude"/>.</param>
 public sealed record ScanningSettings(IReadOnlyList<string> Exclude);
 
+/// <param name="ScreenMode"><c>screen_mode</c> (2026-10-08): fullscreen (exclusive), borderless fullscreen (the default) or a window.</param>
 /// <param name="HideEmptySystems">The systems grid leaves out systems with no games (like ES-DE), so the built-in catalogue only shows what the user has.</param>
-public sealed record DisplaySettings(string Theme, bool Fullscreen, bool HideEmptySystems = true)
+public sealed record DisplaySettings(string Theme, ScreenMode ScreenMode = ScreenMode.Borderless, bool HideEmptySystems = true)
 {
+    /// <summary>The anisotropic filtering levels <c>anisotropic_filtering</c> takes; 0 is off.</summary>
+    public static IReadOnlyList<int> AnisotropicLevels { get; } = [0, 2, 4, 8, 16];
+
+    /// <summary>
+    /// <c>render_resolution</c> (2026-10-08): the height the 3D renders at in the fullscreen modes (the 2D UI is always
+    /// native). A window always uses <see cref="RenderResolution.Automatic"/>.
+    /// </summary>
+    public RenderResolution RenderResolution { get; init; }
+
+    /// <summary><c>window_size</c> (2026-10-08): the window's size when <see cref="ScreenMode"/> is windowed.</summary>
+    public WindowSize WindowSize { get; init; } = WindowSize.Default;
+
+    /// <summary>
+    /// <c>rendering_driver</c> (2026-10-08): the driver the engine starts with, from the next start
+    /// (<see cref="Platform.RenderingOverride"/>).
+    /// </summary>
+    public RenderingDriver RenderingDriver { get; init; }
+
+    /// <summary>
+    /// <c>anisotropic_filtering</c> (2026-10-08): the most texture samples along a squeezed axis, one of
+    /// <see cref="AnisotropicLevels"/>; 16 by default, the most D3D12 and Vulkan allow.
+    /// </summary>
+    public int AnisotropicFiltering { get; init; } = 16;
+
+    /// <summary>The 3D resolution in use: <see cref="RenderResolution"/> in the fullscreen modes, automatic in a window.</summary>
+    public RenderResolution EffectiveRenderResolution => ScreenMode == ScreenMode.Windowed ? RenderResolution.Automatic : RenderResolution;
+
     /// <summary>The most columns a grid can have (<c>systems_columns</c>, <c>games_columns</c>).</summary>
     public const int MaxColumns = 9;
 
@@ -249,7 +279,126 @@ public static class Layouts
 /// <param name="ShowClock">The time, in the user's regional short-time format.</param>
 /// <param name="ShowBattery">The battery's charge; nothing shows on a device without one.</param>
 /// <param name="ShowNetwork">Wi-Fi (with its signal), a cable, or disconnected.</param>
-public sealed record UiSettings(bool ShowClock = true, bool ShowBattery = true, bool ShowNetwork = true);
+/// <param name="ShowPerformance">The frame rate and the video memory in use, under the indicators (2026-10-08); off by default.</param>
+public sealed record UiSettings(bool ShowClock = true, bool ShowBattery = true, bool ShowNetwork = true, bool ShowPerformance = false);
+
+/// <summary>How the window fills the screen (<c>[display] screen_mode</c>).</summary>
+public enum ScreenMode
+{
+    /// <summary><c>"borderless"</c>: a borderless window covering the screen (the default; Godot's <c>Fullscreen</c>).</summary>
+    Borderless,
+
+    /// <summary><c>"fullscreen"</c>: exclusive fullscreen, at the desktop's resolution (Godot can't change the display mode).</summary>
+    Fullscreen,
+
+    /// <summary><c>"windowed"</c>: a window of <see cref="DisplaySettings.WindowSize"/>.</summary>
+    Windowed,
+}
+
+/// <summary>The rendering drivers <c>[display] rendering_driver</c> can choose.</summary>
+public enum RenderingDriver
+{
+    /// <summary><c>"d3d12"</c>: Direct3D 12 (the default; M1).</summary>
+    D3D12,
+
+    /// <summary><c>"vulkan"</c>: Vulkan.</summary>
+    Vulkan,
+}
+
+/// <summary>The names config uses for the screen modes and the rendering drivers.</summary>
+public static class DisplayNames
+{
+    public static IReadOnlyList<string> ScreenModes { get; } = ["borderless", "fullscreen", "windowed"];
+
+    /// <summary>As Godot names them (<c>RenderingServer.GetCurrentRenderingDriverName()</c>, <c>--rendering-driver</c>).</summary>
+    public static IReadOnlyList<string> RenderingDrivers { get; } = ["d3d12", "vulkan"];
+
+    public static string Name(ScreenMode mode) => ScreenModes[(int)mode];
+
+    public static string Name(RenderingDriver driver) => RenderingDrivers[(int)driver];
+
+    public static bool TryParse(string name, out RenderingDriver driver)
+    {
+        var index = Layouts.IndexOf(RenderingDrivers, name);
+        driver = (RenderingDriver)Math.Max(index, 0);
+        return index >= 0;
+    }
+}
+
+/// <summary>
+/// The height the 3D renders at (<c>[display] render_resolution</c>): <c>"auto"</c> (at most <see cref="AutomaticCap"/>,
+/// A3), <c>"native"</c>, or a height in pixels. Never more than the window's.
+/// </summary>
+public readonly record struct RenderResolution(int Height)
+{
+    /// <summary>The automatic setting's most: 1080p, so a 4K screen renders its 3D at half resolution (A3).</summary>
+    public const int AutomaticCap = 1080;
+
+    public const int MinHeight = 240;
+
+    public const int MaxHeight = 4320;
+
+    /// <summary>The heights the settings page offers (those under the screen's).</summary>
+    public static IReadOnlyList<int> Presets { get; } = [720, 900, 1080, 1440, 2160];
+
+    public static RenderResolution Automatic => default;
+
+    public static RenderResolution Native { get; } = new(-1);
+
+    public bool IsAutomatic => Height == 0;
+
+    public bool IsNative => Height < 0;
+
+    /// <summary>The 3D scale for a window <paramref name="windowHeight"/> pixels high: at most 1.</summary>
+    public double ScaleFor(int windowHeight)
+    {
+        if (windowHeight <= 0 || IsNative)
+        {
+            return 1;
+        }
+
+        var height = IsAutomatic ? AutomaticCap : Height;
+        return height >= windowHeight ? 1 : (double)height / windowHeight;
+    }
+
+    /// <summary>What settings.toml says: <c>"auto"</c>, <c>"native"</c>, or the height as an integer.</summary>
+    public object ConfigValue => IsAutomatic ? "auto" : IsNative ? "native" : (long)Height;
+}
+
+/// <summary>A window's size in pixels (<c>[display] window_size</c>, written <c>"1280x800"</c>).</summary>
+public readonly record struct WindowSize(int Width, int Height)
+{
+    public const int MinWidth = 640;
+
+    public const int MinHeight = 360;
+
+    public const int MaxSide = 7680;
+
+    public static WindowSize Default { get; } = new(1280, 800);
+
+    /// <summary>The sizes the settings page offers (those that fit the screen).</summary>
+    public static IReadOnlyList<WindowSize> Presets { get; } =
+        [new(1280, 720), new(1280, 800), new(1600, 900), new(1920, 1080), new(2560, 1440), new(3840, 2160)];
+
+    public override string ToString() => string.Create(CultureInfo.InvariantCulture, $"{Width}x{Height}");
+
+    /// <summary><c>"1280x800"</c> (an <c>x</c>, <c>X</c> or <c>×</c> between), within the limits.</summary>
+    public static bool TryParse(string text, out WindowSize size)
+    {
+        size = default;
+        var x = text.AsSpan().IndexOfAny('x', 'X', '×');
+        if (x <= 0
+            || !int.TryParse(text.AsSpan(0, x).Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out var width)
+            || !int.TryParse(text.AsSpan(x + 1).Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out var height)
+            || width < MinWidth || height < MinHeight || width > MaxSide || height > MaxSide)
+        {
+            return false;
+        }
+
+        size = new WindowSize(width, height);
+        return true;
+    }
+}
 
 /// <summary><c>[scraping]</c>.</summary>
 /// <param name="Provider">The provider asked first for every game.</param>

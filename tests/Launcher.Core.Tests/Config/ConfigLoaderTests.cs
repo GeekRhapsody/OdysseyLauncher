@@ -797,6 +797,134 @@ public class ConfigLoaderTests
     }
 
     [Fact]
+    public void The_performance_readout_is_off_unless_the_ui_settings_turn_it_on()
+    {
+        Assert.False(Load().Config.Settings.Ui.ShowPerformance);
+
+        var on = Load(settings: """
+            [ui]
+            show_performance = true
+            """);
+        Assert.Empty(on.Diagnostics);
+        Assert.True(on.Config.Settings.Ui.ShowPerformance);
+    }
+
+    // ---- Graphics (2026-10-08) -------------------------------------------------------------------
+
+    [Fact]
+    public void Graphics_settings_default_to_borderless_automatic_d3d12_and_16x()
+    {
+        var display = Load().Config.Settings.Display;
+        Assert.Equal(ScreenMode.Borderless, display.ScreenMode);
+        Assert.Equal(RenderResolution.Automatic, display.RenderResolution);
+        Assert.Equal(new WindowSize(1280, 800), display.WindowSize);
+        Assert.Equal(RenderingDriver.D3D12, display.RenderingDriver);
+        Assert.Equal(16, display.AnisotropicFiltering);
+    }
+
+    [Fact]
+    public void Graphics_settings_are_read_from_settings_toml()
+    {
+        var result = Load(settings: """
+            [display]
+            screen_mode = "fullscreen"
+            render_resolution = 1440
+            window_size = "1600x900"
+            rendering_driver = "vulkan"
+            anisotropic_filtering = 4
+            """);
+
+        Assert.Empty(result.Diagnostics);
+        var display = result.Config.Settings.Display;
+        Assert.Equal(ScreenMode.Fullscreen, display.ScreenMode);
+        Assert.Equal(new RenderResolution(1440), display.RenderResolution);
+        Assert.Equal(new WindowSize(1600, 900), display.WindowSize);
+        Assert.Equal(RenderingDriver.Vulkan, display.RenderingDriver);
+        Assert.Equal(4, display.AnisotropicFiltering);
+
+        var native = Load(settings: """
+            [display]
+            render_resolution = "native"
+            """);
+        Assert.Empty(native.Diagnostics);
+        Assert.True(native.Config.Settings.Display.RenderResolution.IsNative);
+    }
+
+    [Theory]
+    [InlineData("screen_mode = \"exclusive\"", "display.screen_mode")]
+    [InlineData("render_resolution = \"4k\"", "display.render_resolution")]
+    [InlineData("render_resolution = 100", "display.render_resolution")]
+    [InlineData("window_size = \"big\"", "display.window_size")]
+    [InlineData("window_size = \"100x100\"", "display.window_size")]
+    [InlineData("rendering_driver = \"opengl3\"", "display.rendering_driver")]
+    [InlineData("anisotropic_filtering = 3", "display.anisotropic_filtering")]
+    [InlineData("anisotropic_filtering = true", "display.anisotropic_filtering")]
+    public void A_bad_graphics_setting_is_an_error_and_uses_the_default(string line, string key)
+    {
+        var result = Load(settings: "[display]\n" + line);
+
+        Assert.Single(result.Diagnostics, d => d.IsError && d.Key == key);
+        var display = result.Config.Settings.Display;
+        Assert.Equal(ScreenMode.Borderless, display.ScreenMode);
+        Assert.Equal(RenderResolution.Automatic, display.RenderResolution);
+        Assert.Equal(WindowSize.Default, display.WindowSize);
+        Assert.Equal(RenderingDriver.D3D12, display.RenderingDriver);
+        Assert.Equal(16, display.AnisotropicFiltering);
+    }
+
+    [Theory]
+    [InlineData(false, ScreenMode.Windowed)]
+    [InlineData(true, ScreenMode.Borderless)]
+    public void The_old_fullscreen_key_still_chooses_the_screen_mode(bool fullscreen, ScreenMode expected)
+    {
+        var result = Load(settings: $"[display]\nfullscreen = {(fullscreen ? "true" : "false")}");
+
+        Assert.Empty(result.Diagnostics);
+        Assert.Equal(expected, result.Config.Settings.Display.ScreenMode);
+    }
+
+    [Fact]
+    public void Screen_mode_wins_over_the_old_fullscreen_key()
+    {
+        var result = Load(settings: """
+            [display]
+            fullscreen = false
+            screen_mode = "fullscreen"
+            """);
+
+        Assert.Empty(result.Diagnostics);
+        Assert.Equal(ScreenMode.Fullscreen, result.Config.Settings.Display.ScreenMode);
+    }
+
+    [Fact]
+    public void A_window_renders_its_3d_at_the_automatic_resolution()
+    {
+        var display = new DisplaySettings("console", ScreenMode.Windowed) { RenderResolution = RenderResolution.Native };
+        Assert.Equal(RenderResolution.Automatic, display.EffectiveRenderResolution);
+        Assert.Equal(RenderResolution.Native, (display with { ScreenMode = ScreenMode.Fullscreen }).EffectiveRenderResolution);
+    }
+
+    [Theory]
+    [InlineData(0, 800, 1.0)]
+    [InlineData(0, 2160, 0.5)]
+    [InlineData(-1, 2160, 1.0)]
+    [InlineData(720, 1440, 0.5)]
+    [InlineData(1440, 1080, 1.0)]
+    public void The_render_resolution_gives_the_3d_scale(int height, int windowHeight, double scale) =>
+        Assert.Equal(scale, new RenderResolution(height).ScaleFor(windowHeight), 6);
+
+    [Theory]
+    [InlineData("1280x800", 1280, 800)]
+    [InlineData("1920 X 1080", 1920, 1080)]
+    [InlineData("2560×1440", 2560, 1440)]
+    public void Window_sizes_parse(string text, int width, int height)
+    {
+        Assert.True(WindowSize.TryParse(text, out var size));
+        Assert.Equal(new WindowSize(width, height), size);
+        Assert.Equal($"{width}x{height}", size.ToString());
+    }
+
+    [Fact]
     public void Layouts_default_to_automatic_grids()
     {
         var display = Load().Config.Settings.Display;
@@ -1199,7 +1327,7 @@ public class ConfigLoaderTests
             """);
 
         Assert.Equal(2, result.Diagnostics.Count(d => d.IsError));
-        Assert.True(result.Config.Settings.Display.Fullscreen);
+        Assert.Equal(ScreenMode.Borderless, result.Config.Settings.Display.ScreenMode);
         Assert.Equal(["igdb", "steamgriddb"], result.Config.Settings.Scraping.Fallback);
         Assert.Contains(result.Diagnostics, d => d.Message.Contains("did you mean 'steamgriddb'?", StringComparison.Ordinal));
     }

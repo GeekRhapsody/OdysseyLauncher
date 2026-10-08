@@ -542,3 +542,19 @@ Moving between drives copies every file, so it's yours to run on real media. Use
 
 - Step 2's file count and how long it took, with the drive types (SSD, USB stick, share).
 - Anything that showed a placeholder afterwards, with its file.
+
+## Graphics settings
+
+This checks what the scripts can't: exclusive fullscreen around a real emulator, and Vulkan on your PCs. It uses the M3 set-up (`C:\OdysseyTest`) and the export, started without window arguments so settings.toml's screen mode applies: `& .\artifacts\export\windows\OdysseyLauncher.exe ++ --user-dir=C:\OdysseyTest`. Use the gamepad.
+
+1. **Screen modes.** Settings, then Graphics. Step Screen mode with left and right through Fullscreen, Borderless and Windowed: each applies at once (a window is centred at Window size). In Windowed, step Window size: the window follows, never bigger than the screen.
+2. **Exclusive fullscreen and a game.** Choose Fullscreen, close the settings and launch a Mega Drive game: the emulator takes the screen (it may flash black once), and when you quit it the launcher comes back in exclusive fullscreen, with focus. Alt+Tab away and back once while browsing: the launcher returns as it was.
+3. **3D resolution.** Back in Borderless, step 3D resolution through Automatic, Native and the heights: the boxes get softer or sharper, the menus and text don't.
+4. **Vulkan.** Choose Video driver, Vulkan: the row says "From the next start", and a question offers to restart. Choose Restart now: the launcher closes and opens again, and the row now says "Running now". `override.cfg` beside the executable has the driver line. Browse and launch a game as in step 2.
+5. **Back to Direct3D 12.** Choose Direct3D 12 and Later, then quit and start the launcher: it runs Direct3D 12, and `override.cfg` is gone.
+6. **FPS and VRAM.** Turn Show FPS and VRAM on: a line under the clock shows the frame rate and the video memory, updating once a second, over the settings too.
+
+### Send back
+
+- Anything that differed, especially the launcher not coming back in exclusive fullscreen after step 2, or not restarting in step 4.
+- Step 6's VRAM on each driver, and the log lines: `Select-String -Path "$env:APPDATA\Godot\app_userdata\Odyssey Launcher\logs\godot.log" -Pattern '^Display|^Launch|error|warning'`.

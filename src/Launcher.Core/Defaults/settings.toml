@@ -23,7 +23,18 @@ emulators = "C:/Emulators"
 [display]
 # A theme in the app's themes/ folder or in yours. memory-card is the base every theme builds on, not a theme to choose.
 theme = "console"
-fullscreen = true
+# "borderless" (a window covering the screen), "fullscreen" (exclusive) or "windowed". Both fullscreen modes use the
+# desktop's resolution.
+screen_mode = "borderless"
+# The resolution the 3D renders at in the fullscreen modes; the menus and text are always at the screen's.
+# "auto" (at most 1080p, so a 4K screen renders its 3D at half size), "native", or a height such as 720 or 1440.
+render_resolution = "auto"
+# The window's size when screen_mode is "windowed".
+window_size = "1280x800"
+# "d3d12" (Direct3D 12) or "vulkan". Used from the next start.
+rendering_driver = "d3d12"
+# Anisotropic filtering: 0 (off), 2, 4, 8 or 16 (the most graphics cards support).
+anisotropic_filtering = 16
 # The systems grid leaves out systems with no games, so the long built-in list only shows what you have.
 # false shows every enabled system, empty or not.
 hide_empty_systems = true
@@ -57,6 +68,8 @@ games_sort_order = "ascending"
 show_clock = true
 show_battery = true
 show_network = true
+# The frame rate and the video memory the app uses, under the indicators.
+show_performance = false
 
 [scraping]
 # Every game is looked up with `provider` first; each `fallback` provider, in order, then fills in the fields

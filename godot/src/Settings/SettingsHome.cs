@@ -16,7 +16,7 @@ using Launcher.Core.Theming;
 namespace Launcher.App.Settings;
 
 /// <summary>
-/// The main settings screen (M7): ROM folders, the media folder, emulators, the theme, the status indicators, scraping, and the
+/// The main settings screen (M7): ROM folders, the media folder, emulators, the theme and layout, graphics, the status indicators, scraping, and the
 /// library's actions (rescan, scrape all missing) with their progress and a way to cancel them. Menu, B or the Back
 /// button closes it; every change is saved as it's made, and applies without a restart.
 /// </summary>
@@ -28,6 +28,7 @@ public sealed partial class SettingsHome : ListPanel
     private readonly SettingRow _emulators;
     private readonly SettingRow _theme;
     private readonly SettingRow _layout;
+    private readonly SettingRow _graphics;
     private readonly SettingRow _clock;
     private readonly SettingRow _battery;
     private readonly SettingRow _network;
@@ -53,6 +54,7 @@ public sealed partial class SettingsHome : ListPanel
         AddSection("Look");
         _theme = AddRow("Theme", activated: ChooseTheme);
         _layout = AddRow("Layout", activated: () => Layer.Push(new LayoutPage(_settings)));
+        _graphics = AddRow("Graphics", activated: () => Layer.Push(new GraphicsPage(_settings)));
 
         AddSection("UI");
         _clock = AddIndicatorRow("Clock", "The time, top right, in your Windows time format", "show_clock", ui => ui.ShowClock);
@@ -105,6 +107,7 @@ public sealed partial class SettingsHome : ListPanel
         _theme.Detail = active is null ? config.Settings.Display.Theme : $"{active.Name} ({active.Id})";
         var display = config.Settings.Display;
         _layout.Detail = $"Systems: {LayoutPage.SystemsTitle(display.SystemsLayout)}{SizeOf(display.SystemsLayout == SystemsLayout.Grid, display.SystemsGrid)} · Games: {LayoutPage.GamesTitle(display.GamesLayout)}{SizeOf(display.GamesLayout == GamesLayout.Grid, display.GamesGrid)}";
+        _graphics.Detail = GraphicsPage.Summary(display);
         var scraping = config.Settings.Scraping;
         _scraping.Detail = scraping.Fallback.Count == 0
             ? $"{ScrapingPage.NameOf(scraping.Provider)} only"

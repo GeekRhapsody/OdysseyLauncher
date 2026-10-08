@@ -42,13 +42,17 @@ public partial class Main : Node3D
     public const float FieldOfView = 40.0f;
     public const float CameraDistance = 6.2f;
 
-    /// <summary>A3: 3D renders at no more than 1080p internally, upscaled; the 2D overlay stays native.</summary>
-    public const int MaxRenderHeight = 1080;
-
     private const int CoverSlots = 64;
     private const int MaxSystemSlots = 64;
     private const float SystemRowsVisible = 2.7f;
     private const float GameRowsVisible = 3.2f;
+
+    /// <summary>Command-line arguments that choose the window, which settings.toml's then leaves alone at boot.</summary>
+    private static readonly string[] WindowArguments =
+        ["--resolution", "--fullscreen", "-f", "--windowed", "-w", "--maximized", "-m", "--position", "--screen", "-e", "--editor"];
+
+    /// <summary>Command-line arguments that choose the renderer, which settings.toml's driver then leaves alone.</summary>
+    private static readonly string[] DriverArguments = ["--rendering-driver", "--rendering-method"];
 
     private readonly MainThreadQueue _queue = new();
     private readonly CancellationTokenSource _shutdown = new();
@@ -82,6 +86,10 @@ public partial class Main : Node3D
     private bool _waitingForFirstFrame;
     private bool _choicesGiven;
     private bool _headless;
+    private string _executableDir = ".";
+
+    /// <summary>The display settings last applied, so a config change that leaves them alone doesn't touch the window.</summary>
+    private DisplaySettings? _display;
 
     private enum Stage
     {
@@ -109,6 +117,7 @@ public partial class Main : Node3D
         }
 
         var executableDir = Path.GetDirectoryName(OS.GetExecutablePath()) ?? ".";
+        _executableDir = executableDir;
 
         // The app's own themes are a folder beside its executable, outside the PCK (A6 Locations); run from the editor
         // binary, the project's.
@@ -352,7 +361,7 @@ public partial class Main : Node3D
         _gamesGrid.Visible = true;
         var addMs = clock.Elapsed.TotalMilliseconds;
         UpdateGridViews();
-        ApplyDisplaySettings(services.Config);
+        ApplyDisplaySettings(services.Config.Settings.Display, boot: true);
         InstallBootLayout(theme);
         DebugHooks.Timeline.Mark(BootMarks.SceneBuilt);
 
@@ -641,6 +650,7 @@ public partial class Main : Node3D
         _settings.ConfigApplied += config =>
         {
             _launch?.ApplyConfig(config);
+            ApplyDisplaySettings(config.Settings.Display, boot: false);
             navigator.OnConfigChanged();
             _statusBar?.Apply(config.Settings.Ui);
         };
@@ -1041,36 +1051,129 @@ public partial class Main : Node3D
         _gamesGrid?.SetView(height, aspect, CameraDistance);
     }
 
-    /// <summary>A3: at most 1080p for 3D (half resolution at 4K), bilinear unless --upscaler says otherwise.</summary>
+    /// <summary>
+    /// A3: the 3D at <c>[display] render_resolution</c> (by default at most 1080p, so half resolution at 4K), never above
+    /// the window's; a window always uses the automatic one. Bilinear unless --upscaler says otherwise; --render-scale wins.
+    /// </summary>
     private void ApplyRenderScale()
     {
         var viewport = GetViewport();
         var windowHeight = DisplayServer.WindowGetSize().Y;
-        var scale = _options.RenderScale ?? (windowHeight > MaxRenderHeight ? (double)MaxRenderHeight / windowHeight : 1.0);
+        var resolution = _display?.EffectiveRenderResolution ?? RenderResolution.Automatic;
+        var scale = _options.RenderScale ?? resolution.ScaleFor(windowHeight);
         viewport.Scaling3DScale = (float)scale;
         viewport.Scaling3DMode = _options.Upscaler == Upscaler.Fsr ? Viewport.Scaling3DModeEnum.Fsr : Viewport.Scaling3DModeEnum.Bilinear;
         DebugHooks.RenderScale = scale;
     }
 
     /// <summary>
-    /// settings.toml's <c>[display] fullscreen</c>, unless the command line chose a window (or a debug facility is
-    /// measuring one).
+    /// settings.toml's <c>[display]</c> graphics settings (2026-10-08): the screen mode and window size, the 3D
+    /// resolution and the anisotropic filtering, each applied only when it changed. At boot the window is left as the
+    /// command line made it, if it chose one, and a debug facility measuring a window never has it changed. The driver
+    /// can only change at start-up: when settings.toml's isn't the one running, the override the next start reads is
+    /// brought in line (off the main thread), unless the command line chose the driver or this is an editor run.
     /// </summary>
-    private void ApplyDisplaySettings(AppConfig config)
+    private void ApplyDisplaySettings(DisplaySettings display, bool boot)
     {
-        if (_options.IsActive || !config.Settings.Display.Fullscreen)
+        var previous = _display;
+        _display = display;
+        if (previous is null || previous.AnisotropicFiltering != display.AnisotropicFiltering)
+        {
+            var anisotropy = AnisotropyOf(display.AnisotropicFiltering);
+            GetViewport().AnisotropicFilteringLevel = anisotropy;
+            ModelView.Anisotropy = anisotropy;
+        }
+
+        var windowChanged = previous is null || previous.ScreenMode != display.ScreenMode || previous.WindowSize != display.WindowSize;
+        if (windowChanged && !_options.IsActive && !(boot && CommandLineHas(WindowArguments)))
+        {
+            ApplyWindow(display);
+        }
+
+        if (previous is null || previous.EffectiveRenderResolution != display.EffectiveRenderResolution)
+        {
+            ApplyRenderScale();
+        }
+
+        if (boot)
+        {
+            SyncRenderingOverride(display.RenderingDriver);
+        }
+    }
+
+    /// <summary>
+    /// The whole command line, the engine's arguments too (<see cref="OS.GetCmdlineArgs"/> leaves out the ones the
+    /// engine processed, such as <c>--fullscreen</c>).
+    /// </summary>
+    private static bool CommandLineHas(string[] names)
+    {
+        foreach (var arg in System.Environment.GetCommandLineArgs())
+        {
+            foreach (var name in names)
+            {
+                if (arg == name || arg.StartsWith(name + "=", StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private static void ApplyWindow(DisplaySettings display)
+    {
+        switch (display.ScreenMode)
+        {
+            case ScreenMode.Fullscreen:
+                DisplayServer.WindowSetMode(DisplayServer.WindowMode.ExclusiveFullscreen);
+                break;
+            case ScreenMode.Borderless:
+                DisplayServer.WindowSetMode(DisplayServer.WindowMode.Fullscreen);
+                break;
+            default:
+                if (DisplayServer.WindowGetMode() != DisplayServer.WindowMode.Windowed)
+                {
+                    DisplayServer.WindowSetMode(DisplayServer.WindowMode.Windowed);
+                }
+
+                // No bigger than the screen's usable area, and centred in it.
+                var usable = DisplayServer.ScreenGetUsableRect(DisplayServer.WindowGetCurrentScreen());
+                var size = new Vector2I(Math.Min(display.WindowSize.Width, usable.Size.X), Math.Min(display.WindowSize.Height, usable.Size.Y));
+                DisplayServer.WindowSetSize(size);
+                DisplayServer.WindowSetPosition(usable.Position + ((usable.Size - size) / 2));
+                break;
+        }
+    }
+
+    /// <summary>The engine's level for <c>anisotropic_filtering</c>'s samples (0, 2, 4, 8 or 16).</summary>
+    public static Viewport.AnisotropicFiltering AnisotropyOf(int samples) => samples switch
+    {
+        >= 16 => Viewport.AnisotropicFiltering.Anisotropy16X,
+        >= 8 => Viewport.AnisotropicFiltering.Anisotropy8X,
+        >= 4 => Viewport.AnisotropicFiltering.Anisotropy4X,
+        >= 2 => Viewport.AnisotropicFiltering.Anisotropy2X,
+        _ => Viewport.AnisotropicFiltering.Disabled,
+    };
+
+    /// <summary>
+    /// When settings.toml's driver isn't the one running (hand-edited, or the override was lost), the override beside
+    /// the executable is brought in line for the next start. An engine that fell back from Vulkan to D3D12 leaves an
+    /// unchanged file unwritten.
+    /// </summary>
+    private void SyncRenderingOverride(RenderingDriver wanted)
+    {
+        if (OS.HasFeature("editor") || !OperatingSystem.IsWindows() || CommandLineHas(DriverArguments)
+            || RenderingServer.GetCurrentRenderingDriverName() == DisplayNames.Name(wanted))
         {
             return;
         }
 
-        foreach (var arg in OS.GetCmdlineArgs())
+        var executableDir = _executableDir;
+        _ = Task.Run(() =>
         {
-            if (arg is "--resolution" or "--fullscreen" or "-f" or "--windowed" or "-w" or "--maximized" or "-m" or "--position" or "--screen" or "-e" or "--editor")
-            {
-                return;
-            }
-        }
-
-        DisplayServer.WindowSetMode(DisplayServer.WindowMode.Fullscreen);
+            var problem = RenderingOverride.Write(executableDir, wanted);
+            GD.Print(problem ?? $"Display: settings.toml asks for {DisplayNames.Name(wanted)}, so the next start uses it ({RenderingOverride.FileName}).");
+        });
     }
 }

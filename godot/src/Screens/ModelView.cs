@@ -38,6 +38,7 @@ public sealed partial class ModelView : Control
     private const float StepSeconds = 0.1f;
 
     private static ModelView? _shared;
+    private static Viewport.AnisotropicFiltering _anisotropy = Viewport.AnisotropicFiltering.Anisotropy16X;
 
     private readonly SubViewport _viewport;
     private readonly LookStage _stage;
@@ -47,6 +48,23 @@ public sealed partial class ModelView : Control
     private readonly TextureStreamer? _streamer;
     private ItemTemplate? _model;
     private OneItem _item = new(string.Empty, default, null);
+
+    /// <summary>
+    /// <c>[display] anisotropic_filtering</c>, as the main viewport has it (a sub-viewport doesn't follow the project
+    /// setting by itself).
+    /// </summary>
+    public static Viewport.AnisotropicFiltering Anisotropy
+    {
+        get => _anisotropy;
+        set
+        {
+            _anisotropy = value;
+            if (_shared is not null && IsInstanceValid(_shared))
+            {
+                _shared._viewport.AnisotropicFilteringLevel = value;
+            }
+        }
+    }
 
     private ModelView()
     {
@@ -58,6 +76,7 @@ public sealed partial class ModelView : Control
             OwnWorld3D = true,
             RenderTargetUpdateMode = SubViewport.UpdateMode.Always,
             Size = new Vector2I(16, 16),
+            AnisotropicFilteringLevel = _anisotropy,
         };
         AddChild(_viewport);
 

@@ -32,11 +32,12 @@ public sealed class ConfigLoader : IConfigLoader
     private static readonly string[] PathsKeys = ["rom_root", "media"];
     private static readonly string[] DisplayKeys =
     [
-        "theme", "fullscreen", "hide_empty_systems",
+        "theme", "screen_mode", "fullscreen", "render_resolution", "window_size", "rendering_driver", "anisotropic_filtering",
+        "hide_empty_systems",
         "systems_layout", "systems_columns", "systems_rows", "games_layout", "games_columns", "games_rows",
         "systems_sort", "systems_sort_order", "games_sort", "games_sort_order",
     ];
-    private static readonly string[] UiKeys = ["show_clock", "show_battery", "show_network"];
+    private static readonly string[] UiKeys = ["show_clock", "show_battery", "show_network", "show_performance"];
     private static readonly string[] ScrapingKeys = ["provider", "fallback", "regions", "languages", "media", "hash_limit_mb"];
     private static readonly string[] ScanningKeys = ["exclude"];
 
@@ -242,7 +243,11 @@ public sealed class ConfigLoader : IConfigLoader
             }
 
             var theme = SettingString(tree, defaults, "display", "theme")?.Value ?? Theming.ThemeCatalog.DefaultId;
-            var fullscreen = SettingBool(tree, defaults, "display", "fullscreen") ?? true;
+            var screenMode = ScreenModeSetting(tree, defaults);
+            var renderResolution = RenderResolutionSetting(tree, defaults);
+            var windowSize = WindowSizeSetting(tree, defaults);
+            var renderingDriver = (RenderingDriver)SettingName(tree, defaults, "rendering_driver", DisplayNames.RenderingDrivers, [], "rendering driver", string.Empty);
+            var anisotropic = AnisotropicSetting(tree, defaults);
             var hideEmptySystems = SettingBool(tree, defaults, "display", "hide_empty_systems") ?? true;
             var systemsLayout = SettingLayout(tree, defaults, "systems_layout", Layouts.SystemsNames, Layouts.GamesNames);
             var gamesLayout = SettingLayout(tree, defaults, "games_layout", Layouts.GamesNames, Layouts.SystemsNames);
@@ -261,7 +266,8 @@ public sealed class ConfigLoader : IConfigLoader
             var uiSettings = new UiSettings(
                 SettingBool(tree, defaults, "ui", "show_clock") ?? true,
                 SettingBool(tree, defaults, "ui", "show_battery") ?? true,
-                SettingBool(tree, defaults, "ui", "show_network") ?? true);
+                SettingBool(tree, defaults, "ui", "show_network") ?? true,
+                SettingBool(tree, defaults, "ui", "show_performance") ?? false);
             var regions = SettingStrings(tree, defaults, "scraping", "regions", null) ?? [];
             var languages = SettingStrings(tree, defaults, "scraping", "languages", null) ?? [];
             string? CheckScraper(string value) => Scrapers.Contains(value) ? null : $"unknown provider '{value}'{Suggest(value, Scrapers)}";
@@ -312,8 +318,12 @@ public sealed class ConfigLoader : IConfigLoader
                 SupportedFormat,
                 _romRoot,
                 variables,
-                new DisplaySettings(theme, fullscreen, hideEmptySystems)
+                new DisplaySettings(theme, screenMode, hideEmptySystems)
                 {
+                    RenderResolution = renderResolution,
+                    WindowSize = windowSize,
+                    RenderingDriver = renderingDriver,
+                    AnisotropicFiltering = anisotropic,
                     SystemsLayout = (SystemsLayout)systemsLayout,
                     SystemsGrid = systemsGrid,
                     GamesLayout = (GamesLayout)gamesLayout,
@@ -330,6 +340,97 @@ public sealed class ConfigLoader : IConfigLoader
         }
 
         private readonly record struct Located(string Value, TomlNode Node);
+
+        /// <summary>
+        /// <c>[display] screen_mode</c>. A user's settings.toml without one may have the key it replaced (2026-10-08),
+        /// <c>fullscreen</c>: false is a window, true borderless fullscreen (what it always meant).
+        /// </summary>
+        private ScreenMode ScreenModeSetting(TomlTableNode tree, TomlTableNode defaults)
+        {
+            // The tree is the defaults with the user's file over them: screen_mode is the user's only if it came from their file.
+            var userMode = TryGetSetting(tree, "display", "screen_mode", out var mode)
+                && !(TryGetSetting(defaults, "display", "screen_mode", out var builtIn) && mode.Pos == builtIn.Pos);
+            if (!userMode && TryGetSetting(tree, "display", "fullscreen", out _))
+            {
+                var fullscreen = SettingBool(tree, defaults, "display", "fullscreen");
+                if (fullscreen is { } value)
+                {
+                    return value ? ScreenMode.Borderless : ScreenMode.Windowed;
+                }
+            }
+
+            return (ScreenMode)SettingName(tree, defaults, "screen_mode", DisplayNames.ScreenModes, [], "screen mode", string.Empty);
+        }
+
+        /// <summary><c>[display] render_resolution</c>: <c>"auto"</c>, <c>"native"</c> or a height.</summary>
+        private RenderResolution RenderResolutionSetting(TomlTableNode tree, TomlTableNode defaults)
+        {
+            foreach (var source in (ReadOnlySpan<TomlTableNode>)[tree, defaults])
+            {
+                if (!TryGetSetting(source, "display", "render_resolution", out var node))
+                {
+                    continue;
+                }
+
+                switch (node)
+                {
+                    case TomlScalar { Kind: TomlKind.String, Value: "auto" }:
+                        return RenderResolution.Automatic;
+                    case TomlScalar { Kind: TomlKind.String, Value: "native" }:
+                        return RenderResolution.Native;
+                    case TomlScalar { Kind: TomlKind.Integer, Value: long height } when height is >= RenderResolution.MinHeight and <= RenderResolution.MaxHeight:
+                        return new RenderResolution((int)height);
+                }
+
+                Error(node, "display.render_resolution",
+                    $"expected \"auto\", \"native\" or a height from {RenderResolution.MinHeight} to {RenderResolution.MaxHeight}. Using the default");
+            }
+
+            return RenderResolution.Automatic;
+        }
+
+        /// <summary><c>[display] window_size</c>: <c>"1280x800"</c>.</summary>
+        private WindowSize WindowSizeSetting(TomlTableNode tree, TomlTableNode defaults)
+        {
+            foreach (var source in (ReadOnlySpan<TomlTableNode>)[tree, defaults])
+            {
+                if (!TryGetSetting(source, "display", "window_size", out var node))
+                {
+                    continue;
+                }
+
+                if (node is TomlScalar { Kind: TomlKind.String, Value: string text } && WindowSize.TryParse(text, out var size))
+                {
+                    return size;
+                }
+
+                Error(node, "display.window_size",
+                    $"expected a size like \"1280x800\", from {WindowSize.MinWidth}x{WindowSize.MinHeight} to {WindowSize.MaxSide}x{WindowSize.MaxSide}. Using the default");
+            }
+
+            return WindowSize.Default;
+        }
+
+        /// <summary><c>[display] anisotropic_filtering</c>: 0 (off), 2, 4, 8 or 16.</summary>
+        private int AnisotropicSetting(TomlTableNode tree, TomlTableNode defaults)
+        {
+            foreach (var source in (ReadOnlySpan<TomlTableNode>)[tree, defaults])
+            {
+                if (!TryGetSetting(source, "display", "anisotropic_filtering", out var node))
+                {
+                    continue;
+                }
+
+                if (node is TomlScalar { Kind: TomlKind.Integer, Value: long value and >= 0 and <= 16 } && DisplaySettings.AnisotropicLevels.Contains((int)value))
+                {
+                    return (int)value;
+                }
+
+                Error(node, "display.anisotropic_filtering", "expected 0 (off), 2, 4, 8 or 16. Using the default");
+            }
+
+            return 16;
+        }
 
         /// <summary>
         /// A <c>[display]</c> layout: its index in <paramref name="names"/>. A bad one is an error and the default is used;

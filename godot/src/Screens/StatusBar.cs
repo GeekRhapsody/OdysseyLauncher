@@ -15,6 +15,11 @@ namespace Launcher.App.Screens;
 /// layout: whatever is shown sits together against the right edge. The device's state comes from a
 /// <see cref="DeviceStatusMonitor"/> (only when it changes); the clock is checked once a second in <see cref="Tick"/>,
 /// and its text is made only when the minute changes.
+/// <para>
+/// Under them, when <c>[ui] show_performance</c> is on (2026-10-08): the frame rate and the video memory Godot has
+/// allocated (textures and buffers; <c>--memory-log</c>'s figure, not the driver's total for the process), read once a
+/// second. Their texts are made the first time each value shows and kept, so the readout allocates nothing per frame.
+/// </para>
 /// </summary>
 public sealed partial class StatusBar : CanvasLayer
 {
@@ -42,12 +47,24 @@ public sealed partial class StatusBar : CanvasLayer
     private const int WifiOffIcon = 9;
     private const int WiredIcon = 10;
 
+    /// <summary>The readout's texts are cached up to these (higher values show as the cap).</summary>
+    private const int MaxFpsText = 999;
+    private const int MaxVramMbText = 65535;
+
     private readonly TextureRect _networkIcon;
     private readonly TextureRect _networkBars;
     private readonly HBoxContainer _battery;
     private readonly TextureRect _batteryIcon;
     private readonly Label _batteryText;
     private readonly Label _clock;
+    private readonly HBoxContainer _performance;
+    private readonly Label _fps;
+    private readonly Label _vram;
+    private readonly string?[] _fpsTexts = new string?[MaxFpsText + 1];
+    private string?[]? _vramTexts;
+    private double _sincePerformance;
+    private int _shownFps = -1;
+    private int _shownMb = -1;
     private readonly string[] _percentTexts = new string[101];
     private readonly Texture2D?[] _icons;
     private UiSettings _settings = new();
@@ -94,6 +111,22 @@ public sealed partial class StatusBar : CanvasLayer
 
         _clock = new Label { LabelSettings = text, Modulate = TextColour, MouseFilter = Control.MouseFilterEnum.Ignore, SizeFlagsVertical = Control.SizeFlags.ShrinkCenter, Visible = false };
         row.AddChild(_clock);
+
+        // The performance readout: its own row under the indicators, against the same right margin.
+        _performance = new HBoxContainer { MouseFilter = Control.MouseFilterEnum.Ignore, Alignment = BoxContainer.AlignmentMode.End, Visible = false };
+        _performance.AddThemeConstantOverride("separation", 16);
+        _performance.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.TopRight);
+        _performance.GrowHorizontal = Control.GrowDirection.Begin;
+        _performance.OffsetRight = -Margin;
+        _performance.OffsetTop = 50;
+        _performance.OffsetBottom = 72;
+        root.AddChild(_performance);
+
+        var small = new LabelSettings { FontSize = 16, FontColor = Colors.White, ShadowColor = new Color(0, 0, 0, 0.6f), ShadowSize = 4, ShadowOffset = Vector2.Zero };
+        _fps = new Label { LabelSettings = small, Modulate = TextColour, MouseFilter = Control.MouseFilterEnum.Ignore };
+        _performance.AddChild(_fps);
+        _vram = new Label { LabelSettings = small, Modulate = TextColour, MouseFilter = Control.MouseFilterEnum.Ignore };
+        _performance.AddChild(_vram);
     }
 
     /// <summary>Any thread but the main one: the icons, for the constructor (a missing one is null, and doesn't show).</summary>
@@ -122,9 +155,19 @@ public sealed partial class StatusBar : CanvasLayer
         Refresh();
     }
 
-    /// <summary>Main thread, each frame: once a second, checks whether the minute has changed. No allocation until it has.</summary>
+    /// <summary>
+    /// Main thread, each frame: once a second, checks whether the minute has changed (no allocation until it has), and
+    /// reads the performance readout's numbers while it shows.
+    /// </summary>
     public void Tick(double delta)
     {
+        _sincePerformance += delta;
+        if (_sincePerformance >= 1 && _performance.Visible)
+        {
+            _sincePerformance = 0;
+            UpdatePerformance();
+        }
+
         _sinceClockCheck += delta;
         if (_sinceClockCheck < 1 || !_clock.Visible)
         {
@@ -148,8 +191,36 @@ public sealed partial class StatusBar : CanvasLayer
         _clock.Text = now.ToString("t", CultureInfo.CurrentCulture);
     }
 
+    /// <summary>The frame rate (the engine's, counted over the last second) and Godot's video memory, from cached texts.</summary>
+    private void UpdatePerformance()
+    {
+        var fps = Math.Clamp((int)Math.Round(Engine.GetFramesPerSecond()), 0, MaxFpsText);
+        if (fps != _shownFps)
+        {
+            _shownFps = fps;
+            _fps.Text = _fpsTexts[fps] ??= fps.ToString(CultureInfo.InvariantCulture) + " FPS";
+        }
+
+        var mb = Math.Clamp((int)Math.Round(Performance.GetMonitor(Performance.Monitor.RenderVideoMemUsed) / (1024 * 1024)), 0, MaxVramMbText);
+        if (mb != _shownMb)
+        {
+            _shownMb = mb;
+            var texts = _vramTexts ??= new string?[MaxVramMbText + 1];
+            _vram.Text = texts[mb] ??= mb.ToString("N0", CultureInfo.CurrentCulture) + " MB VRAM";
+        }
+    }
+
     private void Refresh()
     {
+        var performance = _settings.ShowPerformance;
+        if (performance && !_performance.Visible)
+        {
+            UpdatePerformance();
+            _sincePerformance = 0;
+        }
+
+        _performance.Visible = performance;
+
         var clock = _settings.ShowClock;
         if (clock && !_clock.Visible)
         {
