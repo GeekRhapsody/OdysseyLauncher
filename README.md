@@ -6,7 +6,7 @@ Every system and every game is a floating 3D model. Consoles sit on the systems 
 
 ![Browsing the systems, entering the Mega Drive and moving through its games](docs/readme/navigation.webp)
 
-Odyssey Launcher is built with Godot 4 and C# for Windows, and is tuned on a Steam Deck running Windows. **Performance is the headline feature:** it starts fast, stays locked to your display's refresh rate while you scroll through thousands of games, and keeps its memory use low.
+Odyssey Launcher is built with Godot 4 and C# for Windows. **Performance is the headline feature:** it starts fast, stays locked to your display's refresh rate while you scroll through thousands of games, and keeps its memory use low.
 
 ## Contents
 
