@@ -650,7 +650,6 @@ colour = "#9E5C71"
 
 [systems.gamegear]                       # Game Gear
 colour = "#5C619E"
-game_template = "clamshell"
 
 [systems.gmaster]                       # Hartung Game Master
 colour = "#899E5C"
@@ -685,6 +684,7 @@ game_template = "arcade_cabinet"
 
 [systems.megaduck]                       # Mega Duck
 colour = "#729E5C"
+game_template = "generic_box_top_spine"
 
 [systems.mess]                       # Multi Emulator Super System
 colour = "#949E5C"
@@ -724,7 +724,6 @@ game_template = "clamshell"
 
 [systems.n3ds]                       # Nintendo 3DS
 colour = "#9E725C"
-game_template = "umd_case"
 
 [systems.n64dd]                       # 64DD
 colour = "#9E6A5C"
@@ -744,11 +743,9 @@ game_template = "arcade_cabinet"
 
 [systems.nds]                       # Nintendo DS
 colour = "#9E665C"
-game_template = "umd_case"
 
 [systems.neogeo]                       # Neo Geo
 colour = "#9E815C"
-game_template = "arcade_cabinet"
 
 [systems.neogeocd]                       # Neo Geo CD
 colour = "#9E875C"
