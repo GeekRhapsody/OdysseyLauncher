@@ -2,7 +2,7 @@ using System.Runtime.InteropServices;
 
 namespace Launcher.Core.Platform.Windows;
 
-/// <summary>The kernel32, user32, advapi32, powrprof, iphlpapi and wlanapi calls the Windows platform code uses. Structs are blittable.</summary>
+/// <summary>The kernel32, user32, dwmapi, advapi32, powrprof, iphlpapi and wlanapi calls the Windows platform code uses. Structs are blittable.</summary>
 internal static unsafe partial class NativeMethods
 {
     public const int ErrorFileNotFound = 2;
@@ -38,6 +38,7 @@ internal static unsafe partial class NativeMethods
     public const uint CoinitApartmentThreaded = 0x2;
     public const uint CoinitDisableOle1Dde = 0x4;
     public const int SwRestore = 9;
+    public const int SwMinimize = 6;
     public const uint InputKeyboard = 1;
     public const uint KeyEventFKeyUp = 0x0002;
     public const ushort VkMenu = 0x12;
@@ -285,6 +286,39 @@ internal static unsafe partial class NativeMethods
         public uint Timeout;
     }
 
+    public const uint ProcessQueryLimitedInformation = 0x1000;
+    public const uint GwHwndPrev = 3;
+    public const uint GaRoot = 2;
+    public const uint MonitorDefaultToNearest = 2;
+    public const int GwlExStyle = -20;
+    public const nint WsExTopmost = 0x0000_0008;
+    public const uint DwmwaCloaked = 14;
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct Rect
+    {
+        public int Left;
+        public int Top;
+        public int Right;
+        public int Bottom;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct Point
+    {
+        public int X;
+        public int Y;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct MonitorInfo
+    {
+        public uint Size;
+        public Rect Monitor;
+        public Rect Work;
+        public uint Flags;
+    }
+
     [StructLayout(LayoutKind.Sequential)]
     public struct Luid
     {
@@ -404,6 +438,10 @@ internal static unsafe partial class NativeMethods
     [LibraryImport("kernel32.dll")]
     public static partial nint GetCurrentProcess();
 
+    [LibraryImport("kernel32.dll", EntryPoint = "QueryFullProcessImageNameW", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool QueryFullProcessImageName(nint process, uint flags, char* name, ref uint size);
+
     // ---- shell32 and ole32 -----------------------------------------------------------------------
 
     [LibraryImport("shell32.dll", EntryPoint = "ShellExecuteExW", SetLastError = true)]
@@ -464,6 +502,49 @@ internal static unsafe partial class NativeMethods
     [LibraryImport("user32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     public static partial bool ExitWindowsEx(uint flags, uint reason);
+
+    [LibraryImport("user32.dll")]
+    public static partial nint GetShellWindow();
+
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool IsWindowVisible(nint window);
+
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool IsZoomed(nint window);
+
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool GetWindowRect(nint window, out Rect rect);
+
+    [LibraryImport("user32.dll", EntryPoint = "GetClassNameW")]
+    public static partial int GetClassName(nint window, char* name, int capacity);
+
+    [LibraryImport("user32.dll")]
+    public static partial nint WindowFromPoint(Point point);
+
+    [LibraryImport("user32.dll")]
+    public static partial nint GetAncestor(nint window, uint flags);
+
+    [LibraryImport("user32.dll")]
+    public static partial nint GetWindow(nint window, uint command);
+
+    [LibraryImport("user32.dll", EntryPoint = "GetWindowLongPtrW")]
+    public static partial nint GetWindowLongPtr(nint window, int index);
+
+    [LibraryImport("user32.dll")]
+    public static partial nint MonitorFromWindow(nint window, uint flags);
+
+    [LibraryImport("user32.dll", EntryPoint = "GetMonitorInfoW")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool GetMonitorInfo(nint monitor, ref MonitorInfo info);
+
+    // ---- dwmapi ----------------------------------------------------------------------------------
+
+    /// <summary>Returns an HRESULT.</summary>
+    [LibraryImport("dwmapi.dll")]
+    public static partial int DwmGetWindowAttribute(nint window, uint attribute, void* value, uint size);
 
     // ---- advapi32 --------------------------------------------------------------------------------
 

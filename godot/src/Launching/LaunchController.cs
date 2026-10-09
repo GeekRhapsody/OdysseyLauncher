@@ -43,6 +43,13 @@ public partial class LaunchController : Node
     private const ulong RunningScreenTimeoutMs = 500;
 
     private const ulong InputGraceMs = 500;
+
+    /// <summary>
+    /// While the shell keeps the window cloaked after a game: the wait before each check, and how many times
+    /// <see cref="IWindowFocus.Uncloak"/> is tried.
+    /// </summary>
+    private const double UncloakCheckSeconds = 0.3;
+    private const int UncloakAttempts = 3;
     private const double MessageSeconds = 10.0;
 
     private readonly CancellationTokenSource _shutdown = new();
@@ -52,6 +59,9 @@ public partial class LaunchController : Node
     private LaunchService? _service;
     private Timer _foregroundTimer = null!;
     private Timer _messageTimer = null!;
+    private Timer _uncloakTimer = null!;
+    private int _uncloakAttempts;
+    private ulong _uncloakFromMs;
     private Label _message = null!;
     private CanvasLayer _runningScreen = null!;
     private Label _runningTitle = null!;
@@ -100,6 +110,10 @@ public partial class LaunchController : Node
         _foregroundTimer = new Timer { WaitTime = ForegroundPollSeconds, OneShot = false };
         _foregroundTimer.Timeout += OnForegroundPoll;
         AddChild(_foregroundTimer);
+
+        _uncloakTimer = new Timer { WaitTime = UncloakCheckSeconds, OneShot = true };
+        _uncloakTimer.Timeout += OnUncloakTimer;
+        AddChild(_uncloakTimer);
 
         _messageTimer = new Timer { WaitTime = MessageSeconds, OneShot = true };
         _messageTimer.Timeout += () => _message.Visible = false;
@@ -373,7 +387,21 @@ public partial class LaunchController : Node
             if (DisplayServer.WindowGetMode() != _saved.WindowMode)
             {
                 // The player minimised it while the game ran, and AfterExit restored it.
+                GD.Print($"Launch: the window mode is {DisplayServer.WindowGetMode()}, so it's set back to {_saved.WindowMode}.");
                 DisplayServer.WindowSetMode(_saved.WindowMode);
+            }
+
+            if (_focus.IsCloaked(_window))
+            {
+                LogWindowState("cloaked after the game");
+                _uncloakAttempts = 1;
+                _uncloakFromMs = _endedAtMs;
+                _focus.Uncloak(_window);
+                _uncloakTimer.Start();
+            }
+            else if (result == ForegroundResult.Failed)
+            {
+                LogWindowState("foreground refused");
             }
 
             if (entered)
@@ -405,6 +433,53 @@ public partial class LaunchController : Node
         {
             GetTree().Quit(failed ? 1 : 0);
         }
+    }
+
+    /// <summary>
+    /// After a game in Windows' full screen experience, booted into: the shell leaves the launcher cloaked (a black
+    /// screen) although it has the foreground, until it's minimised and restored (<see cref="IWindowFocus.Uncloak"/>).
+    /// Each tick checks, and tries again while it's still cloaked.
+    /// </summary>
+    private void OnUncloakTimer()
+    {
+        if (_gameMode)
+        {
+            return;
+        }
+
+        if (!_focus.IsCloaked(_window))
+        {
+            GD.Print($"Launch: the launcher window is shown again, {Time.GetTicksMsec() - _uncloakFromMs} ms after the game ended ({_uncloakAttempts} minimise and restore).");
+            if (DisplayServer.WindowGetMode() != _saved.WindowMode)
+            {
+                DisplayServer.WindowSetMode(_saved.WindowMode);
+            }
+
+            return;
+        }
+
+        if (_uncloakAttempts >= UncloakAttempts)
+        {
+            GD.PrintErr($"Launch: the shell kept the launcher window hidden after {UncloakAttempts} minimise and restore; switching apps shows it.");
+            LogWindowState("still cloaked");
+            return;
+        }
+
+        _uncloakAttempts++;
+        _focus.Uncloak(_window);
+        _uncloakTimer.Start();
+    }
+
+    /// <summary>
+    /// Logs the window's state as Godot and Windows see it, when the launcher doesn't come back cleanly after a game.
+    /// Never per frame.
+    /// </summary>
+    private void LogWindowState(string when)
+    {
+        GD.Print(string.Create(
+            CultureInfo.InvariantCulture,
+            $"Launch window ({when}): godot mode={DisplayServer.WindowGetMode()} focused={DisplayServer.WindowIsFocused()} " +
+            $"can_draw={DisplayServer.WindowCanDraw()} drawn={Engine.GetFramesDrawn()} size={DisplayServer.WindowGetSize()}; {_focus.Describe(_window)}"));
     }
 
     private void ShowMessage(string text)

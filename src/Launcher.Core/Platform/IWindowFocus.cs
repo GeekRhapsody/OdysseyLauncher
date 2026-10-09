@@ -17,6 +17,26 @@ public interface IWindowFocus
 
     /// <summary>After the emulator exits: restores the launcher window if it was minimised and brings it to the foreground.</summary>
     ForegroundResult AfterExit(nint launcherWindow);
+
+    /// <summary>
+    /// True while the shell keeps the launcher window hidden (cloaked) even though it's shown. Windows' full screen
+    /// experience cloaks the windows behind a full-screen game, and after a boot into it, doesn't uncloak the
+    /// launcher when the game ends: the screen stays black until the player switches apps.
+    /// </summary>
+    bool IsCloaked(nint launcherWindow);
+
+    /// <summary>
+    /// Gets the shell to show a cloaked launcher window again (a minimise and restore); the shell may take a moment,
+    /// so check <see cref="IsCloaked"/> a little later.
+    /// </summary>
+    void Uncloak(nint launcherWindow);
+
+    /// <summary>
+    /// One line for the log: the launcher window's state (visible, minimised, cloaked, where), the foreground window,
+    /// the window at the middle of the launcher's monitor, the desktop shell's window, and the windows above the
+    /// launcher's. For tracking down a launcher that doesn't come back after a game.
+    /// </summary>
+    string Describe(nint launcherWindow);
 }
 
 /// <summary>How <see cref="IWindowFocus.AfterExit"/> got the foreground back, for the log.</summary>
@@ -53,4 +73,12 @@ public sealed class NullWindowFocus : IWindowFocus
     public bool HasLostForeground(nint launcherWindow) => false;
 
     public ForegroundResult AfterExit(nint launcherWindow) => ForegroundResult.NotSupported;
+
+    public bool IsCloaked(nint launcherWindow) => false;
+
+    public void Uncloak(nint launcherWindow)
+    {
+    }
+
+    public string Describe(nint launcherWindow) => "no window state on this platform";
 }

@@ -558,3 +558,16 @@ This checks what the scripts can't: exclusive fullscreen around a real emulator,
 
 - Anything that differed, especially the launcher not coming back in exclusive fullscreen after step 2, or not restarting in step 4.
 - Step 6's VRAM on each driver, and the log lines: `Select-String -Path "$env:APPDATA\Godot\app_userdata\Odyssey Launcher\logs\godot.log" -Pattern '^Display|^Launch|error|warning'`.
+
+## Windows' full screen experience
+
+This checks what only a reboot can: the launcher coming back after a full-screen game when Windows starts straight into the full screen experience (2026-10-09 in ARCHITECTURE.md's decisions log). There, the shell hides (cloaks) the windows behind a full-screen game and, after a boot into it, doesn't show the launcher again when the game ends, so the launcher minimises and restores itself. It needs a machine whose full screen experience is set to start at sign-in, and the launcher with a RetroArch system.
+
+1. **A RetroArch game.** Restart into the full screen experience, start the launcher, and launch a game through RetroArch (it starts full screen). Quit RetroArch: within about a second the launcher is back with focus, never a black screen that stays until you switch apps.
+2. **Another.** Launch a game on a different system through RetroArch, and quit it: the same.
+3. **A program.** Launch a program from Windows (a shortcut to Firefox, say) and close it: the launcher comes back.
+4. **After desktop mode.** Switch to desktop mode and back to the full screen experience without restarting, and repeat step 1: the same.
+
+### Send back
+
+- Anything that differed, and the log lines: `Select-String -Path "$env:APPDATA\Godot\app_userdata\Odyssey Launcher\logs\godot.log" -Pattern '^Launch|error|warning'`. `the launcher window is shown again, <n> ms after the game ended` means the shell had hidden it and the minimise and restore showed it; `Launch window (...)` lines describe the windows when it didn't come back cleanly.
