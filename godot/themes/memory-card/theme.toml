@@ -86,8 +86,11 @@ shape = "media"                    # the cover's proportions; it has no thicknes
 model = "models/templates/flat_screenshot.glb"
 shape = "media"                    # no cover material, so the screenshot's proportions
 
-[templates.clamshell]              # Mega Drive, Master System: 136 x 190 x 24 mm
+[templates.clamshell]              # Master System and other Sega plastic cases: 136 x 190 x 24 mm
 model = "models/templates/clamshell.glb"
+
+[templates.megadrive_clamshell]    # Mega Drive: Sega's clamshell with its hanger tab, its insert sized by the scraped art: 134 x 190 (205.4 with the tab) x 21.9 mm
+model = "models/templates/megadrive_clamshell.glb"  # built by tools/console-models/mega_drive_clamshell.py
 
 [templates.umd_case]               # PSP: 104 x 180 x 14 mm
 model = "models/templates/umd_case.glb"
@@ -307,7 +310,7 @@ energy = 0.25
 
 [systems.megadrive]                # Mega Drive
 colour = "#1F3E8C"
-game_template = "clamshell"
+game_template = "megadrive_clamshell"
 
 [systems.megadrive.look.background]
 top_left     = "#1A284C"
