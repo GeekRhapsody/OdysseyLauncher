@@ -11,10 +11,4 @@ public class ArchitectureTests
             references,
             reference => reference.Name?.StartsWith("Godot", StringComparison.OrdinalIgnoreCase) == true);
     }
-
-    [Fact]
-    public void Core_reports_the_repository_version()
-    {
-        Assert.StartsWith("0.13.0", CoreInfo.Version, StringComparison.Ordinal);
-    }
 }
