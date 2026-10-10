@@ -10,7 +10,8 @@ namespace Launcher.App.Ui;
 /// of view, but its scroll is put right at the end of the frame: Godot scrolls by the focused row's place on screen,
 /// which only changes when the container is laid out again, after the frame, so several focus moves in one frame (a
 /// page up or down is six) each added their own scroll and overshot, the column jumping about. The scroll kept is
-/// worked out from the row's place in the column, which scrolling doesn't change.
+/// worked out from the row's place in the column, which scrolling doesn't change. The same scroll runs when the column's
+/// height changes (the status line under it coming or going), which would otherwise leave a row at the bottom half hidden.
 /// </summary>
 public abstract partial class ListPanel : UiPanel
 {
@@ -22,6 +23,7 @@ public abstract partial class ListPanel : UiPanel
     private Viewport? _viewport;
     private Control? _scrollTarget;
     private int _scrollFrom;
+    private ulong _scrollFromFrame = ulong.MaxValue;
 
     protected ListPanel(string title, Vector2? size = null, bool dimBelow = false)
         : base(title, size ?? PageSize, PanelPlacement.Centre, dimBelow)
@@ -33,6 +35,7 @@ public abstract partial class ListPanel : UiPanel
             SizeFlagsVertical = SizeFlags.ExpandFill,
         };
         Body.AddChild(_scroll);
+        _scroll.Resized += OnScrollResized;
         _scrollToFocus = Callable.From(ScrollToFocus);
         Rows = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill, MouseFilter = MouseFilterEnum.Ignore };
         Rows.AddThemeConstantOverride("separation", 4);
@@ -65,14 +68,38 @@ public abstract partial class ListPanel : UiPanel
             return;
         }
 
+        ScrollToAtFrameEnd(focused);
+    }
+
+    /// <summary>
+    /// The column got taller or shorter (the status line under it came or went): keeps the focused row in view. A
+    /// wrapping status line takes more than one layout pass to settle, the column first too short, then right, so each
+    /// pass scrolls again from where the list was before the first.
+    /// </summary>
+    private void OnScrollResized()
+    {
+        if (_viewport?.GuiGetFocusOwner() is { } focused && Rows.IsAncestorOf(focused))
+        {
+            ScrollToAtFrameEnd(focused);
+        }
+    }
+
+    private void ScrollToAtFrameEnd(Control target)
+    {
+        var frame = Engine.GetProcessFrames();
+        if (frame != _scrollFromFrame)
+        {
+            // The frame's first move or resize: Godot's follow has scrolled at most once, and rightly, so far.
+            _scrollFromFrame = frame;
+            _scrollFrom = _scroll.ScrollVertical;
+        }
+
         if (_scrollTarget is null)
         {
-            // The frame's first move: Godot's follow has scrolled at most once, and rightly, so far.
-            _scrollFrom = _scroll.ScrollVertical;
             _scrollToFocus.CallDeferred();
         }
 
-        _scrollTarget = focused;
+        _scrollTarget = target;
     }
 
     /// <summary>End of the frame: the last focus change's row, scrolled to once, over what Godot's follow did.</summary>
