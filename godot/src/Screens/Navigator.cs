@@ -12,6 +12,7 @@ using Launcher.App.Models;
 using Launcher.App.Navigation;
 using Launcher.App.Textures;
 using Launcher.App.Theming;
+using Launcher.App.Ui;
 using Launcher.Core.Config;
 using Launcher.Core.Diagnostics;
 using Launcher.Core.Library;
@@ -180,6 +181,9 @@ public sealed partial class Navigator : Node
     /// <summary>The media streamer, for evicting textures while a game runs and for a theme's layout.</summary>
     public TextureStreamer? Streamer { get; set; }
 
+    /// <summary>The navigation sounds, from the warm-up; null until then.</summary>
+    public UiSounds? Sounds { get; set; }
+
     /// <summary>The systems grid's streamer, for its cards' logos (A6 <c>logos/</c>); null with <c>--no-textures</c>.</summary>
     public TextureStreamer? CardStreamer { get; set; }
 
@@ -338,6 +342,7 @@ public sealed partial class Navigator : Node
 
         if (moved)
         {
+            Sounds?.Tock();
             OnFocusChanged();
             return;
         }
@@ -554,6 +559,7 @@ public sealed partial class Navigator : Node
         _screen = Screen.Entering;
         _entering = entry.Id;
         _systemsAnimation.Start(Shown, SystemsHidden, TransitionSeconds);
+        Sounds?.Whoosh();
         _overlay.ClearDetails();
         _stage.Show(_theme.LookFor(entry.Virtual == VirtualKind.None ? entry.Id : null), _theme.TransitionSeconds);
 

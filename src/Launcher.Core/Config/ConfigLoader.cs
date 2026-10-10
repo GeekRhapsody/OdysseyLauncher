@@ -37,7 +37,7 @@ public sealed class ConfigLoader : IConfigLoader
         "systems_layout", "systems_columns", "systems_rows", "games_layout", "games_columns", "games_rows",
         "systems_sort", "systems_sort_order", "games_sort", "games_sort_order",
     ];
-    private static readonly string[] UiKeys = ["show_clock", "show_battery", "show_network", "show_performance"];
+    private static readonly string[] UiKeys = ["show_clock", "show_battery", "show_network", "show_performance", "navigation_sounds"];
     private static readonly string[] ScrapingKeys = ["provider", "fallback", "regions", "languages", "media", "hash_limit_mb"];
     private static readonly string[] ScanningKeys = ["exclude", "scan_at_launch"];
 
@@ -267,7 +267,8 @@ public sealed class ConfigLoader : IConfigLoader
                 SettingBool(tree, defaults, "ui", "show_clock") ?? true,
                 SettingBool(tree, defaults, "ui", "show_battery") ?? true,
                 SettingBool(tree, defaults, "ui", "show_network") ?? true,
-                SettingBool(tree, defaults, "ui", "show_performance") ?? false);
+                SettingBool(tree, defaults, "ui", "show_performance") ?? false,
+                SettingBool(tree, defaults, "ui", "navigation_sounds") ?? true);
             var regions = SettingStrings(tree, defaults, "scraping", "regions", null) ?? [];
             var languages = SettingStrings(tree, defaults, "scraping", "languages", null) ?? [];
             string? CheckScraper(string value) => Scrapers.Contains(value) ? null : $"unknown provider '{value}'{Suggest(value, Scrapers)}";

@@ -106,6 +106,23 @@ public sealed class ConfigWriterTests : IDisposable
     }
 
     [Fact]
+    public void Navigation_sounds_turned_off_are_written_and_turned_on_again_leave_nothing()
+    {
+        Write("settings.toml", "[display]\ntheme = \"retro-tv\"\n");
+        var writer = Writer();
+
+        var off = writer.Save([new ConfigEdit(ConfigFileKind.Settings, ["ui", "navigation_sounds"], false)]);
+        Assert.True(off.Saved, off.Problem);
+        Assert.Equal("[display]\ntheme = \"retro-tv\"\n\n[ui]\nnavigation_sounds = false\n", File.ReadAllText(ConfigFile("settings.toml")));
+        Assert.False(off.Config!.Config.Settings.Ui.NavigationSounds);
+
+        var on = writer.Save([new ConfigEdit(ConfigFileKind.Settings, ["ui", "navigation_sounds"], true)]);
+        Assert.True(on.Saved, on.Problem);
+        Assert.Equal("[display]\ntheme = \"retro-tv\"\n", File.ReadAllText(ConfigFile("settings.toml")).TrimEnd('\n') + "\n");
+        Assert.True(on.Config!.Config.Settings.Ui.NavigationSounds);
+    }
+
+    [Fact]
     public void Layouts_and_a_systems_own_games_grid_size_are_written_and_removed_again()
     {
         var writer = Writer();

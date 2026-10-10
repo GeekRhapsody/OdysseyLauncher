@@ -810,6 +810,20 @@ public class ConfigLoaderTests
     }
 
     [Fact]
+    public void Navigation_sounds_are_on_unless_the_ui_settings_turn_them_off()
+    {
+        Assert.True(Load().Config.Settings.Ui.NavigationSounds);
+
+        var off = Load(settings: """
+            [ui]
+            navigation_sounds = false
+            """);
+        Assert.Empty(off.Diagnostics);
+        Assert.False(off.Config.Settings.Ui.NavigationSounds);
+        Assert.True(off.Config.Settings.Ui.ShowClock);
+    }
+
+    [Fact]
     public void Scanning_at_launch_is_off_unless_the_scanning_settings_turn_it_on()
     {
         Assert.False(Load().Config.Settings.Scanning.ScanAtLaunch);

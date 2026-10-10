@@ -16,7 +16,7 @@ using Launcher.Core.Theming;
 namespace Launcher.App.Settings;
 
 /// <summary>
-/// The main settings screen (M7): ROM folders, the media folder, emulators, the theme and layout, graphics, the status indicators, scraping, and the
+/// The main settings screen (M7): ROM folders, the media folder, emulators, the theme and layout, graphics, the status indicators and navigation sounds, scraping, and the
 /// library's actions (rescan, scrape all missing, and whether it's scanned at launch) with their progress and a way to cancel them. Menu, B or the Back
 /// button closes it; every change is saved as it's made, and applies without a restart.
 /// </summary>
@@ -32,6 +32,7 @@ public sealed partial class SettingsHome : ListPanel
     private readonly SettingRow _clock;
     private readonly SettingRow _battery;
     private readonly SettingRow _network;
+    private readonly SettingRow _sounds;
     private readonly SettingRow _scraping;
     private readonly SettingRow _rescan;
     private readonly SettingRow _scanAtLaunch;
@@ -61,6 +62,8 @@ public sealed partial class SettingsHome : ListPanel
         _clock = AddIndicatorRow("Clock", "The time, top right, in your Windows time format", "show_clock", ui => ui.ShowClock);
         _battery = AddIndicatorRow("Battery", "Its charge, top right", "show_battery", ui => ui.ShowBattery);
         _network = AddIndicatorRow("Network", "Wi-Fi with its signal, a cable, or disconnected", "show_network", ui => ui.ShowNetwork);
+        _sounds = AddIndicatorRow("Navigation sounds", "A tock when the focus moves, a whoosh when you enter a system", "navigation_sounds",
+            ui => ui.NavigationSounds, ("on", "off"));
 
         AddSection("Scraping");
         _scraping = AddRow("Providers, media and credentials", activated: () => Layer.Push(new ScrapingPage(_settings)));
@@ -120,6 +123,7 @@ public sealed partial class SettingsHome : ListPanel
         ShowIndicator(_clock, config.Settings.Ui.ShowClock);
         ShowIndicator(_battery, config.Settings.Ui.ShowBattery);
         ShowIndicator(_network, config.Settings.Ui.ShowNetwork);
+        ShowIndicator(_sounds, config.Settings.Ui.NavigationSounds);
         ShowIndicator(_scanAtLaunch, config.Settings.Scanning.ScanAtLaunch);
         if (_settings.DeviceStatus?.Current is { Battery.Present: false })
         {
@@ -148,11 +152,15 @@ public sealed partial class SettingsHome : ListPanel
 
     // ---- UI -----------------------------------------------------------------------------------------
 
-    /// <summary>A status indicator's row: A turns it on or off; left is no, right is yes. It's saved as <c>[ui] key</c>.</summary>
-    private SettingRow AddIndicatorRow(string title, string detail, string key, Func<UiSettings, bool> shown)
+    /// <summary>
+    /// A status indicator's row (or the navigation sounds'): A turns it on or off; left is no, right is yes. It's saved
+    /// as <c>[ui] key</c>, and the status says it's <paramref name="words"/>' first or second (by default shown or hidden).
+    /// </summary>
+    private SettingRow AddIndicatorRow(string title, string detail, string key, Func<UiSettings, bool> shown, (string On, string Off)? words = null)
     {
-        var row = AddRow(title, detail, activated: () => SetIndicator(title, key, shown, null));
-        row.Adjuster = direction => SetIndicator(title, key, shown, direction > 0);
+        var said = words ?? ("shown", "hidden");
+        var row = AddRow(title, detail, activated: () => SetIndicator(title, key, shown, said, null));
+        row.Adjuster = direction => SetIndicator(title, key, shown, said, direction > 0);
         return row;
     }
 
@@ -163,7 +171,7 @@ public sealed partial class SettingsHome : ListPanel
     }
 
     /// <param name="on">Shown or not; null turns it the other way.</param>
-    private void SetIndicator(string title, string key, Func<UiSettings, bool> shown, bool? on)
+    private void SetIndicator(string title, string key, Func<UiSettings, bool> shown, (string On, string Off) words, bool? on)
     {
         var current = shown(_settings.Services.Config.Settings.Ui);
         var wanted = on ?? !current;
@@ -172,7 +180,7 @@ public sealed partial class SettingsHome : ListPanel
             return;
         }
 
-        _settings.Save(this, [new ConfigEdit(ConfigFileKind.Settings, ["ui", key], wanted)], wanted ? $"{title}: shown." : $"{title}: hidden.");
+        _settings.Save(this, [new ConfigEdit(ConfigFileKind.Settings, ["ui", key], wanted)], $"{title}: {(wanted ? words.On : words.Off)}.");
     }
 
     // ---- Theme --------------------------------------------------------------------------------------

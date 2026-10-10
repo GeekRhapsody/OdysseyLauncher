@@ -496,6 +496,7 @@ public partial class Main : Node3D
                 _glyphWarmUp?.QueueFree();
                 _glyphWarmUp = null;
                 BuildStatusBar();
+                BuildSounds();
                 _stage = Stage.Running;
                 DebugHooks.Timeline.Mark(BootMarks.WarmUpDone);
                 AfterWarmUp();
@@ -756,6 +757,31 @@ public partial class Main : Node3D
         {
             bar.Visible = !_options.NoOverlay && _ui?.Top is not { FullScreen: true };
         }
+    }
+
+    /// <summary>The navigation sounds (2026-10-10), loaded on the thread pool and handed to the navigator.</summary>
+    private void BuildSounds()
+    {
+        _ = Task.Run(() =>
+        {
+            var streams = UiSounds.LoadStreams();
+            if (streams.Tock is null || streams.Whoosh is null)
+            {
+                GD.PushWarning("Boot: a navigation sound didn't load (res://sounds/), so it stays silent.");
+            }
+
+            _queue.Post(() =>
+            {
+                if (_shutdown.IsCancellationRequested || _navigator is null)
+                {
+                    return;
+                }
+
+                var sounds = new UiSounds(_services!, streams);
+                AddChild(sounds);
+                _navigator.Sounds = sounds;
+            });
+        });
     }
 
     /// <summary>

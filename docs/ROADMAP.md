@@ -791,3 +791,23 @@ Update this at the end of every milestone: the status, the date, and the evidenc
     - Captures at 1920×1080 before and after: the systems grid and the Dreamcast's and Mega Drive's details look the same (the textures halved); the PS2 games grid after scrolling, and the Mega Drive's focused clip handing back to the MultiMesh, draw every cell.
     - Benches of the export (synthetic library, D3D12, 3 runs each): console GPU 11.04 → 1.60 ms, working set 942 → 704 MB, video memory 527 → 377 MB, managed heap 65 → 8 MB; slab unchanged. Vulkan: GPU 7.98 → 1.34 ms, working set 1,096 → 796 MB. The PS2 scroll (5 runs each): unchanged frames (p99 21.0 ms), 96 B main-thread allocation.
   - **Not done:** BC7 for model textures (the cache the theme logos use) would cut them about 4 times more. The console theme still costs about 120 MB more working set than slab: its remaining textures (about 50 MB, the Game Boy's four 1024-pixel images among them) and about 30 MB more of the driver's own allocations.
+- **2026-10-10: navigation sounds** (the owner's request): a tock when the focus moves to another system or game, and a whoosh when a system is entered, on by default, with a setting to turn them off.
+  - **What was added:**
+    - Core `Config`: `[ui] navigation_sounds` (`UiSettings.NavigationSounds`, true by default), with its comment in the built-in settings.toml.
+    - The sounds: `godot/sounds/nav_tock.wav` (45 ms, a soft key press on a mechanical keyboard: damped low and mid resonances and a muted tap, nothing above 4 kHz) and `nav_whoosh.wav` (700 ms, a soft rising G major chime over a faint swept breath of noise), both peaking at −14 dBFS, 48 kHz mono PCM, imported uncompressed. They're synthesised by `tools/ui-sounds/make_sounds.py` (numpy and scipy, seeded; `--preview` draws each one's waveform and spectrogram).
+    - App: `Ui/UiSounds`, made in the warm-up after the status indicators (the streams loaded on the thread pool), with a 4-voice tock whose pitch varies by up to 3% a play. The navigator plays the tock when `Run` moves the focus, and the whoosh in `EnterSystem`. Settings > UI > Navigation sounds (Yes or No) saves the key; the setting is read at each play, so it applies at once.
+    - Docs: A1 (Boot, Ui), A5's `[ui]`, A6's note on theme sounds, a decisions-log entry, and CLAUDE.md's layout.
+  - **Verification:**
+    - `verify.ps1` passed: 891 tests. The new ones check the key's default and a false value, and writing it and removing it again.
+    - The sounds: running the script twice gives identical files; ffprobe gives 48 kHz mono s16; the peaks are as above (astats); the previews were reviewed. A first version (a sharper wooden knock at 880 Hz, and a louder whoosh of swept noise alone) was too sharp to the owner's ear. In this one the tock's energy is mostly at 150–700 Hz (spectral centroid 417 Hz), and above 3 kHz it's 28 dB down. The whoosh is mostly its chime (centroid 582 Hz), with its noise above 3 kHz 26 dB down.
+    - Windowed runs of the editor build with `--nav-script`, each play logged by a temporary print (since removed):
+      - every move in the systems grid and a games grid (right, down, last, first, left, up) tocked;
+      - a move blocked at an edge, and every move in a one-game Favourites, made no sound;
+      - entering a system and Favourites whooshed;
+      - B was silent.
+    - With the row turned off, nothing played and settings.toml got `navigation_sounds = false`. Turned on again, the key was removed and the tocks came back without a restart. A capture of the settings screen shows the row.
+    - Benches of the export against an export of the commit before, from a worktree (synthetic library, 5 runs each):
+      - **Scroll:** p99 17.97 ms after against 17.86 ms before; scroll p99 17.94 against 17.83 ms; GPU 1.24 ms both; hitches 1–3 a run after against 1–3 before; our start-up 417 against 443 ms; scroll main-thread allocation 96 B both.
+      - **40 moves through the PS2 games** (`--start-system=ps2`, a nav script of 40 `down`s, 1,500 frames, all 40 steps logged in each run): p99 17.86 against 18.35 ms; GPU 1.49 against 1.49 ms; hitches 0–3 against 0–1.
+      - Each whole run's main-thread allocation is about 62 KB more in both scenarios. That's made once, when the node is created in the warm-up: the same amount with 40 tocks and with none, so playing allocates nothing.
+  - **Not done:** listening to the sounds is the owner's call. Themes can't bring their own sounds yet (A6's reserved `[ui]`). Leaving a system, launching and the settings screens make no sound.

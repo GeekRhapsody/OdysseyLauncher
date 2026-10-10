@@ -279,12 +279,13 @@ public static class Layouts
     }
 }
 
-/// <summary><c>[ui]</c>: the status indicators top right, each on or off.</summary>
+/// <summary><c>[ui]</c>: the status indicators top right, each on or off, and the navigation sounds.</summary>
 /// <param name="ShowClock">The time, in the user's regional short-time format.</param>
 /// <param name="ShowBattery">The battery's charge; nothing shows on a device without one.</param>
 /// <param name="ShowNetwork">Wi-Fi (with its signal), a cable, or disconnected.</param>
 /// <param name="ShowPerformance">The frame rate and the video memory in use, under the indicators (2026-10-08); off by default.</param>
-public sealed record UiSettings(bool ShowClock = true, bool ShowBattery = true, bool ShowNetwork = true, bool ShowPerformance = false);
+/// <param name="NavigationSounds">A tock when the focus moves to another system or game, and a whoosh when a system is entered (2026-10-10); on by default.</param>
+public sealed record UiSettings(bool ShowClock = true, bool ShowBattery = true, bool ShowNetwork = true, bool ShowPerformance = false, bool NavigationSounds = true);
 
 /// <summary>How the window fills the screen (<c>[display] screen_mode</c>).</summary>
 public enum ScreenMode
