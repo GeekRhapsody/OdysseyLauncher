@@ -571,3 +571,18 @@ This checks what only a reboot can: the launcher coming back after a full-screen
 ### Send back
 
 - Anything that differed, and the log lines: `Select-String -Path "$env:APPDATA\Godot\app_userdata\Odyssey Launcher\logs\godot.log" -Pattern '^Launch|error|warning'`. `the launcher window is shown again, <n> ms after the game ended` means the shell had hidden it and the minimise and restore showed it; `Launch window (...)` lines describe the windows when it didn't come back cleanly.
+
+## Auto-configured controllers in Eden
+
+This checks what the fake emulator can't: Eden playing with the pads the launcher set up for it (A5, "Eden's controllers"). It uses the M3 set-up (`C:\OdysseyTest`), RetroBat's Eden (`C:\RetroBat\emulators\eden`, which is portable, so its config is `user\config\qt-config.ini` beside it), a Switch game of your own, and the export: `& .\artifacts\export\windows\OdysseyLauncher.exe ++ --user-dir=C:\OdysseyTest`.
+
+1. **Set-up.** Add `emulators = 'C:\RetroBat\emulators'` under `[variables]` in `C:\OdysseyTest\settings.toml`, and copy the game into `C:\OdysseyTest\ROMs\switch\`. Open the Switch's options (X on it): Auto-configure controllers says Yes.
+2. **The Deck alone.** With only the Deck's own controls, choose the game with A. In the game, A, B, X and Y are where a Switch has them (A on the right), and the sticks, triggers, shoulders, D-pad, + and − work. Quit Eden.
+3. **Two pads.** Connect an Xbox pad and choose the game with it: the Xbox pad is player 1 and the Deck player 2 (Eden's Emulation > Configure > Controls shows both). Quit, choose the game with the Deck: the other way round.
+4. **Off.** Turn the row to No, change a button in Eden's own controls, quit it, and launch again: your change is still there.
+5. **The backup.** `qt-config.ini.odyssey-backup` beside Eden's config is the file from before step 2.
+
+### Send back
+
+- Anything that differed, especially a button in the wrong place, a pad left out that should be a player, or the Deck pressing twice (as two players).
+- The log lines: `Select-String -Path "$env:APPDATA\Godot\app_userdata\Odyssey Launcher\logs\godot.log" -Pattern '^Launch|error|warning'`. `Launch controllers for Eden: ...` says which pad became which player and why any was left out.

@@ -455,6 +455,10 @@ public enum RomDirSource
 /// <param name="GamesSort"><c>games_sort</c>: what its games are sorted by; null uses <c>[display] games_sort</c>.</param>
 /// <param name="GamesSortOrder"><c>games_sort_order</c>: which way; null uses <c>[display] games_sort_order</c>.</param>
 /// <param name="Description"><c>description</c>: a paragraph about the system, shown in its details; null when there's none.</param>
+/// <param name="AutoConfigureControllers">
+/// <c>auto_configure_controllers</c>: before each launch, the connected pads are set up in the emulator's own config,
+/// when its profile says how (<see cref="EmulatorConfig.Controllers"/>).
+/// </param>
 public sealed record SystemConfig(
     string Id,
     string Name,
@@ -477,7 +481,8 @@ public sealed record SystemConfig(
     GamesLayout? GamesLayout = null,
     GameSort? GamesSort = null,
     SortOrder? GamesSortOrder = null,
-    string? Description = null)
+    string? Description = null,
+    bool AutoConfigureControllers = false)
 {
     /// <summary>
     /// The built-in definition's <c>emulator</c>, when it's a configured profile; null for a system the user defined, or
@@ -522,6 +527,11 @@ public sealed record SystemConfig(
 /// instead of an emulator. <paramref name="Executable"/> is then empty, there are no arguments or core, and
 /// <paramref name="WorkingDir"/> defaults to the game's folder.
 /// </param>
+/// <param name="Controllers">
+/// <c>controllers</c>: how the launcher sets up the connected pads in this emulator's config before a launch, for
+/// systems with <c>auto_configure_controllers</c>. Only <c>"eden"</c> (<see cref="Launching.Controllers.EdenControllers"/>);
+/// null when the emulator isn't set up.
+/// </param>
 public sealed record EmulatorConfig(
     string Id,
     string Name,
@@ -529,7 +539,8 @@ public sealed record EmulatorConfig(
     IReadOnlyList<string> Args,
     string WorkingDir,
     string? Core = null,
-    bool RunFile = false)
+    bool RunFile = false,
+    string? Controllers = null)
 {
     /// <summary>What the settings screens show where a profile's program goes.</summary>
     public string ProgramText => RunFile ? "Runs the game's own file" : Executable;

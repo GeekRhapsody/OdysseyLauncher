@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using Launcher.Core.Config;
 using Launcher.Core.Launching;
+using Launcher.Core.Launching.Controllers;
 using Launcher.Core.Library;
 using Launcher.Core.Platform;
 using Launcher.Core.Scanning;
@@ -66,17 +67,19 @@ public sealed class LaunchServiceTests : IAsyncLifetime
     private string LogArg => Literal($"--fake-log={Template.Escape(Log)}");
 
     /// <param name="args">TOML array items for the <c>fake</c> profile.</param>
-    private AppConfig LoadConfig(string args, string? executable = null)
+    /// <param name="controllers">The system sets controllers up, and fake-alt (only) says how: Eden's way.</param>
+    private AppConfig LoadConfig(string args, string? executable = null, bool controllers = false)
     {
         var result = new ConfigLoader().Load(new ConfigSources
         {
             HomeDir = _dir.Path,
             ConfigDir = _dir.Combine("config"),
             Settings = new ConfigFile("settings.toml", $"[paths]\nrom_root = {Literal(_dir.Combine("ROMs"))}\n"),
-            Systems = new ConfigFile("systems.toml", """
+            Systems = new ConfigFile("systems.toml", $"""
                 [systems.megadrive]
                 emulator = "fake"
                 alt_emulators = ["fake-alt"]
+                auto_configure_controllers = {(controllers ? "true" : "false")}
                 """),
             Emulators = new ConfigFile("emulators.toml", $"""
                 [emulators.fake]
@@ -89,6 +92,7 @@ public sealed class LaunchServiceTests : IAsyncLifetime
                 name = "Fake Alt"
                 executable = {Literal(_exe)}
                 args = [{LogArg}, "--alt", "{"{rom}"}"]
+                {(controllers ? "controllers = \"eden\"" : string.Empty)}
                 """),
         });
         Assert.False(result.HasErrors, string.Join('\n', result.Diagnostics));
@@ -103,6 +107,37 @@ public sealed class LaunchServiceTests : IAsyncLifetime
     }
 
     private async Task<GameDetails> Game() => (await _library.GetGameAsync(_key, Ct))!;
+
+    [Fact]
+    public async Task Controllers_are_set_up_before_the_start_only_where_the_system_and_the_emulator_say_so()
+    {
+        var config = LoadConfig(LogArg, controllers: true);
+        _launcher.Config = config;
+        _launcher.ApplicationData = _dir.Combine("Roaming");
+        Directory.CreateDirectory(Path.Combine(Path.GetDirectoryName(_exe)!, "user"));
+        var portable = Path.Combine(Path.GetDirectoryName(_exe)!, "user", "config", "qt-config.ini");
+        LaunchStartingEventArgs? starting = null;
+        _launcher.Starting += (_, e) => starting = e;
+        Gamepad[] pads = [new(0, "Steam Deck", "0300f617de2800000512000000026800")];
+
+        // The system's emulator has no controller setup, and no pads were given: nothing is written.
+        Assert.Equal(LaunchStatus.Exited, (await _launcher.LaunchAsync(await Game(), null, pads, Ct)).Status);
+        Assert.Null(starting!.Controllers);
+        Assert.Equal(LaunchStatus.Exited, (await _launcher.LaunchAsync(await Game(), "fake-alt", null, Ct)).Status);
+        Assert.False(File.Exists(portable));
+
+        // Eden's way, with Eden's portable folder beside the program: the file is written there before the start.
+        Assert.Equal(LaunchStatus.Exited, (await _launcher.LaunchAsync(await Game(), "fake-alt", pads, Ct)).Status);
+        Assert.Equal(portable, starting!.Controllers!.ConfigFile);
+        Assert.Null(starting.ControllerError);
+        Assert.Contains("player_0_connected=true", File.ReadAllText(portable), StringComparison.Ordinal);
+
+        // The system turned it off.
+        File.Delete(portable);
+        _launcher.Config = LoadConfig(LogArg);
+        Assert.Equal(LaunchStatus.Exited, (await _launcher.LaunchAsync(await Game(), "fake-alt", pads, Ct)).Status);
+        Assert.False(File.Exists(portable));
+    }
 
     private async Task<LaunchOutcome> Launch(string? emulatorOverride = null, CancellationToken? cancellationToken = null) =>
         await _launcher.LaunchAsync(await Game(), emulatorOverride, cancellationToken ?? Ct);

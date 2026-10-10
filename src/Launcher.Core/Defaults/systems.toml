@@ -28,6 +28,10 @@
 # Extensions: .m3u, .cue and .gdi group multi-file games, and the files they reference are hidden.
 # Disc systems leave out .bin, so stray tracks never show as games.
 #
+# auto_configure_controllers (on for the Switch) sets the connected pads up in the emulator's own config before each
+# launch, the one the game is launched with as player 1, when the emulator's profile says how (controllers = "eden" in
+# emulators.toml). Eden doesn't pick a pad up until it's chosen in its settings.
+#
 # Each system's game model (a box template) comes from the theme. game_model = "<template id>" picks one of
 # the theme's templates for a system instead, e.g. game_model = "jewel_case" for a new CD system.
 
@@ -1414,6 +1418,7 @@ description = "The Nintendo Switch is an eighth generation (2012-present) home v
 extensions = [".lnk", ".nca", ".nro", ".nso", ".nsp", ".xci"]
 emulator = "eden"
 alt_emulators = ["ryujinx", "run-file"]
+auto_configure_controllers = true
 screenscraper_id = 225
 igdb_platforms = [130]
 

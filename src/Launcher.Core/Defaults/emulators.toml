@@ -2609,6 +2609,7 @@ args = ["{rom}"]
 name = "Eden"
 executable = "{emulators}/eden/eden.exe"
 args = ["-f", "-g", "{rom}"]
+controllers = "eden"   # for auto_configure_controllers: the pads are set up in Eden's qt-config.ini before a launch
 
 # Nintendo Switch emulator Ryujinx
 [emulators.ryujinx]

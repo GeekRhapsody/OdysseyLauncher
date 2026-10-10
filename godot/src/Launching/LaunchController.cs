@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
 using System.Threading;
@@ -8,6 +9,7 @@ using Launcher.App.Boot;
 using Launcher.Core.Config;
 using Launcher.Core.Diagnostics;
 using Launcher.Core.Launching;
+using Launcher.Core.Launching.Controllers;
 using Launcher.Core.Library;
 using Launcher.Core.Platform;
 using Launcher.Core.Platform.Windows;
@@ -223,7 +225,8 @@ public partial class LaunchController : Node
     {
         _quitAfterLaunch = options.QuitAfterLaunch;
         var token = _shutdown.Token;
-        _ = Task.Run(() => DebugLaunchAsync(options, token), token);
+        var pads = Gamepads.Snapshot(-1);
+        _ = Task.Run(() => DebugLaunchAsync(options, pads, token), token);
     }
 
     /// <summary>Main thread: config changed (M7's settings screen); the next launch uses it.</summary>
@@ -239,13 +242,15 @@ public partial class LaunchController : Node
     }
 
     /// <summary>Main thread: launches a game the player picked.</summary>
-    public void Launch(GameDetails game)
+    /// <param name="pad">The pad the game was chosen with (<see cref="Gamepads.Pressing"/>), or -1: player 1 if its controllers are set up.</param>
+    public void Launch(GameDetails game, int pad)
     {
         var token = _shutdown.Token;
-        _ = Task.Run(() => LaunchAsync(game, token), token);
+        var pads = Gamepads.Snapshot(pad);
+        _ = Task.Run(() => LaunchAsync(game, pads, token), token);
     }
 
-    private async Task DebugLaunchAsync(DebugOptions options, CancellationToken cancellationToken)
+    private async Task DebugLaunchAsync(DebugOptions options, List<Gamepad> pads, CancellationToken cancellationToken)
     {
         try
         {
@@ -269,7 +274,7 @@ public partial class LaunchController : Node
                 return;
             }
 
-            await LaunchAsync(game, cancellationToken).ConfigureAwait(false);
+            await LaunchAsync(game, pads, cancellationToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -281,11 +286,11 @@ public partial class LaunchController : Node
         }
     }
 
-    private async Task LaunchAsync(GameDetails game, CancellationToken cancellationToken)
+    private async Task LaunchAsync(GameDetails game, List<Gamepad> pads, CancellationToken cancellationToken)
     {
         try
         {
-            var outcome = await Service().LaunchAsync(game, null, cancellationToken).ConfigureAwait(false);
+            var outcome = await Service().LaunchAsync(game, null, pads, cancellationToken).ConfigureAwait(false);
             if (outcome.HistoryError is { } historyError)
             {
                 GD.PrintErr($"Launch: {historyError}");
@@ -315,6 +320,16 @@ public partial class LaunchController : Node
                 _services.Config, PlatformServices.CreateProcessRunner(), _services.Library, steam: PlatformServices.CreateSteamClient());
             service.Starting += (_, e) =>
             {
+                if (e.Controllers is { } controllers)
+                {
+                    GD.Print($"Launch controllers for {e.Plan.EmulatorName}: {controllers.Describe()}");
+                }
+
+                if (e.ControllerError is { } controllerError)
+                {
+                    GD.PrintErr($"Launch: {controllerError}");
+                }
+
                 GD.Print($"Launch: {e.Game.Title} with {e.Plan.EmulatorName}: {CommandLine(e.Plan)}");
                 CallDeferred(MethodName.OnStarting, e.Game.Title);
             };

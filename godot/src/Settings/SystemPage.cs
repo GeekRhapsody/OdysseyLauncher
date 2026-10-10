@@ -122,6 +122,8 @@ public sealed partial class SystemPage : ListPanel
             AddNote($"Also offered for {system.Name}: {string.Join(", ", others.Select(id => config.Emulators.TryGetValue(id, out var e) ? e.Name : id))}.");
         }
 
+        AddControllersRow(config, system);
+
         AddSection("Games view");
         var display = config.Settings.Display;
         _view = AddViewRow(system.GamesLayout, display.GamesLayout);
@@ -301,6 +303,47 @@ public sealed partial class SystemPage : ListPanel
 
         Layer.Push(new ChoicePanel($"Emulator for {system.Name}", "Games can still choose their own", choices, system.Emulator, choice =>
             _settings.Save(this, [new ConfigEdit(ConfigFileKind.Systems, ["systems", _systemId, "emulator"], choice.Id)], $"{system.Name} now launches with {choice.Title}.")));
+    }
+
+    /// <summary>
+    /// "Auto-configure controllers" (<c>auto_configure_controllers</c>), for a system that offers an emulator whose
+    /// controllers the launcher can set up (Eden): Yes or No on A, left and right.
+    /// </summary>
+    private void AddControllersRow(AppConfig config, SystemConfig system)
+    {
+        var able = system.OfferedEmulators()
+            .Where(id => config.Emulators.TryGetValue(id, out var e) && e.Controllers is not null)
+            .Select(id => config.Emulators[id].Name)
+            .ToList();
+        if (able.Count == 0)
+        {
+            return;
+        }
+
+        var current = config.Emulators.TryGetValue(system.Emulator, out var emulator) ? emulator : null;
+        var detail = current?.Controllers is not null
+            ? $"Before each launch, the connected controllers are set up in {current.Name}, the one you launch with as player 1"
+            : $"Only with {string.Join(" or ", able)}: {current?.Name ?? system.Emulator}'s controllers aren't set up";
+        var row = AddRow("Auto-configure controllers", detail, activated: () => SetAutoControllers(null));
+        row.Adjuster = direction => SetAutoControllers(direction > 0);
+        row.Value = system.AutoConfigureControllers ? "Yes" : "No";
+        row.ValueColour = system.AutoConfigureControllers ? UiStyle.Good : UiStyle.Faint;
+    }
+
+    /// <param name="on">Wanted on or off; null turns it the other way.</param>
+    private void SetAutoControllers(bool? on)
+    {
+        var system = _settings.Services.Config.FindSystem(_systemId)!;
+        var wanted = on ?? !system.AutoConfigureControllers;
+        if (wanted == system.AutoConfigureControllers)
+        {
+            return;
+        }
+
+        _settings.Save(this, [new ConfigEdit(ConfigFileKind.Systems, ["systems", _systemId, "auto_configure_controllers"], wanted)],
+            wanted
+                ? $"{system.Name}'s games set up the connected controllers before they start."
+                : $"{system.Name}'s games leave the emulator's controller settings as they are.");
     }
 
     // ---- Games view ------------------------------------------------------------------------------------

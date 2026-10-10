@@ -1,5 +1,6 @@
 using System.Globalization;
 using Launcher.Core.Config;
+using Launcher.Core.Launching.Controllers;
 using Launcher.Core.Library;
 using Launcher.Core.Platform;
 using Launcher.Core.Scanning;
@@ -49,11 +50,18 @@ public sealed record LaunchOutcome(
     bool Terminated,
     string? HistoryError);
 
-public sealed class LaunchStartingEventArgs(GameDetails game, LaunchPlan plan) : EventArgs
+public sealed class LaunchStartingEventArgs(GameDetails game, LaunchPlan plan, ControllerSetup? controllers = null, string? controllerError = null)
+    : EventArgs
 {
     public GameDetails Game { get; } = game;
 
     public LaunchPlan Plan { get; } = plan;
+
+    /// <summary>The pads set up in the emulator's config for this launch (<c>auto_configure_controllers</c>), or null.</summary>
+    public ControllerSetup? Controllers { get; } = controllers;
+
+    /// <summary>Why the pads couldn't be set up (the game is launched anyway), or null.</summary>
+    public string? ControllerError { get; } = controllerError;
 }
 
 public sealed class LaunchRunningEventArgs(GameDetails game, LaunchPlan plan, int processId) : EventArgs
@@ -156,14 +164,26 @@ public sealed class LaunchService
 
     public bool IsRunning => Volatile.Read(ref _running) != 0;
 
+    /// <summary>The user's roaming application data, where an emulator keeps its config (Eden's, for its controllers).</summary>
+    public string ApplicationData { get; set; } = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+
+    /// <inheritdoc cref="LaunchAsync(GameDetails, string?, IReadOnlyList{Gamepad}?, CancellationToken)"/>
+    public Task<LaunchOutcome> LaunchAsync(GameDetails game, string? emulatorOverride, CancellationToken cancellationToken) =>
+        LaunchAsync(game, emulatorOverride, null, cancellationToken);
+
     /// <summary>
     /// Launches <paramref name="game"/> and completes when it has ended (after <see cref="Exited"/> or
     /// <see cref="Failed"/>). Cancelling after the game has started ends the game: it's reported as Exited, with
     /// <see cref="LaunchOutcome.Terminated"/> set, and the session is recorded.
     /// </summary>
     /// <param name="emulatorOverride">An emulator chosen for this launch only; null uses the game's, then the system's.</param>
+    /// <param name="gamepads">
+    /// The pads connected now, the one the game was launched with first, for a system with
+    /// <c>auto_configure_controllers</c> whose emulator's profile says how to set them up; null leaves its config alone.
+    /// </param>
     /// <exception cref="InvalidOperationException">A game is already running.</exception>
-    public async Task<LaunchOutcome> LaunchAsync(GameDetails game, string? emulatorOverride, CancellationToken cancellationToken)
+    public async Task<LaunchOutcome> LaunchAsync(
+        GameDetails game, string? emulatorOverride, IReadOnlyList<Gamepad>? gamepads, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(game);
         cancellationToken.ThrowIfCancellationRequested();
@@ -179,7 +199,7 @@ public sealed class LaunchService
                 LaunchOutcome outcome;
                 try
                 {
-                    outcome = await RunAsync(game, emulatorOverride, cancellationToken).ConfigureAwait(false);
+                    outcome = await RunAsync(game, emulatorOverride, gamepads, cancellationToken).ConfigureAwait(false);
                 }
                 finally
                 {
@@ -201,7 +221,8 @@ public sealed class LaunchService
             CancellationToken.None).ConfigureAwait(false);
     }
 
-    private async Task<LaunchOutcome> RunAsync(GameDetails game, string? emulatorOverride, CancellationToken cancellationToken)
+    private async Task<LaunchOutcome> RunAsync(
+        GameDetails game, string? emulatorOverride, IReadOnlyList<Gamepad>? gamepads, CancellationToken cancellationToken)
     {
         // A folder game is planned with its file of the folder's name, or the folder (FolderGame).
         var target = FolderGame.LaunchTarget(game.RomPath);
@@ -229,7 +250,8 @@ public sealed class LaunchService
             plan = plan with { EmulatorName = "Steam", Detached = true };
         }
 
-        Starting?.Invoke(this, new LaunchStartingEventArgs(game, plan));
+        var (controllers, controllerError) = SetUpControllers(game, plan, gamepads);
+        Starting?.Invoke(this, new LaunchStartingEventArgs(game, plan, controllers, controllerError));
         var startedAt = _clock.GetUtcNow();
         var startTimestamp = _clock.GetTimestamp();
         IRunningProcess process;
@@ -306,6 +328,30 @@ public sealed class LaunchService
 
             return new LaunchOutcome(
                 game.Key, LaunchStatus.Exited, LaunchFailure.None, null, plan, result.ExitCode, result.Elapsed, result.Terminated, historyError);
+        }
+    }
+
+    /// <summary>
+    /// Sets the pads up in the emulator's config when the game's system asks for it (<c>auto_configure_controllers</c>)
+    /// and the emulator's profile says how (<c>controllers</c>). A failure is reported, and the game still launches.
+    /// </summary>
+    private (ControllerSetup? Setup, string? Error) SetUpControllers(GameDetails game, LaunchPlan plan, IReadOnlyList<Gamepad>? gamepads)
+    {
+        var config = Config;
+        if (gamepads is null || plan.RunFile || config.FindSystem(game.Key.SystemId) is not { AutoConfigureControllers: true }
+            || !config.Emulators.TryGetValue(plan.EmulatorId, out var emulator) || emulator.Controllers != EdenControllers.Kind)
+        {
+            return (null, null);
+        }
+
+        try
+        {
+            var file = EdenControllers.ConfigFile(plan.Executable, plan.WorkingDirectory, ApplicationData);
+            return (EdenControllers.Configure(file, gamepads), null);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            return (null, $"The controllers couldn't be set up in {emulator.Name}'s config: {e.Message}");
         }
     }
 

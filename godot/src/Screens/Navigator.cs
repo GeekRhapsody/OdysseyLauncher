@@ -80,6 +80,9 @@ public sealed partial class Navigator : Node
     private double _launchStartedAt;
     private double _launchSeconds;
     private GameDetails? _launchGame;
+
+    /// <summary>The pad the game being launched was chosen with, or -1 (player 1 when its controllers are set up).</summary>
+    private int _launchPad = -1;
     private double _titlesDue = -1;
     private readonly HashSet<string> _titleSystems = new(StringComparer.Ordinal);
 
@@ -290,7 +293,7 @@ public sealed partial class Navigator : Node
             }
             else
             {
-                Launcher.Launch(game);
+                Launcher.Launch(game, _launchPad);
             }
         }
     }
@@ -1554,6 +1557,7 @@ public sealed partial class Navigator : Node
         }
 
         _screen = Screen.Launching;
+        _launchPad = Gamepads.Pressing();
         _launchStartedAt = _clock;
         _launchSeconds = _gamesGrid.LaunchSeconds;
         _gamesGrid.PlayLaunch();

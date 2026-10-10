@@ -45,11 +45,12 @@ public sealed class ConfigLoader : IConfigLoader
     [
         "enabled", "name", "manufacturer", "year", "description", "aliases", "extensions", "emulator", "alt_emulators",
         "game_model", "screenscraper_id", "igdb_platforms", "steam_store", "rom_dirs", "recursive", "exclude",
-        "games_layout", "games_columns", "games_rows", "games_sort", "games_sort_order",
+        "games_layout", "games_columns", "games_rows", "games_sort", "games_sort_order", "auto_configure_controllers",
     ];
 
     private static readonly string[] SystemRequiredKeys = ["name", "extensions", "emulator"];
-    private static readonly string[] EmulatorKeys = ["enabled", "name", "executable", "core", "args", "working_dir", "run_file"];
+    private static readonly string[] EmulatorKeys = ["enabled", "name", "executable", "core", "args", "working_dir", "run_file", "controllers"];
+    private static readonly string[] ControllerKinds = [Launching.Controllers.EdenControllers.Kind];
     private static readonly string[] EmulatorRequiredKeys = ["name", "executable"];
     private static readonly string[] EmulatorRunFileRequiredKeys = ["name"];
 
@@ -939,13 +940,31 @@ public sealed class ConfigLoader : IConfigLoader
                     Warning(coreNode!, prefix + ".core", "no args entry uses {core}, so the core is never passed to the emulator");
                 }
 
+                // How the launcher sets the emulator's controllers up (auto_configure_controllers). An unknown kind is
+                // only a warning: the emulator still launches, its pads just aren't set up.
+                var controllers = String(entry, prefix, "controllers");
+                if (controllers is not null && entry.TryGet("controllers", out var controllersNode))
+                {
+                    if (runFile)
+                    {
+                        Warning(controllersNode, prefix + ".controllers", "a run_file profile has no emulator whose controllers could be set up, so it's ignored");
+                        controllers = null;
+                    }
+                    else if (!ControllerKinds.Contains(controllers))
+                    {
+                        Warning(controllersNode, prefix + ".controllers",
+                            $"'{controllers}' isn't a controller setup the launcher knows (only {string.Join(", ", ControllerKinds.Select(k => $"\"{k}\""))}), so it's ignored");
+                        controllers = null;
+                    }
+                }
+
                 if (ErrorCount > errorsBefore || (executable is null && !runFile))
                 {
                     Info(entry, prefix, "this emulator is disabled until its errors are fixed");
                     continue;
                 }
 
-                result[id] = new EmulatorConfig(id, name, executable ?? string.Empty, args, workingDir, core, runFile);
+                result[id] = new EmulatorConfig(id, name, executable ?? string.Empty, args, workingDir, core, runFile, controllers);
             }
 
             return result;
@@ -1119,6 +1138,7 @@ public sealed class ConfigLoader : IConfigLoader
                     }
                 }
                 var steamStore = Bool(entry, prefix, "steam_store") ?? false;
+                var autoControllers = Bool(entry, prefix, "auto_configure_controllers") ?? false;
                 var recursive = Bool(entry, prefix, "recursive") ?? true;
 
                 var aliases = new List<string>();
@@ -1258,7 +1278,7 @@ public sealed class ConfigLoader : IConfigLoader
                 result.Add(new SystemConfig(
                     id, name, manufacturer, (int?)year, aliases, extensions, emulator, altEmulators, gameModel,
                     (int?)screenScraperId, romDirs, romDirSource, recursive, exclude, igdbPlatforms, steamStore, gamesColumns, gamesRows, gamesLayout,
-                    gamesSort, gamesSortOrder, string.IsNullOrWhiteSpace(description) ? null : description)
+                    gamesSort, gamesSortOrder, string.IsNullOrWhiteSpace(description) ? null : description, autoControllers)
                 {
                     // The built-in definition's own emulator, offered with the alternatives once the user has chosen another.
                     DefaultEmulator = builtInEmulatorOf.TryGetValue(id, out var builtInEmulator) && emulators.ContainsKey(builtInEmulator) ? builtInEmulator : null,

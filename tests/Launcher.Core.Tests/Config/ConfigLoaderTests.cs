@@ -1367,6 +1367,39 @@ public class ConfigLoaderTests
     }
 
     [Fact]
+    public void The_Switch_sets_Edens_controllers_up_by_default_and_a_system_can_turn_it_off()
+    {
+        var config = Load().Config;
+        Assert.True(config.FindSystem("switch")!.AutoConfigureControllers);
+        Assert.False(config.FindSystem("megadrive")!.AutoConfigureControllers);
+        Assert.Equal("eden", config.Emulators["eden"].Controllers);
+        Assert.Null(config.Emulators["ryujinx"].Controllers);
+
+        var result = Load(systems: """
+            [systems.switch]
+            auto_configure_controllers = false
+            """);
+        Assert.Empty(result.Diagnostics);
+        Assert.False(result.Config.FindSystem("switch")!.AutoConfigureControllers);
+    }
+
+    [Fact]
+    public void An_unknown_controller_setup_is_a_warning_and_ignored()
+    {
+        var result = Load(emulators: """
+            [emulators.eden]
+            controllers = "yuzu"
+
+            [emulators.run-file]
+            controllers = "eden"
+            """);
+
+        Assert.Equal(2, result.Diagnostics.Count(d => d.Severity == Severity.Warning && d.Key.EndsWith(".controllers", StringComparison.Ordinal)));
+        Assert.Null(result.Config.Emulators["eden"].Controllers);
+        Assert.Null(result.Config.Emulators["run-file"].Controllers);
+    }
+
+    [Fact]
     public void An_unsupported_format_is_an_error()
     {
         var result = Load(settings: "format = 2");
