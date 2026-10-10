@@ -742,6 +742,23 @@ public sealed class LibraryServiceTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task A_folder_game_isnt_deleted()
+    {
+        var inner = Rom("snes/Dump.sfc/data/game.bin", "12345");
+        await _library.RescanAsync("snes", null, Ct);
+        var key = new GameKey("snes", "dump.sfc");
+
+        var plan = (await _library.PlanDeleteAsync(key, Ct))!;
+        Assert.True(plan.IsFolder);
+        var result = await _library.DeleteGameAsync(plan, Ct);
+
+        Assert.False(result.Deleted);
+        Assert.Equal("Dump.sfc", Assert.Single(result.Failed).RelPath);
+        Assert.True(File.Exists(inner));
+        Assert.Equal(["Dump"], await Titles("snes"));
+    }
+
+    [Fact]
     public async Task Deleting_a_playlist_deletes_every_file_it_lists_and_the_folder_they_leave_empty()
     {
         Rom("psx/Final Fantasy VII.m3u", "#EXTM3U\nFF7/Disc 1.cue\nFF7/Disc 2.cue\nFF7/Disc 3.cue\n");

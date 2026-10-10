@@ -183,6 +183,29 @@ public sealed class LaunchServiceTests : IAsyncLifetime
         Assert.Equal("Sonic & Knuckles {x} (100%) ü 日本 😀.md", FakeEmulator.ReadLog(Log).Args[1]);
     }
 
+    [Fact]
+    public async Task A_folder_game_is_launched_with_its_file_of_the_same_name_or_else_the_folder()
+    {
+        _dir.File("ROMs/megadrive/Dump ü.md/PS3_GAME/USRDIR/EBOOT.BIN");
+        _dir.File("ROMs/megadrive/Multi Disc.md/Multi Disc.md");
+        _dir.File("ROMs/megadrive/Multi Disc.md/Disc 1.md");
+        await _library.RescanAsync("megadrive", null, Ct);
+        UseArgs($"{LogArg}, \"{{rom}}\"");
+
+        var folder = (await _library.GetGameAsync(new GameKey("megadrive", "dump ü.md"), Ct))!;
+        var outcome = await _launcher.LaunchAsync(folder, null, Ct);
+
+        Assert.Equal(LaunchStatus.Exited, outcome.Status);
+        Assert.Equal(_dir.Combine("ROMs", "megadrive", "Dump ü.md"), FakeEmulator.ReadLog(Log).Args[1]);
+
+        var withFile = (await _library.GetGameAsync(new GameKey("megadrive", "multi disc.md"), Ct))!;
+        outcome = await _launcher.LaunchAsync(withFile, null, Ct);
+
+        Assert.Equal(LaunchStatus.Exited, outcome.Status);
+        Assert.Equal(_dir.Combine("ROMs", "megadrive", "Multi Disc.md", "Multi Disc.md"), FakeEmulator.ReadLog(Log).Args[1]);
+        Assert.Null(await _library.GetGameAsync(new GameKey("megadrive", "multi disc.md/disc 1.md"), Ct));
+    }
+
     // ---- Lifecycle events --------------------------------------------------------------------------
 
     [Fact]

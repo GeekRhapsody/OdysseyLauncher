@@ -217,6 +217,70 @@ public sealed class RomScannerTests : IDisposable
     }
 
     [Fact]
+    public void A_folder_with_an_extension_is_a_game_and_isnt_entered()
+    {
+        _dir.File("psx/Demon's Souls.ps3/PS3_GAME/USRDIR/EBOOT.BIN");
+        _dir.File("psx/Demon's Souls.ps3/PS3_GAME/PARAM.SFO");
+        _dir.File("psx/Bloodborne.ps4/eboot.bin");
+        _dir.File("psx/Bloodborne.ps4/sce_sys/param.bin");
+        _dir.File("psx/Loose/eboot.bin");
+        _dir.File("psx/Loose/Nested.ps4/eboot.bin");
+
+        var scan = new RomScanner().Scan(System([".bin", ".ps3", ".ps4"]), null, TestContext.Current.CancellationToken);
+
+        // A folder without an extension is still searched; a folder game's own files never are.
+        Assert.Equal(["Bloodborne.ps4", "Demon's Souls.ps3", "Loose/Nested.ps4", "Loose/eboot.bin"], Games(scan));
+        Assert.Equal(4, scan.FilesSeen);
+        Assert.All(scan.Games.Where(g => g.RelPath.EndsWith(".ps3", StringComparison.Ordinal) || g.RelPath.EndsWith(".ps4", StringComparison.Ordinal)), g =>
+        {
+            Assert.True(g.IsFolder);
+            Assert.Equal(0, g.SizeBytes);
+        });
+        Assert.False(scan.Games.Single(g => g.RelPath == "Loose/eboot.bin").IsFolder);
+    }
+
+    [Fact]
+    public void Folder_games_are_found_without_recursion_and_can_be_excluded()
+    {
+        _dir.File("psx/Game.ps3/EBOOT.BIN");
+        _dir.File("psx/Other.ps3/EBOOT.BIN");
+        _dir.File("psx/sub/Deep.ps3/EBOOT.BIN");
+
+        var scan = new RomScanner().Scan(System([".ps3"], recursive: false, exclude: ["Other.ps3"]), null, TestContext.Current.CancellationToken);
+
+        Assert.Equal(["Game.ps3"], Games(scan));
+    }
+
+    [Fact]
+    public void A_folder_named_as_a_playlist_isnt_read_as_one()
+    {
+        _dir.File("psx/Final Fantasy VII.m3u/Final Fantasy VII.m3u", "Disc 1.chd\n");
+        _dir.File("psx/Final Fantasy VII.m3u/Disc 1.chd");
+
+        var scan = new RomScanner().Scan(System([".m3u", ".chd"]), null, TestContext.Current.CancellationToken);
+
+        Assert.Equal(["Final Fantasy VII.m3u"], Games(scan));
+        Assert.True(scan.Games[0].IsFolder);
+        Assert.Empty(scan.Playlists);
+        Assert.Empty(scan.Diagnostics);
+    }
+
+    [Fact]
+    public void A_folder_games_launch_target_is_its_file_of_the_same_name_or_the_folder()
+    {
+        _dir.File("psx/Jet Grind Radio.cue/Jet Grind Radio.cue");
+        _dir.File("psx/Game.ps3/PS3_GAME/USRDIR/EBOOT.BIN");
+        var file = _dir.File("psx/Plain.chd");
+
+        var withFile = _dir.Combine("psx", "Jet Grind Radio.cue");
+        Assert.Equal(Path.Combine(withFile, "Jet Grind Radio.cue"), FolderGame.LaunchTarget(withFile));
+        Assert.Equal(_dir.Combine("psx", "Game.ps3"), FolderGame.LaunchTarget(_dir.Combine("psx", "Game.ps3")));
+        Assert.Equal(file, FolderGame.LaunchTarget(file));
+        Assert.True(FolderGame.IsFolder(withFile));
+        Assert.False(FolderGame.IsFolder(file));
+    }
+
+    [Fact]
     public void Rel_paths_are_NFC()
     {
         // "é" as e + combining acute (NFD), as macOS and some tools write it.

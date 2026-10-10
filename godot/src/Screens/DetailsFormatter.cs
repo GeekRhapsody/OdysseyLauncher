@@ -65,7 +65,10 @@ public static class DetailsFormatter
             { Status: "not_found" } s => "Not found · " + Relative(s.ScrapedAt, now),
             { } s => "Failed · " + Relative(s.ScrapedAt, now),
         });
-        Add(rows, "Size", Ui.UiStyle.Size(game.SizeBytes));
+        // A folder game's size isn't known: the scan never lists its contents. (On a worker: LoadAsync.)
+        Add(rows, "Size", game.SizeBytes == 0 && Launcher.Core.Scanning.FolderGame.IsFolder(game.RomPath)
+            ? "A folder"
+            : Ui.UiStyle.Size(game.SizeBytes));
         return rows;
     }
 

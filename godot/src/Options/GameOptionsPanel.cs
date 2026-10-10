@@ -588,6 +588,10 @@ public sealed partial class GameOptionsPanel : ListPanel
                 {
                     ShowStatus(failure is null ? "It isn't in the library any more." : $"Its files couldn't be read: {failure}", UiStyle.Bad, 6);
                 }
+                else if (plan.IsFolder)
+                {
+                    ShowStatus("It's a folder, which the launcher doesn't delete: delete it in Explorer, then rescan.", UiStyle.Dim, 6);
+                }
                 else if (Layer.Top == this)
                 {
                     ConfirmDialog.Ask(Layer, "Delete this game?", DeleteQuestion(plan), "Delete it", "Keep it", yes =>

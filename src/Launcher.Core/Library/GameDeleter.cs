@@ -14,13 +14,16 @@ public sealed record GameFile(string RelPath, string FullPath, long SizeBytes);
 /// <param name="Files">The game's own file first, then the files its playlists list, in their order.</param>
 /// <param name="Shared">Files it lists that another game's playlist lists too, which are kept.</param>
 /// <param name="Missing">Files it lists that aren't on disk.</param>
+/// <param name="IsFolder">The game is a folder (<see cref="FolderGame"/>): it isn't deleted from the app, as ES-DE doesn't, so a
+/// controller can't wipe a whole game dump. <see cref="GameDeleter.Delete"/> refuses it.</param>
 public sealed record GameDeletePlan(
     GameKey Game,
     string Title,
     string RomDir,
     IReadOnlyList<GameFile> Files,
     IReadOnlyList<string> Shared,
-    IReadOnlyList<string> Missing)
+    IReadOnlyList<string> Missing,
+    bool IsFolder = false)
 {
     public long TotalBytes => Files.Sum(f => f.SizeBytes);
 
@@ -47,6 +50,11 @@ internal static class GameDeleter
     public static GameDeletePlan Plan(GameDetails game, IReadOnlyDictionary<string, PlaylistEntry> playlists)
     {
         var romDir = game.RomDir;
+        if (Inside(romDir, game.RelPath) is { } folderPath && FolderGame.IsFolder(folderPath))
+        {
+            return new GameDeletePlan(game.Key, game.Title, romDir, [new GameFile(game.RelPath, folderPath, 0)], [], [], IsFolder: true);
+        }
+
         var files = new List<GameFile>();
         var missing = new List<string>();
 
@@ -156,6 +164,12 @@ internal static class GameDeleter
         var failed = new List<GameFileFailure>();
         var deleted = 0;
         long freed = 0;
+        if (plan.IsFolder)
+        {
+            failed.Add(new GameFileFailure(plan.Files[0].RelPath, "it's a folder, which isn't deleted from the launcher"));
+            return (new GameDeleteResult(false, 0, 0, failed), deletedKeys);
+        }
+
         foreach (var file in plan.Files)
         {
             try

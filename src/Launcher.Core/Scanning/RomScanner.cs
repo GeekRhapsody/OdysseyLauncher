@@ -5,8 +5,11 @@ namespace Launcher.Core.Scanning;
 
 /// <summary>A file the scanner kept, before multi-file grouping decides whether it's a game.</summary>
 /// <param name="DirIndex">Index into <see cref="SystemScan.RomDirs"/>.</param>
+/// <param name="SizeBytes">0 for a folder game: its contents are never listed.</param>
 /// <param name="CreatedMs">The file's creation time (unix ms): when it arrived in the folder, for sorting games by "added". 0 when unknown.</param>
-public sealed record ScannedFile(int DirIndex, string RelPath, string PathKey, long SizeBytes, long MtimeMs, long CreatedMs = 0);
+/// <param name="IsFolder">A folder named with one of the system's extensions (<c>Game.ps3</c>), which is a game and isn't entered.</param>
+public sealed record ScannedFile(
+    int DirIndex, string RelPath, string PathKey, long SizeBytes, long MtimeMs, long CreatedMs = 0, bool IsFolder = false);
 
 /// <summary>A parsed <c>.m3u</c>, <c>.cue</c> or <c>.gdi</c>, cached so an unchanged one isn't read again.</summary>
 /// <param name="Refs">The <c>path_key</c>s it references, in order.</param>
@@ -28,6 +31,8 @@ public sealed record SystemScan(
 /// <summary>
 /// Walks a system's ROM folders by file name only: extensions, recursion and excludes from config.
 /// Multi-file games are grouped: files referenced by an <c>.m3u</c>, <c>.cue</c> or <c>.gdi</c> are hidden.
+/// A folder whose name ends in one of the system's extensions (PS3's <c>Game.ps3</c>, PS4's <c>Game.ps4</c>) is a
+/// game and isn't entered, as ES-DE's "directories interpreted as files": a game dump holds thousands of files.
 /// Does file I/O: never call it on the main thread. It holds no state, so systems can be scanned in parallel.
 /// </summary>
 public sealed class RomScanner
@@ -85,7 +90,7 @@ public sealed class RomScanner
         var playlistsRead = 0;
         foreach (var file in ordered)
         {
-            if (!PlaylistParser.IsPlaylist(Path.GetExtension(file.RelPath)))
+            if (file.IsFolder || !PlaylistParser.IsPlaylist(Path.GetExtension(file.RelPath)))
             {
                 continue;
             }
@@ -173,18 +178,20 @@ public sealed class RomScanner
                     dirIndex,
                     relPath,
                     PathKeys.ToPathKey(relPath),
-                    entry.Length,
+                    entry.IsDirectory ? 0 : entry.Length,
                     entry.LastWriteTimeUtc.ToUnixTimeMilliseconds(),
-                    CreatedMs(ref entry));
+                    CreatedMs(ref entry),
+                    entry.IsDirectory);
             },
             options)
         {
+            // A folder with one of the extensions is a game (and isn't entered, below).
             ShouldIncludePredicate = (ref FileSystemEntry entry) =>
-                !entry.IsDirectory
-                && HasExtension(Path.GetExtension(entry.FileName), extensions)
+                HasExtension(Path.GetExtension(entry.FileName), extensions)
                 && (excludes.Length == 0 || !IsExcluded(RelativePath(ref entry), excludes)),
             ShouldRecursePredicate = (ref FileSystemEntry entry) =>
-                excludes.Length == 0 || !IsExcluded(RelativePath(ref entry).Replace('\\', '/'), excludes),
+                !HasExtension(Path.GetExtension(entry.FileName), extensions)
+                && (excludes.Length == 0 || !IsExcluded(RelativePath(ref entry).Replace('\\', '/'), excludes)),
         };
 
         try

@@ -1352,7 +1352,8 @@ public sealed class ScrapeService : IDisposable
         if (context.Hashes is not null || settings.HashLimitBytes <= 0 || context.SizeBytes > settings.HashLimitBytes
             || !RomHasher.IsHashable(context.RelPath)
             || !order.Contains(ScraperIds.ScreenScraper) || _scrapers[ScraperIds.ScreenScraper] is not { Unavailable: null } screenScraper
-            || screenScraper.Unsupported(system) is not null)
+            || screenScraper.Unsupported(system) is not null
+            || FolderGame.IsFolder(context.RomPath))
         {
             return context.Hashes;
         }

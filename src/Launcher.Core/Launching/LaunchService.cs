@@ -2,6 +2,7 @@ using System.Globalization;
 using Launcher.Core.Config;
 using Launcher.Core.Library;
 using Launcher.Core.Platform;
+using Launcher.Core.Scanning;
 
 namespace Launcher.Core.Launching;
 
@@ -202,7 +203,9 @@ public sealed class LaunchService
 
     private async Task<LaunchOutcome> RunAsync(GameDetails game, string? emulatorOverride, CancellationToken cancellationToken)
     {
-        var planned = LaunchPlanner.Plan(Config, game, emulatorOverride);
+        // A folder game is planned with its file of the folder's name, or the folder (FolderGame).
+        var target = FolderGame.LaunchTarget(game.RomPath);
+        var planned = LaunchPlanner.Plan(Config, target == game.RomPath ? game : game with { RomPath = target }, emulatorOverride);
         if (planned.Plan is not { } plan)
         {
             return Fail(game, null, LaunchFailure.Config, planned.Error!);
@@ -309,7 +312,7 @@ public sealed class LaunchService
     /// <summary>The first file the launch needs that isn't there, as a message for the user.</summary>
     private static string? MissingFile(GameDetails game, LaunchPlan plan)
     {
-        if (!File.Exists(game.RomPath))
+        if (!File.Exists(game.RomPath) && !FolderGame.IsFolder(game.RomPath))
         {
             return $"The game's file is missing: '{game.RomPath}'. Reconnect the drive it's on, or rescan the system if it has moved.";
         }
