@@ -119,7 +119,7 @@ godot --path godot --resolution 1280x800 -- --bench=$PWD/artifacts/bench.json --
 - **Ask before adding any NuGet package**, including test and analyser packages.
 - **Never commit credentials.** API keys and passwords live only in the user's `secrets.toml` or in `ODYSSEY_*` environment variables, and ScreenScraper's developer credentials also in the repository's GitHub secrets, from which the release workflow builds them in. Never put them in the repo, tests, logs or bench output.
 - Launcher.Core must never reference Godot. `ArchitectureTests` enforces this.
-- The Godot main thread must never do file, network or DB I/O, never decode images, and never call `.Wait()` or `.Result`. Never touch the scene tree from another thread.
+- The Godot main thread must never do file, network or DB I/O, never decode images, and never call `.Wait()` or `.Result`. Never touch the scene tree from another thread. Work on another thread that calls into Godot at all (an `Image`, a `GltfDocument`, a texture) goes through `GodotWork.TryEnter`/`Exit` (a long-lived thread also stops on `GodotWork.Quitting`), so quitting waits for it: otherwise a quit can crash in the interop.
 - No allocations in per-frame code (`_Process`, grid updates, `frame_post_draw` handlers). That means no LINQ, closures, boxing, string formatting, or implicit `string`→`StringName` conversions. Cache every `StringName` and `NodePath`.
 - For a performance-sensitive change, run `--bench` before and after, and quote both results.
 - For a visual change, run `--capture` and look at the PNG.

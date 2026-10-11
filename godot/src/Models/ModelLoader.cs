@@ -5,6 +5,7 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using Godot;
+using Launcher.App.Boot;
 using Launcher.Core.Media;
 using Launcher.Core.Models;
 using Launcher.Core.Theming;
@@ -263,6 +264,12 @@ public sealed class ModelLoader
         var log = _log;
         _ = Task.Run(() =>
         {
+            // Parsing and converting call into Godot: once the app is quitting, a load not started never begins (GodotWork).
+            if (!GodotWork.TryEnter())
+            {
+                return;
+            }
+
             var clock = System.Diagnostics.Stopwatch.StartNew();
             try
             {
@@ -304,6 +311,10 @@ public sealed class ModelLoader
             {
                 log?.Write(Launcher.Core.Diagnostics.LogLevel.Error, $"{description}: couldn't be loaded: {e.Message}. The next model in line is used instead");
                 _parsed.Enqueue((file, null, e.Message, 0));
+            }
+            finally
+            {
+                GodotWork.Exit();
             }
         });
     }

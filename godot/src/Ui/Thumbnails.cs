@@ -2,6 +2,7 @@ using System;
 using System.Globalization;
 using System.IO;
 using Godot;
+using Launcher.App.Boot;
 using Launcher.Core.Media;
 
 namespace Launcher.App.Ui;
@@ -14,12 +15,32 @@ namespace Launcher.App.Ui;
 public static class Thumbnails
 {
     private static readonly object DecoderLock = new();
+    private const string Quitting = "The launcher is quitting.";
 
     /// <summary>
     /// Worker thread: the image scaled to fit a square of <paramref name="side"/> pixels (never enlarged), and its size
     /// for a caption; null, with the reason in <paramref name="info"/>, when it can't be read.
     /// </summary>
     public static ImageTexture? Load(string path, int side, IImageDecoder? decoder, out string info)
+    {
+        // Decoding and the texture call into Godot: once the app is quitting, it doesn't start (GodotWork).
+        if (!GodotWork.TryEnter())
+        {
+            info = Quitting;
+            return null;
+        }
+
+        try
+        {
+            return LoadImage(path, side, decoder, out info);
+        }
+        finally
+        {
+            GodotWork.Exit();
+        }
+    }
+
+    private static ImageTexture? LoadImage(string path, int side, IImageDecoder? decoder, out string info)
     {
         try
         {
@@ -75,6 +96,24 @@ public static class Thumbnails
     /// <paramref name="info"/>, when it can't be decoded.
     /// </summary>
     public static ImageTexture? LoadVideo(string path, int side, IVideoDecoder? decoder, out string info)
+    {
+        if (!GodotWork.TryEnter())
+        {
+            info = Quitting;
+            return null;
+        }
+
+        try
+        {
+            return LoadVideoFrame(path, side, decoder, out info);
+        }
+        finally
+        {
+            GodotWork.Exit();
+        }
+    }
+
+    private static ImageTexture? LoadVideoFrame(string path, int side, IVideoDecoder? decoder, out string info)
     {
         if (decoder is null)
         {

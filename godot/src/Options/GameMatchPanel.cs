@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Godot;
+using Launcher.App.Boot;
 using Launcher.App.Navigation;
 using Launcher.App.Ui;
 using Launcher.Core.Library;
@@ -391,6 +392,24 @@ public sealed partial class GameMatchPanel : ListPanel
 
     /// <summary>Worker thread: a cover's bytes as a texture no larger than <see cref="DecodeSize"/>; null when they can't be read.</summary>
     private static ImageTexture? Decode(byte[] bytes)
+    {
+        // Decoding and the texture call into Godot: once the app is quitting, it doesn't start (GodotWork).
+        if (!GodotWork.TryEnter())
+        {
+            return null;
+        }
+
+        try
+        {
+            return DecodeImage(bytes);
+        }
+        finally
+        {
+            GodotWork.Exit();
+        }
+    }
+
+    private static ImageTexture? DecodeImage(byte[] bytes)
     {
         var image = new Image();
         var error = ImageFormats.Sniff(bytes) switch

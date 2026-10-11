@@ -1,6 +1,7 @@
 using System;
 using System.Threading;
 using Godot;
+using Launcher.App.Boot;
 using Launcher.Core.Media;
 
 namespace Launcher.App.Grid;
@@ -27,7 +28,6 @@ public sealed class CardVideo : IDisposable
     private readonly Image?[] _images = new Image?[Slots];
     private readonly long[] _times = new long[Slots];
     private readonly long[] _loops = new long[Slots];
-    private readonly Thread _thread;
 
     private volatile bool _stop;
     private ImageTexture? _texture;
@@ -44,8 +44,8 @@ public sealed class CardVideo : IDisposable
     {
         _decoder = decoder;
         _path = path;
-        _thread = new Thread(Run) { IsBackground = true, Name = "Card video" };
-        _thread.Start();
+        var thread = new Thread(Run) { IsBackground = true, Name = "Card video" };
+        thread.Start();
     }
 
     /// <summary>The picture, once the first frame is decoded; null until then, or if the video can't be read.</summary>
@@ -59,16 +59,6 @@ public sealed class CardVideo : IDisposable
     {
         _stop = true;
         _wake.Set();
-    }
-
-    /// <summary>
-    /// Stops decoding and waits up to <paramref name="timeout"/> for the thread to finish: only as the app quits, when
-    /// the thread's last calls into Godot (freeing its images) must come before the engine shuts down.
-    /// </summary>
-    public void DisposeAndWait(TimeSpan timeout)
-    {
-        Dispose();
-        _thread.Join(timeout);
     }
 
     /// <summary>Main thread, once a frame: <paramref name="position"/> is the time into the clip, in seconds.</summary>
@@ -121,6 +111,12 @@ public sealed class CardVideo : IDisposable
 
     private void Run()
     {
+        // The thread calls into Godot (its images) for its whole run, so the app waits for it as it quits (GodotWork).
+        if (!GodotWork.TryEnter())
+        {
+            return;
+        }
+
         IVideoReader? video = null;
         try
         {
@@ -141,7 +137,7 @@ public sealed class CardVideo : IDisposable
 
             var loop = 0L;
             var ended = false;
-            while (!_stop)
+            while (!_stop && !GodotWork.Quitting)
             {
                 var wanted = Volatile.Read(ref _loop);
                 if (wanted != loop)
@@ -199,7 +195,7 @@ public sealed class CardVideo : IDisposable
         finally
         {
             video?.Dispose();
-            if (_stop)
+            if (_stop || GodotWork.Quitting)
             {
                 foreach (var image in _images)
                 {
@@ -208,6 +204,8 @@ public sealed class CardVideo : IDisposable
 
                 Volatile.Read(ref _texture)?.Dispose();
             }
+
+            GodotWork.Exit();
         }
     }
 }

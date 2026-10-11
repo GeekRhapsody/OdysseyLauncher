@@ -1,6 +1,7 @@
 using System;
 using System.Threading;
 using Godot;
+using Launcher.App.Boot;
 using Launcher.Core.Media;
 
 namespace Launcher.App.Ui;
@@ -214,6 +215,12 @@ public sealed class VideoPlayback : IDisposable
 
     private void Run()
     {
+        // The thread calls into Godot (its images) for its whole run, so the app waits for it as it quits (GodotWork).
+        if (!GodotWork.TryEnter())
+        {
+            return;
+        }
+
         IVideoReader? video = null;
         IAudioReader? audio = null;
         try
@@ -241,7 +248,7 @@ public sealed class VideoPlayback : IDisposable
 
             float[] block = audio is null ? [] : new float[AudioBlockFrames * audio.Channels];
             var first = true;
-            while (!_stop)
+            while (!_stop && !GodotWork.Quitting)
             {
                 var progressed = false;
                 if (!_videoEnded && Volatile.Read(ref _written) - Volatile.Read(ref _read) < Slots)
@@ -305,7 +312,7 @@ public sealed class VideoPlayback : IDisposable
             _audioEnded = _videoEnded = true;
             audio?.Dispose();
             video?.Dispose();
-            if (_stop)
+            if (_stop || GodotWork.Quitting)
             {
                 foreach (var image in _images)
                 {
@@ -314,6 +321,8 @@ public sealed class VideoPlayback : IDisposable
 
                 Volatile.Read(ref _texture)?.Dispose();
             }
+
+            GodotWork.Exit();
         }
     }
 

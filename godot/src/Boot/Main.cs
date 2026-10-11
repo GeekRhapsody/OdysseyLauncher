@@ -48,6 +48,9 @@ public partial class Main : Node3D
     private const float SystemRowsVisible = 2.7f;
     private const float GameRowsVisible = 3.2f;
 
+    /// <summary>How long quitting waits for background work still calling into Godot (a model takes well under a second).</summary>
+    private static readonly TimeSpan QuitWait = TimeSpan.FromSeconds(5);
+
     /// <summary>Command-line arguments that choose the window, which settings.toml's then leaves alone at boot.</summary>
     private static readonly string[] WindowArguments =
         ["--resolution", "--fullscreen", "-f", "--windowed", "-w", "--maximized", "-m", "--position", "--screen", "-e", "--editor"];
@@ -190,6 +193,19 @@ public partial class Main : Node3D
     public override void _ExitTree()
     {
         _shutdown.Cancel();
+
+        // Work on other threads still calling into Godot (a model's conversion, say) finishes before the engine shuts
+        // down, or the process crashes in the interop; work not yet started never begins (GodotWork).
+        var waited = System.Diagnostics.Stopwatch.StartNew();
+        var left = GodotWork.Quit(QuitWait);
+        if (left > 0)
+        {
+            GD.PushWarning($"Quit: {left} background job(s) still calling into Godot after {QuitWait.TotalSeconds:0} s; quitting anyway.");
+        }
+        else if (waited.ElapsedMilliseconds > 0)
+        {
+            GD.Print(FormattableString.Invariant($"Quit: waited {waited.Elapsed.TotalMilliseconds:0} ms for background work."));
+        }
         if (_waitingForFirstFrame)
         {
             RenderingServer.FramePostDraw -= OnFramePostDraw;
@@ -418,8 +434,22 @@ public partial class Main : Node3D
         streamer.Install(layout, large, null);
         _ = Task.Run(() =>
         {
+            if (!GodotWork.TryEnter())
+            {
+                return;
+            }
+
             var built = System.Diagnostics.Stopwatch.StartNew();
-            var arrays = streamer.BuildArrays(layout, large, null);
+            (Texture2DArray? Large, Texture2DArray? Small) arrays;
+            try
+            {
+                arrays = streamer.BuildArrays(layout, large, null);
+            }
+            finally
+            {
+                GodotWork.Exit();
+            }
+
             var builtMs = built.Elapsed.TotalMilliseconds;
             _queue.Post(() =>
             {

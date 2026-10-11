@@ -1602,7 +1602,7 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
         }
     }
 
-    private void StopVideo(bool quitting = false)
+    private void StopVideo()
     {
         if (_video is null)
         {
@@ -1614,15 +1614,8 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
             _videoMaterial.SetShaderParameter(ShaderParams.Authored[_videoModel.VideoTexture], _videoModel.Authored[_videoModel.VideoTexture]);
         }
 
-        if (quitting)
-        {
-            // The grids leave the tree only as the app quits: the decoding thread must be done with Godot before it goes.
-            _video.DisposeAndWait(TimeSpan.FromSeconds(1));
-        }
-        else
-        {
-            _video.Dispose();
-        }
+        // Not waited for: as the app quits, Main waits for its thread with the rest of the work calling into Godot (GodotWork).
+        _video.Dispose();
 
         _video = null;
         _videoMaterial = null;
@@ -1635,7 +1628,7 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
         _cellTemplate[cell] >= 0 ? _materials[_templateMaterial[_cellTemplate[cell]]]
         : _modelMaterials.TryGetValue(model, out var material) ? material : null;
 
-    public override void _ExitTree() => StopVideo(quitting: true);
+    public override void _ExitTree() => StopVideo();
 
     // ---- Slots ------------------------------------------------------------------------------------
 
