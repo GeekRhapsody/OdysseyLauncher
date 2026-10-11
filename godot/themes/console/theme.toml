@@ -51,6 +51,15 @@ model = "models/systems/megadrive.glb"        # built by tools/console-models/me
 [systems.windows]
 model = "models/systems/windows.glb"          # built by tools/console-models/windows_pc.py: a gaming PC with a glass side and RGB fans, and its monitor
 
+[systems.dos]
+model = "models/systems/dos.glb"              # built by tools/console-models/retro_pc.py: a late-80s 386 desktop with a 14-inch VGA monitor on it
+
+[systems.windows3x]
+model = "models/systems/windows3x.glb"        # built by tools/console-models/retro_pc.py: an early-90s 486 desktop with a 14-inch SVGA monitor on it
+
+[systems.windows9x]
+model = "models/systems/windows9x.glb"        # built by tools/console-models/retro_pc.py: a late-90s mini tower with a 15-inch monitor beside it
+
 [systems.switch]
 model = "models/systems/switch.glb"           # built by tools/console-models/switch.py, turned to a three-quarter view; its focused clip slides the right Joy-Con up its rail and back
 
