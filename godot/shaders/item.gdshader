@@ -61,6 +61,13 @@ uniform vec3 edge_fade = vec3(0.2, 0.22, 0.8);
 // A system card's plain materials take its system's colour.
 uniform bool tint_case = false;
 
+// The focused game's video (A6 Game videos), shown on one cell's slot face in place of that slot's art:
+// (the cell, the slot, the picture's width over its height, its fade in); a cell of -1 shows none. Drawn whole (fitted
+// inside the face over its authored texture) when video_whole is set, as the slot's art is, else cropped to fill it.
+uniform sampler2D video_frame : source_color, filter_linear, repeat_disable;
+uniform vec4 video_state = vec4(-1.0, -1.0, 1.0, 0.0);
+uniform bool video_whole = false;
+
 // The four background corners, sRGB, as on the canvas layer behind the scene (they cross-fade with the look).
 uniform vec3 bg_top_left = vec3(0.106, 0.122, 0.290);
 uniform vec3 bg_top_right = vec3(0.106, 0.122, 0.290);
@@ -256,6 +263,25 @@ vec3 art_whole(vec2 uv, float face_aspect) {
 	return mix(base, texel.rgb, texel.a);
 }
 
+// The focused game's video on its slot's face: fitted whole over the material's own texture, or cropped to fill it.
+vec3 video_picture(vec2 uv, float face_aspect) {
+	float art = max(video_state.z, 0.01);
+	if (!video_whole) {
+		return texture(video_frame, crop(uv, art, face_aspect)).rgb;
+	}
+	vec2 p = uv - 0.5;
+	if (art > face_aspect) {
+		p.y *= art / face_aspect;
+	} else {
+		p.x *= face_aspect / art;
+	}
+	p += 0.5;
+	if (any(lessThan(p, vec2(0.0))) || any(greaterThan(p, vec2(1.0)))) {
+		return authored(uv);
+	}
+	return texture(video_frame, p).rgb;
+}
+
 // The faces the launcher draws itself (M5): a title card for the cover (dim and untitled while its art loads), a spine
 // and back in the cover's colour with the title, and a paper label with the title.
 vec3 generated(vec2 uv, float face_aspect, bool loading, out float roughness) {
@@ -319,6 +345,9 @@ void fragment() {
 			albedo = mix(fallback, shown, v_state.z);
 		} else {
 			albedo = fallback;
+		}
+		if (v_slot == int(floor(video_state.y + 0.5)) && abs(v_cell - video_state.x) < 0.5) {
+			albedo = mix(albedo, video_picture(uv, face_aspect), video_state.w);
 		}
 	}
 

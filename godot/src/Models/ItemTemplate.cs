@@ -54,7 +54,20 @@ public sealed class ItemTemplate
         LaunchSeconds = ModelConverter.LaunchSeconds(model.Clips[(int)ModelClip.Launch]);
         VideoPath = systemCard ? candidate.Video : null;
         VideoTexture = model.VideoTexture;
+
+        // A6 Game videos: a theme's game template, on a slot the model has.
+        GameVideoSlot = !systemCard && !PerGame && candidate.Template is { VideoSlot: >= 0 and var videoSlot } && model.SlotAspects[videoSlot] > 0 ? videoSlot : -1;
+        GameVideoDelay = (candidate.Template?.VideoDelayMs ?? GameTemplate.DefaultVideoDelayMs) / 1000f;
     }
+
+    /// <summary>
+    /// The slot whose face plays the focused game's video, in place of its art (its template's <c>video</c>, A6 Game
+    /// videos); -1 for none.
+    /// </summary>
+    public int GameVideoSlot { get; }
+
+    /// <summary>How long a game is focused, in seconds, before its video starts (its template's <c>video_delay_ms</c>).</summary>
+    public float GameVideoDelay { get; }
 
     /// <summary>A system card's video from its theme (A6 Card videos), an absolute path; null for none.</summary>
     public string? VideoPath { get; }

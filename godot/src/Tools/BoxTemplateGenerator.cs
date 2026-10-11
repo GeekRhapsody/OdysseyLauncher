@@ -5,7 +5,7 @@ namespace Launcher.App.Tools;
 
 /// <summary>
 /// Generates the built-in models procedurally and exports each with Godot's glTF exporter (A7): the built-in theme's
-/// box templates and its arcade cabinet (<see cref="ArcadeCabinetBuilder"/>) in
+/// box templates, its arcade cabinet (<see cref="ArcadeCabinetBuilder"/>) and its television (<see cref="CrtTvBuilder"/>) in
 /// <c>godot/themes/memory-card/models/templates/</c> and its generic system model in
 /// <c>godot/themes/memory-card/models/systems/</c>, the Slab theme's card in <c>godot/themes/slab/models/systems/</c>,
 /// and the M6 test theme's models in <c>tests/themes/slot-showcase/models/</c>, and the sample theme's in
@@ -162,6 +162,7 @@ public partial class BoxTemplateGenerator : Node
         }
 
         ok &= ExportMesh(ArcadeCabinetBuilder.Build(out var cabinetTriangles), "arcade_cabinet", cabinetTriangles, $"{TemplatesDir}/arcade_cabinet.glb");
+        ok &= ExportMesh(CrtTvBuilder.Build(out var tvTriangles), "crt_tv_90s", tvTriangles, $"{TemplatesDir}/crt_tv_90s.glb");
 
         // Flat cards, chosen per game or system, each shaped by its art (the theme's shape = "media"): the cover (3:4
         // without one), and the screenshot (4:3 and dark without one).
@@ -181,7 +182,7 @@ public partial class BoxTemplateGenerator : Node
         var sample = System.IO.Path.GetFullPath(System.IO.Path.Combine(ProjectSettings.GlobalizePath("res://"), SampleThemeDir));
         DirAccess.MakeDirRecursiveAbsolute(System.IO.Path.Combine(sample, "templates"));
         DirAccess.MakeDirRecursiveAbsolute(System.IO.Path.Combine(sample, "systems"));
-        ok &= ExportScene(RetroTvBuilder.Tv(out var tvTriangles), tvTriangles, System.IO.Path.Combine(sample, "templates", "crt_tv.glb"));
+        ok &= ExportScene(RetroTvBuilder.Tv(out var sampleTvTriangles), sampleTvTriangles, System.IO.Path.Combine(sample, "templates", "crt_tv.glb"));
         ok &= ExportScene(RetroTvBuilder.ConsoleModel(out var consoleTriangles), consoleTriangles, System.IO.Path.Combine(sample, "systems", "console.glb"));
         return ok;
     }

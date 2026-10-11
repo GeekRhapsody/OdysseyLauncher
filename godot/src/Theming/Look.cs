@@ -223,6 +223,11 @@ public static class ShaderParams
     public static readonly StringName EdgeFade = "edge_fade";
     public static readonly StringName TintCase = "tint_case";
 
+    /// <summary>The focused game's video (A6 Game videos): its picture, where it shows, and whether it's fitted whole.</summary>
+    public static readonly StringName VideoFrame = "video_frame";
+    public static readonly StringName VideoState = "video_state";
+    public static readonly StringName VideoWhole = "video_whole";
+
     /// <summary>A per-instance uniform: INSTANCE_CUSTOM for an item drawn as its own node (item.gdshader).</summary>
     public static readonly StringName NodeCustom = "node_custom";
     public static readonly StringName BackgroundTopLeft = "bg_top_left";

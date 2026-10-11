@@ -4,6 +4,7 @@ using Godot;
 using Launcher.App.Models;
 using Launcher.App.Textures;
 using Launcher.App.Theming;
+using Launcher.App.Ui;
 using Launcher.Core.Config;
 using Launcher.Core.Library;
 using Launcher.Core.Media;
@@ -43,6 +44,12 @@ public interface IGridSource
     /// (<see cref="MediaSlots"/>), if it has one. Must not allocate.
     /// </summary>
     bool TryGetMedia(int index, int slot, out MediaRef media);
+
+    /// <summary>
+    /// Main thread: the item's video (the <c>video</c> media kind), if it has one and the list was loaded with videos
+    /// (a template plays them: A6 Game videos). Must not allocate.
+    /// </summary>
+    bool TryGetVideo(int index, out MediaRef media);
 
     /// <summary>Whether any item uses the template (so its MultiMesh is drawn at all).</summary>
     bool UsesTemplate(int template);
@@ -239,6 +246,22 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
     private ItemTemplate? _videoModel;
     private ShaderMaterial? _videoMaterial;
     private double _videoClock;
+
+    // The focused game's video (A6 Game videos): the cell, item and model it's for, how long they've been focused, the
+    // playback (and the next one, opening while an ended one holds its last frame), the material and texture showing
+    // it, its fade in, and the sound's player. Done: the game has no video, or it can't be played.
+    private int _gameVideoCell = -1;
+    private int _gameVideoItem = -1;
+    private ItemTemplate? _gameVideoModel;
+    private float _gameVideoWait;
+    private bool _gameVideoDone;
+    private string? _gameVideoPath;
+    private VideoPlayback? _gameVideo;
+    private VideoPlayback? _gameVideoNext;
+    private ShaderMaterial? _gameVideoMaterial;
+    private ImageTexture? _gameVideoTexture;
+    private float _gameVideoFade;
+    private readonly AudioStreamPlayer? _videoSound;
     private bool _turned;
 
     // Whether the focused item is inspected (R3), and how far it and the item it left are towards that pose (0 to 1).
@@ -282,6 +305,12 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
         _systemCards = systemCards;
         _background = background;
         _cellItem = new int[maxCells];
+        if (!systemCards)
+        {
+            _videoSound = new AudioStreamPlayer { Name = "VideoSound" };
+            AddChild(_videoSound);
+        }
+
         _cellTemplate = new int[maxCells];
         _cellModel = new ItemTemplate?[maxCells];
         _cellFit = new float[maxCells];
@@ -483,6 +512,7 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
     /// </summary>
     public void SetTemplates(IReadOnlyList<ItemTemplate> templates)
     {
+        StopGameVideo();
         UnbindAll();
         foreach (var instance in _instances)
         {
@@ -1224,12 +1254,14 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
             UpdateCurve();
             UpdateFocus(dt);
             UpdateVideo(dt);
+            UpdateGameVideo(dt);
             AnimateFades(dt);
             MeasureTexturing();
         }
         else
         {
             StopVideo();
+            StopGameVideo();
             UpdateRoot();
         }
 
@@ -1549,8 +1581,9 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
     // ---- Card videos ------------------------------------------------------------------------------
 
     /// <summary>
-    /// Decodes the focused card's video (A6 Card videos); null for none: a grid of games, or a platform without a
-    /// decoder, whose cards show their <c>video</c> material's own texture.
+    /// Decodes the focused card's video (A6 Card videos), or in a grid of games the focused game's (A6 Game videos);
+    /// null for none: a platform without a decoder, whose cards show their <c>video</c> material's own texture and whose
+    /// games their art.
     /// </summary>
     public IVideoDecoder? VideoDecoder { get; set; }
 
@@ -1628,7 +1661,143 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
         _cellTemplate[cell] >= 0 ? _materials[_templateMaterial[_cellTemplate[cell]]]
         : _modelMaterials.TryGetValue(model, out var material) ? material : null;
 
-    public override void _ExitTree() => StopVideo();
+    public override void _ExitTree()
+    {
+        StopVideo();
+        StopGameVideo();
+    }
+
+    // ---- Game videos ------------------------------------------------------------------------------
+
+    private const float GameVideoFadeSeconds = 0.25f;
+
+    private static readonly Vector4 NoGameVideo = new(-1, -1, 1, 0);
+
+    /// <summary>
+    /// Holds games' videos off while something covers the grid (a settings screen, a game's details or options), so
+    /// no sound plays under it: the owner sets it each frame. A video stops, and starts again after its delay once this
+    /// is cleared.
+    /// </summary>
+    public bool VideosSuspended { get; set; }
+
+    /// <summary>
+    /// Once a frame: once a game whose template plays videos (<see cref="ItemTemplate.GameVideoSlot"/>) has been focused
+    /// for its template's delay, its video plays on that slot's face, with its sound, fading in over the art, and loops.
+    /// Moving the focus, launching, hiding or covering the grid stops it, and the art shows again. Only the focused game
+    /// ever plays, and only through the shader's uniforms on its template's material, which pick out its cell: the other
+    /// games drawn with that material keep their art.
+    /// </summary>
+    private void UpdateGameVideo(float dt)
+    {
+        var cell = _focusCell;
+        var item = cell >= 0 ? _cellItem[cell] : -1;
+        var model = item >= 0 ? _cellModel[cell] : null;
+        if (model is not { GameVideoSlot: >= 0 } || VideoDecoder is not { } decoder || _streamer is null || _videoSound is null
+            || !Visible || VideosSuspended || _launchTime >= 0)
+        {
+            StopGameVideo();
+            _gameVideoCell = -1;
+            return;
+        }
+
+        if (cell != _gameVideoCell || item != _gameVideoItem || model != _gameVideoModel)
+        {
+            StopGameVideo();
+            _gameVideoCell = cell;
+            _gameVideoItem = item;
+            _gameVideoModel = model;
+            _gameVideoWait = 0;
+            _gameVideoDone = false;
+        }
+
+        if (_gameVideo is null)
+        {
+            _gameVideoWait += dt;
+            if (_gameVideoDone || _gameVideoWait < model.GameVideoDelay)
+            {
+                return;
+            }
+
+            if (!_source!.TryGetVideo(item, out var media))
+            {
+                _gameVideoDone = true;
+                return;
+            }
+
+            _gameVideoPath = MediaFolder.FullPath(_streamer.MediaDir, media.Path);
+            _gameVideo = new VideoPlayback(decoder, _gameVideoPath, _videoSound);
+            _gameVideoFade = 0;
+        }
+
+        // An ended video starts again: the next playback opens while the last frame holds, and takes over with its first.
+        if (_gameVideo.Ended && _gameVideoNext is null)
+        {
+            _gameVideoNext = new VideoPlayback(decoder, _gameVideoPath!, _videoSound);
+        }
+
+        if (_gameVideoNext is { } next)
+        {
+            next.Tick(dt);
+            if (next.Texture is not null || next.Error is not null)
+            {
+                _gameVideo.Dispose();
+                _gameVideo = next;
+                _gameVideoNext = null;
+            }
+        }
+        else
+        {
+            _gameVideo.Tick(dt);
+        }
+
+        if (_gameVideo.Error is not null)
+        {
+            GD.PushWarning($"Game video: {_gameVideoPath}: {_gameVideo.Error}");
+            StopGameVideo();
+            _gameVideoDone = true;
+            return;
+        }
+
+        if (_gameVideo.Texture is not { } texture || MaterialOf(cell, model) is not { } material)
+        {
+            return;
+        }
+
+        var changed = false;
+        if (material != _gameVideoMaterial || texture != _gameVideoTexture)
+        {
+            _gameVideoMaterial?.SetShaderParameter(ShaderParams.VideoState, NoGameVideo);
+            material.SetShaderParameter(ShaderParams.VideoFrame, texture);
+            material.SetShaderParameter(ShaderParams.VideoWhole, model.ShowsWhole(model.GameVideoSlot));
+            _gameVideoMaterial = material;
+            _gameVideoTexture = texture;
+            changed = true;
+        }
+
+        if (_gameVideoFade < 1 || changed)
+        {
+            _gameVideoFade = Math.Min(1, _gameVideoFade + dt / GameVideoFadeSeconds);
+            material.SetShaderParameter(ShaderParams.VideoState, new Vector4(cell, model.GameVideoSlot, _gameVideo.Aspect, _gameVideoFade));
+        }
+    }
+
+    /// <summary>Stops the game's video and its sound, and shows the slot's art again.</summary>
+    private void StopGameVideo()
+    {
+        if (_gameVideoMaterial is { } material)
+        {
+            material.SetShaderParameter(ShaderParams.VideoState, NoGameVideo);
+            material.SetShaderParameter(ShaderParams.VideoFrame, default(Variant));
+        }
+
+        // Not waited for: as the app quits, Main waits for their threads with the rest of the work calling into Godot (GodotWork).
+        _gameVideo?.Dispose();
+        _gameVideoNext?.Dispose();
+        _gameVideo = null;
+        _gameVideoNext = null;
+        _gameVideoMaterial = null;
+        _gameVideoTexture = null;
+    }
 
     // ---- Slots ------------------------------------------------------------------------------------
 

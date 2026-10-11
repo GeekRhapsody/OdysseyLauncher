@@ -144,6 +144,18 @@ public sealed class TextureStreamer : IDisposable
         }
     }
 
+    /// <summary>The media folder (<see cref="SetFolders"/>), where games' videos are too.</summary>
+    public string MediaDir
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _mediaDir;
+            }
+        }
+    }
+
     /// <summary>A3: <c>clamp(ProcessorCount / 4, 1, 4)</c>, which is 2 on the Deck.</summary>
     public static int DefaultWorkers => Math.Clamp(System.Environment.ProcessorCount / 4, 1, 4);
 

@@ -52,6 +52,11 @@ public sealed record Look(LookBackground Background, LookAmbient Ambient, IReadO
 /// <see cref="Model"/> is the base theme's (relative to its folder): the template extends a base template of the same
 /// id without a model of its own.
 /// </param>
+/// <param name="VideoSlot">
+/// <c>video</c>: the slot whose face plays the game's video (the <c>video</c> media kind, with its sound) while the game
+/// is focused, in place of the slot's art (A6 Game videos); -1 for none.
+/// </param>
+/// <param name="VideoDelayMs"><c>video_delay_ms</c>: how long the game is focused before its video starts.</param>
 public sealed record GameTemplate(
     string Id,
     string Model,
@@ -59,8 +64,16 @@ public sealed record GameTemplate(
     bool ShapeFromMedia = false,
     IReadOnlySet<int>? WholeSlots = null,
     string ThemeId = "",
-    bool ModelFromBase = false)
+    bool ModelFromBase = false,
+    int VideoSlot = -1,
+    int VideoDelayMs = GameTemplate.DefaultVideoDelayMs)
 {
+    /// <summary><c>video_delay_ms</c> when a template doesn't set it.</summary>
+    public const int DefaultVideoDelayMs = 1000;
+
+    /// <summary>The longest <c>video_delay_ms</c>.</summary>
+    public const int MaxVideoDelayMs = 60000;
+
     public SlotChain ChainFor(int slot) => Slots.TryGetValue(slot, out var chain) ? chain : SlotChain.Default(slot);
 
     /// <summary>Whether the slot's art is drawn whole (<c>fit = "whole"</c>); a logo always is, whatever this says.</summary>

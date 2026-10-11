@@ -90,6 +90,13 @@ public sealed class SystemsSource(IReadOnlyList<SystemEntry> entries, int templa
         return false;
     }
 
+    /// <summary>Systems have no videos of their own: a card's video is its theme's (A6 Card videos).</summary>
+    public bool TryGetVideo(int index, out MediaRef media)
+    {
+        media = default;
+        return false;
+    }
+
     public bool UsesTemplate(int template) => template < _uses.Length && _uses[template];
 
     private static bool[] Uses(IReadOnlyList<SystemEntry> entries, int count)
@@ -123,6 +130,9 @@ public sealed class GamesSource : IGridSource
     private readonly char[] _letters;
     private readonly MediaRef[]?[] _media = new MediaRef[]?[MediaSlots.Count];
     private readonly bool[] _replaces = new bool[MediaSlots.Count];
+
+    // Each game's video, when a template plays them (A6 Game videos); null when the list was loaded without them.
+    private readonly MediaRef[]? _videos;
     private readonly int[] _model;
     private readonly List<string> _modelPaths = [];
     private readonly List<MediaRef> _modelFiles = [];
@@ -176,6 +186,10 @@ public sealed class GamesSource : IGridSource
             {
                 _media[slot] = new MediaRef[_rows.Length];
                 _replaces[slot] = true;
+            }
+            else if (kind == MediaKinds.Video)
+            {
+                _videos = new MediaRef[_rows.Length];
             }
         }
 
@@ -315,7 +329,7 @@ public sealed class GamesSource : IGridSource
         }
 
         // What the rows say, per game; a game being replaced that has no row of a kind has none of it now.
-        var incoming = new Dictionary<int, (MediaRef[] Slots, MediaRef? Model)>();
+        var incoming = new Dictionary<int, (MediaRef[] Slots, MediaRef? Model, MediaRef Video)>();
         foreach (var row in rows)
         {
             if (!_index.TryGetValue(row.GameId, out var i))
@@ -325,12 +339,16 @@ public sealed class GamesSource : IGridSource
 
             if (!incoming.TryGetValue(i, out var entry))
             {
-                entry = (new MediaRef[MediaSlots.Count], null);
+                entry = (new MediaRef[MediaSlots.Count], null, default);
             }
 
             if (row.Kind == MediaKinds.Model)
             {
                 entry.Model = row.Media;
+            }
+            else if (row.Kind == MediaKinds.Video)
+            {
+                entry.Video = row.Media;
             }
             else if (MediaSlots.IndexOf(row.Kind) is var slot and >= 0)
             {
@@ -365,6 +383,12 @@ public sealed class GamesSource : IGridSource
                     _media[slot]![i] = media;
                     differs = true;
                 }
+            }
+
+            if (_videos is not null && _videos[i] != entry.Video)
+            {
+                _videos[i] = entry.Video;
+                differs = true;
             }
 
             var model = entry.Model is { } file ? ModelIndex(file.Path) : -1;
@@ -459,6 +483,18 @@ public sealed class GamesSource : IGridSource
         if (_media[slot] is { } kind && kind[index].Path is not null)
         {
             media = kind[index];
+            return true;
+        }
+
+        media = default;
+        return false;
+    }
+
+    public bool TryGetVideo(int index, out MediaRef media)
+    {
+        if (_videos is not null && _videos[index].Path is not null)
+        {
+            media = _videos[index];
             return true;
         }
 

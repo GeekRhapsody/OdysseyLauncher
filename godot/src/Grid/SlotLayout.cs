@@ -22,8 +22,10 @@ public sealed class SlotLayout
     {
         var used = new bool[MediaSlots.Count];
         var kinds = new List<string>();
+        var videos = false;
         foreach (var template in templates)
         {
+            videos |= template.GameVideoSlot >= 0;
             for (var slot = 0; slot < MediaSlots.Count; slot++)
             {
                 if (template.Chain(slot) is not { UsesMedia: true } chain)
@@ -71,6 +73,13 @@ public sealed class SlotLayout
 
         // Per-game models (media kind "model") are fetched with the slot media whenever a grid shows games.
         kinds.Add(Launcher.Core.Media.MediaKinds.Model);
+
+        // Games' videos (A6 Game videos) only when a template plays them.
+        if (videos)
+        {
+            kinds.Add(Launcher.Core.Media.MediaKinds.Video);
+        }
+
         _kinds = kinds.ToArray();
     }
 
@@ -86,7 +95,7 @@ public sealed class SlotLayout
 
     public int SmallCount { get; }
 
-    /// <summary>The media kinds to fetch for these templates' chains, plus per-game models.</summary>
+    /// <summary>The media kinds to fetch for these templates' chains, plus per-game models, and videos for a template that plays them.</summary>
     public IReadOnlyList<string> MediaKinds => _kinds;
 
     /// <summary>The slot's channel, or -1 when no template shows media in it.</summary>

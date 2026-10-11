@@ -395,6 +395,104 @@ public sealed class ThemeLoaderTests
     }
 
     [Fact]
+    public void A_template_plays_games_videos_on_the_slot_its_video_names_after_its_delay()
+    {
+        var result = ThemeFixtures.Parse(MinimalTemplate + """
+
+            video = "screenshot"
+            video_delay_ms = 2500
+            """, Box("screenshot", "case"));
+
+        Assert.Empty(result.Diagnostics);
+        var template = result.Theme!.Templates["box"];
+        Assert.Equal((MediaSlots.Screenshot, 2500), (template.VideoSlot, template.VideoDelayMs));
+
+        // Without the keys: no video, and a second's delay for one that adds a video.
+        var plain = ThemeFixtures.Parse(MinimalTemplate, Box()).Theme!.Templates["box"];
+        Assert.Equal((-1, GameTemplate.DefaultVideoDelayMs), (plain.VideoSlot, plain.VideoDelayMs));
+    }
+
+    [Fact]
+    public void A_bad_video_or_delay_is_an_error_at_its_key_and_the_template_is_kept_without_it()
+    {
+        var result = ThemeFixtures.Parse(MinimalTemplate + """
+
+            video = "screnshot"
+            video_delay_ms = 70000
+            """, Box("screenshot", "case"));
+
+        Assert.Equal(2, result.Diagnostics.Count(d => d.Severity == Severity.Error));
+        var video = Assert.Single(result.Diagnostics, d => d.Key == "templates.box.video");
+        Assert.Contains("did you mean 'screenshot'?", video.Message, StringComparison.Ordinal);
+        var delay = Assert.Single(result.Diagnostics, d => d.Key == "templates.box.video_delay_ms");
+        Assert.Contains("out of range (0 to 60000)", delay.Message, StringComparison.Ordinal);
+        var template = result.Theme!.Templates["box"];
+        Assert.Equal((-1, GameTemplate.DefaultVideoDelayMs), (template.VideoSlot, template.VideoDelayMs));
+    }
+
+    [Fact]
+    public void A_video_on_a_slot_the_model_doesnt_have_or_a_delay_without_a_video_is_a_warning()
+    {
+        var missing = ThemeFixtures.Parse(MinimalTemplate + "\nvideo = \"screenshot\"", Box("cover", "case"));
+        var warning = Single(missing, Severity.Warning);
+        Assert.Equal("templates.box.video", warning.Key);
+        Assert.Contains("has no 'screenshot' material, so games' videos never play on it", warning.Message, StringComparison.Ordinal);
+
+        var unused = ThemeFixtures.Parse(MinimalTemplate + "\nvideo_delay_ms = 500", Box());
+        Assert.Equal("templates.box.video_delay_ms", Single(unused, Severity.Warning).Key);
+    }
+
+    [Fact]
+    public void A_template_extending_the_bases_keeps_its_video_and_can_change_the_delay()
+    {
+        var files = new FakeThemeFiles().Model("models/tv.glb", "screenshot", "case");
+        var baseTheme = ThemeFixtures.ParseBase("""
+            format = 1
+            name = "Base"
+
+            [look.background]
+            top_left = "#1B1F4A"
+            top_right = "#1B1F4A"
+            bottom_left = "#04040C"
+            bottom_right = "#0B0B24"
+
+            [look.ambient]
+            colour = "#303038"
+
+            [[look.lights]]
+            direction = [-0.5, -0.4, -0.75]
+
+            [defaults]
+            game_template = "tv"
+
+            [templates.tv]
+            model = "models/tv.glb"
+            video = "screenshot"
+            """, files);
+
+        var result = ThemeFixtures.Parse("""
+            name = "Slower"
+
+            [templates.tv]
+            video_delay_ms = 3000
+            """, baseTheme: baseTheme);
+
+        Assert.Empty(result.Diagnostics);
+        var tv = result.Theme!.Templates["tv"];
+        Assert.Equal((MediaSlots.Screenshot, 3000), (tv.VideoSlot, tv.VideoDelayMs));
+
+        // Its own model without the slot: a warning at the template, since the key is the base's.
+        var own = ThemeFixtures.Parse("""
+            name = "Own"
+
+            [templates.tv]
+            model = "box.glb"
+            """, Box("cover", "case"), baseTheme: baseTheme);
+        var warning = Single(own, Severity.Warning);
+        Assert.Equal("templates.tv.video", warning.Key);
+    }
+
+    [Fact]
     public void A_models_path_as_a_game_template_says_how_to_declare_the_template()
     {
         var result = ThemeFixtures.Parse(MinimalTemplate + """

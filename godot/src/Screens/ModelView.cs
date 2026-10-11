@@ -255,6 +255,12 @@ public sealed partial class ModelView : Control
             return false;
         }
 
+        public bool TryGetVideo(int index, out MediaRef media)
+        {
+            media = default;
+            return false;
+        }
+
         public bool UsesTemplate(int template) => template == 0;
     }
 }

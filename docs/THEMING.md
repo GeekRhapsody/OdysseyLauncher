@@ -61,7 +61,7 @@ neon-arcade/                      the folder name is the theme's id: lower-case 
 Every theme builds on Memory Card, so a partial theme always works, and a theme can be a single `name` line. What your theme leaves out is Memory Card's:
 - **The look:** each of `[look.background]`, `[look.ambient]` and `[look.lights]` your theme doesn't write (or gets wrong) is Memory Card's. A system your theme gives no look of its own shows your theme's look, not Memory Card's look for that system.
 - **`look_transition_ms`:** Memory Card's (300) unless you set it.
-- **Templates:** `game_template` can name any of Memory Card's templates (`dvd_case`, `jewel_case`, `psx_jewel_case`, `cartridge_box`, `gameboy_box`, `generic_box_spine`, `generic_box_top_spine`, `generic_box_logo`, `snes_box_horizontal`, `snes_box_vertical`, `clamshell`, `megadrive_clamshell`, `umd_case`, `switch_case`, `arcade_cabinet`, `flat_cover`, `flat_screenshot`) as well as your own. A `[templates.<id>]` table with one of their ids **extends** that template: each key it leaves out (`model`, `shape`, a slot's chain, a slot's `fit`) is Memory Card's. So this keeps Memory Card's DVD case and changes only what its back shows:
+- **Templates:** `game_template` can name any of Memory Card's templates (`dvd_case`, `jewel_case`, `psx_jewel_case`, `cartridge_box`, `gameboy_box`, `generic_box_spine`, `generic_box_top_spine`, `generic_box_logo`, `snes_box_horizontal`, `snes_box_vertical`, `clamshell`, `megadrive_clamshell`, `umd_case`, `switch_case`, `arcade_cabinet`, `crt_tv_90s`, `flat_cover`, `flat_screenshot`) as well as your own. A `[templates.<id>]` table with one of their ids **extends** that template: each key it leaves out (`model`, `shape`, a slot's chain, a slot's `fit`) is Memory Card's. So this keeps Memory Card's DVD case and changes only what its back shows:
 
   ```toml
   [templates.dvd_case.slots]
@@ -107,6 +107,8 @@ label = ["logo", "generated"]         # the system's logo, else its name printed
 [templates.crt_tv]                    # a game template: an id, a model, and optional slot chains (Memory Card's id: extends it)
 model = "models/templates/crt_tv.glb"
 shape = "model"                       # optional: "model" (its own shape, the default) or "media" (section 4)
+video = "screenshot"                  # optional: the slot whose face plays the focused game's video, with its sound (section 4, "Game videos")
+video_delay_ms = 1000                 # optional: how long the game is focused before its video starts: 0 to 60000, default 1000
 
 [templates.crt_tv.slots]              # optional; see section 4
 screenshot = ["screenshot", "hero", "cover", "authored"]
@@ -149,6 +151,7 @@ bottom_right = "#100A08"
   - A template id that's neither yours nor Memory Card's is an error, with a "did you mean" suggestion, and the next model in line is used.
   - A bad slot chain falls back to that slot's default chain, and a bad `fit` leaves its slot cropped.
   - A bad `shape` is an error, and the template keeps its own shape.
+  - A `video` that isn't a slot's name, or a `video_delay_ms` out of range, is an error, and the template plays no video (or keeps the delay it extends). A `video` on a slot the model has no material for, or a `video_delay_ms` without a `video`, is a warning.
   - A `video` that isn't an `.mp4` inside the folder is an error, and the card shows its video material's own texture. A `video` in an entry without its own `model` is a warning, and is ignored.
   - Unknown keys are warnings, with a "did you mean" suggestion.
 
@@ -216,6 +219,17 @@ A system card can play a video while it's focused: a monitor showing a game load
 - **The file:** H.264 in 4:2:0 (`yuv420p`; Windows can't decode 4:4:4), no larger than the screen needs (every texture is drawn at most 1024 pixels on its longer side), with no sound track. With ffmpeg: `ffmpeg -i in.mp4 -c:v libx264 -pix_fmt yuv420p -g 30 -an out.mp4`. A key frame every second or so makes the restarts quick.
 - **Platforms:** videos are decoded by Windows (Media Foundation). Elsewhere the card shows its `video` material's texture.
 - **Cost:** only the focused card plays, and only while the systems grid shows. Its frames are decoded on a thread of their own and uploaded once each (about 0.05 ms a frame at 640 × 488 and 30 frames a second). The decoder adds about 50 MB to the app's memory while a video plays.
+
+### Game videos
+
+A game template can play the focused game's own video (the `video` kind its scraper fetched, an MP4) on one of its faces, with the video's sound, as a television's screen: Memory Card's `crt_tv_90s` does.
+
+- **Which face:** `[templates.<id>] video = "<slot>"` names a slot of the model (`screenshot` for a screen). That face shows its art as usual, and once the game has been focused for `video_delay_ms` (default 1000, a second) the video fades in over it, plays with its sound, and starts again when it ends. Moving to another game, launching it, or opening the settings, a game's details or options stops it, and the art shows again; coming back starts the delay again.
+- **How it fits:** as the slot's art does: cropped to fill the face, or with `fit = "whole"` fitted inside it at its own proportions (its pixels' shape included) over the material's own texture, as a television shows a game of another shape with bars. Give the face's material an `aspect` (section 9) if it's curved.
+- **Games without a video** keep showing their art. Nothing is fetched for a template without `video`: the launcher only reads games' videos when a template the theme uses plays them.
+- **One at a time:** only the focused game plays, so the video costs nothing while scrolling, and a template that plays videos is batched like any other.
+- **The files:** whatever the scraper saved. They're decoded by Windows (Media Foundation), as the details screen's are (H.264 in 4:2:0 plays everywhere); elsewhere the face shows its art.
+- **Cost:** nothing until a video plays, and frame times are the same while one does. The video is decoded on a thread of its own and each new frame uploaded once: at 640 × 480 and 30 frames a second, 0.17 ms more of the renderer's time a frame, and the decoder adds about 53 MB to the app's memory and 3 MB of video memory while it plays ([perf/game-videos.md](perf/game-videos.md)).
 
 ### How art fits a face
 
@@ -428,4 +442,5 @@ It scrolls the biggest system from the first row to the last and reports frame t
 | A card shows no logo | The chain doesn't name `logo` (`[defaults.system_slots]`), the image isn't named after the system's id (`logos/<id>.png`: the id, not its name, e.g. `megadrive`), the card's model comes from another theme (its chains are that theme's), or it's still being baked (the first time, the console says when they're done) | Check the chain, the id (systems.toml) and the console |
 | The model is tiny, or huge and warned about units | It's modelled in centimetres or millimetres | Scale it to about 1 m, and apply the scale |
 | A clip doesn't play | It isn't named idle, focused or launch, or it wasn't exported | Rename the action, and push it onto the NLA stack |
+| A game's video doesn't play | The template has no `video`, the slot it names isn't one of the model's materials, the game has no video (the game's details list its media), or a settings screen or panel is open | Check the console's warnings and the game's media |
 | "more than twice the ... may have" in the log | The model is too heavy, so it was rejected | Decimate it, or merge materials |

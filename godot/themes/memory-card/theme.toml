@@ -108,6 +108,14 @@ label = ["logo", "generated"]      # the marquee: the logo, whole, over a deep s
 [templates.arcade_cabinet.fit]
 screenshot = "whole"               # never cropped: a tall game's screenshot is pillarboxed on the switched-off screen
 
+[templates.crt_tv_90s]             # A 1990s CRT television, its screen the screenshot. Chosen per game or system
+model = "models/templates/crt_tv_90s.glb"
+video = "screenshot"               # the focused game's video plays on the screen, with its sound (A6 Game videos)
+video_delay_ms = 1000              # once the game has been focused for a second
+
+[templates.crt_tv_90s.fit]
+screenshot = "whole"               # never cropped: a screenshot or video of another shape is boxed on the switched-off tube
+
 # Each system: its colour (its card and its plain boxes), its game template, and the look while its games are shown.
 # A system's look block replaces the theme's block of the same name whole.
 

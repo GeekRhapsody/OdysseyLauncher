@@ -73,7 +73,7 @@ public sealed record ThemeLoadResult(Theme? Theme, IReadOnlyList<Diagnostic> Dia
 /// Every theme builds on the base theme (memory-card, <see cref="ThemeCatalog.BaseId"/>): what it leaves out is the
 /// base's. Its look blocks and <c>look_transition_ms</c> default to the base's; <c>game_template</c> may name one of
 /// the base's templates; and a <c>[templates.&lt;id&gt;]</c> with a base template's id extends it, each key it leaves
-/// out (the model, the shape, a slot's chain or fit) being the base's.
+/// out (the model, the shape, a slot's chain or fit, the video and its delay) being the base's.
 /// </para>
 /// </summary>
 public static class ThemeLoader
@@ -89,7 +89,7 @@ public static class ThemeLoader
     private static readonly string[] AmbientKeys = ["colour", "energy"];
     private static readonly string[] LightKeys = ["direction", "colour", "energy"];
     private static readonly string[] DefaultsKeys = ["system_model", "tint_system_model", "game_template", "system_slots"];
-    private static readonly string[] TemplateKeys = ["model", "slots", "shape", "fit"];
+    private static readonly string[] TemplateKeys = ["model", "slots", "shape", "fit", "video", "video_delay_ms"];
     private static readonly string[] Shapes = ["model", "media"];
     private static readonly string[] Fits = ["crop", "whole"];
     private static readonly string[] SystemKeys = ["model", "tint", "game_template", "colour", "look", "logo", "slots", "video"];
@@ -404,6 +404,11 @@ public static class ThemeLoader
                 var shapeFromMedia = extended is null || entry.Contains("shape") ? ReadShape(entry, prefix) : extended.ShapeFromMedia;
                 var shapeErrors = v.ErrorCount - beforeShape;
 
+                // A bad video or delay leaves it as it was (none, or the base's), as a bad chain does.
+                var beforeVideo = v.ErrorCount;
+                var (videoSlot, videoDelayMs) = ReadVideo(entry, prefix, extended);
+                var videoErrors = v.ErrorCount - beforeVideo;
+
                 // The base's model is checked by Core's tests, not here.
                 if (model is not null && !modelFromBase && CheckMaterials(entry, prefix, model, slots) is { } present)
                 {
@@ -423,15 +428,22 @@ public static class ThemeLoader
                             v.Warning(fitNode, $"{prefix}.fit.{MediaSlots.Names[slot]}", $"'{model}' has no '{MediaSlots.Names[slot]}' material, so this is never used");
                         }
                     }
+
+                    if (videoSlot >= 0 && !present[videoSlot])
+                    {
+                        // The key may be the base template's, which this one extends with a model of its own.
+                        var at = entry.TryGet("video", out var videoNode) ? videoNode : entry;
+                        v.Warning(at, prefix + ".video",$"'{model}' has no '{MediaSlots.Names[videoSlot]}' material, so games' videos never play on it");
+                    }
                 }
 
-                if (v.ErrorCount - slotErrors - shapeErrors > errors || model is null)
+                if (v.ErrorCount - slotErrors - shapeErrors - videoErrors > errors || model is null)
                 {
                     v.Info(entry, prefix, "this template is left out until its errors are fixed; systems that use it fall back to the next model in line");
                     continue;
                 }
 
-                templates[id] = new GameTemplate(id, model, slots, shapeFromMedia, whole.Count > 0 ? whole : null, source.Id, modelFromBase);
+                templates[id] = new GameTemplate(id, model, slots, shapeFromMedia, whole.Count > 0 ? whole : null, source.Id, modelFromBase, videoSlot, videoDelayMs);
             }
 
             return templates;
@@ -561,9 +573,34 @@ public static class ThemeLoader
         }
 
         /// <summary>
-        /// A template's model must be a readable <c>.glb</c>; it needn't have a cover or any slot (M6: a CRT with only a
-        /// screenshot is fine), but a chain for a slot the model doesn't have is never used.
+        /// <c>video</c> (the slot whose face plays the game's video while it's focused, A6 Game videos) and
+        /// <c>video_delay_ms</c>; what an extension leaves out is the base template's.
         /// </summary>
+        private (int Slot, int DelayMs) ReadVideo(TomlTableNode entry, string prefix, GameTemplate? extended)
+        {
+            var slot = extended?.VideoSlot ?? -1;
+            if (entry.TryGet("video", out var node) && v.String(entry, prefix, "video") is { } name)
+            {
+                if (MediaSlots.IndexOf(name) is var named and >= 0)
+                {
+                    slot = named;
+                }
+                else
+                {
+                    v.Error(node, prefix + ".video", $"'{name}' isn't a media slot{TomlValidator.Suggest(name, MediaSlots.Names)}: name the slot whose face plays the game's video, e.g. \"screenshot\"");
+                }
+            }
+
+            var delay = (int?)v.Integer(entry, prefix, "video_delay_ms", 0, GameTemplate.MaxVideoDelayMs)
+                ?? extended?.VideoDelayMs ?? GameTemplate.DefaultVideoDelayMs;
+            if (slot < 0 && !entry.Contains("video") && entry.TryGet("video_delay_ms", out var delayNode))
+            {
+                v.Warning(delayNode, prefix + ".video_delay_ms", "the template plays no video (add video = \"<slot>\"), so this is never used");
+            }
+
+            return (slot, delay);
+        }
+
         /// <summary><c>shape</c>: true for <c>"media"</c>; false for <c>"model"</c> (the default) or a bad value.</summary>
         private bool ReadShape(TomlTableNode entry, string prefix)
         {
