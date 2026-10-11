@@ -19,6 +19,9 @@ public sealed class ConvertedModel
     /// <summary>The authored textures its faces sample, by the index in their face code.</summary>
     public Texture2D?[] Authored { get; } = new Texture2D?[ItemTemplate.MaxAuthoredTextures];
 
+    /// <summary>The authored texture its <c>video</c> material samples, which a card's video replaces while it plays (A6 Card videos); -1 for none.</summary>
+    public int VideoTexture { get; set; } = -1;
+
     public List<string> Warnings { get; } = [];
 
     /// <summary>The fitted rest pose's bounding box.</summary>
@@ -75,6 +78,9 @@ public static class ModelConverter
     public const string RestClip = "_rest";
 
     private const float MaxLaunchSeconds = 2;
+
+    private const string NoVideoTexture =
+        "its video material has no texture, so a video can't play on it: give it one of its own, which shows while no video plays";
 
     /// <summary>A model's textures are scaled down to at most this on their longer side when loaded (2026-10-08).</summary>
     public const int MaxTextureSide = 1024;
@@ -434,6 +440,18 @@ public static class ModelConverter
                 : (Colors.White, 0.5f);
 
             var tex = AuthoredIndex(TextureOf(material), material?.ResourceName);
+            if (MediaSlots.IsVideoMaterial(material?.ResourceName) && model.VideoTexture < 0)
+            {
+                if (tex >= 0)
+                {
+                    model.VideoTexture = tex;
+                }
+                else if (!model.Warnings.Contains(NoVideoTexture))
+                {
+                    model.Warnings.Add(NoVideoTexture);
+                }
+            }
+
             var aspect = 0f;
             if (slot >= 0)
             {

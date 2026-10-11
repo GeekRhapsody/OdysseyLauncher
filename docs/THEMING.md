@@ -47,9 +47,11 @@ neon-arcade/                      the folder name is the theme's id: lower-case 
     systems/console.glb           system models (the cards on the systems screen)
   logos/
     ps2.png                       each system's image for its card, named by its id (section 4)
+  videos/
+    ps2.mp4                       a card's video, played on its screen while it's focused (section 4)
 ```
 
-- Only `theme.toml` is required. Put models wherever you like inside the folder: the manifest names each one by its path, relative to the folder and `/`-separated. A path can't leave the folder.
+- Only `theme.toml` is required. Put models and videos wherever you like inside the folder: the manifest names each one by its path, relative to the folder and `/`-separated. A path can't leave the folder.
 - `logos/` is the one folder found by its name: an image there named after a system's id (`ps2.webp`) is that system's logo, for its card (section 4).
 - The app's own themes are in the `themes` folder beside its executable (`OdysseyLauncher.exe`), not packed inside it. A user theme with the same id as one of them (`console`, say) replaces it. `memory-card` is reserved: a user theme with that id is ignored, with a warning.
 - Models are glTF 2.0 binaries (`.glb`) only. To use OBJ or another format, convert it first (section 9).
@@ -119,6 +121,7 @@ tint = false                          # default false for its own model, else ti
 colour = "#2B4C9A"                    # its card's tint and the colour of its games' plain boxes
 game_template = "crt_tv"              # a template id in this theme or Memory Card (default: [defaults] game_template)
 logo = "art/ps2.png"                  # its card's logo: PNG, JPEG or WebP (default: logos/ps2.png, .jpg, .jpeg or .webp)
+video = "videos/ps2.mp4"              # an MP4 its card plays on its video material while focused (section 4, "Card videos"); needs model
 
 [systems.ps2.slots]                   # its card's chains, slot by slot over [defaults.system_slots]
 cover = ["logo", "authored"]
@@ -146,6 +149,7 @@ bottom_right = "#100A08"
   - A template id that's neither yours nor Memory Card's is an error, with a "did you mean" suggestion, and the next model in line is used.
   - A bad slot chain falls back to that slot's default chain, and a bad `fit` leaves its slot cropped.
   - A bad `shape` is an error, and the template keeps its own shape.
+  - A `video` that isn't an `.mp4` inside the folder is an error, and the card shows its video material's own texture. A `video` in an entry without its own `model` is a warning, and is ignored.
   - Unknown keys are warnings, with a "did you mean" suggestion.
 
 ## 4. Media slots and fallback chains
@@ -201,6 +205,17 @@ A theme can give each system an image, its **logo**, and show it on its cards, s
 - **Whose chains:** a card uses the chains of the theme its model comes from, and a user's own card (`models/systems/<id>.glb`) takes your theme's, so it shows your logos too. Memory Card names none, so its slab shows the system's name.
 - **The first time a theme is used,** its logos are baked to textures in the background (as a game's art is when it's scraped), on up to four threads, the cards on screen first: Slab's 169 take about 7 s, the cards on screen a fraction of that; a card shows its fallback until its logo is ready. From then on a logo loads as fast as a game's art. Only the last theme with logos keeps them baked (`CacheDir/theme-logos/`), so switching to a theme without logos and back costs nothing, and an edited image is baked again.
 - **Cost:** a theme whose cards show no logo costs nothing. One that does uses a 256² texture layer per card in the systems grid's pool (about 6 MB), and the systems grid uploads its cards' logos as the games grid does its art.
+
+### Card videos
+
+A system card can play a video while it's focused: a monitor showing a game loading, say, as the Console theme's Amstrad CPC does.
+
+- **The video:** `[systems.<id>] video = "<path>"`, an MP4 inside the theme's folder, in the same entry as the card's `model` (a `video` without a `model` is ignored, with a warning: the video is made for that model). It plays only on that model, never on the theme's default card or another theme's.
+- **The screen:** a material named **`video`** (matched as slot names are, so `Video.001` works) with a base colour texture **of its own**, which the video replaces while it plays: give it white as its base colour, and UVs spanning 0 to 1 across the screen, upright (the whole frame is shown, never cropped). Its texture is what the card shows when the video isn't playing: unfocused, before the first frame is decoded, and where there's no decoder. So make it the video's first frame. A model can have one `video` material, and it isn't a media slot.
+- **Timing:** the video starts with the card's `focused` clip, without sound, and starts again from its first frame each time the clip loops, so it keeps step with the model. Make it as long as the clip: a shorter one holds its last frame until the clip loops, a longer one is cut there. A card without a `focused` clip loops the video on its own.
+- **The file:** H.264 in 4:2:0 (`yuv420p`; Windows can't decode 4:4:4), no larger than the screen needs (every texture is drawn at most 1024 pixels on its longer side), with no sound track. With ffmpeg: `ffmpeg -i in.mp4 -c:v libx264 -pix_fmt yuv420p -g 30 -an out.mp4`. A key frame every second or so makes the restarts quick.
+- **Platforms:** videos are decoded by Windows (Media Foundation). Elsewhere the card shows its `video` material's texture.
+- **Cost:** only the focused card plays, and only while the systems grid shows. Its frames are decoded on a thread of their own and uploaded once each (about 0.05 ms a frame at 640 × 488 and 30 frames a second). The decoder adds about 50 MB to the app's memory while a video plays.
 
 ### How art fits a face
 
@@ -265,7 +280,7 @@ In a grid, each row is as tall as the tallest model in it, and a shorter model i
 | Units and axes | glTF's: metres, +Y up, the front facing +Z (towards the viewer). |
 | Origin | The bottom centre: the model stands on y = 0. |
 | Size | About 1 m on its largest side. You don't have to be exact: the launcher fits every model to the spec, and fits per-game models into the grid cell. More than 10× off gets a "wrong units?" warning. |
-| Materials honoured today | Base colour (factor and texture), roughness, vertex colours, and the slot names. |
+| Materials honoured today | Base colour (factor and texture), roughness, vertex colours, the slot names, and a system card's `video` (section 4, "Card videos"). |
 | Materials ignored for now | Metallic, normal maps, emissive, unlit, alpha, texture transforms and double-sided. They're planned. Until then, don't rely on them: a model looks the same without them, just flatter. |
 | Textures | Base colour textures, at most 4 per model. They're mipmapped when loaded. Normal, metallic-roughness, occlusion and emissive maps are allowed but not drawn yet, so they don't count towards the budget. |
 | Animation | Clips named `idle`, `focused` and `launch` (section 8), with node transforms, skinning and morph targets. |

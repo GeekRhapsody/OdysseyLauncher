@@ -27,9 +27,18 @@ REGIONS = {
     "strip": (1040, 752, 1008, 82),   # the monitor's bezel under the screen, MONITOR strip
     "cassette_b": (0, 1210, 1024, 651),  # its bottom (side B), the tape's edge at the top
 }
-SCREEN_ATLAS = (2048, 2040)           # six screens, two across and three down
-SCREEN_CELL = (1024, 680)
-SCREENS = ["boot", "press", "loading", "part1", "part2", "picture"]  # in the screen atlas, left to right, top to bottom
+SCREEN_PX = (1024, 780)               # the glass's still (the boot screen), the video material's texture
+VIDEO_PX = (640, 488)                 # the video's frames: the glass's proportions, even sides for H.264's 4:2:0
+
+# The focused clip's timing, in frames at FPS, which the video (amstrad_cpc_video.py) follows frame for frame: it's as
+# long as the clip, and the launcher restarts it when the clip loops.
+FPS = 30
+LENGTH = 270
+EJECT = (12, 200)      # STOP/EJECT pressed: the door pops open to load, then to take the tape out
+DOOR_SHUT = 80         # the door has shut on the cassette
+PLAY = 104             # PLAY goes down (and stays down until the second eject)
+ENTER = 112            # ENTER: "any key"
+RESET = 250            # the cassette is out: the computer resets to its boot screen
 
 # -- The keyboard ----------------------------------------------------------------------------------------------------
 U = 19.0                              # the key pitch

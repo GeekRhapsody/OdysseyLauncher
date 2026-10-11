@@ -52,7 +52,18 @@ public sealed class ItemTemplate
         }
 
         LaunchSeconds = ModelConverter.LaunchSeconds(model.Clips[(int)ModelClip.Launch]);
+        VideoPath = systemCard ? candidate.Video : null;
+        VideoTexture = model.VideoTexture;
     }
+
+    /// <summary>A system card's video from its theme (A6 Card videos), an absolute path; null for none.</summary>
+    public string? VideoPath { get; }
+
+    /// <summary>The authored texture the video replaces while it plays (its <c>video</c> material's); -1 for none.</summary>
+    public int VideoTexture { get; }
+
+    /// <summary>Whether the card plays a video while it's focused: it has one, and a <c>video</c> material to show it on.</summary>
+    public bool HasVideo => VideoPath is not null && VideoTexture >= 0;
 
     /// <summary><see cref="ModelCandidate.Key"/>: the file, its chains and its tint.</summary>
     public string Key { get; }

@@ -7,10 +7,11 @@ Writes two images into a folder:
   MONITOR / TAPE / COMPUTER diagram, the door's smoked plastic with its tape scale and red DATACORDER band, every key's
   top and legend), a cassette's two sides (a made-up game, Odyssey, on its labels: side B is seen from below, under
   the open door), a reel's hub, and the monitor's band under its screen.
-- cpc_screen.png: six screens for the CTM644's glass, two across and three down: BASIC 1.0's boot screen, the same
-  after RUN" ("Press PLAY then any key:"), "Loading ODYSSEY block 1", the game's loading picture a third and two
-  thirds in (the CPC fills its screen memory a pixel row of every character row at a time, so a picture loads like a
-  venetian blind), and the whole picture.
+- cpc_screen.png: the CTM644's glass showing BASIC 1.0's boot screen: the texture of the model's `video` material,
+  shown while its video doesn't play.
+
+The screens' drawing (the CPC's text screens, the game's title and its loading, the glass) is shared with
+amstrad_cpc_video.py, which draws the card's video with it.
 
 The game, Odyssey, and its picture are made up. Run it with the system Python (Pillow):
 
@@ -287,10 +288,11 @@ BOOT = [" Amstrad 64K Microcomputer  (v1)", "", " ©1984 Amstrad Consumer Electr
         "           and Locomotive Software Ltd.", "", " BASIC 1.0", "", "Ready"]
 PRESS = BOOT + ['run"', "Press PLAY then any key:"]
 LOADING = PRESS + ["Loading ODYSSEY block 1"]
+SCREEN_BYTES = 16384   # the CPC's screen memory: eight blocks of 2048, each one pixel row of all 25 character rows
 
 
-def text_screen(lines, cursor):
-    """A 320 x 200 mode 1 screen: lines from the top, the cursor (a solid block) at (column, row)."""
+def text_screen(lines, cursor=None):
+    """A 320 x 200 mode 1 screen: lines from the top, the cursor (a solid block) at (column, row) if there is one."""
     font = ImageFont.truetype(FONTS + "lucon.ttf", 9)
     ink = Image.new("1", (320, 200), 0)
     d = ImageDraw.Draw(ink)
@@ -299,9 +301,9 @@ def text_screen(lines, cursor):
         for col, ch in enumerate(line):
             d.text((col * 8, row * 8), ch, font=font, fill=1)
     ink = ImageChops.lighter(ink, ImageChops.offset(ink, 1, 0))   # the CPC's characters have two-pixel strokes
-    col, row = cursor
-    d = ImageDraw.Draw(ink)
-    d.rectangle([col * 8, row * 8, col * 8 + 7, row * 8 + 7], fill=1)
+    if cursor is not None:
+        col, row = cursor
+        ImageDraw.Draw(ink).rectangle([col * 8, row * 8, col * 8 + 7, row * 8 + 7], fill=1)
     screen = Image.new("RGB", (320, 200), BLUE)
     screen.paste(Image.new("RGB", (320, 200), YELLOW), (0, 0), ink.convert("L"))
     return screen, BLUE
@@ -312,8 +314,21 @@ def cpc(r, g, b):
     return tuple((0, 128, 255)[c] for c in (r, g, b))
 
 
-def picture():
-    """The game's loading picture in mode 0: a sun setting behind mountains over a grid, stars, and the title."""
+def small_text(img, text, y, colour):
+    """A line of mode 1 characters, halved to mode 0's wide pixels, centred at row y of a 160 x 200 picture."""
+    line = Image.new("1", (320, 8), 0)
+    d = ImageDraw.Draw(line)
+    d.fontmode = "1"
+    d.text((160, 4), text, font=ImageFont.truetype(FONTS + "lucon.ttf", 9), fill=1, anchor="mm")
+    line = ImageChops.lighter(line, ImageChops.offset(line, 1, 0)).resize((160, 8), Image.NEAREST)
+    img.paste(Image.new("RGB", (160, 8), colour), (0, y), line.convert("L"))
+
+
+def picture(t=0.0, prompt=False):
+    """
+    The game's title in mode 0: a sun setting behind mountains over a grid, stars, and the title. t (seconds) runs it:
+    the grid's lines roll towards the viewer and the stars twinkle; prompt adds a blinking PRESS FIRE.
+    """
     img = Image.new("RGB", (160, 200), cpc(0, 0, 0))
     d = ImageDraw.Draw(img)
     bands = [(0, cpc(0, 0, 0)), (40, cpc(0, 0, 1)), (70, cpc(1, 0, 1)), (92, cpc(2, 0, 1)), (108, cpc(2, 1, 0)),
@@ -325,27 +340,34 @@ def picture():
                 d.point((x + (y1 // 2) % 2, y1 - 2), fill=c1)
                 d.point((x + 1 - (y1 // 2) % 2, y1 - 1), fill=c1)
     rng = random.Random(464)
-    for _ in range(60):
+    for k in range(60):
         x, yy = rng.randrange(160), rng.randrange(4, 66)
-        d.point((x, yy), fill=cpc(2, 2, 2) if rng.random() < 0.6 else cpc(1, 2, 2))
+        bright = rng.random() < 0.6
+        phase = rng.random()
+        if t > 0 and (t * 1.7 + phase) % 1.0 < 0.18:   # each star dims for a moment now and then
+            continue
+        d.point((x, yy), fill=cpc(2, 2, 2) if bright else cpc(1, 2, 2))
     # The sun: bands of yellow to red, cut by widening gaps towards its foot.
     cx, cy, r = 80, 102, 34
     for yy in range(cy - r, cy + 1):
         half = int(round(2 * math.sqrt(max(0, r * r - (yy - cy) ** 2))) / 2)
-        t = (yy - (cy - r)) / r
+        f = (yy - (cy - r)) / r
         gap = yy > cy - 14 and (yy - (cy - 14)) % 6 < 1 + (yy - (cy - 14)) // 6
         if not gap:
-            c = cpc(2, 2, 1) if t < 0.35 else cpc(2, 2, 0) if t < 0.6 else cpc(2, 1, 0) if t < 0.82 else cpc(2, 0, 1)
+            c = cpc(2, 2, 1) if f < 0.35 else cpc(2, 2, 0) if f < 0.6 else cpc(2, 1, 0) if f < 0.82 else cpc(2, 0, 1)
             d.line([(cx - half, yy), (cx + half, yy)], fill=c)
-    # The mountains, then the grid.
+    # The mountains, then the grid: its lines roll down towards the viewer, two a second.
     ridge = [(0, 112), (12, 100), (22, 106), (36, 88), (50, 104), (60, 98), (70, 110), (92, 108), (104, 92),
              (118, 104), (128, 96), (142, 108), (152, 100), (160, 106), (160, 126), (0, 126)]
     d.polygon(ridge, fill=cpc(0, 0, 1))
     d.line(ridge[:-2], fill=cpc(1, 0, 2))
     d.rectangle([0, 126, 159, 199], fill=cpc(0, 0, 0))
-    for k in range(9):
-        yy = 126 + int(round(74 * (k / 8) ** 1.8))
-        d.line([(0, yy), (159, yy)], fill=cpc(2, 0, 2) if k else cpc(2, 1, 2))
+    roll = (t * 2.0) % 1.0
+    for k in range(8):
+        yy = 126 + int(round(74 * ((k + roll) / 8) ** 1.8))
+        if yy < 200:
+            d.line([(0, yy), (159, yy)], fill=cpc(2, 0, 2))
+    d.line([(0, 126), (159, 126)], fill=cpc(2, 1, 2))
     for k in range(-10, 11):
         d.line([(80 + k * 4, 126), (80 + k * 26, 199)], fill=cpc(2, 0, 2))
     # The title, chunky: drawn at twice the width, then halved, so its pixels are mode 0's.
@@ -359,29 +381,30 @@ def picture():
     outline = title.filter(ImageFilter.MaxFilter(3))
     img.paste(Image.new("RGB", (160, 40), cpc(0, 2, 2)), (0, 10), ImageChops.subtract(outline, title).convert("L"))
     img.paste(Image.new("RGB", (160, 40), cpc(2, 2, 1)), (0, 10), title.convert("L"))
-    small = Image.new("1", (320, 8), 0)
-    sd = ImageDraw.Draw(small)
-    sd.fontmode = "1"
-    sd.text((160, 4), "(C) 1985 ODYSSEY SOFTWARE", font=ImageFont.truetype(FONTS + "lucon.ttf", 9), fill=1, anchor="mm")
-    small = ImageChops.lighter(small, ImageChops.offset(small, 1, 0)).resize((160, 8), Image.NEAREST)
-    img.paste(Image.new("RGB", (160, 8), cpc(1, 2, 2)), (0, 190), small.convert("L"))
+    if prompt and t % 1.0 < 0.6:
+        small_text(img, "PRESS FIRE", 168, cpc(2, 2, 2))
+    small_text(img, "(C) 1985 ODYSSEY SOFTWARE", 190, cpc(1, 2, 2))
     return img.resize((320, 200), Image.NEAREST)
 
 
-def loading_part(full, rows):
-    """The picture as the CPC's screen memory fills: rows pixel rows of every character row, the next for some."""
-    lines, extra = rows
-    part = Image.new("RGB", (320, 200), BLACK)
+def loading(full, loaded, under=None):
+    """
+    The picture as it loads into the screen memory, loaded bytes of SCREEN_BYTES in: a block of 2048 holds one pixel
+    row of every character row, left to right and top to bottom, so it fills like a venetian blind. Under the rows not
+    loaded yet is under (black by default).
+    """
+    part = under.copy() if under is not None else Image.new("RGB", (320, 200), BLACK)
     for yy in range(200):
-        line, char_row = yy % 8, yy // 8
-        if line < lines or (line == lines and char_row < extra):
-            part.paste(full.crop((0, yy, 320, yy + 1)), (0, yy))
-    return part, BLACK
+        start = (yy % 8) * 2048 + (yy // 8) * 80          # 80 bytes a pixel row: 160 mode 0 pixels, 2 to a byte
+        done = max(0, min(80, loaded - start))
+        if done:
+            part.paste(full.crop((0, yy, done * 4, yy + 1)), (0, yy))
+    return part
 
 
-def glass(paper, border):
-    """A screen cell: the glass, its lit raster the border's colour round the paper, a vignette and a sheen."""
-    cw, ch = L.SCREEN_CELL
+def glass(paper, border, size):
+    """The glass at size (pixels): its lit raster the border's colour round the paper, a vignette and a sheen."""
+    cw, ch = size
     gw, gh = L.GLASS
     rw, rh = L.RASTER
     image = Image.new("RGB", (cw, ch), (18, 20, 22))
@@ -390,10 +413,10 @@ def glass(paper, border):
     raster = Image.new("RGB", (pw, ph), border)
     qw, qh = round(pw * L.PAPER[0]), round(ph * L.PAPER[1])
     raster.paste(paper.resize((qw, qh), Image.NEAREST), ((pw - qw) // 2, (ph - qh) // 2))
-    raster = raster.filter(ImageFilter.GaussianBlur(0.6))          # a CRT's soft dots
+    raster = raster.filter(ImageFilter.GaussianBlur(0.6 * cw / 1024))          # a CRT's soft dots
     mask = Image.new("L", (pw, ph), 0)
     ImageDraw.Draw(mask).rounded_rectangle([0, 0, pw - 1, ph - 1], radius=pw * 0.035, fill=255)
-    image.paste(raster, (x0, y0), mask.filter(ImageFilter.GaussianBlur(1.5)))
+    image.paste(raster, (x0, y0), mask.filter(ImageFilter.GaussianBlur(1.5 * cw / 1024)))
     vignette = Image.new("L", (cw, ch), 0)
     ImageDraw.Draw(vignette).rounded_rectangle([x0 + pw * 0.05, y0 + ph * 0.06, x0 + pw * 0.95, y0 + ph * 0.94],
                                                radius=pw * 0.14, fill=255)
@@ -405,26 +428,16 @@ def glass(paper, border):
     return Image.composite(Image.new("RGB", (cw, ch), (255, 255, 255)), image, sheen)
 
 
-def screen_atlas(out):
-    full = picture()
-    screens = {
-        "boot": text_screen(BOOT, (0, 8)),
-        "press": text_screen(PRESS, (24, 9)),
-        "loading": text_screen(LOADING, (0, 11)),
-        "part1": loading_part(full, (2, 17)),
-        "part2": loading_part(full, (5, 8)),
-        "picture": (full, BLACK),
-    }
-    atlas = Image.new("RGB", L.SCREEN_ATLAS, (0, 0, 0))
-    cw, ch = L.SCREEN_CELL
-    for k, name in enumerate(L.SCREENS):
-        atlas.paste(glass(*screens[name]), ((k % 2) * cw, (k // 2) * ch))
-    atlas.save(out, optimize=True)
+def boot_glass(size):
+    """The boot screen on the glass: the video's first and last frames, and the still shown when no video plays."""
+    return glass(*text_screen(BOOT, (0, 8)), size)
 
 
 if __name__ == "__main__":
     folder = os.path.abspath(sys.argv[1])
     os.makedirs(folder, exist_ok=True)
     print_atlas(os.path.join(folder, "cpc_print.png"))
-    screen_atlas(os.path.join(folder, "cpc_screen.png"))
-    print("Amstrad CPC 464: print and screens")
+    boot_glass(L.SCREEN_PX).save(os.path.join(folder, "cpc_screen.png"), optimize=True)
+    print("Amstrad CPC 464: print and screen")
+
+

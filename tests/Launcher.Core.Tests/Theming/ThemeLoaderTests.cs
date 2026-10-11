@@ -763,6 +763,59 @@ public sealed class ThemeLoaderTests
         Assert.Equal(["saturn"], result.Theme!.Logos.Keys);
     }
 
+    // ---- Card videos ------------------------------------------------------------------------------
+
+    [Fact]
+    public void A_cards_video_is_an_mp4_in_the_theme_beside_its_model_and_plays_on_its_video_material()
+    {
+        var result = ThemeFixtures.Parse("""
+            name = "Videos"
+
+            [systems.amstradcpc]
+            model = "cpc.glb"
+            video = "./videos/cpc.mp4"
+            """, new FakeThemeFiles().Model("cpc.glb", "Video.001", "case").File("videos/cpc.mp4"));
+
+        Assert.Empty(result.Diagnostics);
+        Assert.Equal("videos/cpc.mp4", result.Theme!.Systems["amstradcpc"].Video);
+        Assert.Equal((true, true, false, false), (MediaSlots.IsVideoMaterial("Video.001"), MediaSlots.IsVideoMaterial("VIDEO"),
+            MediaSlots.IsVideoMaterial("video.1"), MediaSlots.IsVideoMaterial(null)));
+        Assert.Equal(-1, MediaSlots.OfMaterial("video"));
+    }
+
+    [Fact]
+    public void A_bad_video_is_an_error_and_one_without_its_entrys_model_is_ignored_with_a_warning()
+    {
+        var result = ThemeFixtures.Parse("""
+            name = "Videos"
+
+            [systems.a]
+            model = "a.glb"
+            video = "../a.mp4"
+
+            [systems.b]
+            model = "a.glb"
+            video = "videos/b.avi"
+
+            [systems.c]
+            model = "a.glb"
+            video = "videos/missing.mp4"
+
+            [systems.d]
+            video = "videos/d.mp4"
+            """, new FakeThemeFiles().Model("a.glb", "video").File("videos/b.avi", "videos/d.mp4"));
+
+        var errors = result.Diagnostics.Where(d => d.IsError).ToList();
+        Assert.Equal(["systems.a.video", "systems.b.video", "systems.c.video"], errors.Select(e => e.Key));
+        Assert.Contains("must be a path inside the theme's folder", errors[0].Message, StringComparison.Ordinal);
+        Assert.Contains("isn't an MP4 video", errors[1].Message, StringComparison.Ordinal);
+        Assert.Contains("doesn't exist in the theme's folder", errors[2].Message, StringComparison.Ordinal);
+        var warning = Assert.Single(result.Diagnostics, d => !d.IsError);
+        Assert.Equal("systems.d.video", warning.Key);
+        Assert.Contains("it has none", warning.Message, StringComparison.Ordinal);
+        Assert.All(result.Theme!.Systems.Values, system => Assert.Null(system.Video));
+    }
+
     [Fact]
     public void The_slab_theme_loads_cleanly_with_a_logo_on_one_grey_card_for_every_built_in_system()
     {

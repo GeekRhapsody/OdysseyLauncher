@@ -100,6 +100,10 @@ public enum ModelLevel
 /// For a system card: the chains its theme gives its slots (<c>[systems.&lt;id&gt;.slots]</c> over
 /// <c>[defaults.system_slots]</c>); a slot it doesn't list uses <see cref="SlotChain.ForSystemModel"/>. Null for none.
 /// </param>
+/// <param name="Video">
+/// For a system card from a theme's <c>[systems.&lt;id&gt;]</c>: its <c>video</c>, an absolute path, played on the model's
+/// <c>video</c> material while the card is focused (A6 Card videos). Null for none.
+/// </param>
 public sealed record ModelCandidate(
     ModelLevel Level,
     ThemeOrigin Origin,
@@ -107,17 +111,28 @@ public sealed record ModelCandidate(
     GameTemplate? Template,
     bool Tint,
     string Description,
-    IReadOnlyDictionary<int, SlotChain>? CardSlots = null)
+    IReadOnlyDictionary<int, SlotChain>? CardSlots = null,
+    string? Video = null)
 {
     /// <summary>
-    /// Two candidates are the same grid template if they load the same file with the same chains and tint: a key that
-    /// dedupes them across systems and precedence levels. A theme's template extending the base's has the same file and
-    /// id but its own chains, so the declaring theme is part of it; a card's chains are written out, since two systems
-    /// can share a model and not its chains.
+    /// Two candidates are the same grid template if they load the same file with the same chains, tint and video: a key
+    /// that dedupes them across systems and precedence levels. A theme's template extending the base's has the same
+    /// file and id but its own chains, so the declaring theme is part of it; a card's chains are written out, since two
+    /// systems can share a model and not its chains.
     /// </summary>
-    public string Key => CardSlots is { Count: > 0 } slots
-        ? $"{Path}|{Template?.ThemeId}:{Template?.Id}|{(Tint ? "tint" : "plain")}|{string.Join("; ", slots.OrderBy(s => s.Key).Select(s => s.Value))}"
-        : $"{Path}|{Template?.ThemeId}:{Template?.Id}|{(Tint ? "tint" : "plain")}";
+    public string Key
+    {
+        get
+        {
+            var key = $"{Path}|{Template?.ThemeId}:{Template?.Id}|{(Tint ? "tint" : "plain")}";
+            if (CardSlots is { Count: > 0 } slots)
+            {
+                key += $"|{string.Join("; ", slots.OrderBy(s => s.Key).Select(s => s.Value))}";
+            }
+
+            return Video is null ? key : $"{key}|video:{Video}";
+        }
+    }
 
     /// <summary>The slot's chain: for a card its theme's, else the template's, or the default for a user model.</summary>
     public SlotChain ChainFor(int slot, bool systemCard) =>
@@ -253,21 +268,22 @@ public sealed class ModelResolver
             ThemeSystem? entry = null;
             if (systemId is not null && theme.Systems.TryGetValue(systemId, out entry) && entry.Model is { } model)
             {
-                Add(systemLevel, theme, model, entry.Tint ?? false, $"[systems.{systemId}]");
+                // A card's video belongs to the model its entry names, so it goes with that candidate only.
+                Add(systemLevel, theme, model, entry.Tint ?? false, $"[systems.{systemId}]", entry.Video);
             }
 
             if (theme.Defaults.SystemModel is { } fallback)
             {
-                Add(defaultLevel, theme, fallback, entry?.Tint ?? theme.Defaults.TintSystemModel, "[defaults]");
+                Add(defaultLevel, theme, fallback, entry?.Tint ?? theme.Defaults.TintSystemModel, "[defaults]", null);
             }
         }
 
         return candidates;
 
-        void Add(ModelLevel level, Theme theme, string model, bool tint, string where)
+        void Add(ModelLevel level, Theme theme, string model, bool tint, string where, string? video)
         {
             var candidate = new ModelCandidate(level, theme.Origin, theme.PathOf(model), null, tint, $"theme '{theme.Id}' {model} ({where})",
-                CardSlotsOf(theme, systemId));
+                CardSlotsOf(theme, systemId), video is null ? null : theme.PathOf(video));
             if (!candidates.Exists(c => c.Key == candidate.Key))
             {
                 candidates.Add(candidate);

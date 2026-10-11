@@ -78,6 +78,10 @@ public sealed record GameTemplate(
 /// <c>[systems.&lt;id&gt;.slots]</c>: the chains of its card's slots, by slot number, over the theme's
 /// <see cref="ThemeDefaults.SystemSlots"/>. Null for none.
 /// </param>
+/// <param name="Video">
+/// <c>video</c>: an MP4, relative to the theme's folder, that the card's <see cref="Model"/> plays on its <c>video</c>
+/// material while it's focused (A6 Card videos). Null for none, and always null without a <see cref="Model"/>.
+/// </param>
 public sealed record ThemeSystem(
     string Id,
     string? Model,
@@ -86,7 +90,8 @@ public sealed record ThemeSystem(
     Rgb? Colour,
     Look Look,
     string? Logo = null,
-    IReadOnlyDictionary<int, SlotChain>? Slots = null);
+    IReadOnlyDictionary<int, SlotChain>? Slots = null,
+    string? Video = null);
 
 /// <summary><c>[defaults]</c>.</summary>
 /// <param name="SystemModel">The card for systems without their own model, relative to the theme's folder.</param>

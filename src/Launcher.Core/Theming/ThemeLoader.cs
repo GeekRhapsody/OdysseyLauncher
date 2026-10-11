@@ -92,7 +92,7 @@ public static class ThemeLoader
     private static readonly string[] TemplateKeys = ["model", "slots", "shape", "fit"];
     private static readonly string[] Shapes = ["model", "media"];
     private static readonly string[] Fits = ["crop", "whole"];
-    private static readonly string[] SystemKeys = ["model", "tint", "game_template", "colour", "look", "logo", "slots"];
+    private static readonly string[] SystemKeys = ["model", "tint", "game_template", "colour", "look", "logo", "slots", "video"];
     private static readonly string[] SourceKeywords = ["generated", "authored"];
 
     /// <summary>What a card's chain can name: systems have no art but their logo.</summary>
@@ -659,6 +659,36 @@ public static class ThemeLoader
             return relative;
         }
 
+        /// <summary>An MP4 inside the theme's folder that exists: a card's <c>video</c>.</summary>
+        private string? VideoPath(TomlTableNode table, string prefix, string key)
+        {
+            var path = TomlValidator.Join(prefix, key);
+            if (!table.TryGet(key, out var node) || v.String(table, prefix, key) is not { } raw)
+            {
+                return null;
+            }
+
+            if (Inside(raw) is not { } relative)
+            {
+                v.Error(node, path, $"'{raw}' must be a path inside the theme's folder, e.g. \"videos/amstradcpc.mp4\"");
+                return null;
+            }
+
+            if (!MediaKinds.VideoExtensions.Any(extension => relative.EndsWith(extension, StringComparison.OrdinalIgnoreCase)))
+            {
+                v.Error(node, path, $"'{raw}' isn't an MP4 video ({string.Join(", ", MediaKinds.VideoExtensions)})");
+                return null;
+            }
+
+            if (!source.Files.Exists(relative))
+            {
+                v.Error(node, path, $"'{raw}' doesn't exist in the theme's folder");
+                return null;
+            }
+
+            return relative;
+        }
+
         /// <summary>A PNG, JPEG or WebP inside the theme's folder that exists: a card's <c>logo</c>.</summary>
         private string? ImagePath(TomlTableNode table, string prefix, string key)
         {
@@ -799,7 +829,16 @@ public static class ThemeLoader
                     ReadSlots(slotsTable, prefix + ".slots", slots, card: true);
                 }
 
-                systems[id] = new ThemeSystem(id, model, tint, template, colour, systemLook, logo, slots.Count > 0 ? slots : null);
+                var video = VideoPath(entry, prefix, "video");
+                if (video is not null && model is null)
+                {
+                    entry.TryGet("video", out var videoNode);
+                    v.Warning(videoNode!, prefix + ".video",
+                        "a video plays on this entry's own model, and it has none: add model = \"...\" beside it; the video is ignored");
+                    video = null;
+                }
+
+                systems[id] = new ThemeSystem(id, model, tint, template, colour, systemLook, logo, slots.Count > 0 ? slots : null, video);
             }
 
             return systems;

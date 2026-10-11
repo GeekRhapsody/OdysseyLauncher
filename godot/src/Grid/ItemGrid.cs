@@ -6,6 +6,7 @@ using Launcher.App.Textures;
 using Launcher.App.Theming;
 using Launcher.Core.Config;
 using Launcher.Core.Library;
+using Launcher.Core.Media;
 using Launcher.Core.Models;
 using Launcher.Core.Theming;
 
@@ -230,6 +231,14 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
     private float _previousYaw;
     private float _previousPitch;
     private float _swayTime;
+
+    // The focused card's video (A6 Card videos): its cell and model, the material showing it, and its own clock for a
+    // card without a focused clip.
+    private CardVideo? _video;
+    private int _videoCell = -1;
+    private ItemTemplate? _videoModel;
+    private ShaderMaterial? _videoMaterial;
+    private double _videoClock;
     private bool _turned;
 
     // Whether the focused item is inspected (R3), and how far it and the item it left are towards that pose (0 to 1).
@@ -1214,11 +1223,13 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
             BindVisibleRows();
             UpdateCurve();
             UpdateFocus(dt);
+            UpdateVideo(dt);
             AnimateFades(dt);
             MeasureTexturing();
         }
         else
         {
+            StopVideo();
             UpdateRoot();
         }
 
@@ -1534,6 +1545,97 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
 
         PlayClip(cell, model.HasClip(ModelClip.Idle) ? ClipNames[(int)ModelClip.Idle] : RestClip, ClipBlendSeconds);
     }
+
+    // ---- Card videos ------------------------------------------------------------------------------
+
+    /// <summary>
+    /// Decodes the focused card's video (A6 Card videos); null for none: a grid of games, or a platform without a
+    /// decoder, whose cards show their <c>video</c> material's own texture.
+    /// </summary>
+    public IVideoDecoder? VideoDecoder { get; set; }
+
+    /// <summary>
+    /// Once a frame: the focused card plays its video while the grid shows, on its <c>video</c> material's texture,
+    /// timed by its focused clip (or, without one, by its own clock); anything else stops it and puts the texture back.
+    /// </summary>
+    private void UpdateVideo(float dt)
+    {
+        var cell = _focusCell;
+        var model = cell >= 0 && Visible && VideoDecoder is not null ? _cellModel[cell] : null;
+        if (model is null || !model.HasVideo)
+        {
+            StopVideo();
+            return;
+        }
+
+        if (_video is null || cell != _videoCell || model != _videoModel)
+        {
+            StopVideo();
+            _video = new CardVideo(VideoDecoder!, model.VideoPath!);
+            _videoCell = cell;
+            _videoModel = model;
+            _videoClock = 0;
+        }
+
+        double position;
+        if (_cellScene[cell]?.Player is { } player && player.IsPlaying())
+        {
+            position = player.CurrentAnimationPosition;
+        }
+        else
+        {
+            _videoClock += dt;
+            var duration = _video.Duration;
+            if (duration > 0 && _videoClock >= duration)
+            {
+                _videoClock -= duration;
+            }
+
+            position = _videoClock;
+        }
+
+        _video.Tick(position);
+        if (_videoMaterial is null && _video.Texture is { } texture && MaterialOf(cell, model) is { } material)
+        {
+            material.SetShaderParameter(ShaderParams.Authored[model.VideoTexture], texture);
+            _videoMaterial = material;
+        }
+    }
+
+    private void StopVideo(bool quitting = false)
+    {
+        if (_video is null)
+        {
+            return;
+        }
+
+        if (_videoMaterial is not null && _videoModel is not null)
+        {
+            _videoMaterial.SetShaderParameter(ShaderParams.Authored[_videoModel.VideoTexture], _videoModel.Authored[_videoModel.VideoTexture]);
+        }
+
+        if (quitting)
+        {
+            // The grids leave the tree only as the app quits: the decoding thread must be done with Godot before it goes.
+            _video.DisposeAndWait(TimeSpan.FromSeconds(1));
+        }
+        else
+        {
+            _video.Dispose();
+        }
+
+        _video = null;
+        _videoMaterial = null;
+        _videoModel = null;
+        _videoCell = -1;
+    }
+
+    /// <summary>The material the cell's model is drawn with (its template's, or its own node's).</summary>
+    private ShaderMaterial? MaterialOf(int cell, ItemTemplate model) =>
+        _cellTemplate[cell] >= 0 ? _materials[_templateMaterial[_cellTemplate[cell]]]
+        : _modelMaterials.TryGetValue(model, out var material) ? material : null;
+
+    public override void _ExitTree() => StopVideo(quitting: true);
 
     // ---- Slots ------------------------------------------------------------------------------------
 

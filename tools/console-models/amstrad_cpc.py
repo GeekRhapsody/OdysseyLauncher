@@ -9,24 +9,27 @@ the door with a window over the well, the cassette's spindles and the head in th
 it stands the monitor: a bezel whose screen opening slopes in to curved glass, a lid with a handle recess, and the
 tube's housing tapering behind. The printing is two textures drawn by amstrad_cpc_print.py: the slope seen square on
 (planar-mapped onto the keys' tops, the door and the slope itself), a cassette's two labels, a hub and the monitor's
-band in one atlas; the screens in the other.
+band in one atlas; and the glass showing the boot screen.
+
+The glass's material is `video`: while the card is focused, the launcher plays the theme's video for it there
+(godot/themes/console/videos/amstradcpc.mp4, drawn by amstrad_cpc_video.py), starting it again each time the clip
+loops (A6 Card videos); otherwise, and where there's no decoder, it shows its own texture, the boot screen.
 
 A node tree: a root (the turn to a three-quarter view, TILT_YAW and TILT_PITCH: the datacorder's end towards the
 viewer, the top tipped up a little; then the model spec's fit: standing on y = 0, centred, the largest side 1 m)
-holding the set, the datacorder's door (its origin on its hinge, along its back edge), the PLAY and STOP/EJECT keys,
-the big ENTER key, and five screens laid over the glass, each a little in front of the one before. The door holds a
-cassette, which holds its two hubs. The cassette and the five screens are shrunk to nothing at rest, so the card is
-the computer with its door shut, the well empty, and the boot screen.
+holding the set, the datacorder's door (its origin on its hinge, along its back edge), the PLAY and STOP/EJECT keys and
+the big ENTER key. The door holds a cassette, which holds its two hubs. The cassette is shrunk to nothing at rest, so
+the card is the computer with its door shut and the well empty.
 
-The `focused` clip (9 s, looping) loads a game from tape: STOP/EJECT pops the door open, a cassette appears in front
-of it and slides into it, and the door shuts. The grid's camera looks at a card level with it, so it sees the card
-from TILT_PITCH above: under that, an open door turns its top away, and the cassette in it shows its bottom, which is
-printed with its side B label (the door opens DOOR_OPEN, wider than the real one's, so the label faces the viewer). The screen shows RUN" and "Press PLAY then any key:"; PLAY goes down
-and stays down, ENTER is pressed, and the screen says "Loading ODYSSEY block 1" while the hubs turn. The game's
-picture loads like a venetian blind, as the CPC's does, and then shows whole. STOP/EJECT again: PLAY pops up, the
-door opens, the cassette slides out and vanishes, the door shuts, and the boot screen is back.
+The `focused` clip (9 s, looping; its timing is amstrad_cpc_layout.py's, which the video follows) loads a game from
+tape: STOP/EJECT pops the door open, a cassette appears in front of it and slides into it, and the door shuts. The
+grid's camera looks at a card level with it, so it sees the card from TILT_PITCH above: under that, an open door turns
+its top away, and the cassette in it shows its bottom, which is printed with its side B label (the door opens
+DOOR_OPEN, wider than the real one's, so the label faces the viewer). RUN" is typed on the screen; PLAY goes down and
+stays down, ENTER is pressed, and the hubs turn while the screen loads the game. STOP/EJECT again: PLAY pops up, the
+door opens, the cassette slides out and vanishes, the door shuts, and the computer resets to its boot screen.
 
-Seven materials (case, print, screen, key, green, red, blue) and two textures, within the system model budget. Run
+Seven materials (case, print, video, key, green, red, blue) and two textures, within the system model budget. Run
 from the repo root:
 
     python tools/console-models/amstrad_cpc_print.py artifacts/cpc
@@ -48,8 +51,6 @@ from mega_drive_cartridge import bevel, boolean, box, export, join, material, ne
 
 TILT_YAW = -22.0     # degrees about the vertical: the right end (the datacorder) comes towards the viewer
 TILT_PITCH = 20.0    # degrees about the horizontal: the top tips up towards the viewer
-FPS = 30
-LENGTH = 270         # the focused clip's frames
 DOOR_OPEN = 48.0     # degrees: wider than the real door's, so the cassette's side B shows under it from the grid's view
 SLIDE = 58.0         # how far in front of its seat in the door the cassette appears, along the door
 PRESS = (4.0, 4.5, 3.5)  # how far STOP/EJECT, PLAY and ENTER go down
@@ -239,33 +240,30 @@ def cassette(m):
 
 # -- The monitor -----------------------------------------------------------------------------------------------------
 
-def glass(name, mon, cell, ahead, mat):
-    """The curved glass, its front ahead mm further forward, mapped to the screen atlas's cell."""
+def glass(mon, mat):
+    """The curved glass, its texture (the still, or the video's frames) across the whole of it."""
     gw, gh = L.GLASS
     mid = mon["screen_z"]
-    col, row = cell % 2, cell // 2
-    cw, ch = L.SCREEN_CELL
-    aw, ah = L.SCREEN_ATLAS
     bm = bmesh.new()
     uv = bm.loops.layers.uv.new("UVMap")
     nu, nv = 16, 12
     grid = [[bm.verts.new((gw * (i / nu - 0.5),
-                           mon["glass_back"] - ahead - mon["bulge"] * (1 - (2 * i / nu - 1) ** 2) * (1 - (2 * j / nv - 1) ** 2),
+                           mon["glass_back"] - mon["bulge"] * (1 - (2 * i / nu - 1) ** 2) * (1 - (2 * j / nv - 1) ** 2),
                            mid + gh * (j / nv - 0.5))) for i in range(nu + 1)] for j in range(nv + 1)]
     for j in range(nv):
         for i in range(nu):
             f = bm.faces.new([grid[j][i], grid[j][i + 1], grid[j + 1][i + 1], grid[j + 1][i]])
             for loop, (a, b) in zip(f.loops, ((i, j), (i + 1, j), (i + 1, j + 1), (i, j + 1))):
-                loop[uv].uv = ((col * cw + a / nu * cw) / aw, 1 - (row * ch + (1 - b / nv) * ch) / ah)
+                loop[uv].uv = (a / nu, b / nv)
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
     for f in bm.faces:                                   # it faces the viewer (-Y)
         if f.normal.y > 0:
             bmesh.ops.reverse_faces(bm, faces=[f])
-    return new_object(name, bm, mat)
+    return new_object("glass", bm, mat)
 
 
 def monitor(m):
-    """The CTM644, its bezel's front facing -Y on y = 0, centred on x = 0, standing on z = 0; and its screens."""
+    """The CTM644, its bezel's front facing -Y on y = 0, centred on x = 0, standing on z = 0."""
     mon = L.MONITOR
     w, h, depth, bz = mon["width"], mon["height"], mon["depth"], mon["bezel"]
     mid = mon["screen_z"]
@@ -303,18 +301,11 @@ def monitor(m):
         bmesh.ops.reverse_faces(bm, faces=[f])
     strip = new_object("strip", bm, m["print"])
 
-    screens = [glass("glass", mon, 0, 0.0, m["screen"])]
-    for k in range(1, len(L.SCREENS)):
-        screens.append(glass(L.SCREENS[k], mon, k, 0.3 * k, m["screen"]))
+    parts = [front, lid, housing, strip, glass(mon, m["video"])]
     at = Matrix.Translation((mon["at"][0], mon["at"][1], 0))
-    for obj in [front, lid, housing, strip] + screens:
+    for obj in parts:
         obj.data.transform(at)
-    # Each screen laid over the glass is its own node, its origin on the glass's middle.
-    centre = at @ Vector((0, mon["glass_back"] - mon["bulge"], mid))
-    for obj in screens[1:]:
-        obj.data.transform(Matrix.Translation(-centre))
-        obj.location = centre
-    return [front, lid, housing, strip, screens[0]], screens[1:]
+    return parts
 
 
 # -- The clip --------------------------------------------------------------------------------------------------------
@@ -329,20 +320,17 @@ def pressed(depth):
     return Pose(x=d.x, y=d.y, z=d.z)
 
 
-def shown(f, f0, f1):
-    return Pose() if f0 <= f < f1 else Pose(scale=HIDDEN)
-
-
 def timeline(f):
     poses = {}
-    poses["eject"] = pressed(PRESS[0] * (tap(f, 12) + tap(f, 200)))
-    poses["play"] = pressed(PRESS[1] * smooth(phase(f, 104, 107)) * (1 - smooth(phase(f, 202, 206))))
-    poses["enter"] = pressed(PRESS[2] * tap(f, 112))
+    first, second = L.EJECT
+    poses["eject"] = pressed(PRESS[0] * (tap(f, first) + tap(f, second)))
+    poses["play"] = pressed(PRESS[1] * smooth(phase(f, L.PLAY, L.PLAY + 3)) * (1 - smooth(phase(f, second + 2, second + 6))))
+    poses["enter"] = pressed(PRESS[2] * tap(f, L.ENTER))
 
     # The door pops open (overshooting), shuts with a little bounce, and again to take the tape out.
-    opening = (back_out(phase(f, 15, 27)) * (1 - ease_in(phase(f, 66, 80)))
-               + back_out(phase(f, 204, 216)) * (1 - ease_in(phase(f, 246, 258))))
-    bounce = sum(3.0 * math.exp(-(f - f0) / 3.0) * abs(math.sin(math.pi * (f - f0) / 4.0)) for f0 in (80, 258) if f >= f0)
+    opening = (back_out(phase(f, first + 3, first + 15)) * (1 - ease_in(phase(f, L.DOOR_SHUT - 14, L.DOOR_SHUT)))
+               + back_out(phase(f, second + 4, second + 16)) * (1 - ease_in(phase(f, 246, 258))))
+    bounce = sum(3.0 * math.exp(-(f - f0) / 3.0) * abs(math.sin(math.pi * (f - f0) / 4.0)) for f0 in (L.DOOR_SHUT, 258) if f >= f0)
     poses["door"] = Pose(pitch=-(DOOR_OPEN * opening + bounce))
 
     # The cassette appears in front of the open door, slides in, and later slides back out and vanishes.
@@ -352,12 +340,8 @@ def timeline(f):
     else:
         slide = SLIDE * ((1 - ease_out(phase(f, 34, 60))) if f < 120 else ease_in(phase(f, 220, 240)))
     poses["cassette"] = Pose(y=-slide, z=1.5 * slide / SLIDE, scale=max(HIDDEN, grow))
-    turn = 1440.0 * smooth(phase(f, 116, 198))       # four turns of the hubs while PLAY is down
+    turn = 1440.0 * smooth(phase(f, L.ENTER + 4, second - 2))   # four turns of the hubs while the game loads
     poses["hub_l"] = poses["hub_r"] = Pose(spin=turn)
-
-    for name, f0, f1 in (("press", 92, 118), ("loading", 118, 136), ("part1", 136, 152), ("part2", 152, 170),
-                         ("picture", 170, 250)):
-        poses[name] = shown(f, f0, f1)
     return poses
 
 
@@ -366,11 +350,12 @@ def main():
     images, out = os.path.abspath(args[0]), os.path.abspath(args[1])
     bpy.ops.wm.read_factory_settings(use_empty=True)
     scene = bpy.context.scene
-    scene.render.fps = FPS
+    scene.render.fps = L.FPS
     m = {
         "case": material("case", "#3A3C3F", 0.6),
         "print": material("print", "#FFFFFF", 0.55, bpy.data.images.load(os.path.join(images, "cpc_print.png"))),
-        "screen": material("screen", "#FFFFFF", 0.2, bpy.data.images.load(os.path.join(images, "cpc_screen.png"))),
+        # The glass: the launcher plays the card's video on the material named video (A6 Card videos).
+        "video": material("video", "#FFFFFF", 0.2, bpy.data.images.load(os.path.join(images, "cpc_screen.png"))),
         "key": material("key", "#1D1E21", 0.5),
         "green": material("green", "#2F9C44", 0.45),
         "red": material("red", "#C6281F", 0.45),
@@ -378,15 +363,13 @@ def main():
     }
     m["dark"] = m["key"]                             # the layout's dark keys
     static, moving = keys(m)
-    still, screens = monitor(m)
-    computer = join(unit(m) + static + still, "amstradcpc")
+    computer = join(unit(m) + static + monitor(m), "amstradcpc")
     lid = door(m)
     tape, hubs = cassette(m)
     tape.parent = lid
     tape.location = (0, -37.0, -7.5)                 # in the well, under the door
     nodes = {"door": lid, "cassette": tape, "hub_l": hubs[0], "hub_r": hubs[1], **moving}
-    nodes.update({obj.name: obj for obj in screens})
-    for obj in [computer, lid] + list(moving.values()) + screens:
+    for obj in [computer, lid] + list(moving.values()):
         for p in obj.data.polygons:
             p.use_smooth = True
         obj.data.set_sharp_from_angle(angle=math.radians(35))
@@ -398,7 +381,7 @@ def main():
     # The three-quarter view, then the spec's fit of the set at rest, as the root's transform.
     root = bpy.data.objects.new("amstradcpc_root", None)
     scene.collection.objects.link(root)
-    for obj in [computer, lid] + list(moving.values()) + screens:
+    for obj in [computer, lid] + list(moving.values()):
         obj.parent = root
     bpy.context.view_layer.update()
     tilt = Matrix.Rotation(math.radians(TILT_PITCH), 4, "X") @ Matrix.Rotation(math.radians(TILT_YAW), 4, "Z")
@@ -408,8 +391,8 @@ def main():
     size = hi - lo
     root.matrix_world = Matrix.Scale(1 / max(size), 4) @ Matrix.Translation((-(lo.x + hi.x) / 2, -(lo.y + hi.y) / 2, -lo.z)) @ tilt
 
-    key("focused", nodes, timeline, LENGTH)
-    meshes = [computer, lid, tape] + hubs + list(moving.values()) + screens
+    key("focused", nodes, timeline, L.LENGTH)
+    meshes = [computer, lid, tape] + hubs + list(moving.values())
     materials = {mat.name for obj in meshes for mat in obj.data.materials}
     print(f"Amstrad CPC: {sum(triangles(o.data) for o in meshes)} triangles ({triangles(computer.data)} the set), "
           f"{len(materials)} materials, size {size.x:.1f} x {size.y:.1f} x {size.z:.1f} mm tilted, before the fit")

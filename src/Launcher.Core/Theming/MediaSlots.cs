@@ -46,13 +46,7 @@ public static class MediaSlots
             return -1;
         }
 
-        var name = materialName.AsSpan();
-        var dot = name.LastIndexOf('.');
-        if (dot > 0 && dot == name.Length - 4 && int.TryParse(name[(dot + 1)..], out _))
-        {
-            name = name[..dot];
-        }
-
+        var name = WithoutSuffix(materialName);
         for (var i = 0; i < Count; i++)
         {
             if (name.Equals(Names[i], StringComparison.OrdinalIgnoreCase))
@@ -62,6 +56,24 @@ public static class MediaSlots
         }
 
         return -1;
+    }
+
+    /// <summary>The name of the material a system card plays its theme's video on (A6 Card videos).</summary>
+    public const string VideoMaterial = "video";
+
+    /// <summary>
+    /// Whether a material is the card's screen for its theme's video (<c>video</c>, matched as slot names are). Its own
+    /// texture is what it shows when no video plays.
+    /// </summary>
+    public static bool IsVideoMaterial(string? materialName) =>
+        !string.IsNullOrEmpty(materialName) && WithoutSuffix(materialName).Equals(VideoMaterial, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>A material's name without Blender's trailing <c>.NNN</c>.</summary>
+    private static ReadOnlySpan<char> WithoutSuffix(string materialName)
+    {
+        var name = materialName.AsSpan();
+        var dot = name.LastIndexOf('.');
+        return dot > 0 && dot == name.Length - 4 && int.TryParse(name[(dot + 1)..], out _) ? name[..dot] : name;
     }
 
     /// <summary>

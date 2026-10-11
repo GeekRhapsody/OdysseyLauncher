@@ -354,6 +354,36 @@ public sealed class ModelResolverTests
     }
 
     [Fact]
+    public void A_cards_video_goes_with_its_entrys_model_only_and_makes_a_grid_template_of_its_own()
+    {
+        var theme = ThemeFixtures.Parse("""
+            name = "Videos"
+
+            [defaults]
+            system_model = "card.glb"
+
+            [systems.ps2]
+            model = "ps2.glb"
+            video = "videos/ps2.mp4"
+
+            [systems.psx]
+            model = "ps2.glb"
+            """, new FakeThemeFiles().Model("card.glb", "label").Model("ps2.glb", "video", "case").File("videos/ps2.mp4"), Base, id: "videos").Theme!;
+        var resolver = Resolver(theme);
+        var ps2 = resolver.SystemModels("ps2");
+        var psx = resolver.SystemModels("psx")[0];
+
+        // The theme's default card and the base theme's never play it.
+        Assert.Equal("ThemeSystem:ps2.glb > ThemeDefault:card.glb > BaseDefault:generic.glb", Describe(ps2));
+        Assert.Equal([theme.PathOf("videos/ps2.mp4"), null, null], ps2.Select(c => c.Video));
+
+        // The same model without the video is another template.
+        Assert.Null(psx.Video);
+        Assert.Equal(psx.Path, ps2[0].Path);
+        Assert.NotEqual(psx.Key, ps2[0].Key);
+    }
+
+    [Fact]
     public void A_cards_logo_is_the_active_themes_then_the_base_themes()
     {
         var logos = Logos;

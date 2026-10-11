@@ -705,8 +705,10 @@ public partial class Main : Node3D
         _jobs.GamesUpdated += navigator.OnGamesUpdated;
         _jobs.GameDeleted += navigator.OnGameDeleted;
 
-        // Y on a game: its details, with its images and video full size.
+        // Y on a game: its details, with its images and video full size. The focused system card plays its theme's video
+        // (A6 Card videos) with the same decoder.
         _videoDecoder = PlatformServices.CreateVideoDecoder();
+        _systemsGrid!.VideoDecoder = _videoDecoder;
         navigator.GameDetailsRequested += id =>
         {
             if (!_ui!.IsOpen)
