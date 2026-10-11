@@ -54,6 +54,9 @@ model = "models/systems/windows.glb"          # built by tools/console-models/wi
 [systems.switch]
 model = "models/systems/switch.glb"           # built by tools/console-models/switch.py, turned to a three-quarter view; its focused clip slides the right Joy-Con up its rail and back
 
+[systems.c64]
+model = "models/systems/c64.glb"              # built by tools/console-models/commodore_64.py
+
 [systems.nes]
 model = "models/systems/nes.glb"
 
