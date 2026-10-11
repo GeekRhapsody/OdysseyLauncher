@@ -333,12 +333,13 @@ public sealed class LaunchService
 
     /// <summary>
     /// Sets the pads up in the emulator's config when the game's system asks for it (<c>auto_configure_controllers</c>)
-    /// and the emulator's profile says how (<c>controllers</c>). A failure is reported, and the game still launches.
+    /// and the emulator's profile says how (<c>controllers</c>), with A/B and X/Y switched if it asks (<c>swap_ab_xy</c>).
+    /// A failure is reported, and the game still launches.
     /// </summary>
     private (ControllerSetup? Setup, string? Error) SetUpControllers(GameDetails game, LaunchPlan plan, IReadOnlyList<Gamepad>? gamepads)
     {
         var config = Config;
-        if (gamepads is null || plan.RunFile || config.FindSystem(game.Key.SystemId) is not { AutoConfigureControllers: true }
+        if (gamepads is null || plan.RunFile || config.FindSystem(game.Key.SystemId) is not { AutoConfigureControllers: true } system
             || !config.Emulators.TryGetValue(plan.EmulatorId, out var emulator) || emulator.Controllers != EdenControllers.Kind)
         {
             return (null, null);
@@ -347,7 +348,7 @@ public sealed class LaunchService
         try
         {
             var file = EdenControllers.ConfigFile(plan.Executable, plan.WorkingDirectory, ApplicationData);
-            return (EdenControllers.Configure(file, gamepads), null);
+            return (EdenControllers.Configure(file, gamepads, system.SwapFaceButtons), null);
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {

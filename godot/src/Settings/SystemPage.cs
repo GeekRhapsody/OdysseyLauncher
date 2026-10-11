@@ -326,24 +326,46 @@ public sealed partial class SystemPage : ListPanel
             : $"Only with {string.Join(" or ", able)}: {current?.Name ?? system.Emulator}'s controllers aren't set up";
         var row = AddRow("Auto-configure controllers", detail, activated: () => SetAutoControllers(null));
         row.Adjuster = direction => SetAutoControllers(direction > 0);
-        row.Value = system.AutoConfigureControllers ? "Yes" : "No";
-        row.ValueColour = system.AutoConfigureControllers ? UiStyle.Good : UiStyle.Faint;
+        ShowYesNo(row, system.AutoConfigureControllers);
+
+        // swap_ab_xy: the Switch's A on the button labelled A of an Xbox pad (RetroBat's "switch_gamepadbuttons").
+        var swap = AddRow("Switch mapping for A/B and X/Y",
+            system.AutoConfigureControllers
+                ? "Yes: an Xbox-style pad's A (at the bottom) is the Switch's A. No: the Switch's positions (A on the right)"
+                : "With Auto-configure controllers on: an Xbox-style pad's A (at the bottom) as the Switch's A",
+            activated: () => SetControllerKey("swap_ab_xy", s => s.SwapFaceButtons, null));
+        swap.Adjuster = direction => SetControllerKey("swap_ab_xy", s => s.SwapFaceButtons, direction > 0);
+        ShowYesNo(swap, system.SwapFaceButtons);
+    }
+
+    private static void ShowYesNo(SettingRow row, bool on)
+    {
+        row.Value = on ? "Yes" : "No";
+        row.ValueColour = on ? UiStyle.Good : UiStyle.Faint;
     }
 
     /// <param name="on">Wanted on or off; null turns it the other way.</param>
-    private void SetAutoControllers(bool? on)
+    private void SetAutoControllers(bool? on) => SetControllerKey("auto_configure_controllers", s => s.AutoConfigureControllers, on);
+
+    /// <summary>Saves one of the system's controller keys, <c>auto_configure_controllers</c> or <c>swap_ab_xy</c>.</summary>
+    /// <param name="on">Wanted on or off; null turns it the other way.</param>
+    private void SetControllerKey(string key, Func<SystemConfig, bool> current, bool? on)
     {
         var system = _settings.Services.Config.FindSystem(_systemId)!;
-        var wanted = on ?? !system.AutoConfigureControllers;
-        if (wanted == system.AutoConfigureControllers)
+        var wanted = on ?? !current(system);
+        if (wanted == current(system))
         {
             return;
         }
 
-        _settings.Save(this, [new ConfigEdit(ConfigFileKind.Systems, ["systems", _systemId, "auto_configure_controllers"], wanted)],
-            wanted
-                ? $"{system.Name}'s games set up the connected controllers before they start."
-                : $"{system.Name}'s games leave the emulator's controller settings as they are.");
+        var message = (key, wanted) switch
+        {
+            ("auto_configure_controllers", true) => $"{system.Name}'s games set up the connected controllers before they start.",
+            ("auto_configure_controllers", false) => $"{system.Name}'s games leave the emulator's controller settings as they are.",
+            (_, true) => "An Xbox-style pad's A, B, X and Y are the Switch's A, B, X and Y.",
+            _ => "Pads keep the Switch's button positions: A on the right, B at the bottom.",
+        };
+        _settings.Save(this, [new ConfigEdit(ConfigFileKind.Systems, ["systems", _systemId, key], wanted)], message);
     }
 
     // ---- Games view ------------------------------------------------------------------------------------

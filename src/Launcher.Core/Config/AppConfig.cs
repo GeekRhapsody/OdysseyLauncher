@@ -459,6 +459,10 @@ public enum RomDirSource
 /// <c>auto_configure_controllers</c>: before each launch, the connected pads are set up in the emulator's own config,
 /// when its profile says how (<see cref="EmulatorConfig.Controllers"/>).
 /// </param>
+/// <param name="SwapFaceButtons">
+/// <c>swap_ab_xy</c>: with <paramref name="AutoConfigureControllers"/>, a pad not labelled as a Switch's (an Xbox pad)
+/// gets A/B and X/Y switched, so the button labelled A is the Switch's A. False keeps the Switch's positions.
+/// </param>
 public sealed record SystemConfig(
     string Id,
     string Name,
@@ -482,7 +486,8 @@ public sealed record SystemConfig(
     GameSort? GamesSort = null,
     SortOrder? GamesSortOrder = null,
     string? Description = null,
-    bool AutoConfigureControllers = false)
+    bool AutoConfigureControllers = false,
+    bool SwapFaceButtons = false)
 {
     /// <summary>
     /// The built-in definition's <c>emulator</c>, when it's a configured profile; null for a system the user defined, or

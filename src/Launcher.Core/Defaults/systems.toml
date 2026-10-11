@@ -30,7 +30,8 @@
 #
 # auto_configure_controllers (on for the Switch) sets the connected pads up in the emulator's own config before each
 # launch, the one the game is launched with as player 1, when the emulator's profile says how (controllers = "eden" in
-# emulators.toml). Eden doesn't pick a pad up until it's chosen in its settings.
+# emulators.toml). Eden doesn't pick a pad up until it's chosen in its settings. swap_ab_xy = true (off by default)
+# switches A/B and X/Y on pads not labelled as a Switch's, so an Xbox pad's A (at the bottom) is the Switch's A.
 #
 # Each system's game model (a box template) comes from the theme. game_model = "<template id>" picks one of
 # the theme's templates for a system instead, e.g. game_model = "jewel_case" for a new CD system.

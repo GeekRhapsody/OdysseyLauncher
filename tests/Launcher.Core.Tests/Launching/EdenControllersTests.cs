@@ -18,6 +18,8 @@ public sealed class EdenControllersTests : IDisposable
     private const string DualSenseGuid = "0500c5824c050000e60c000000016800";
     private const string DirectInputGuid = "03000000790000000600000000000000";
 
+    private static readonly string[] FaceButtons = ["a", "b", "x", "y"];
+
     private readonly TempDir _dir = new();
 
     public void Dispose() => _dir.Dispose();
@@ -196,6 +198,42 @@ public sealed class EdenControllersTests : IDisposable
         Assert.Equal(original, Encoding.UTF8.GetString(File.ReadAllBytes(backup)[3..]));
         Assert.Equal("engine:sdl,port:0,guid:030000005e0400008e02000014017801,hat:0,direction:up", ReadControls(file)["player_0_button_dup"]);
         Assert.False(File.Exists(file + ".odyssey-tmp"));
+    }
+
+    [Fact]
+    public void Only_pads_labelled_as_a_Switchs_count_as_Nintendo_labelled()
+    {
+        bool Labels(string guid) => SdlMapping.For(SdlGuid.TryParse(guid)!, out _)!.NintendoLabels;
+
+        Assert.True(Labels("030000007e0500000920000000006800"));    // Switch Pro
+        Assert.True(Labels("03000000c82d00000960000000006800"));    // 8BitDo Pro 3
+        Assert.False(Labels("030000007e0500003703000000006800"));   // GameCube adapter
+        Assert.False(Labels(Xbox360Guid));
+        Assert.False(Labels(DeckGuid));
+        Assert.False(Labels(DualSenseGuid));
+    }
+
+    [Fact]
+    public void Switching_A_B_and_X_Y_puts_the_Switchs_buttons_on_an_Xbox_pads_labels_and_leaves_Nintendo_pads_alone()
+    {
+        var file = _dir.Combine("eden", "qt-config.ini");
+        string Face(int player, string button) => ReadControls(file)[$"player_{player}_button_{button}"].Split(',')[^1];
+        Gamepad[] pads = [Pad(0, Xbox360Guid, "Xbox"), Pad(1, "030000007e0500000920000000006800", "Pro Controller")];
+
+        EdenControllers.Configure(file, pads);
+        Assert.Equal(["button:1", "button:0", "button:3", "button:2"], FaceButtons.Select(b => Face(0, b)));
+
+        var setup = EdenControllers.Configure(file, pads, swapFaceButtons: true);
+
+        // The Xbox pad's A (south, button 0) is the Switch's A, its X (west) the Switch's X.
+        Assert.Equal(["button:0", "button:1", "button:2", "button:3"], FaceButtons.Select(b => Face(0, b)));
+        Assert.Equal(["hat:0", "direction:up"], ReadControls(file)["player_0_button_dup"].Split(',')[^2..]);
+
+        // A Pro Controller's labels are the Switch's already: A is still its right button (SDL's east, button 1).
+        Assert.Equal(["button:1", "button:0", "button:3", "button:2"], FaceButtons.Select(b => Face(1, b)));
+        Assert.Equal([true, false], setup.Assignment.Players.Select(p => p.SwapFaceButtons));
+        Assert.Contains("player 1 Xbox (045e:028e, SDL's XInput mapping, A/B and X/Y switched)", setup.Describe(), StringComparison.Ordinal);
+        Assert.Contains("player 2 Pro Controller (057e:2009, SDL's HIDAPI mapping)", setup.Describe(), StringComparison.Ordinal);
     }
 
     [Fact]

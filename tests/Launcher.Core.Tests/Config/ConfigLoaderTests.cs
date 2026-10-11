@@ -1375,12 +1375,16 @@ public class ConfigLoaderTests
         Assert.Equal("eden", config.Emulators["eden"].Controllers);
         Assert.Null(config.Emulators["ryujinx"].Controllers);
 
+        Assert.False(config.FindSystem("switch")!.SwapFaceButtons);
+
         var result = Load(systems: """
             [systems.switch]
             auto_configure_controllers = false
+            swap_ab_xy = true
             """);
         Assert.Empty(result.Diagnostics);
         Assert.False(result.Config.FindSystem("switch")!.AutoConfigureControllers);
+        Assert.True(result.Config.FindSystem("switch")!.SwapFaceButtons);
     }
 
     [Fact]

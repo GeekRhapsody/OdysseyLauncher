@@ -63,6 +63,15 @@ public sealed class SdlMapping
     /// <summary>Where the mapping comes from, for the log.</summary>
     public string Source { get; }
 
+    /// <summary>
+    /// The pad's face buttons are labelled as a Switch's: A on the right (east), B at the bottom, X at the top, Y on
+    /// the left. SDL's elements are positions, so these labels match the Switch's buttons as they are. True for
+    /// Nintendo's own pads (but its GameCube ones) and 8BitDo's Nintendo-style ones; false for Xbox-style labels (A at
+    /// the bottom), PlayStation's symbols, the Steam Deck's and GameCube's, which are swapped to match their labels
+    /// when the user asks for it.
+    /// </summary>
+    public bool NintendoLabels { get; private set; }
+
     /// <summary>The input bound to <paramref name="element"/> (<c>a</c>, <c>leftx</c>, <c>dpup</c>...), if any.</summary>
     public bool TryGet(string element, out SdlInput input) => _bindings.TryGetValue(element, out input);
 
@@ -100,6 +109,20 @@ public sealed class SdlMapping
     public static SdlMapping? For(SdlGuid guid, out string? unsupported)
     {
         ArgumentNullException.ThrowIfNull(guid);
+        var mapping = Generate(guid, out unsupported);
+        if (mapping is not null)
+        {
+            mapping.NintendoLabels = guid.Driver == SdlGuid.Hidapi
+                && ((guid.Vendor == Nintendo && guid.Product is not (0x0337 or 0x2073))
+                    || !guid.HasIds
+                    || (guid.Vendor == EightBitDoVendor && guid.Product is 0x6000 or 0x6100 or 0x6001 or 0x6101 or 0x6003 or 0x6006 or 0x6009));
+        }
+
+        return mapping;
+    }
+
+    private static SdlMapping? Generate(SdlGuid guid, out string? unsupported)
+    {
         unsupported = null;
         if (guid.Driver == SdlGuid.XInput)
         {

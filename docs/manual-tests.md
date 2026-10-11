@@ -579,10 +579,11 @@ This checks what the fake emulator can't: Eden playing with the pads the launche
 1. **Set-up.** Add `emulators = 'C:\RetroBat\emulators'` under `[variables]` in `C:\OdysseyTest\settings.toml`, and copy the game into `C:\OdysseyTest\ROMs\switch\`. Open the Switch's options (X on it): Auto-configure controllers says Yes.
 2. **The Deck alone.** With only the Deck's own controls, choose the game with A. In the game, A, B, X and Y are where a Switch has them (A on the right), and the sticks, triggers, shoulders, D-pad, + and − work. Quit Eden.
 3. **Two pads.** Connect an Xbox pad and choose the game with it: the Xbox pad is player 1 and the Deck player 2 (Eden's Emulation > Configure > Controls shows both). Quit, choose the game with the Deck: the other way round.
-4. **Off.** Turn the row to No, change a button in Eden's own controls, quit it, and launch again: your change is still there.
-5. **The backup.** `qt-config.ini.odyssey-backup` beside Eden's config is the file from before step 2.
+4. **A/B and X/Y.** Turn "Switch mapping for A/B and X/Y" to Yes and launch with the Xbox pad: in the game, the pad's A (at the bottom) confirms as the Switch's A does, and X and Y are where they're labelled. With a Pro Controller (or an 8BitDo pad in Switch mode), nothing changes: its labels already match. Turn it back to No.
+5. **Off.** Turn Auto-configure controllers to No, change a button in Eden's own controls, quit it, and launch again: your change is still there.
+6. **The backup.** `qt-config.ini.odyssey-backup` beside Eden's config is the file from before step 2.
 
 ### Send back
 
-- Anything that differed, especially a button in the wrong place, a pad left out that should be a player, or the Deck pressing twice (as two players).
+- Anything that differed, especially a button in the wrong place (with step 4's setting on or off), a pad left out that should be a player, or the Deck pressing twice (as two players).
 - The log lines: `Select-String -Path "$env:APPDATA\Godot\app_userdata\Odyssey Launcher\logs\godot.log" -Pattern '^Launch|error|warning'`. `Launch controllers for Eden: ...` says which pad became which player and why any was left out.

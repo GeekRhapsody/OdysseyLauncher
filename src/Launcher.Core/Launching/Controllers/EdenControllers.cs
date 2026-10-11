@@ -6,7 +6,11 @@ namespace Launcher.Core.Launching.Controllers;
 /// <param name="Player">0-based, as Eden numbers them (<c>player_0</c> is player 1).</param>
 /// <param name="EdenGuid">The GUID Eden names it by (<see cref="SdlGuid.ToEdenString"/>).</param>
 /// <param name="Port">Which of the pads with that GUID it is, in the order SDL opens them.</param>
-public sealed record EdenPlayer(int Player, Gamepad Pad, SdlGuid Guid, string EdenGuid, int Port, SdlMapping Mapping);
+/// <param name="SwapFaceButtons">
+/// A/B and X/Y are switched, so the pad's labels are the Switch's buttons (an Xbox pad's A, at the bottom, is the
+/// Switch's A): asked for (<c>swap_ab_xy</c>), and the pad isn't labelled as a Switch's already (<see cref="SdlMapping.NintendoLabels"/>).
+/// </param>
+public sealed record EdenPlayer(int Player, Gamepad Pad, SdlGuid Guid, string EdenGuid, int Port, SdlMapping Mapping, bool SwapFaceButtons = false);
 
 /// <summary>A pad left out, and why (written for the log).</summary>
 public sealed record SkippedPad(Gamepad Pad, string Reason);
@@ -81,7 +85,11 @@ public static class EdenControllers
     /// Deck's own controls are there too (both would get the same presses), and pads beyond the eighth.
     /// </summary>
     /// <param name="proControllerDriver">Eden's <c>enable_procon_driver</c>.</param>
-    public static EdenAssignment Assign(IReadOnlyList<Gamepad> pads, bool proControllerDriver)
+    /// <param name="swapFaceButtons">
+    /// The system's <c>swap_ab_xy</c>: a pad not labelled as a Switch's gets A/B and X/Y switched, so its labels are
+    /// the Switch's buttons (<see cref="EdenPlayer.SwapFaceButtons"/>).
+    /// </param>
+    public static EdenAssignment Assign(IReadOnlyList<Gamepad> pads, bool proControllerDriver, bool swapFaceButtons = false)
     {
         ArgumentNullException.ThrowIfNull(pads);
         var guids = new SdlGuid?[pads.Count];
@@ -148,7 +156,7 @@ public static class EdenControllers
                 continue;
             }
 
-            players.Add(new EdenPlayer(players.Count, pad, guid, guid.ToEdenString(), ports[i], mapping));
+            players.Add(new EdenPlayer(players.Count, pad, guid, guid.ToEdenString(), ports[i], mapping, swapFaceButtons && !mapping.NintendoLabels));
         }
 
         return new EdenAssignment(players, skipped);
@@ -172,8 +180,9 @@ public static class EdenControllers
             var prefix = Prefix(player.Player);
             Write(ini, prefix + "connected", "true");
             Write(ini, prefix + "type", "0");
-            foreach (var (key, element) in Buttons)
+            foreach (var (key, position) in Buttons)
             {
+                var element = player.SwapFaceButtons ? Swapped(position) : position;
                 Write(ini, prefix + key, player.Mapping.TryGet(element, out var input) ? Quote(ButtonParam(player, input)) : "[empty]");
             }
 
@@ -195,13 +204,14 @@ public static class EdenControllers
     /// first time it's changed, a copy of it is kept beside it, <see cref="BackupSuffix"/>). The file is left as it is
     /// when no pad can be set up. Blocks on file I/O: not on the main thread.
     /// </summary>
-    public static ControllerSetup Configure(string configFile, IReadOnlyList<Gamepad> pads)
+    /// <param name="swapFaceButtons">The system's <c>swap_ab_xy</c> (<see cref="Assign"/>).</param>
+    public static ControllerSetup Configure(string configFile, IReadOnlyList<Gamepad> pads, bool swapFaceButtons = false)
     {
         ArgumentNullException.ThrowIfNull(configFile);
         ArgumentNullException.ThrowIfNull(pads);
         var exists = File.Exists(configFile);
         var ini = IniText.Parse(exists ? File.ReadAllBytes(configFile) : []);
-        var assignment = Assign(pads, IsOn(ini, "enable_procon_driver", false));
+        var assignment = Assign(pads, IsOn(ini, "enable_procon_driver", false), swapFaceButtons);
         if (assignment.Players.Count == 0)
         {
             return new ControllerSetup(configFile, assignment, Written: false);
@@ -221,6 +231,19 @@ public static class EdenControllers
         File.Move(temporary, configFile, overwrite: true);
         return new ControllerSetup(configFile, assignment, Written: true);
     }
+
+    /// <summary>
+    /// The face button at the other place: the Switch's A takes the bottom button (an Xbox pad's A) instead of the
+    /// right one, B the right, X the left and Y the top, as RetroBat's "switch_gamepadbuttons" does.
+    /// </summary>
+    private static string Swapped(string element) => element switch
+    {
+        "a" => "b",
+        "b" => "a",
+        "x" => "y",
+        "y" => "x",
+        _ => element,
+    };
 
     private static string Prefix(int player) => string.Create(CultureInfo.InvariantCulture, $"player_{player}_");
 
@@ -299,7 +322,8 @@ public sealed record ControllerSetup(string ConfigFile, EdenAssignment Assignmen
             {
                 text.Append(text.Length == 0 ? string.Empty : "; ")
                     .Append(CultureInfo.InvariantCulture, $"player {player.Player + 1} {player.Pad.Name} ({player.Guid.Ids}, {player.Mapping.Source}")
-                    .Append(player.Port > 0 ? string.Create(CultureInfo.InvariantCulture, $", port {player.Port})") : ")");
+                    .Append(player.Port > 0 ? string.Create(CultureInfo.InvariantCulture, $", port {player.Port}") : string.Empty)
+                    .Append(player.SwapFaceButtons ? ", A/B and X/Y switched)" : ")");
             }
         }
 

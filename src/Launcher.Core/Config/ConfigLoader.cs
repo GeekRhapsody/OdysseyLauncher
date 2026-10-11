@@ -45,7 +45,7 @@ public sealed class ConfigLoader : IConfigLoader
     [
         "enabled", "name", "manufacturer", "year", "description", "aliases", "extensions", "emulator", "alt_emulators",
         "game_model", "screenscraper_id", "igdb_platforms", "steam_store", "rom_dirs", "recursive", "exclude",
-        "games_layout", "games_columns", "games_rows", "games_sort", "games_sort_order", "auto_configure_controllers",
+        "games_layout", "games_columns", "games_rows", "games_sort", "games_sort_order", "auto_configure_controllers", "swap_ab_xy",
     ];
 
     private static readonly string[] SystemRequiredKeys = ["name", "extensions", "emulator"];
@@ -1139,6 +1139,7 @@ public sealed class ConfigLoader : IConfigLoader
                 }
                 var steamStore = Bool(entry, prefix, "steam_store") ?? false;
                 var autoControllers = Bool(entry, prefix, "auto_configure_controllers") ?? false;
+                var swapFaceButtons = Bool(entry, prefix, "swap_ab_xy") ?? false;
                 var recursive = Bool(entry, prefix, "recursive") ?? true;
 
                 var aliases = new List<string>();
@@ -1278,7 +1279,7 @@ public sealed class ConfigLoader : IConfigLoader
                 result.Add(new SystemConfig(
                     id, name, manufacturer, (int?)year, aliases, extensions, emulator, altEmulators, gameModel,
                     (int?)screenScraperId, romDirs, romDirSource, recursive, exclude, igdbPlatforms, steamStore, gamesColumns, gamesRows, gamesLayout,
-                    gamesSort, gamesSortOrder, string.IsNullOrWhiteSpace(description) ? null : description, autoControllers)
+                    gamesSort, gamesSortOrder, string.IsNullOrWhiteSpace(description) ? null : description, autoControllers, swapFaceButtons)
                 {
                     // The built-in definition's own emulator, offered with the alternatives once the user has chosen another.
                     DefaultEmulator = builtInEmulatorOf.TryGetValue(id, out var builtInEmulator) && emulators.ContainsKey(builtInEmulator) ? builtInEmulator : null,
