@@ -72,6 +72,9 @@ model = "models/systems/switch.glb"           # built by tools/console-models/sw
 [systems.c64]
 model = "models/systems/c64.glb"              # built by tools/console-models/commodore_64.py
 
+[systems.amstradcpc]
+model = "models/systems/amstradcpc.glb"       # built by tools/console-models/amstrad_cpc.py: a CPC 464 and its CTM644 monitor; its focused clip loads a game from tape
+
 [systems.nes]
 model = "models/systems/nes.glb"
 
