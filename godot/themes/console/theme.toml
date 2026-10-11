@@ -43,7 +43,13 @@ model = "models/templates/megadrive_cartridge.glb"  # built by tools/console-mod
 model = "models/systems/gamegear.glb"         # built by tools/console-models/game_gear.py, turned to a three-quarter view
 
 [systems.gb]
-model = "models/systems/gb.glb"               # its normal, roughness and emissive maps stripped (tools/console-models/strip_maps.py)
+model = "models/systems/gb.glb"               # built by tools/console-models/game_boy.py, turned to a three-quarter view; its focused clip drops a cartridge in and scrolls the Nintendo logo down
+
+[systems.gbc]
+model = "models/systems/gbc.glb"              # built by tools/console-models/game_boy.py, turned to a three-quarter view; its focused clip bonks a cartridge off the top, then slides it in
+
+[systems.gba]
+model = "models/systems/gba.glb"              # built by tools/console-models/game_boy.py, turned to a three-quarter view; its focused clip swoops a cartridge in on a barrel roll
 
 [systems.megadrive]
 model = "models/systems/megadrive.glb"        # built by tools/console-models/mega_drive.py, turned to a three-quarter view; its focused clip inserts a cartridge
