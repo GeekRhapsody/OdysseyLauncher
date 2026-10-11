@@ -96,7 +96,7 @@ model = "models/templates/megadrive_clamshell.glb"  # built by tools/console-mod
 model = "models/templates/umd_case.glb"
 
 [templates.switch_case]            # Switch: 105 x 172 x 11.5 mm
-model = "models/templates/switch_case.glb"
+model = "models/templates/switch_case.glb"         # built by tools/console-models/switch_case.py
 
 [templates.arcade_cabinet]         # Arcade: the top half of an upright cabinet, its marquee and screen the slots
 model = "models/templates/arcade_cabinet.glb"

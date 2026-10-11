@@ -105,6 +105,19 @@ public sealed class BuiltInModelTests
         Assert.Equal(81 / 680f, model.Aspects["spine"], 0.001f);
     }
 
+    [Fact]
+    public void The_Switch_cases_insert_keeps_the_hand_made_models_proportions()
+    {
+        // A 100.6 x 159.8 mm insert on the front and the back, and the spine's art 0.0613 of its height (A7, "The Switch case").
+        var theme = ThemeFixtures.Load(ThemeFixtures.BaseFolder);
+        var model = Load(ThemeFixtures.BaseFolder, theme.Templates["switch_case"].Model);
+
+        Assert.Equal(["case", "cover", "spine", "back"], model.Materials);
+        Assert.Equal(100.584f / 159.766f, model.Aspects["cover"], 0.001f);
+        Assert.Equal(100.584f / 159.766f, model.Aspects["back"], 0.001f);
+        Assert.Equal(0.0613f, model.Aspects["spine"], 0.0001f);
+    }
+
     private static void AssertShape(string id, Model model)
     {
         const float Tolerance = 0.001f;
