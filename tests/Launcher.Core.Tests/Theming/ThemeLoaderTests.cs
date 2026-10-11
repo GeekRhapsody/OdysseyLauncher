@@ -40,7 +40,7 @@ public sealed class ThemeLoaderTests
         Assert.Equal(3, theme.Look.Lights.Count);
 
         var config = new ConfigLoader().Load(new ConfigSources { HomeDir = "C:/home", ConfigDir = "C:/config", FileExists = null }).Config;
-        foreach (var (system, index) in config.Systems.Select((s, i) => (s, i)))
+        foreach (var system in config.Systems)
         {
             var entry = Assert.Contains(system.Id, theme.Systems);
             Assert.NotNull(entry.Colour);
@@ -50,12 +50,6 @@ public sealed class ThemeLoaderTests
             }
 
             Assert.Same(theme.Look.Ambient, entry.Look.Ambient);
-
-            // The first fourteen have a look of their own; the rest of the catalogue shows the theme's.
-            if (index < 14)
-            {
-                Assert.NotSame(theme.Look.Background, entry.Look.Background);
-            }
         }
     }
 

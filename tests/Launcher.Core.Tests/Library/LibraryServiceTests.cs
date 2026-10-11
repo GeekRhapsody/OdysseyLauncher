@@ -234,7 +234,7 @@ public sealed class LibraryServiceTests : IAsyncLifetime
         Assert.Equal(sequentialDump, Dump());
         Assert.Equal(sequential.Diagnostics.Select(d => d.Key), parallel.Diagnostics.Select(d => d.Key));
         Assert.Equal(
-            ["systems.gb.rom_dirs", "systems.nes.rom_dirs", "systems.snes.rom_dirs", "systems.n64.rom_dirs"],
+            ["systems.gb.rom_dirs", "systems.megadrive.rom_dirs", "systems.n64.rom_dirs", "systems.nes.rom_dirs"],
             parallel.Diagnostics.Take(4).Select(d => d.Key));
         Assert.Equal(160, parallel.Added);
         // 0, then one report per finished system, each count once (every built-in system is enabled).

@@ -48,9 +48,8 @@ public class ConfigLoaderTests
     {
         var systems = Load().Config.Systems;
 
-        // The first fourteen are the original built-ins, in this order, and the ES-DE catalogue follows them.
         string[] required = ["gb", "gbc", "gba", "nes", "snes", "n64", "gc", "mastersystem", "megadrive", "saturn", "dreamcast", "psx", "ps2", "psp"];
-        Assert.Equal(required, systems.Take(required.Length).Select(s => s.Id));
+        Assert.All(required, id => Assert.Contains(systems, s => s.Id == id));
         Assert.All(systems, system =>
         {
             Assert.NotEmpty(system.Extensions);
@@ -59,7 +58,7 @@ public class ConfigLoaderTests
             // The theme decides each system's box (M6); game_model is only the user's choice.
             Assert.Null(system.GameModel);
         });
-        Assert.All(systems.Take(required.Length), system => Assert.NotNull(system.ScreenScraperId));
+        Assert.All(systems.Where(s => required.Contains(s.Id)), system => Assert.NotNull(system.ScreenScraperId));
 
         // Checked against ScreenScraper's own system pages (see Defaults/systems.toml).
         var ids = systems.ToDictionary(s => s.Id, s => s.ScreenScraperId);

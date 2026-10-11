@@ -38,168 +38,6 @@
 
 format = 1
 
-[systems.gb]
-name = "Game Boy"
-manufacturer = "Nintendo"
-year = 1989
-description = "The Game Boy is an 8-bit handheld video game console developed and manufactured by Nintendo. It was released in Japan on 21 April 1989, in North America in August 1989, and in Europe in 1990. In Southern Asia, it is known as the \"Tata Game Boy\" It is the first handheld console in the Game Boy line. It was created by Gunpei Yokoi and Nintendo's Research and Development — the same staff who had designed the Game & Watch series as well as several popular games for the NES. The Game Boy was Nintendo's second handheld system following the Game & Watch series introduced in 1980, and it combined features from both the Nintendo Entertainment System and Game and Watch. It was also the first handheld game to use video game cartridges since Milton Bradley's Microvision handheld console. It was originally bundled with the puzzle game Tetris. Despite many other, technologically superior handheld consoles introduced during its lifetime, the Game Boy was a tremendous success. The Game Boy and Game Boy Color combined have sold 118.69 million units worldwide. Upon its release in the United States, it sold its entire shipment of one million units within weeks."
-extensions = [".gb", ".sgb", ".zip", ".7z"]
-emulator = "retroarch-gambatte"
-alt_emulators = ["retroarch-mgba", "retroarch-sameboy", "sameboy", "retroarch-gearboy", "gearboy", "retroarch-tgbdual", "retroarch-doublecherrygb", "retroarch-irogb", "retroarch-mesen-s", "mesen", "retroarch-mesen2", "mgba", "retroarch-vbam", "vba-m", "retroarch-skyemu", "skyemu", "mednafen-gb", "ares-gb"]
-screenscraper_id = 9
-igdb_platforms = [33]
-
-[systems.gbc]
-name = "Game Boy Color"
-manufacturer = "Nintendo"
-year = 1998
-description = "The Game Boy Color, (abbreviated as GBC) is a handheld game console manufactured by Nintendo, which was released on 21 October 1998 in Japan and was released in November of the same year in international markets. It is the successor of the Game Boy. The Game Boy Color, as suggested by the name, features a colour screen, but no backlight. It is slightly thicker and taller than the Game Boy Pocket, which is a redesigned Game Boy released in 1996. As with the original Game Boy, it has a custom 8-bit processor somewhat related to a Zilog Z80 central processing unit (CPU). The original name - with its American English spelling of \"color\" - remained unchanged even in markets where \"colour\" was the accepted English spelling. The Game Boy Color's primary competitors were the much more advanced Neo Geo Pocket by SNK and the WonderSwan by Bandai (both released in Japan only), though the Game Boy Color outsold these by a wide margin. The Game Boy and Game Boy Color combined have sold 118.69 million units worldwide. It was discontinued in 2003, shortly after the release of the Game Boy Advance SP."
-extensions = [".gbc", ".cgb", ".zip", ".7z"]
-emulator = "retroarch-gambatte"
-alt_emulators = ["retroarch-mgba", "retroarch-sameboy", "sameboy", "retroarch-gearboy", "gearboy", "retroarch-tgbdual", "retroarch-doublecherrygb", "retroarch-irogb", "retroarch-mesen-s", "mesen", "retroarch-mesen2", "retroarch-bsnes", "mgba", "retroarch-vbam", "vba-m", "retroarch-skyemu", "skyemu", "mednafen-gb", "ares-gbc", "jgenesis", "emulicious"]
-screenscraper_id = 10
-igdb_platforms = [22]
-
-[systems.gba]
-name = "Game Boy Advance"
-manufacturer = "Nintendo"
-year = 2001
-description = "The Game Boy Advance (abbreviated as GBA) is a 32-bit handheld video game console developed, manufactured and marketed by Nintendo as the successor to the Game Boy Color. It was released in Japan on 21 March 2001, in North America on 11 June 2001, in Australia and Europe on 22 June 2001, and in mainland China on 8 June 2004 (iQue Player). Nintendo's competitors in the handheld market at the time were the Neo Geo Pocket Color, WonderSwan, GP32, Tapwave Zodiac, and the N-Gage. Despite the competitors' best efforts, Nintendo maintained a majority market share with the Game Boy Advance. As of 30 June 2010, the Game Boy Advance series has sold 81.51 million units worldwide. Its successor, the Nintendo DS, was released in November 2004 and is also compatible with Game Boy Advance software."
-extensions = [".gba", ".zip", ".7z"]
-emulator = "retroarch-mgba"
-alt_emulators = ["mgba", "retroarch-vbam", "vba-m", "retroarch-vba-next", "retroarch-gpsp", "retroarch-noods", "noods", "retroarch-skyemu", "skyemu", "mednafen-gba", "ares-gba", "mesen", "retroarch-mesen2"]
-screenscraper_id = 12
-igdb_platforms = [24]
-
-[systems.nes]
-name = "Nintendo Entertainment System"
-manufacturer = "Nintendo"
-year = 1983
-description = "The Nintendo Entertainment System is an 8-bit video game console that was released by Nintendo in North America during 1985, in Europe during 1986 and Australia in 1987. In most of Asia, including Japan (where it was first launched in 1983), China, Vietnam, Singapore, the Middle East and Hong Kong, it was released as the Family Computer, commonly shortened as either the romanised contraction Famicom, or abbreviated to FC. In South Korea, it was known as the Hyundai Comboy, and was distributed by Hynix which then was known as Hyundai Electronics."
-aliases = ["famicom"]
-extensions = [".nes", ".unf", ".unif", ".zip", ".7z"]
-emulator = "retroarch-mesen"
-alt_emulators = ["retroarch-fceumm", "mesen", "retroarch-mesen2", "retroarch-nestopia", "retroarch-quicknes", "retroarch-rustynes", "punes", "mednafen-fds", "ares-nes", "ares-fds", "jgenesis"]
-screenscraper_id = 3
-igdb_platforms = [18, 99]
-
-[systems.snes]
-name = "Super Nintendo Entertainment System"
-manufacturer = "Nintendo"
-year = 1990
-description = "The Super Nintendo Entertainment System (also known as the Super NES, SNES or Super Nintendo) is a 16-bit home video game console developed by Nintendo that was released in 1990 in Japan, 1991 in North America, 1992 in Europe and Australasia (Oceania), and 1993 in South America. In Japan, the system is called the Super Famicom, officially adopting the abbreviated name of its predecessor, the Family Computer, or SFC for short. In South Korea, it is known as the Super Comboy and was distributed by Hyundai Electronics. Although each version is essentially the same, several forms of regional lockout prevent the different versions from being compatible with one another."
-aliases = ["sfc", "superfamicom", "snesna"]
-extensions = [".sfc", ".smc", ".swc", ".fig", ".bs", ".zip", ".7z"]
-emulator = "retroarch-snes9x"
-alt_emulators = ["retroarch-snes9x2010", "retroarch-snes9x2005-plus", "snes9x", "retroarch-bsnes", "retroarch-bsnes-hd-beta", "retroarch-bsnes-jg", "retroarch-bsnes-mercury-accuracy", "bsnes", "retroarch-beetle-supafaust", "retroarch-mesen-s", "mesen", "retroarch-mesen2", "mednafen-snes", "ares-satellaview", "jgenesis", "superzsnes"]
-screenscraper_id = 4
-igdb_platforms = [19, 58]
-
-[systems.n64]
-name = "Nintendo 64"
-manufacturer = "Nintendo"
-year = 1996
-description = "Named for its 64-bit central processing unit, it was released in June 1996 in Japan, September 1996 in North America, March 1997 in Europe and Australia, September 1997 in France and December 1997 in Brazil. As part of the fifth generation of gaming, the N64 competed primarily with the PlayStation and the Sega Saturn. The Nintendo 64 was launched with three games: Super Mario 64 and Pilotwings 64, released worldwide; and Saikyo Habu Shogi, released only in Japan. While the N64 was succeeded by Nintendo's MiniDVD-based GameCube in November 2001, N64 consoles remained available until the system was retired in late 2003."
-extensions = [".z64", ".n64", ".v64", ".zip", ".7z"]
-emulator = "retroarch-mupen64plus-next"
-alt_emulators = ["mupen64plus", "retroarch-parallel-n64", "parallel-launcher", "simple64", "rosalies-mupen-gui", "project64", "ares-n64", "gopher64"]
-screenscraper_id = 14
-igdb_platforms = [4]
-
-[systems.gc]
-name = "GameCube"
-manufacturer = "Nintendo"
-year = 2001
-description = "The Nintendo GameCube is a home video game console released by Nintendo in Japan and North America in 2001 and in PAL territories in 2002. The GameCube is Nintendo's entry in the sixth generation of video game consoles and is the successor to their previous console, the Nintendo 64. The GameCube competed with Sony's PlayStation 2 and Microsoft's Xbox. The GameCube is the first Nintendo console to use optical discs as its primary storage medium. The discs are in a miniDVD-based format but the system was not designed to play full-sized DVDs or audio CDs unlike its competitors, and mainly focused on gaming instead. The console supports limited online gaming for a small number of games via a GameCube broadband or modem adapter and can connect to a Game Boy Advance with a link cable, which allows players to access exclusive in-game features using the handheld as a second screen and controller like a Wii U."
-aliases = ["gamecube"]
-extensions = [".iso", ".gcm", ".gcz", ".rvz", ".ciso"]
-emulator = "dolphin"
-alt_emulators = ["retroarch-dolphin", "primehack", "triforce"]
-screenscraper_id = 13
-igdb_platforms = [21]
-
-[systems.mastersystem]
-name = "Master System"
-manufacturer = "Sega"
-year = 1985
-description = "The Sega Master System is a third-generation 8-bit home video game console manufactured by Sega. It was originally a remodeled export version of the Sega Mark III, the third iteration of the SG-1000 series of consoles, which was released in Japan in 1985 and featured enhanced graphical capabilities over its predecessors. The Master System launched in North America in 1986, followed by Europe in 1987, and Brazil in 1989. A Japanese version of the Master System was also launched in 1987, which features a few enhancements over the export models (and by proxy the original Mark III): a built-in FM audio chip, a rapid-fire switch, and a dedicated port for the 3D glasses. The Master System II, a cheaper model, was released in 1990 in North America and Europe. The original Master System models use both cartridges and a credit card-sized format known as Sega Cards. Accessories for the consoles include a light gun and 3D glasses that work with a range of specially designed games. The later Master System II redesign removed the card slot, turning it into a strictly cartridge-only system and is incompatible with the 3D glasses."
-aliases = ["sms", "mark3"]
-extensions = [".sms", ".zip", ".7z"]
-emulator = "retroarch-genesis-plus-gx"
-alt_emulators = ["retroarch-genesis-plus-gx-wide", "retroarch-smsplus", "retroarch-gearsystem", "retroarch-picodrive", "retroarch-blastem", "blastem-mastersystem", "mednafen-mastersystem", "mesen", "retroarch-mesen2", "ares-mastersystem", "jgenesis", "emulicious"]
-screenscraper_id = 2
-igdb_platforms = [64]
-
-[systems.megadrive]
-name = "Mega Drive"
-manufacturer = "Sega"
-year = 1988
-description = "The Mega Drive is a 16-bit fourth-generation home video game console developed and sold by Sega. It's Sega's third console and the successor to the Master System. The Mega Drive was adapted from Sega's System 16 arcade board."
-aliases = ["genesis", "md", "megadrivejp"]
-extensions = [".md", ".gen", ".smd", ".bin", ".zip", ".7z"]
-emulator = "retroarch-genesis-plus-gx"
-alt_emulators = ["retroarch-genesis-plus-gx-wide", "retroarch-picodrive", "retroarch-blastem", "blastem-megadrive", "retroarch-clownmdemu", "mednafen-megadrive", "ares-megadrive", "jgenesis"]
-screenscraper_id = 1
-igdb_platforms = [29]
-
-[systems.saturn]
-name = "Saturn"
-manufacturer = "Sega"
-year = 1994
-description = "The Sega Saturn is a home video game console developed by Sega and released on 22 November 1994 in Japan, 11 May 1995 in North America, and 8 July 1995 in Europe. Part of the fifth generation of video game consoles, it was the successor to the successful Sega Genesis. The Saturn has a dual-CPU architecture and eight processors. Its games are in CD-ROM format, and its game library contains several ports of arcade games as well as original games. Development of the Saturn began in 1992, the same year Sega's groundbreaking 3D Model 1 arcade hardware debuted. The Saturn was designed around a new CPU from Japanese electronics company Hitachi. Sega added another video display processor in early 1994 to better compete with Sony's forthcoming PlayStation."
-aliases = ["saturnjp"]
-extensions = [".cue", ".chd", ".ccd", ".m3u"]
-emulator = "retroarch-beetle-saturn"
-alt_emulators = ["retroarch-kronos", "kronos", "retroarch-yabasanshiro", "yabasanshiro-2", "retroarch-yabause", "ymir", "mednafen-saturn", "ssf"]
-screenscraper_id = 22
-igdb_platforms = [32]
-
-[systems.dreamcast]
-name = "Dreamcast"
-manufacturer = "Sega"
-year = 1998
-description = "The Dreamcast is a home video game console released by Sega on 27 November 1998 in Japan, 9 September 1999 in North America, and 14 October 1999 in Europe. It was the first in the sixth generation of video game consoles, preceding Sony's PlayStation 2, Nintendo's GameCube, and Microsoft's Xbox. The Dreamcast was Sega's final home console, marking the end of the company's eighteen years in the console market. In contrast to the expensive hardware of the unsuccessful Sega Saturn, the Dreamcast was designed to reduce costs with \"off-the-shelf\" components, including a Hitachi SH-4 CPU and an NEC PowerVR2 GPU. Released in Japan to a subdued reception, the Dreamcast enjoyed a successful U.S. launch backed by a large marketing campaign, but interest in the system steadily declined as Sony built hype for the upcoming PlayStation 2. Sales did not meet Sega's expectations despite several price cuts, and the company continued to incur significant financial losses. After a change in leadership, Sega discontinued the Dreamcast on 31 March 2001, withdrawing from the console business and restructuring itself as a third-party publisher. In total, 9.13 million Dreamcast units were sold worldwide."
-aliases = ["dc"]
-extensions = [".gdi", ".chd", ".cdi", ".cue", ".m3u"]
-emulator = "retroarch-flycast"
-alt_emulators = ["flycast", "flycast-dojo", "redream", "demul-dreamcast"]
-screenscraper_id = 23
-igdb_platforms = [23]
-
-[systems.psx]
-name = "PlayStation"
-manufacturer = "Sony"
-year = 1994
-description = "The Sony PlayStation, or PS for short, is a fifth generation (1993–2005) home video game console developed and distributed by Sony Interactive Entertainment. It was released on 3 December 1994 in Japan at a retail price of ¥37,000. The console was later released in North America (1995), Europe (1995), Australia (1995), and Korea (1996). The PlayStation was known for standardising disc based games over cartridges, as well as controllers with two analogue sticks and vibration feedback. The console was discontinued on 23 March 2006. PlayStation (Japanese: プレイステーション, Hepburn: Pureisutēshon, officially abbreviated as PS) is a Japanese video game brand that consists of five home video game consoles, as well as a media centre, an online service, a line of controllers, two handhelds and a phone, as well as multiple magazines. The brand is produced by Sony Interactive Entertainment, a division of Sony, with the first console releasing as the PlayStation in Japan released in December 1994, and worldwide the following year."
-aliases = ["ps1"]
-extensions = [".cue", ".chd", ".pbp", ".ccd", ".m3u"]
-emulator = "retroarch-beetle-psx-hw"
-alt_emulators = ["retroarch-swanstation", "retroarch-pcsx-rearmed", "duckstation", "ares-psx", "mednafen-psx"]
-screenscraper_id = 57
-igdb_platforms = [7]
-
-[systems.ps2]
-name = "PlayStation 2"
-manufacturer = "Sony"
-year = 2000
-description = "The PlayStation 2 (PS2) is a home video game console developed and marketed by Sony Computer Entertainment. It was first released in Japan on 4 March 2000, in North America on 26 October 2000, in Europe on 24 November 2000, and Australia on 24 November 2000. It is the successor to the original PlayStation, as well as the second installment in the PlayStation console line-up. A sixth-generation console, it competed with Sega's Dreamcast, Nintendo's GameCube, and Microsoft's original Xbox. Announced in 1999, the PS2 offered backward-compatibility for its predecessor's DualShock controller, as well as its games. The PS2 is the best-selling video game console of all time, having sold over 155 million units worldwide. Over 3,800 game titles have been released for the PS2, with over 1.5 billion copies sold. Sony later manufactured several smaller, lighter revisions of the console known as Slimline models in 2004."
-extensions = [".iso", ".chd", ".cso", ".zso", ".gz", ".cue"]
-emulator = "pcsx2"
-alt_emulators = ["retroarch-pcsx2", "pcsx2-legacy", "play-disc"]
-screenscraper_id = 58
-igdb_platforms = [8]
-
-[systems.psp]
-name = "PlayStation Portable"
-manufacturer = "Sony"
-year = 2004
-description = "The PlayStation Portable (PSP) is a handheld game console developed and marketed by Sony Computer Entertainment. It was first released in Japan on 12 December 2004, in North America on 24 March 2005, and in PAL regions on 1 September 2005, and is the first handheld installment in the PlayStation line of consoles. As a seventh generation console it competed with the Nintendo DS. Development of the PSP was announced during E3 2003, and the console was unveiled at a Sony press conference on 11 May 2004. The system was the most powerful portable console when it was introduced, and was the first real competitor of Nintendo's handheld consoles after many challengers, such as Nokia's N-Gage, had failed. The PSP's advanced graphics capabilities made it a popular mobile entertainment device, which could connect to the PlayStation 2 and PlayStation 3 consoles, any computer with USB interface, other PSP systems, and the Internet. The PSP also had a vast array of multimedia features such as video playback, and so has been considered a portable media player as well. The PSP is the only handheld console to use an optical disc format – Universal Media Disc (UMD) – as its primary storage medium; both games and movies have been released on the format."
-extensions = [".iso", ".cso", ".pbp", ".chd"]
-emulator = "retroarch-ppsspp"
-alt_emulators = ["ppsspp"]
-screenscraper_id = 61
-igdb_platforms = [38]
-
 [systems.3do]
 name = "3DO Interactive Multiplayer"
 manufacturer = "The 3DO Company"
@@ -597,6 +435,17 @@ emulator = "hypseus-singe-daphne"
 alt_emulators = ["hypseus-singe-daphne-singe", "hypseus-singe-daphne-singe-zlua", "retroarch-mame", "mame-daphne", "retroarch-dirksimple", "ares-daphne", "mame-daphne-2"]
 screenscraper_id = 49
 
+# Desktop apps: ES-DE's folder for shortcuts to programs that aren't games. They launch as Windows' do.
+[systems.desktop]
+name = "Desktop Apps"
+manufacturer = "Microsoft"
+description = "View and run your Desktop shortcuts"
+extensions = [".bat", ".cmd", ".lnk", ".url"]
+emulator = "run-file"
+screenscraper_id = 138
+igdb_platforms = [6]
+steam_store = true                   # looked up on the Steam store, by title
+
 [systems.doom]
 name = "Doom"
 year = 1993
@@ -626,6 +475,18 @@ extensions = [".cas", ".ccc", ".dsk", ".rom", ".7z", ".zip"]
 emulator = "mame-dragon32"
 alt_emulators = ["mame-dragon32-dragon-32-cartridge", "mame-dragon32-dragon-64-tape", "mame-dragon32-dragon-64-cartridge", "xroar-dragon32", "xroar-dragon32-dragon-64"]
 screenscraper_id = 91
+
+[systems.dreamcast]
+name = "Dreamcast"
+manufacturer = "Sega"
+year = 1998
+description = "The Dreamcast is a home video game console released by Sega on 27 November 1998 in Japan, 9 September 1999 in North America, and 14 October 1999 in Europe. It was the first in the sixth generation of video game consoles, preceding Sony's PlayStation 2, Nintendo's GameCube, and Microsoft's Xbox. The Dreamcast was Sega's final home console, marking the end of the company's eighteen years in the console market. In contrast to the expensive hardware of the unsuccessful Sega Saturn, the Dreamcast was designed to reduce costs with \"off-the-shelf\" components, including a Hitachi SH-4 CPU and an NEC PowerVR2 GPU. Released in Japan to a subdued reception, the Dreamcast enjoyed a successful U.S. launch backed by a large marketing campaign, but interest in the system steadily declined as Sony built hype for the upcoming PlayStation 2. Sales did not meet Sega's expectations despite several price cuts, and the company continued to incur significant financial losses. After a change in leadership, Sega discontinued the Dreamcast on 31 March 2001, withdrawing from the console business and restructuring itself as a third-party publisher. In total, 9.13 million Dreamcast units were sold worldwide."
+aliases = ["dc"]
+extensions = [".gdi", ".chd", ".cdi", ".cue", ".m3u"]
+emulator = "retroarch-flycast"
+alt_emulators = ["flycast", "flycast-dojo", "redream", "demul-dreamcast"]
+screenscraper_id = 23
+igdb_platforms = [23]
 
 [systems.easyrpg]
 name = "EasyRPG Game Engine"
@@ -748,6 +609,51 @@ alt_emulators = ["retroarch-genesis-plus-gx-wide", "retroarch-gearsystem", "retr
 screenscraper_id = 21
 igdb_platforms = [35]
 
+[systems.gb]
+name = "Game Boy"
+manufacturer = "Nintendo"
+year = 1989
+description = "The Game Boy is an 8-bit handheld video game console developed and manufactured by Nintendo. It was released in Japan on 21 April 1989, in North America in August 1989, and in Europe in 1990. In Southern Asia, it is known as the \"Tata Game Boy\" It is the first handheld console in the Game Boy line. It was created by Gunpei Yokoi and Nintendo's Research and Development — the same staff who had designed the Game & Watch series as well as several popular games for the NES. The Game Boy was Nintendo's second handheld system following the Game & Watch series introduced in 1980, and it combined features from both the Nintendo Entertainment System and Game and Watch. It was also the first handheld game to use video game cartridges since Milton Bradley's Microvision handheld console. It was originally bundled with the puzzle game Tetris. Despite many other, technologically superior handheld consoles introduced during its lifetime, the Game Boy was a tremendous success. The Game Boy and Game Boy Color combined have sold 118.69 million units worldwide. Upon its release in the United States, it sold its entire shipment of one million units within weeks."
+extensions = [".gb", ".sgb", ".zip", ".7z"]
+emulator = "retroarch-gambatte"
+alt_emulators = ["retroarch-mgba", "retroarch-sameboy", "sameboy", "retroarch-gearboy", "gearboy", "retroarch-tgbdual", "retroarch-doublecherrygb", "retroarch-irogb", "retroarch-mesen-s", "mesen", "retroarch-mesen2", "mgba", "retroarch-vbam", "vba-m", "retroarch-skyemu", "skyemu", "mednafen-gb", "ares-gb"]
+screenscraper_id = 9
+igdb_platforms = [33]
+
+[systems.gba]
+name = "Game Boy Advance"
+manufacturer = "Nintendo"
+year = 2001
+description = "The Game Boy Advance (abbreviated as GBA) is a 32-bit handheld video game console developed, manufactured and marketed by Nintendo as the successor to the Game Boy Color. It was released in Japan on 21 March 2001, in North America on 11 June 2001, in Australia and Europe on 22 June 2001, and in mainland China on 8 June 2004 (iQue Player). Nintendo's competitors in the handheld market at the time were the Neo Geo Pocket Color, WonderSwan, GP32, Tapwave Zodiac, and the N-Gage. Despite the competitors' best efforts, Nintendo maintained a majority market share with the Game Boy Advance. As of 30 June 2010, the Game Boy Advance series has sold 81.51 million units worldwide. Its successor, the Nintendo DS, was released in November 2004 and is also compatible with Game Boy Advance software."
+extensions = [".gba", ".zip", ".7z"]
+emulator = "retroarch-mgba"
+alt_emulators = ["mgba", "retroarch-vbam", "vba-m", "retroarch-vba-next", "retroarch-gpsp", "retroarch-noods", "noods", "retroarch-skyemu", "skyemu", "mednafen-gba", "ares-gba", "mesen", "retroarch-mesen2"]
+screenscraper_id = 12
+igdb_platforms = [24]
+
+[systems.gbc]
+name = "Game Boy Color"
+manufacturer = "Nintendo"
+year = 1998
+description = "The Game Boy Color, (abbreviated as GBC) is a handheld game console manufactured by Nintendo, which was released on 21 October 1998 in Japan and was released in November of the same year in international markets. It is the successor of the Game Boy. The Game Boy Color, as suggested by the name, features a colour screen, but no backlight. It is slightly thicker and taller than the Game Boy Pocket, which is a redesigned Game Boy released in 1996. As with the original Game Boy, it has a custom 8-bit processor somewhat related to a Zilog Z80 central processing unit (CPU). The original name - with its American English spelling of \"color\" - remained unchanged even in markets where \"colour\" was the accepted English spelling. The Game Boy Color's primary competitors were the much more advanced Neo Geo Pocket by SNK and the WonderSwan by Bandai (both released in Japan only), though the Game Boy Color outsold these by a wide margin. The Game Boy and Game Boy Color combined have sold 118.69 million units worldwide. It was discontinued in 2003, shortly after the release of the Game Boy Advance SP."
+extensions = [".gbc", ".cgb", ".zip", ".7z"]
+emulator = "retroarch-gambatte"
+alt_emulators = ["retroarch-mgba", "retroarch-sameboy", "sameboy", "retroarch-gearboy", "gearboy", "retroarch-tgbdual", "retroarch-doublecherrygb", "retroarch-irogb", "retroarch-mesen-s", "mesen", "retroarch-mesen2", "retroarch-bsnes", "mgba", "retroarch-vbam", "vba-m", "retroarch-skyemu", "skyemu", "mednafen-gb", "ares-gbc", "jgenesis", "emulicious"]
+screenscraper_id = 10
+igdb_platforms = [22]
+
+[systems.gc]
+name = "GameCube"
+manufacturer = "Nintendo"
+year = 2001
+description = "The Nintendo GameCube is a home video game console released by Nintendo in Japan and North America in 2001 and in PAL territories in 2002. The GameCube is Nintendo's entry in the sixth generation of video game consoles and is the successor to their previous console, the Nintendo 64. The GameCube competed with Sony's PlayStation 2 and Microsoft's Xbox. The GameCube is the first Nintendo console to use optical discs as its primary storage medium. The discs are in a miniDVD-based format but the system was not designed to play full-sized DVDs or audio CDs unlike its competitors, and mainly focused on gaming instead. The console supports limited online gaming for a small number of games via a GameCube broadband or modem adapter and can connect to a Game Boy Advance with a link cable, which allows players to access exclusive in-game features using the handheld as a second screen and controller like a Wii U."
+aliases = ["gamecube"]
+extensions = [".iso", ".gcm", ".gcz", ".rvz", ".ciso"]
+emulator = "dolphin"
+alt_emulators = ["retroarch-dolphin", "primehack", "triforce"]
+screenscraper_id = 13
+igdb_platforms = [21]
+
 [systems.gmaster]
 name = "Hartung Game Master"
 manufacturer = "Hartung"
@@ -833,6 +739,30 @@ emulator = "retroarch-mame"
 alt_emulators = ["retroarch-mame2010", "retroarch-mame2003-plus", "retroarch-mame2003", "retroarch-mame2000", "retroarch-hbmame", "mame-mame", "groovymame-mame", "retroarch-fbneo", "finalburn-neo", "retroarch-fbalpha2012", "retroarch-geolith", "retroarch-flycast", "flycast", "flycast-dojo", "retroarch-kronos", "retroarch-dice", "m2emulator", "retroarch-supermodel", "supermodel", "supermodel-dojo", "pcsx2x6", "play-arcade", "mfme", "arcadeduck", "run-file", "advancemame"]
 screenscraper_id = 75
 igdb_platforms = [52]
+
+[systems.mastersystem]
+name = "Master System"
+manufacturer = "Sega"
+year = 1985
+description = "The Sega Master System is a third-generation 8-bit home video game console manufactured by Sega. It was originally a remodeled export version of the Sega Mark III, the third iteration of the SG-1000 series of consoles, which was released in Japan in 1985 and featured enhanced graphical capabilities over its predecessors. The Master System launched in North America in 1986, followed by Europe in 1987, and Brazil in 1989. A Japanese version of the Master System was also launched in 1987, which features a few enhancements over the export models (and by proxy the original Mark III): a built-in FM audio chip, a rapid-fire switch, and a dedicated port for the 3D glasses. The Master System II, a cheaper model, was released in 1990 in North America and Europe. The original Master System models use both cartridges and a credit card-sized format known as Sega Cards. Accessories for the consoles include a light gun and 3D glasses that work with a range of specially designed games. The later Master System II redesign removed the card slot, turning it into a strictly cartridge-only system and is incompatible with the 3D glasses."
+aliases = ["sms", "mark3"]
+extensions = [".sms", ".zip", ".7z"]
+emulator = "retroarch-genesis-plus-gx"
+alt_emulators = ["retroarch-genesis-plus-gx-wide", "retroarch-smsplus", "retroarch-gearsystem", "retroarch-picodrive", "retroarch-blastem", "blastem-mastersystem", "mednafen-mastersystem", "mesen", "retroarch-mesen2", "ares-mastersystem", "jgenesis", "emulicious"]
+screenscraper_id = 2
+igdb_platforms = [64]
+
+[systems.megadrive]
+name = "Mega Drive"
+manufacturer = "Sega"
+year = 1988
+description = "The Mega Drive is a 16-bit fourth-generation home video game console developed and sold by Sega. It's Sega's third console and the successor to the Master System. The Mega Drive was adapted from Sega's System 16 arcade board."
+aliases = ["genesis", "md", "megadrivejp"]
+extensions = [".md", ".gen", ".smd", ".bin", ".zip", ".7z"]
+emulator = "retroarch-genesis-plus-gx"
+alt_emulators = ["retroarch-genesis-plus-gx-wide", "retroarch-picodrive", "retroarch-blastem", "blastem-megadrive", "retroarch-clownmdemu", "mednafen-megadrive", "ares-megadrive", "jgenesis"]
+screenscraper_id = 1
+igdb_platforms = [29]
 
 [systems.megaduck]
 name = "Mega Duck"
@@ -950,6 +880,17 @@ alt_emulators = ["azahar", "run-file", "azaharplus", "retroarch-citra", "retroar
 screenscraper_id = 17
 igdb_platforms = [37]
 
+[systems.n64]
+name = "Nintendo 64"
+manufacturer = "Nintendo"
+year = 1996
+description = "Named for its 64-bit central processing unit, it was released in June 1996 in Japan, September 1996 in North America, March 1997 in Europe and Australia, September 1997 in France and December 1997 in Brazil. As part of the fifth generation of gaming, the N64 competed primarily with the PlayStation and the Sega Saturn. The Nintendo 64 was launched with three games: Super Mario 64 and Pilotwings 64, released worldwide; and Saikyo Habu Shogi, released only in Japan. While the N64 was succeeded by Nintendo's MiniDVD-based GameCube in November 2001, N64 consoles remained available until the system was retired in late 2003."
+extensions = [".z64", ".n64", ".v64", ".zip", ".7z"]
+emulator = "retroarch-mupen64plus-next"
+alt_emulators = ["mupen64plus", "retroarch-parallel-n64", "parallel-launcher", "simple64", "rosalies-mupen-gui", "project64", "ares-n64", "gopher64"]
+screenscraper_id = 14
+igdb_platforms = [4]
+
 [systems.n64dd]
 name = "64DD"
 manufacturer = "Nintendo"
@@ -1023,6 +964,18 @@ emulator = "retroarch-neocd"
 alt_emulators = ["retroarch-fbneo-neogeocd", "finalburn-neo-neogeocd", "retroarch-geolith", "mame-neogeocd", "mame-neogeocd-2"]
 screenscraper_id = 70
 igdb_platforms = [136]
+
+[systems.nes]
+name = "Nintendo Entertainment System"
+manufacturer = "Nintendo"
+year = 1983
+description = "The Nintendo Entertainment System is an 8-bit video game console that was released by Nintendo in North America during 1985, in Europe during 1986 and Australia in 1987. In most of Asia, including Japan (where it was first launched in 1983), China, Vietnam, Singapore, the Middle East and Hong Kong, it was released as the Family Computer, commonly shortened as either the romanised contraction Famicom, or abbreviated to FC. In South Korea, it was known as the Hyundai Comboy, and was distributed by Hynix which then was known as Hyundai Electronics."
+aliases = ["famicom"]
+extensions = [".nes", ".unf", ".unif", ".zip", ".7z"]
+emulator = "retroarch-mesen"
+alt_emulators = ["retroarch-fceumm", "mesen", "retroarch-mesen2", "retroarch-nestopia", "retroarch-quicknes", "retroarch-rustynes", "punes", "mednafen-fds", "ares-nes", "ares-fds", "jgenesis"]
+screenscraper_id = 3
+igdb_platforms = [18, 99]
 
 [systems.ngage]
 name = "N-Gage"
@@ -1206,6 +1159,17 @@ extensions = [".bat", ".exe", ".game", ".lnk", ".phd", ".psx"]
 emulator = "run-file"
 alt_emulators = ["retroarch-ecwolf", "retroarch-cannonball", "retroarch-craft", "retroarch-mrboom", "retroarch-nxengine", "retroarch-doukutsu-rs", "retroarch-openlara", "retroarch-superbroswar"]
 
+[systems.ps2]
+name = "PlayStation 2"
+manufacturer = "Sony"
+year = 2000
+description = "The PlayStation 2 (PS2) is a home video game console developed and marketed by Sony Computer Entertainment. It was first released in Japan on 4 March 2000, in North America on 26 October 2000, in Europe on 24 November 2000, and Australia on 24 November 2000. It is the successor to the original PlayStation, as well as the second installment in the PlayStation console line-up. A sixth-generation console, it competed with Sega's Dreamcast, Nintendo's GameCube, and Microsoft's original Xbox. Announced in 1999, the PS2 offered backward-compatibility for its predecessor's DualShock controller, as well as its games. The PS2 is the best-selling video game console of all time, having sold over 155 million units worldwide. Over 3,800 game titles have been released for the PS2, with over 1.5 billion copies sold. Sony later manufactured several smaller, lighter revisions of the console known as Slimline models in 2004."
+extensions = [".iso", ".chd", ".cso", ".zso", ".gz", ".cue"]
+emulator = "pcsx2"
+alt_emulators = ["retroarch-pcsx2", "pcsx2-legacy", "play-disc"]
+screenscraper_id = 58
+igdb_platforms = [8]
+
 [systems.ps3]
 name = "PlayStation 3"
 manufacturer = "Sony"
@@ -1227,6 +1191,29 @@ emulator = "shadps4"
 alt_emulators = ["shadps4-gui", "run-file"]
 screenscraper_id = 60
 igdb_platforms = [48]
+
+[systems.psp]
+name = "PlayStation Portable"
+manufacturer = "Sony"
+year = 2004
+description = "The PlayStation Portable (PSP) is a handheld game console developed and marketed by Sony Computer Entertainment. It was first released in Japan on 12 December 2004, in North America on 24 March 2005, and in PAL regions on 1 September 2005, and is the first handheld installment in the PlayStation line of consoles. As a seventh generation console it competed with the Nintendo DS. Development of the PSP was announced during E3 2003, and the console was unveiled at a Sony press conference on 11 May 2004. The system was the most powerful portable console when it was introduced, and was the first real competitor of Nintendo's handheld consoles after many challengers, such as Nokia's N-Gage, had failed. The PSP's advanced graphics capabilities made it a popular mobile entertainment device, which could connect to the PlayStation 2 and PlayStation 3 consoles, any computer with USB interface, other PSP systems, and the Internet. The PSP also had a vast array of multimedia features such as video playback, and so has been considered a portable media player as well. The PSP is the only handheld console to use an optical disc format – Universal Media Disc (UMD) – as its primary storage medium; both games and movies have been released on the format."
+extensions = [".iso", ".cso", ".pbp", ".chd"]
+emulator = "retroarch-ppsspp"
+alt_emulators = ["ppsspp"]
+screenscraper_id = 61
+igdb_platforms = [38]
+
+[systems.psx]
+name = "PlayStation"
+manufacturer = "Sony"
+year = 1994
+description = "The Sony PlayStation, or PS for short, is a fifth generation (1993–2005) home video game console developed and distributed by Sony Interactive Entertainment. It was released on 3 December 1994 in Japan at a retail price of ¥37,000. The console was later released in North America (1995), Europe (1995), Australia (1995), and Korea (1996). The PlayStation was known for standardising disc based games over cartridges, as well as controllers with two analogue sticks and vibration feedback. The console was discontinued on 23 March 2006. PlayStation (Japanese: プレイステーション, Hepburn: Pureisutēshon, officially abbreviated as PS) is a Japanese video game brand that consists of five home video game consoles, as well as a media centre, an online service, a line of controllers, two handhelds and a phone, as well as multiple magazines. The brand is produced by Sony Interactive Entertainment, a division of Sony, with the first console releasing as the PlayStation in Japan released in December 1994, and worldwide the following year."
+aliases = ["ps1"]
+extensions = [".cue", ".chd", ".pbp", ".ccd", ".m3u"]
+emulator = "retroarch-beetle-psx-hw"
+alt_emulators = ["retroarch-swanstation", "retroarch-pcsx-rearmed", "duckstation", "ares-psx", "mednafen-psx"]
+screenscraper_id = 57
+igdb_platforms = [7]
 
 [systems.pv1000]
 name = "PV-1000"
@@ -1266,6 +1253,18 @@ emulator = "retroarch-snes9x"
 alt_emulators = ["retroarch-snes9x2010", "retroarch-snes9x2005-plus", "snes9x", "retroarch-bsnes", "retroarch-bsnes-hd-beta", "retroarch-bsnes-jg", "retroarch-bsnes-mercury-accuracy", "bsnes", "retroarch-mesen-s", "mesen", "retroarch-mesen2", "ares-satellaview"]
 screenscraper_id = 107
 igdb_platforms = [306]
+
+[systems.saturn]
+name = "Saturn"
+manufacturer = "Sega"
+year = 1994
+description = "The Sega Saturn is a home video game console developed by Sega and released on 22 November 1994 in Japan, 11 May 1995 in North America, and 8 July 1995 in Europe. Part of the fifth generation of video game consoles, it was the successor to the successful Sega Genesis. The Saturn has a dual-CPU architecture and eight processors. Its games are in CD-ROM format, and its game library contains several ports of arcade games as well as original games. Development of the Saturn began in 1992, the same year Sega's groundbreaking 3D Model 1 arcade hardware debuted. The Saturn was designed around a new CPU from Japanese electronics company Hitachi. Sega added another video display processor in early 1994 to better compete with Sony's forthcoming PlayStation."
+aliases = ["saturnjp"]
+extensions = [".cue", ".chd", ".ccd", ".m3u"]
+emulator = "retroarch-beetle-saturn"
+alt_emulators = ["retroarch-kronos", "kronos", "retroarch-yabasanshiro", "yabasanshiro-2", "retroarch-yabause", "ymir", "mednafen-saturn", "ssf"]
+screenscraper_id = 22
+igdb_platforms = [32]
 
 [systems.scummvm]
 name = "ScummVM"
@@ -1331,6 +1330,18 @@ emulator = "retroarch-mesen-s"
 alt_emulators = ["mesen-sgb", "retroarch-mesen2", "retroarch-sameboy", "retroarch-mgba", "mgba"]
 screenscraper_id = 127
 
+[systems.snes]
+name = "Super Nintendo Entertainment System"
+manufacturer = "Nintendo"
+year = 1990
+description = "The Super Nintendo Entertainment System (also known as the Super NES, SNES or Super Nintendo) is a 16-bit home video game console developed by Nintendo that was released in 1990 in Japan, 1991 in North America, 1992 in Europe and Australasia (Oceania), and 1993 in South America. In Japan, the system is called the Super Famicom, officially adopting the abbreviated name of its predecessor, the Family Computer, or SFC for short. In South Korea, it is known as the Super Comboy and was distributed by Hyundai Electronics. Although each version is essentially the same, several forms of regional lockout prevent the different versions from being compatible with one another."
+aliases = ["sfc", "superfamicom", "snesna"]
+extensions = [".sfc", ".smc", ".swc", ".fig", ".bs", ".zip", ".7z"]
+emulator = "retroarch-snes9x"
+alt_emulators = ["retroarch-snes9x2010", "retroarch-snes9x2005-plus", "snes9x", "retroarch-bsnes", "retroarch-bsnes-hd-beta", "retroarch-bsnes-jg", "retroarch-bsnes-mercury-accuracy", "bsnes", "retroarch-beetle-supafaust", "retroarch-mesen-s", "mesen", "retroarch-mesen2", "mednafen-snes", "ares-satellaview", "jgenesis", "superzsnes"]
+screenscraper_id = 4
+igdb_platforms = [19, 58]
+
 [systems.solarus]
 name = "Solarus Game Engine"
 year = 2021
@@ -1346,10 +1357,10 @@ year = 1983
 description = "Spectravideo International Limited (SVI) was an American computer manufacturer and software house. It was originally called SpectraVision, a company founded by Harry Fox in 1981. The company produced video games and other software for the VIC-20 home computer, the Atari 2600 home video game console, and its CompuMate peripheral. Some of their own computers were compatible with the Microsoft MSX or the IBM PC."
 extensions = [".cas", ".col", ".dsk", ".m3u", ".mx1", ".mx2", ".ri", ".rom", ".sc", ".sg", ".7z", ".zip"]
 emulator = "retroarch-bluemsx"
+screenscraper_id = 218
 
 # Steam games: the .url shortcuts Steam makes (on the desktop, or Manage > Add desktop shortcut). A Steam shortcut is
 # handed to Steam and followed through the Steam client until the game ends; .lnk and batch files run as themselves.
-screenscraper_id = 218
 [systems.steam]
 name = "Steam"
 manufacturer = "Valve"
@@ -1601,17 +1612,6 @@ name = "Windows"
 manufacturer = "Microsoft"
 year = 1985
 description = "Windows is a group of several proprietary graphical operating system families developed and marketed by Microsoft. Each family caters to a certain sector of the computing industry. For example, Windows NT for consumers, Windows Server for servers, and Windows IoT for embedded systems. Defunct Windows families include Windows 9x, Windows Mobile, and Windows Phone. The first version of Windows was released on 20 November 1985, as a graphical operating system shell for MS-DOS in response to the growing interest in graphical user interfaces (GUIs)."
-extensions = [".bat", ".cmd", ".lnk", ".url"]
-emulator = "run-file"
-screenscraper_id = 138
-igdb_platforms = [6]
-steam_store = true                   # looked up on the Steam store, by title
-
-# Desktop apps: ES-DE's folder for shortcuts to programs that aren't games. They launch as Windows' do.
-[systems.desktop]
-name = "Desktop Apps"
-manufacturer = "Microsoft"
-description = "View and run your Desktop shortcuts"
 extensions = [".bat", ".cmd", ".lnk", ".url"]
 emulator = "run-file"
 screenscraper_id = 138
