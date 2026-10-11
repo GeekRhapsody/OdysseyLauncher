@@ -21,7 +21,7 @@ namespace Launcher.App.Theming;
 /// </summary>
 public sealed class ThemePlan
 {
-    /// <summary>The key of the Favourites and Recently played cards, which have no system.</summary>
+    /// <summary>The key of the theme's default card, which a card no model could be loaded for falls back to.</summary>
     public const string VirtualCards = "";
 
     private ThemePlan(ThemeSet themes, ModelResolver resolver, IReadOnlyList<Diagnostic> diagnostics, AppConfig config, PlatformPaths paths)
@@ -36,7 +36,10 @@ public sealed class ThemePlan
             CardCandidates[system.Id] = resolver.SystemModels(system.Id);
         }
 
+        // Favourites and Recently played have no system, but a theme can give each its own card ([systems.favourites]).
         CardCandidates[VirtualCards] = resolver.SystemModels(null);
+        CardCandidates[Navigator.FavouritesId] = resolver.SystemModels(Navigator.FavouritesId);
+        CardCandidates[Navigator.RecentlyPlayedId] = resolver.SystemModels(Navigator.RecentlyPlayedId);
 
         // A6 logos/: only read when some card's chain shows a logo (a theme without them reads nothing).
         if (AnyCardShowsLogo())
@@ -261,7 +264,7 @@ public sealed class ThemeRuntime
         return true;
     }
 
-    /// <summary>The systems grid template index for a card; null for Favourites and Recently played.</summary>
+    /// <summary>The systems grid template index for a card (a system's id, or a virtual card's); null for the default card.</summary>
     public int CardTemplateOf(string? systemId) =>
         _cardTemplateOf.TryGetValue(systemId ?? ThemePlan.VirtualCards, out var t) ? t : _cardTemplateOf[ThemePlan.VirtualCards];
 
@@ -363,7 +366,7 @@ public sealed class ThemeRuntime
         {
             if (choice[system] >= candidates.Count)
             {
-                GD.PushWarning($"Themes: no model for {(system.Length == 0 ? "the virtual systems' cards" : system)} could be loaded; another system's is used.");
+                GD.PushWarning($"Themes: no model for {(system.Length == 0 ? "the default card" : system)} could be loaded; another system's is used.");
                 continue;
             }
 

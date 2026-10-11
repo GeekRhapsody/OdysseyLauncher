@@ -1684,12 +1684,11 @@ public sealed partial class Navigator : Node
 
     private List<SystemEntry> BuildEntries(IReadOnlyList<SystemSummary> summaries)
     {
-        var virtualCard = _theme.CardTemplateOf(null);
         var entries = new List<SystemEntry>
         {
-            new(FavouritesId, "Favourites", "The games you've marked", Palette.Favourites, null, null, VirtualKind.Favourites, virtualCard,
+            new(FavouritesId, "Favourites", "The games you've marked", Palette.Favourites, null, null, VirtualKind.Favourites, _theme.CardTemplateOf(FavouritesId),
                 _theme.LogoOf(FavouritesId)),
-            new(RecentlyPlayedId, "Recently played", "Newest first", Palette.RecentlyPlayed, null, null, VirtualKind.RecentlyPlayed, virtualCard,
+            new(RecentlyPlayedId, "Recently played", "Newest first", Palette.RecentlyPlayed, null, null, VirtualKind.RecentlyPlayed, _theme.CardTemplateOf(RecentlyPlayedId),
                 _theme.LogoOf(RecentlyPlayedId)),
         };
         var hideEmpty = _services.Config.Settings.Display.HideEmptySystems;

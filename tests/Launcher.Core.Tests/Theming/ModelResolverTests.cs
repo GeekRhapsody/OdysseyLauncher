@@ -8,7 +8,7 @@ public sealed class ModelResolverTests
     private const string ConfigDir = "C:/config";
     private const string DataDir = "C:/data";
 
-    /// <summary>A user theme with a template for PS2, a default template, and a card model for PS2.</summary>
+    /// <summary>A user theme with a template for PS2, a default template, and card models for PS2 and Favourites.</summary>
     private static Theme Active => ThemeFixtures.Parse("""
         name = "Active"
 
@@ -30,8 +30,11 @@ public sealed class ModelResolverTests
         model = "ps2.glb"
         tint = true
         colour = "#102030"
+
+        [systems.favourites]
+        model = "star.glb"
         """, new FakeThemeFiles().Model("tall.glb", "cover").Model("wide.glb", "cover").Model("my_clamshell.glb", "cover")
-            .Model("card.glb", "label").Model("ps2.glb", "case"), Base, id: "active").Theme!;
+            .Model("card.glb", "label").Model("ps2.glb", "case").Model("star.glb", "gold"), Base, id: "active").Theme!;
 
     /// <summary>
     /// The base theme's part, with fixed templates: the real memory-card theme's assignments change as its models
@@ -256,7 +259,10 @@ public sealed class ModelResolverTests
         Assert.Equal("User:psx.glb > ThemeDefault:card.glb > BaseDefault:generic.glb", Describe(resolver.SystemModels("psx")));
         Assert.Equal([false, false, true], resolver.SystemModels("psx").Select(c => c.Tint));
 
-        // Favourites and Recently played have no system: the default cards.
+        // Favourites and Recently played have no system, but a theme can name a card for each by its id; the default
+        // cards are what they fall back to.
+        Assert.Equal("ThemeSystem:star.glb > ThemeDefault:card.glb > BaseDefault:generic.glb", Describe(resolver.SystemModels("favourites")));
+        Assert.Equal("ThemeDefault:card.glb > BaseDefault:generic.glb", Describe(resolver.SystemModels("recently_played")));
         Assert.Equal("ThemeDefault:card.glb > BaseDefault:generic.glb", Describe(resolver.SystemModels(null)));
     }
 

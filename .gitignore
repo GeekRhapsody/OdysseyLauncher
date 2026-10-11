@@ -24,3 +24,6 @@ secrets.toml
 
 # Built-in provider credentials, written by tools/write-built-in-accounts.ps1 for a release build only
 BuiltInAccounts.Release.g.cs
+
+# Python bytecode (tools/*.py)
+__pycache__/

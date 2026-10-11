@@ -235,8 +235,9 @@ public sealed class ModelResolver
     }
 
     /// <summary>
-    /// The candidates for a system's card, best first, without repeats. Null for Favourites and Recently played. Each
-    /// carries the chains of the theme whose model it is; the user's own card takes the active theme's.
+    /// The candidates for a system's card, best first, without repeats: <c>favourites</c> and <c>recently_played</c> for
+    /// those cards, null for the theme's default card. Each carries the chains of the theme whose model it is; the
+    /// user's own card takes the active theme's.
     /// </summary>
     public IReadOnlyList<ModelCandidate> SystemModels(string? systemId)
     {

@@ -80,3 +80,10 @@ model = "models/systems/saturn.glb"
 
 [systems.dreamcast]
 model = "models/systems/dreamcast.glb"
+
+# Favourites and Recently played have no console: a Power Star and an alarm clock.
+[systems.favourites]
+model = "models/systems/favourites.glb"       # built by tools/console-models/power_star.py: Super Mario 64's Power Star; its focused clip opens its eyes, hops, spins and wiggles
+
+[systems.recently_played]
+model = "models/systems/recently_played.glb"  # built by tools/console-models/alarm_clock.py: the Dreamcast settings menu's alarm clock; its focused clip bounces, rings and leaps

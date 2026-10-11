@@ -4,7 +4,7 @@ This guide is for theme authors. It covers the folder and manifest, the media sl
 
 Four themes come with the repo:
 - **Memory Card**, the base theme ([`godot/themes/memory-card/`](../godot/themes/memory-card/theme.toml)). It isn't a theme to choose: every theme builds on it, and anything a theme leaves out (a look, a template, a model, a system's colour) is Memory Card's (section 2). Its templates (the DVD case, jewel case, cartridge box and the rest) are there for every theme to use.
-- **Console** ([`godot/themes/console/`](../godot/themes/console/theme.toml)): each system's console as its card (for Windows, a gaming PC and its monitor; the Switch's focused clip slides a Joy-Con off and back, and the Game Boys' bring a cartridge in and switch the screen on, the console a node tree whose parts ride along as it bounces), and a Mega Drive cartridge for that system's games (its art on the cartridge's label). It's small, because everything else comes from Memory Card.
+- **Console** ([`godot/themes/console/`](../godot/themes/console/theme.toml)): each system's console as its card (for Windows, a gaming PC and its monitor; the Switch's focused clip slides a Joy-Con off and back, and the Game Boys' bring a cartridge in and switch the screen on, the console a node tree whose parts ride along as it bounces; Favourites is a Power Star that opens its eyes when focused, Recently played the Dreamcast menu's bouncing alarm clock), and a Mega Drive cartridge for that system's games (its art on the cartridge's label). It's small, because everything else comes from Memory Card.
 - **Slab**, the default theme ([`godot/themes/slab/`](../godot/themes/slab/theme.toml)): one dark grey card, Memory Card's slab shape, for every system, with the system's image on its front (section 4, "System cards and logos"). It's a manifest, one model and an image per system: the way to show every system's logo without a model for each.
 - **Retro TV**, the sample theme ([`samples/themes/retro-tv/`](../samples/themes/retro-tv/theme.toml)). It has a CRT television as its game template, a console as its system model, and animation clips. It's the best place to start.
 
@@ -133,7 +133,7 @@ bottom_right = "#100A08"
 - **Colours** are `#RRGGBB` in sRGB. The four corners blend in sRGB, as on the PS2.
 - **Lights** are in view space, so they stay put while the grid scrolls. Any direction but zero is valid. Lights you don't define are off.
 - **Per-system looks:** a system's `background`, `ambient` or `lights` block replaces the theme's block of that name whole. Blocks it leaves out come from the theme's look. Entering a system cross-fades to its look, and leaving cross-fades back.
-- **System ids** are the launcher's: `gb`, `gbc`, `gba`, `nes`, `snes`, `n64`, `gc`, `mastersystem`, `megadrive`, `saturn`, `dreamcast`, `psx`, `ps2` and `psp`, plus any system the user defines. An entry for a system the user doesn't have is ignored.
+- **System ids** are the launcher's: `gb`, `gbc`, `gba`, `nes`, `snes`, `n64`, `gc`, `mastersystem`, `megadrive`, `saturn`, `dreamcast`, `psx`, `ps2` and `psp`, plus any system the user defines. An entry for a system the user doesn't have is ignored. Favourites and Recently played are `favourites` and `recently_played`: their `model`, `tint`, `logo` and `slots` work as a system's (the Console theme's star and clock are `[systems.favourites]` and `[systems.recently_played]`), and their games keep their own systems' templates.
 - **Mistakes never stop the launcher.** Each problem is reported with its file, line, column and key, for example:
 
   ```
@@ -245,7 +245,7 @@ For each game and each system card, the launcher tries these candidates in order
 7. Memory Card's template for the system.
 8. Memory Card's default template.
 
-**A system's card** (and its slot chains: section 4, "System cards and logos"):
+**A system's card** (and its slot chains: section 4, "System cards and logos"), and Favourites' and Recently played's (`<system>` is `favourites` or `recently_played`):
 1. The user's `ConfigDir/models/systems/<system>.glb`, chosen in the system's options (X on the system, then System model).
 2. Your theme's `[systems.<system>] model`.
 3. Your theme's `[defaults] system_model`.
