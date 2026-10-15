@@ -223,15 +223,17 @@ public sealed class RomScannerTests : IDisposable
         _dir.File("psx/Demon's Souls.ps3/PS3_GAME/PARAM.SFO");
         _dir.File("psx/Bloodborne.ps4/eboot.bin");
         _dir.File("psx/Bloodborne.ps4/sce_sys/param.bin");
+        _dir.File("psx/Astro's Playroom.ps5/eboot.bin");
+        _dir.File("psx/Astro's Playroom.ps5/sce_sys/param.json");
         _dir.File("psx/Loose/eboot.bin");
         _dir.File("psx/Loose/Nested.ps4/eboot.bin");
 
-        var scan = new RomScanner().Scan(System([".bin", ".ps3", ".ps4"]), null, TestContext.Current.CancellationToken);
+        var scan = new RomScanner().Scan(System([".bin", ".ps3", ".ps4", ".ps5"]), null, TestContext.Current.CancellationToken);
 
         // A folder without an extension is still searched; a folder game's own files never are.
-        Assert.Equal(["Bloodborne.ps4", "Demon's Souls.ps3", "Loose/Nested.ps4", "Loose/eboot.bin"], Games(scan));
-        Assert.Equal(4, scan.FilesSeen);
-        Assert.All(scan.Games.Where(g => g.RelPath.EndsWith(".ps3", StringComparison.Ordinal) || g.RelPath.EndsWith(".ps4", StringComparison.Ordinal)), g =>
+        Assert.Equal(["Astro's Playroom.ps5", "Bloodborne.ps4", "Demon's Souls.ps3", "Loose/Nested.ps4", "Loose/eboot.bin"], Games(scan));
+        Assert.Equal(5, scan.FilesSeen);
+        Assert.All(scan.Games.Where(g => g.RelPath.EndsWith(".ps3", StringComparison.Ordinal) || g.RelPath.EndsWith(".ps4", StringComparison.Ordinal) || g.RelPath.EndsWith(".ps5", StringComparison.Ordinal)), g =>
         {
             Assert.True(g.IsFolder);
             Assert.Equal(0, g.SizeBytes);

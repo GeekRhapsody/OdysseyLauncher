@@ -2537,6 +2537,12 @@ name = "shadPS4 [GUI] eboot.bin"
 executable = "{emulators}/shadPS4QtLauncher/shadPS4QtLauncher.exe"
 args = ["-d", "-g", "{rom}"]
 
+# Sony PlayStation 5 emulator KytyPS5 (takes a game's folder)
+[emulators.kytyps5]
+name = "KytyPS5"
+executable = "{emulators}/KytyPS5/kyty_emulator.exe"
+args = ["--game", "{rom}"]
+
 # Sony PlayStation 1 emulator DuckStation
 [emulators.duckstation]
 name = "DuckStation"

@@ -1319,6 +1319,21 @@ public class ConfigLoaderTests
     }
 
     [Fact]
+    public void PlayStation_5_launches_game_folders_in_KytyPS5()
+    {
+        var config = Load().Config;
+
+        var ps5 = config.FindSystem("ps5")!;
+        Assert.Equal("PlayStation 5", ps5.Name);
+        Assert.Contains(".ps5", ps5.Extensions);
+        Assert.Equal("kytyps5", ps5.Emulator);
+
+        var kyty = config.Emulators["kytyps5"];
+        Assert.Equal("C:/Emulators/KytyPS5/kyty_emulator.exe", kyty.Executable.Replace('\\', '/'));
+        Assert.Equal(["--game", "{rom}"], kyty.Args);
+    }
+
+    [Fact]
     public void Catalogue_emulators_sit_under_the_emulators_variable_with_ES_DEs_folder_names()
     {
         var emulators = Load().Config.Emulators;

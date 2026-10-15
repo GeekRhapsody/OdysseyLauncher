@@ -31,7 +31,7 @@ public sealed record SystemScan(
 /// <summary>
 /// Walks a system's ROM folders by file name only: extensions, recursion and excludes from config.
 /// Multi-file games are grouped: files referenced by an <c>.m3u</c>, <c>.cue</c> or <c>.gdi</c> are hidden.
-/// A folder whose name ends in one of the system's extensions (PS3's <c>Game.ps3</c>, PS4's <c>Game.ps4</c>) is a
+/// A folder whose name ends in one of the system's extensions (PS3's <c>Game.ps3</c>, PS4's <c>Game.ps4</c>, PS5's <c>Game.ps5</c>) is a
 /// game and isn't entered, as ES-DE's "directories interpreted as files": a game dump holds thousands of files.
 /// Does file I/O: never call it on the main thread. It holds no state, so systems can be scanned in parallel.
 /// </summary>

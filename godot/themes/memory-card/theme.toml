@@ -830,6 +830,10 @@ game_template = "dvd_case"
 colour = "#5C5D9E"
 game_template = "dvd_case"
 
+[systems.ps5]                       # PlayStation 5
+colour = "#675C9E"
+game_template = "dvd_case"
+
 [systems.pv1000]                       # PV-1000
 colour = "#5C8B9E"
 

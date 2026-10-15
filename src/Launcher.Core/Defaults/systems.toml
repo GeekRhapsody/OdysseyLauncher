@@ -1192,6 +1192,16 @@ alt_emulators = ["shadps4-gui", "run-file"]
 screenscraper_id = 60
 igdb_platforms = [48]
 
+[systems.ps5]
+name = "PlayStation 5"
+manufacturer = "Sony"
+year = 2020
+description = "The PlayStation 5 (PS5) is a home video game console developed by Sony Interactive Entertainment. Announced in 2019 as the successor to the PlayStation 4, it was released on 12 November 2020 in Australia, Japan, New Zealand, North America and South Korea, and on 19 November 2020 in the rest of the world. A console of the ninth generation, it competes with Microsoft's Xbox Series X and Series S, and Nintendo's Switch. It comes in a disc edition with an Ultra HD Blu-ray drive and a digital edition without one."
+extensions = [".lnk", ".ps5"]
+emulator = "kytyps5"
+alt_emulators = ["run-file"]
+igdb_platforms = [167]
+
 [systems.psp]
 name = "PlayStation Portable"
 manufacturer = "Sony"
