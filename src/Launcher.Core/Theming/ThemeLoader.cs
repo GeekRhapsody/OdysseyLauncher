@@ -1,3 +1,4 @@
+using System.Globalization;
 using Launcher.Core.Config;
 using Launcher.Core.Media;
 using Launcher.Core.Models;
@@ -17,6 +18,9 @@ public interface IThemeFiles
 
     /// <summary>The names of the files directly in a folder of the theme (<c>logos</c>); empty if it has none.</summary>
     IReadOnlyList<string> FilesIn(string relativeFolder);
+
+    /// <summary>A file's size in bytes (a menu font's, checked against its budget); -1 when it can't be read.</summary>
+    long SizeOf(string relativePath);
 }
 
 /// <summary>A theme folder on disk. Does file I/O: never on the main thread.</summary>
@@ -55,6 +59,19 @@ public sealed class FolderThemeFiles(string folder, bool inspect = true) : IThem
         }
     }
 
+    public long SizeOf(string relativePath)
+    {
+        try
+        {
+            var file = new FileInfo(PathOf(relativePath));
+            return file.Exists ? file.Length : -1;
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            return -1;
+        }
+    }
+
     private string PathOf(string relativePath) => Path.Combine(Folder, relativePath.Replace('/', Path.DirectorySeparatorChar));
 }
 
@@ -83,7 +100,7 @@ public static class ThemeLoader
     public const int SupportedFormat = 1;
     public const int DefaultLookTransitionMs = 300;
 
-    private static readonly string[] RootKeys = ["format", "name", "author", "look_transition_ms", "look", "defaults", "templates", "systems"];
+    private static readonly string[] RootKeys = ["format", "name", "author", "look_transition_ms", "look", "defaults", "templates", "systems", "ui"];
     private static readonly string[] LookKeys = ["background", "ambient", "lights"];
     private static readonly string[] BackgroundKeys = ["top_left", "top_right", "bottom_left", "bottom_right"];
     private static readonly string[] AmbientKeys = ["colour", "energy"];
@@ -94,6 +111,8 @@ public static class ThemeLoader
     private static readonly string[] Fits = ["crop", "whole"];
     private static readonly string[] SystemKeys = ["model", "tint", "game_template", "colour", "look", "logo", "slots", "video"];
     private static readonly string[] SourceKeywords = ["generated", "authored"];
+    private static readonly string[] UiKeys = ["menu"];
+    private static readonly string[] MenuKeys = ["background", "text", "accent", "font"];
 
     /// <summary>What a card's chain can name: systems have no art but their logo.</summary>
     private static readonly string[] CardSources = [MediaKinds.Logo, "generated", "authored"];
@@ -160,8 +179,83 @@ public static class ThemeLoader
             var templates = ReadTemplates(v.Table(root, string.Empty, "templates"));
             var defaults = ReadDefaults(v.Table(root, string.Empty, "defaults"), templates);
             var systems = ReadSystems(v.Table(root, string.Empty, "systems"), templates, look);
-            return new Theme(source.Id, name ?? source.Id, author, source.Origin, source.Folder, transition, look, defaults, templates, systems, Logos(systems));
+            var menu = ReadMenu(v.Table(root, string.Empty, "ui"));
+            return new Theme(source.Id, name ?? source.Id, author, source.Origin, source.Folder, transition, look, defaults, templates, systems, Logos(systems))
+            {
+                Menu = menu,
+            };
         }
+
+        // ---- Menus ---------------------------------------------------------------------------------
+
+        /// <summary>
+        /// <c>[ui.menu]</c> (A6 Menus): each key the theme sets replaces the base's, one by one; a bad one is an error and
+        /// keeps the base's.
+        /// </summary>
+        private ThemeMenu ReadMenu(TomlTableNode? ui)
+        {
+            var inherited = baseTheme?.Menu ?? ThemeMenu.None;
+            if (ui is null)
+            {
+                return inherited;
+            }
+
+            v.WarnUnknownKeys(ui, "ui", UiKeys);
+            if (v.Table(ui, "ui", "menu") is not { } table)
+            {
+                return inherited;
+            }
+
+            const string prefix = "ui.menu";
+            v.WarnUnknownKeys(table, prefix, MenuKeys);
+            return new ThemeMenu(
+                Colour(table, prefix, "background", required: false) ?? inherited.Background,
+                Colour(table, prefix, "text", required: false) ?? inherited.Text,
+                Colour(table, prefix, "accent", required: false) ?? inherited.Accent,
+                FontPath(table, prefix, "font") is { } font ? FullPath(font) : inherited.Font);
+        }
+
+        /// <summary>A TTF, OTF, WOFF or WOFF2 inside the theme's folder that exists and is within its budget.</summary>
+        private string? FontPath(TomlTableNode table, string prefix, string key)
+        {
+            var path = TomlValidator.Join(prefix, key);
+            if (!table.TryGet(key, out var node) || v.String(table, prefix, key) is not { } raw)
+            {
+                return null;
+            }
+
+            if (Inside(raw) is not { } relative)
+            {
+                v.Error(node, path, $"'{raw}' must be a path inside the theme's folder, e.g. \"fonts/menu.ttf\"");
+                return null;
+            }
+
+            if (!ThemeMenu.FontExtensions.Any(extension => relative.EndsWith(extension, StringComparison.OrdinalIgnoreCase)))
+            {
+                v.Error(node, path, $"'{raw}' isn't a font ({string.Join(", ", ThemeMenu.FontExtensions)})");
+                return null;
+            }
+
+            if (!source.Files.Exists(relative))
+            {
+                v.Error(node, path, $"'{raw}' doesn't exist in the theme's folder");
+                return null;
+            }
+
+            var size = source.Files.SizeOf(relative);
+            if (size > ThemeMenu.MaxFontBytes)
+            {
+                v.Error(node, path, string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"'{raw}' is {size / (1024.0 * 1024):0.0} MB; a menu font can be at most {ThemeMenu.MaxFontBytes / (1024 * 1024)} MB (A6 Menus)"));
+                return null;
+            }
+
+            return relative;
+        }
+
+        private string FullPath(string relative) =>
+            Path.GetFullPath(Path.Combine(source.Folder, relative.Replace('/', Path.DirectorySeparatorChar)));
 
         // ---- Looks ---------------------------------------------------------------------------------
 

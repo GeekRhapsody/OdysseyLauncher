@@ -78,6 +78,7 @@ internal sealed class FakeThemeFiles : IThemeFiles
 {
     private readonly Dictionary<string, string[]?> _models = new(StringComparer.Ordinal);
     private readonly HashSet<string> _files = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, long> _sizes = new(StringComparer.Ordinal);
 
     public FakeThemeFiles Model(string path, params string[]? materials)
     {
@@ -96,7 +97,18 @@ internal sealed class FakeThemeFiles : IThemeFiles
         return this;
     }
 
+    /// <summary>A file of a given size (a menu font, checked against its budget).</summary>
+    public FakeThemeFiles Sized(string path, long bytes)
+    {
+        _files.Add(path);
+        _sizes[path] = bytes;
+        return this;
+    }
+
     public bool Exists(string relativePath) => _models.ContainsKey(relativePath) || _files.Contains(relativePath);
+
+    public long SizeOf(string relativePath) =>
+        _sizes.TryGetValue(relativePath, out var size) ? size : Exists(relativePath) ? 1024 : -1;
 
     public IReadOnlyList<string>? MaterialsOf(string relativePath, out string? error)
     {

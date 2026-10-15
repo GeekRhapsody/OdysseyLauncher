@@ -1,6 +1,7 @@
 using System;
 using Godot;
 using Launcher.App.Navigation;
+using Launcher.Core.Theming;
 
 namespace Launcher.App.Ui;
 
@@ -43,7 +44,7 @@ public abstract partial class UiPanel : Control
         if (dimBelow)
         {
             // A dialog over another panel: the panel below is darkened, and doesn't take clicks.
-            var dim = new ColorRect { Color = new Color(0, 0, 0.02f, 0.45f), MouseFilter = MouseFilterEnum.Stop };
+            var dim = new ColorRect { Color = UiStyle.Colour(MenuRole.DialogScrim), MouseFilter = MouseFilterEnum.Stop };
             dim.SetAnchorsPreset(LayoutPreset.FullRect);
             AddChild(dim);
         }

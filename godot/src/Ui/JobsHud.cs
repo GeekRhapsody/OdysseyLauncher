@@ -31,6 +31,7 @@ public sealed partial class JobsHud : CanvasLayer
         _cards.AddThemeConstantOverride("separation", 8);
         root.AddChild(_cards);
         jobs.Changed += Rebuild;
+        UiStyle.Follow(this);
     }
 
     public override void _ExitTree() => _jobs.Changed -= Rebuild;

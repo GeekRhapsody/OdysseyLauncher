@@ -944,4 +944,128 @@ public sealed class ThemeLoaderTests
         var known = config.Systems.Select(s => s.Id).Concat(["favourites", "recently_played", "astrocade"]).ToHashSet(StringComparer.Ordinal);
         Assert.All(Directory.GetFiles(slab.PathOf(Theme.LogosFolder)), file => Assert.Contains(Path.GetFileNameWithoutExtension(file), known));
     }
+
+    // ---- Menus (A6 Menus) -------------------------------------------------------------------------
+
+    [Fact]
+    public void A_theme_without_ui_has_the_launchers_own_menus()
+    {
+        Assert.Same(ThemeMenu.None, ThemeFixtures.Base.Menu);
+        Assert.Same(ThemeMenu.None, ThemeFixtures.Load(ThemeFixtures.ConsoleFolder).Menu);
+        Assert.Same(ThemeMenu.None, ThemeFixtures.Parse("name = \"Test\"").Theme!.Menu);
+    }
+
+    [Fact]
+    public void Menu_colours_and_font_are_read_and_the_font_is_a_path_in_the_themes_folder()
+    {
+        var result = ThemeFixtures.Parse("""
+            name = "Test"
+
+            [ui.menu]
+            background = "#101010"
+            text = "#F0F0F0"
+            accent = "#C0C0C0"
+            font = "fonts/Menu.woff2"
+            """, new FakeThemeFiles().File("fonts/Menu.woff2"));
+
+        Assert.Empty(result.Diagnostics);
+        var menu = result.Theme!.Menu;
+        Assert.Equal(("#101010", "#F0F0F0", "#C0C0C0"), (menu.Background.ToString(), menu.Text.ToString(), menu.Accent.ToString()));
+        Assert.Equal(Path.GetFullPath("C:/themes/test/fonts/Menu.woff2"), menu.Font);
+        Assert.True(menu.SetsColour);
+    }
+
+    [Fact]
+    public void Each_menu_key_left_out_is_the_base_themes()
+    {
+        var baseTheme = ThemeFixtures.ParseBase("""
+            format = 1
+            name = "Base"
+
+            [look.background]
+            top_left = "#000000"
+            top_right = "#000000"
+            bottom_left = "#000000"
+            bottom_right = "#000000"
+
+            [look.ambient]
+            colour = "#202020"
+
+            [[look.lights]]
+            direction = [0, -1, 0]
+
+            [ui.menu]
+            background = "#202020"
+            font = "menu.ttf"
+            """, new FakeThemeFiles().File("menu.ttf"));
+
+        var menu = ThemeFixtures.Parse("""
+            name = "Test"
+
+            [ui.menu]
+            text = "#FFFFFF"
+            """, baseTheme: baseTheme).Theme!.Menu;
+
+        Assert.Equal(new ThemeMenu(new Rgb(0x20, 0x20, 0x20), new Rgb(0xFF, 0xFF, 0xFF), null, Path.GetFullPath("C:/app/themes/memory-card/menu.ttf")), menu);
+    }
+
+    [Fact]
+    public void Menu_mistakes_are_reported_at_their_keys_and_keep_the_base_value()
+    {
+        var result = ThemeFixtures.Parse("""
+            name = "Test"
+
+            [ui]
+            sounds = "click.wav"
+
+            [ui.menu]
+            backgrond = "#000000"
+            text = "white"
+            accent = "#FFFFFF"
+            """);
+
+        var warnings = result.Diagnostics.Where(d => d.Severity == Severity.Warning).ToList();
+        Assert.Equal(["ui.sounds", "ui.menu.backgrond"], warnings.Select(w => w.Key));
+        Assert.Contains("did you mean 'background'?", warnings[1].Message, StringComparison.Ordinal);
+        var error = Single(result, Severity.Error);
+        Assert.Equal(("ui.menu.text", 8), (error.Key, error.Line));
+        Assert.Contains("'white' isn't a colour", error.Message, StringComparison.Ordinal);
+        Assert.Equal(new ThemeMenu(null, null, new Rgb(0xFF, 0xFF, 0xFF), null), result.Theme!.Menu);
+    }
+
+    [Theory]
+    [InlineData("../menu.ttf", "must be a path inside the theme's folder")]
+    [InlineData("fonts/menu.fnt", "isn't a font (.ttf, .otf, .woff, .woff2)")]
+    [InlineData("fonts/missing.ttf", "doesn't exist in the theme's folder")]
+    [InlineData("fonts/big.otf", "is 4.5 MB; a menu font can be at most 4 MB")]
+    public void A_bad_menu_font_is_an_error_and_the_default_font_is_kept(string path, string message)
+    {
+        var files = new FakeThemeFiles().File("fonts/menu.fnt").Sized("fonts/big.otf", (4 * 1024 * 1024) + (512 * 1024));
+        var result = ThemeFixtures.Parse($"""
+            name = "Test"
+
+            [ui.menu]
+            font = "{path}"
+            """, files);
+
+        var error = Single(result, Severity.Error);
+        Assert.Equal("ui.menu.font", error.Key);
+        Assert.Contains(message, error.Message, StringComparison.Ordinal);
+        Assert.Null(result.Theme!.Menu.Font);
+    }
+
+    [Fact]
+    public void Slab_has_dark_grey_menus_and_background_and_the_default_font()
+    {
+        var slab = ThemeFixtures.Load(ThemeFixtures.SlabFolder);
+
+        Assert.True(slab.Menu.SetsColour);
+        Assert.Null(slab.Menu.Font);
+        foreach (var colour in new[] { slab.Menu.Background!.Value, slab.Menu.Accent!.Value, slab.Look.Background.TopLeft, slab.Look.Background.BottomRight })
+        {
+            Assert.True(colour.R == colour.G && colour.G == colour.B, $"{colour} isn't grey");
+        }
+
+        Assert.NotEqual(ThemeFixtures.Base.Look.Background, slab.Look.Background);
+    }
 }

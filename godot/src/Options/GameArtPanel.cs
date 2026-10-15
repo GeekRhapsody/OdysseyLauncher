@@ -490,7 +490,7 @@ public sealed partial class GameArtPanel : UiPanel
             margins.AddChild(column);
 
             var frame = new PanelContainer { CustomMinimumSize = look.Frame, MouseFilter = MouseFilterEnum.Ignore };
-            frame.AddThemeStyleboxOverride("panel", UiStyle.RowBox(new Color(0.02f, 0.03f, 0.1f, 0.9f), new Color("#2E3D86"), 1));
+            frame.AddThemeStyleboxOverride("panel", UiStyle.FrameBox());
             column.AddChild(frame);
             _image = new TextureRect
             {

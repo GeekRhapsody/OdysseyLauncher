@@ -116,6 +116,30 @@ public sealed record ThemeSystem(
 /// </param>
 public sealed record ThemeDefaults(string? SystemModel, bool TintSystemModel, string? GameTemplate, IReadOnlyDictionary<int, SlotChain> SystemSlots);
 
+/// <summary>
+/// <c>[ui.menu]</c> (A6 Menus): the look of the menus (the settings, options and details screens, the power menu,
+/// dialogs, the keyboard, the pickers and the job cards). Each value is the theme's, else the base theme's; null is the
+/// launcher's own (<see cref="MenuPalette.Legacy"/> and Godot's default font).
+/// </summary>
+/// <param name="Background">The panels' colour; their rows, frames, borders and the dimming behind them are mixed from it.</param>
+/// <param name="Text">The text's colour; the dim and faint text are mixed from it towards <paramref name="Background"/>.</param>
+/// <param name="Accent">The focused row's border and glow, section headings and values.</param>
+/// <param name="Font">The menus' font: a TTF, OTF, WOFF or WOFF2 file, as an absolute path in the theme that names it.</param>
+public sealed record ThemeMenu(Rgb? Background, Rgb? Text, Rgb? Accent, string? Font)
+{
+    /// <summary>The largest menu font a theme may ship (A6 Menus): a Latin font is well under it, a CJK one isn't.</summary>
+    public const long MaxFontBytes = 4L * 1024 * 1024;
+
+    /// <summary>The font files a theme can name, by extension.</summary>
+    public static IReadOnlyList<string> FontExtensions { get; } = [".ttf", ".otf", ".woff", ".woff2"];
+
+    /// <summary>Nothing set: the launcher's own menus.</summary>
+    public static ThemeMenu None { get; } = new(null, null, null, null);
+
+    /// <summary>Whether any colour is set, so the menus' palette is derived from them rather than the launcher's own.</summary>
+    public bool SetsColour => Background is not null || Text is not null || Accent is not null;
+}
+
 public enum ThemeOrigin
 {
     /// <summary>
@@ -150,6 +174,9 @@ public sealed record Theme(
 {
     /// <summary>The folder whose images are cards' logos by file name (<c>logos/ps2.webp</c>).</summary>
     public const string LogosFolder = "logos";
+
+    /// <summary><c>[ui.menu]</c>: the menus' colours and font, layered over the base theme's (A6 Menus).</summary>
+    public ThemeMenu Menu { get; init; } = ThemeMenu.None;
 
     /// <summary>The look for a system's games, or the theme's own look for the systems grid (null) and virtual systems.</summary>
     public Look LookFor(string? systemId) =>

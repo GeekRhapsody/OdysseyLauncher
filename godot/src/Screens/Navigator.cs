@@ -1178,6 +1178,9 @@ public sealed partial class Navigator : Node
         BakeLogos();
         var shownEntry = _games is { } shown ? FindEntry(shown.Id) : null;
         _stage.Show(theme.LookFor(shownEntry is { Virtual: VirtualKind.None } ? shownEntry.Id : null), theme.TransitionSeconds);
+        var menus = System.Diagnostics.Stopwatch.StartNew();
+        MenuLook.Use(theme.Plan.Active.Menu);
+        var menusMs = menus.Elapsed.TotalMilliseconds;
 
         if (_screen == Screen.Entering && _entering is { } entering && FindEntry(entering) is { } enteringEntry)
         {
@@ -1196,7 +1199,7 @@ public sealed partial class Navigator : Node
         }
 
         DebugHooks.Theme = (theme.Plan.Active.Id, theme.Layout.ToString());
-        GD.Print(FormattableString.Invariant($"Theme: now '{theme.Plan.Active.Id}' ({theme.Plan.Active.Name}), {_clock - _themeRequestedAt:0.000} s after it was asked for, applied in {clock.Elapsed.TotalMilliseconds:0.0} ms on the main thread: {theme.GameTemplates.Count} game template(s), {theme.CardTemplates.Count} system model(s); media slots: {theme.Layout}."));
+        GD.Print(FormattableString.Invariant($"Theme: now '{theme.Plan.Active.Id}' ({theme.Plan.Active.Name}), {_clock - _themeRequestedAt:0.000} s after it was asked for, applied in {clock.Elapsed.TotalMilliseconds:0.0} ms on the main thread (the menus {menusMs:0.0} ms): {theme.GameTemplates.Count} game template(s), {theme.CardTemplates.Count} system model(s); media slots: {theme.Layout}."));
         ShowStatus($"Theme: {theme.Plan.Active.Name}");
         OnFocusChanged();
     }

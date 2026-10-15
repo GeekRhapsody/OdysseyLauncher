@@ -678,6 +678,10 @@ public partial class Main : Node3D
     {
         var services = _services!;
         var navigator = _navigator!;
+
+        // The theme's menus (A6 Menus) before any is built: its colours now, its font once loaded on a worker.
+        MenuLook.Init(_queue, this);
+        MenuLook.Use(navigator.Theme.Plan.Active.Menu);
         _jobs = new LibraryJobs(services, _queue);
         navigator.Jobs = _jobs;
         navigator.InputSuspended = () => _ui!.IsOpen;

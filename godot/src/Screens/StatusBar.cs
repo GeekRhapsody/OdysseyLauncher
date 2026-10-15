@@ -32,6 +32,9 @@ public sealed partial class StatusBar : CanvasLayer
 
     private static readonly Color TextColour = new("#B8C4E6");
 
+    /// <summary>No network: the menus' faint text before themes could set it (the indicators aren't a menu, A6 Menus).</summary>
+    private static readonly Color OffColour = new("#5E6894");
+
     /// <summary>The Wi-Fi arcs a weak signal doesn't reach, drawn faintly behind its bars (as phones do).</summary>
     private static readonly Color UnlitColour = new(TextColour, 0.3f);
 
@@ -263,7 +266,7 @@ public sealed partial class StatusBar : CanvasLayer
                 NetworkKind.Wireless => WifiFullIcon,
                 _ => WifiOffIcon,
             });
-            _networkIcon.SelfModulate = partial ? UnlitColour : network.Kind == NetworkKind.Disconnected ? UiStyle.Faint : TextColour;
+            _networkIcon.SelfModulate = partial ? UnlitColour : network.Kind == NetworkKind.Disconnected ? OffColour : TextColour;
             if (partial)
             {
                 SetIcon(_networkBars, WifiIcons + bars);

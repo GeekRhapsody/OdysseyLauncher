@@ -5,7 +5,7 @@ This guide is for theme authors. It covers the folder and manifest, the media sl
 Four themes come with the repo:
 - **Memory Card**, the base theme ([`godot/themes/memory-card/`](../godot/themes/memory-card/theme.toml)). It isn't a theme to choose: every theme builds on it, and anything a theme leaves out (a look, a template, a model, a system's colour) is Memory Card's (section 2). Its templates (the DVD case, jewel case, cartridge box and the rest) are there for every theme to use.
 - **Console** ([`godot/themes/console/`](../godot/themes/console/theme.toml)): each system's console as its card (for Windows, a gaming PC and its monitor; the Switch's focused clip slides a Joy-Con off and back, and the Game Boys' bring a cartridge in and switch the screen on, the console a node tree whose parts ride along as it bounces; Favourites is a Power Star that opens its eyes when focused, Recently played the Dreamcast menu's bouncing alarm clock), and a Mega Drive cartridge for that system's games (its art on the cartridge's label). It's small, because everything else comes from Memory Card.
-- **Slab**, the default theme ([`godot/themes/slab/`](../godot/themes/slab/theme.toml)): one dark grey card, Memory Card's slab shape, for every system, with the system's image on its front (section 4, "System cards and logos"). It's a manifest, one model and an image per system: the way to show every system's logo without a model for each.
+- **Slab**, the default theme ([`godot/themes/slab/`](../godot/themes/slab/theme.toml)): one dark grey card, Memory Card's slab shape, for every system, with the system's image on its front (section 4, "System cards and logos"), over a black and dark grey background, with dark grey menus (section 3, "Menus"). It's a manifest, one model and an image per system: the way to show every system's logo without a model for each.
 - **Retro TV**, the sample theme ([`samples/themes/retro-tv/`](../samples/themes/retro-tv/theme.toml)). It has a CRT television as its game template, a console as its system model, and animation clips. It's the best place to start.
 
 ## Contents
@@ -70,6 +70,7 @@ Every theme builds on Memory Card, so a partial theme always works, and a theme 
 
 - **Which template and card a system gets:** a system your theme doesn't assign a template (and your theme has no `[defaults] game_template`) gets Memory Card's template for it; a system with no card in your theme (and no `[defaults] system_model`) gets Memory Card's slab (section 5).
 - **Colours:** a system your theme gives no `colour` takes Memory Card's.
+- **Menus:** each `[ui.menu]` key your theme doesn't write is Memory Card's, which writes none: the launcher's own deep blue menus and its font.
 
 ## 3. The manifest (`theme.toml`)
 
@@ -133,11 +134,19 @@ top_left     = "#1E2A4E"
 top_right    = "#3A2418"
 bottom_left  = "#06080E"
 bottom_right = "#100A08"
+
+[ui.menu]                             # optional: the menus' look (see "Menus" below); every key is optional
+background = "#141414"                # the panels; their rows, frames and borders are mixed from it and accent
+text = "#ECECEC"                      # the text; the dim and faint text are mixed from it towards background
+accent = "#C8C8C8"                    # the focused row's border and glow, section headings and values
+font = "fonts/menu.ttf"               # a TTF, OTF, WOFF or WOFF2 inside the folder, at most 4 MB
 ```
 
 - **Colours** are `#RRGGBB` in sRGB. The four corners blend in sRGB, as on the PS2.
 - **Lights** are in view space, so they stay put while the grid scrolls. Any direction but zero is valid. Lights you don't define are off.
 - **Per-system looks:** a system's `background`, `ambient` or `lights` block replaces the theme's block of that name whole. Blocks it leaves out come from the theme's look. Entering a system cross-fades to its look, and leaving cross-fades back.
+- **Menus** (`[ui.menu]`) are the settings, the options and details screens, the power menu, dialogs, the on-screen keyboard, the pickers and the job cards. The text over the grids (a system's or game's name, the hints, the list layout's titles) and the status indicators keep the launcher's look, and so do the titles printed on cards. Setting any of `background`, `text` and `accent` gives the menus a palette mixed from the three (the launcher's own for those you leave out); setting none keeps the launcher's own menus exactly. Keep the text light on a dark background, or dark on a light one: dim and faint text are mixed between the two. Green, amber and red (done, a warning, a failure) are the same in every theme. The theme's menus apply at once when the theme is switched, even with the settings open.
+- **A menu font** is read off the main thread once the theme is chosen; the menus keep the font they have until it has loaded, a fraction of a second. Only its printable ASCII is drawn ahead at the menus' main sizes, so other characters are drawn the first time they show, as with the default font. The menus are laid out at 1280×800 for the default font: a font that's much wider at the same size can cut titles short (with "…") or wrap details onto more lines, so check your theme's menus with `--open=settings` (section 10). Characters your font lacks are drawn in a system font.
 - **System ids** are the launcher's: `gb`, `gbc`, `gba`, `nes`, `snes`, `n64`, `gc`, `mastersystem`, `megadrive`, `saturn`, `dreamcast`, `psx`, `ps2` and `psp`, plus any system the user defines. An entry for a system the user doesn't have is ignored. Favourites and Recently played are `favourites` and `recently_played`: their `model`, `tint`, `logo` and `slots` work as a system's (the Console theme's star and clock are `[systems.favourites]` and `[systems.recently_played]`), and their games keep their own systems' templates.
 - **Mistakes never stop the launcher.** Each problem is reported with its file, line, column and key, for example:
 
@@ -153,6 +162,7 @@ bottom_right = "#100A08"
   - A bad `shape` is an error, and the template keeps its own shape.
   - A `video` that isn't a slot's name, or a `video_delay_ms` out of range, is an error, and the template plays no video (or keeps the delay it extends). A `video` on a slot the model has no material for, or a `video_delay_ms` without a `video`, is a warning.
   - A `video` that isn't an `.mp4` inside the folder is an error, and the card shows its video material's own texture. A `video` in an entry without its own `model` is a warning, and is ignored.
+  - A bad `[ui.menu]` colour is an error, and that colour is Memory Card's (the launcher's own). A `font` that isn't a TTF, OTF, WOFF or WOFF2 inside the folder, or is over 4 MB, is an error, and the menus keep the default font; so do they if the file can't be read as a font (a warning when the theme is applied).
   - Unknown keys are warnings, with a "did you mean" suggestion.
 
 ## 4. Media slots and fallback chains
@@ -312,6 +322,8 @@ Every model, whether it's an app theme's, yours or the user's, is drawn with the
 
 Skins have at most 64 joints, and meshes at most 8 morph targets.
 
+A menu font (`[ui.menu] font`) can be at most **4 MB**. A font for Latin text is well under it; one with every CJK character is many times over, and is refused. While its theme is active it stays in memory, with its glyphs drawn into textures at each size the menus use; when another theme replaces it, it's let go at once.
+
 - **Over a budget,** the model is used, with a warning.
 - **More than twice over** a count (triangles, textures, materials, joints or morph targets), the model is **rejected**, and the next model in line is used (section 5).
 - **A texture larger than the budget's side** is scaled down when the model is first processed. Its size alone never rejects a model.
@@ -412,6 +424,7 @@ godot --path godot -- --user-dir=<absolute folder> --theme=neon-arcade
 - `--nav-script=right,right,accept` presses buttons for you. `accept` launches the focused game; with no emulator installed, the launch clip plays and the launch then fails harmlessly.
 - `--capture=<absolute path>.png --capture-frame=150 --fixed-fps 60` saves a screenshot at that frame and quits.
 - `--no-overlay` hides the text, so you can check the background corners.
+- `--open=settings` (or `power`, `keyboard`, `confirm`, `folder-picker`) opens a menu straight away, to check `[ui.menu]`; the `theme` step in `--nav-script` switches theme with it open.
 - `--layout=single/list` shows a system's card, and a game's model, about half the screen's height (the user can choose these layouts in the settings: Look, Layout), so it's the closest look at your models' detail; `--layout=carousel/carousel` turns the items beside the focused one towards it.
 
 The console shows the theme's diagnostics as it loads (section 3), and `logs/models.log` in the user folder shows each model's report.

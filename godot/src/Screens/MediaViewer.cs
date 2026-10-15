@@ -6,6 +6,7 @@ using Godot;
 using Launcher.App.Navigation;
 using Launcher.App.Ui;
 using Launcher.Core.Media;
+using Launcher.Core.Theming;
 
 namespace Launcher.App.Screens;
 
@@ -72,7 +73,7 @@ public sealed partial class MediaViewer : UiPanel
 
         // The caption: what it is, which of how many, the controls, and a video's progress.
         var bar = new PanelContainer { MouseFilter = MouseFilterEnum.Ignore };
-        var barBox = new StyleBoxFlat { BgColor = new Color(0, 0, 0.03f, 0.6f), ContentMarginLeft = 24, ContentMarginRight = 24, ContentMarginTop = 10, ContentMarginBottom = 12 };
+        var barBox = new StyleBoxFlat { BgColor = UiStyle.Colour(MenuRole.Bar), ContentMarginLeft = 24, ContentMarginRight = 24, ContentMarginTop = 10, ContentMarginBottom = 12 };
         bar.AddThemeStyleboxOverride("panel", barBox);
         bar.SetAnchorsPreset(LayoutPreset.BottomWide);
         bar.GrowVertical = GrowDirection.Begin;

@@ -11,7 +11,7 @@ namespace Launcher.App.Ui;
 public sealed partial class SettingRow : Button
 {
     /// <summary>The picture's frame: dark, a thin border, the picture a few pixels in.</summary>
-    private static readonly StyleBoxFlat PictureFrame = MakePictureFrame();
+    private static readonly StyleBoxFlat PictureFrame = UiStyle.Keep(MakePictureFrame());
 
     private readonly HBoxContainer _line;
     private readonly Label _title;
@@ -157,7 +157,7 @@ public sealed partial class SettingRow : Button
 
     private static StyleBoxFlat MakePictureFrame()
     {
-        var box = UiStyle.RowBox(new Color(0.02f, 0.03f, 0.1f, 0.9f), new Color("#2E3D86"), 1);
+        var box = UiStyle.FrameBox();
         box.SetCornerRadiusAll(4);
         box.SetContentMarginAll(3);
         return box;

@@ -104,7 +104,7 @@ public sealed partial class FilePicker : UiPanel
             var column = new VBoxContainer { CustomMinimumSize = new Vector2(PreviewSide, 0), MouseFilter = MouseFilterEnum.Ignore };
             middle.AddChild(column);
             var frame = new PanelContainer { CustomMinimumSize = new Vector2(PreviewSide, PreviewSide), MouseFilter = MouseFilterEnum.Ignore };
-            frame.AddThemeStyleboxOverride("panel", UiStyle.RowBox(new Color(0.02f, 0.03f, 0.1f, 0.9f), new Color("#2E3D86"), 1));
+            frame.AddThemeStyleboxOverride("panel", UiStyle.FrameBox());
             column.AddChild(frame);
             _preview = new TextureRect { ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize, StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered, MouseFilter = MouseFilterEnum.Ignore };
             frame.AddChild(_preview);

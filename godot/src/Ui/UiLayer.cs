@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Godot;
 using Launcher.App.Navigation;
+using Launcher.Core.Theming;
 
 namespace Launcher.App.Ui;
 
@@ -27,9 +28,10 @@ public sealed partial class UiLayer : CanvasLayer
         Name = "Ui";
         Layer = 4;
         Visible = false;
-        _dim = new ColorRect { Color = new Color(0.0f, 0.0f, 0.03f, 0.62f), MouseFilter = Control.MouseFilterEnum.Stop };
+        _dim = new ColorRect { Color = UiStyle.Colour(MenuRole.Scrim), MouseFilter = Control.MouseFilterEnum.Stop };
         _dim.SetAnchorsPreset(Control.LayoutPreset.FullRect);
         AddChild(_dim);
+        UiStyle.Follow(this);
     }
 
     /// <summary>The first panel opened: the grid's input and overlay step aside.</summary>

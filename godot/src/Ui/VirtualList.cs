@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Godot;
+using Launcher.Core.Theming;
 
 namespace Launcher.App.Ui;
 
@@ -32,8 +33,8 @@ public sealed partial class VirtualList : Control
 
     // The focused button's colours without its glow or vertical padding: a row's box must fit inside the row, or it
     // spills over the rows above and below.
-    private static readonly StyleBoxFlat Selected = RowBox(new Color(0.16f, 0.24f, 0.62f, 0.85f), UiStyle.Accent, 2);
-    private static readonly StyleBoxFlat SelectedUnfocused = RowBox(new Color(0.12f, 0.17f, 0.42f, 0.7f), new Color("#3A4C9A"), 1);
+    private static readonly StyleBoxFlat Selected = UiStyle.Keep(RowBox(UiStyle.Colour(MenuRole.RowFocus), UiStyle.Accent, 2));
+    private static readonly StyleBoxFlat SelectedUnfocused = UiStyle.Keep(RowBox(UiStyle.Colour(MenuRole.SelectedUnfocused), UiStyle.Colour(MenuRole.FieldBorder), 1));
     private static readonly StyleBoxFlat Empty = RowBox(Colors.Transparent);
     private static readonly StringName PanelStyle = "panel";
 

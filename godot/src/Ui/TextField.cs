@@ -1,5 +1,6 @@
 using System;
 using Godot;
+using Launcher.Core.Theming;
 
 namespace Launcher.App.Ui;
 
@@ -12,7 +13,7 @@ public sealed partial class TextField : Control
 {
     private const int FontSize = 24;
     private const float Padding = 16;
-    private static readonly StyleBoxFlat Box = UiStyle.RowBox(new Color(0.02f, 0.03f, 0.1f, 0.95f), new Color("#3A4C9A"), 1);
+    private static readonly StyleBoxFlat Box = UiStyle.Keep(UiStyle.RowBox(UiStyle.Colour(MenuRole.Field), UiStyle.Colour(MenuRole.FieldBorder), 1));
 
     private string _text = string.Empty;
     private int _caret;

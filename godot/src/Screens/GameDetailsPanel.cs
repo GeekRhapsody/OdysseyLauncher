@@ -11,6 +11,7 @@ using Launcher.App.Options;
 using Launcher.App.Ui;
 using Launcher.Core.Library;
 using Launcher.Core.Media;
+using Launcher.Core.Theming;
 
 namespace Launcher.App.Screens;
 
@@ -231,9 +232,9 @@ public sealed partial class GameDetailsPanel : UiPanel
         grid.AddChild(text);
     }
 
-    private static readonly LabelSettings KeyStyle = new() { FontSize = UiStyle.DetailSize, FontColor = UiStyle.Dim };
+    private static readonly LabelSettings KeyStyle = UiStyle.Keep(new LabelSettings { FontSize = UiStyle.DetailSize, FontColor = UiStyle.Dim });
 
-    private static readonly LabelSettings ValueStyle = new() { FontSize = UiStyle.DetailSize + 1, FontColor = UiStyle.Text };
+    private static readonly LabelSettings ValueStyle = UiStyle.Keep(new LabelSettings { FontSize = UiStyle.DetailSize + 1, FontColor = UiStyle.Text });
 
     private static Label Section(string text)
     {
@@ -245,7 +246,7 @@ public sealed partial class GameDetailsPanel : UiPanel
 
     private static StyleBoxFlat InfoBox(bool focused)
     {
-        var box = UiStyle.RowBox(focused ? new Color(0.1f, 0.15f, 0.4f, 0.45f) : new Color(0.06f, 0.09f, 0.25f, 0.3f), focused ? UiStyle.Accent : default, focused ? 2 : 0, focused ? 8 : 0);
+        var box = UiStyle.RowBox(UiStyle.Colour(focused ? MenuRole.CardFocused : MenuRole.CardPlain), focused ? UiStyle.Accent : default, focused ? 2 : 0, focused ? 8 : 0);
         box.ContentMarginLeft = box.ContentMarginRight = 18;
         box.ContentMarginTop = box.ContentMarginBottom = 12;
         return box;
@@ -389,7 +390,7 @@ public sealed partial class GameDetailsPanel : UiPanel
             margins.AddChild(column);
 
             var frame = new PanelContainer { CustomMinimumSize = new Vector2(0, ThumbSide - 20), SizeFlagsVertical = SizeFlags.ExpandFill, MouseFilter = MouseFilterEnum.Ignore };
-            frame.AddThemeStyleboxOverride("panel", UiStyle.RowBox(new Color(0.02f, 0.03f, 0.1f, 0.9f), new Color("#2E3D86"), 1));
+            frame.AddThemeStyleboxOverride("panel", UiStyle.FrameBox());
             column.AddChild(frame);
             _image = new TextureRect
             {
@@ -439,7 +440,7 @@ public sealed partial class GameDetailsPanel : UiPanel
         public override void _Draw()
         {
             var centre = Size / 2;
-            DrawCircle(centre, 22, new Color(0, 0, 0.05f, 0.6f));
+            DrawCircle(centre, 22, UiStyle.Colour(MenuRole.PanelShadow));
             DrawColoredPolygon([centre + new Vector2(-7, -11), centre + new Vector2(12, 0), centre + new Vector2(-7, 11)], Colors.White);
         }
     }

@@ -1,10 +1,22 @@
 # Slab: every system's card is the same dark grey slab (Memory Card's generic card's shape), with the system's
 # image on its front. One model for every system: each card's image is its logo, from logos/<system id>.webp
-# (docs/THEMING.md section 4, "System cards and logos"). Everything else (the looks, the game templates and the
-# systems' colours) is Memory Card's.
+# (docs/THEMING.md section 4, "System cards and logos"). Its background and menus are black and dark grey; everything
+# else (the lights, the game templates and the systems' colours) is Memory Card's.
 
 format = 1
 name = "Slab"
+
+# The systems grid's look, and every system's: Slab gives no system a look of its own.
+[look.background]
+top_left     = "#242424"
+top_right    = "#242424"
+bottom_left  = "#050505"
+bottom_right = "#0E0E0E"
+
+[ui.menu]                                  # dark grey menus with near-white text and a light grey focus
+background = "#141414"
+text = "#ECECEC"
+accent = "#C8C8C8"
 
 [defaults]
 system_model = "models/systems/slab.glb"   # a dark grey slab whose whole front is a label slot of the same grey

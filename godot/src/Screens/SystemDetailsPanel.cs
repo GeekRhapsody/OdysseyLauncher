@@ -8,6 +8,7 @@ using Launcher.App.Navigation;
 using Launcher.App.Theming;
 using Launcher.App.Ui;
 using Launcher.Core.Library;
+using Launcher.Core.Theming;
 
 namespace Launcher.App.Screens;
 
@@ -38,7 +39,7 @@ public sealed partial class SystemDetailsPanel : UiPanel
 
         // The card's model, in the system's look, as it stands in the grid when focused.
         var frame = new PanelContainer { CustomMinimumSize = new Vector2(ModelWidth, 0), MouseFilter = MouseFilterEnum.Ignore };
-        var border = UiStyle.RowBox(new Color(0, 0, 0, 0), new Color("#2E3D86"), 1);
+        var border = UiStyle.RowBox(new Color(0, 0, 0, 0), UiStyle.Colour(MenuRole.FrameBorder), 1);
         border.ContentMarginLeft = border.ContentMarginRight = border.ContentMarginTop = border.ContentMarginBottom = 1;
         frame.AddThemeStyleboxOverride("panel", border);
         row.AddChild(frame);
@@ -184,9 +185,9 @@ public sealed partial class SystemDetailsPanel : UiPanel
         }
     }
 
-    private static readonly LabelSettings KeyStyle = new() { FontSize = UiStyle.DetailSize, FontColor = UiStyle.Dim };
+    private static readonly LabelSettings KeyStyle = UiStyle.Keep(new LabelSettings { FontSize = UiStyle.DetailSize, FontColor = UiStyle.Dim });
 
-    private static readonly LabelSettings ValueStyle = new() { FontSize = UiStyle.DetailSize + 1, FontColor = UiStyle.Text };
+    private static readonly LabelSettings ValueStyle = UiStyle.Keep(new LabelSettings { FontSize = UiStyle.DetailSize + 1, FontColor = UiStyle.Text });
 
     private static Label Section(string text)
     {
@@ -198,7 +199,7 @@ public sealed partial class SystemDetailsPanel : UiPanel
 
     private static StyleBoxFlat InfoBox(bool focused)
     {
-        var box = UiStyle.RowBox(focused ? new Color(0.1f, 0.15f, 0.4f, 0.45f) : new Color(0.06f, 0.09f, 0.25f, 0.3f), focused ? UiStyle.Accent : default, focused ? 2 : 0, focused ? 8 : 0);
+        var box = UiStyle.RowBox(UiStyle.Colour(focused ? MenuRole.CardFocused : MenuRole.CardPlain), focused ? UiStyle.Accent : default, focused ? 2 : 0, focused ? 8 : 0);
         box.ContentMarginLeft = box.ContentMarginRight = 18;
         box.ContentMarginTop = box.ContentMarginBottom = 12;
         return box;
