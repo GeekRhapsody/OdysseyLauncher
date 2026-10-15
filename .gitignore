@@ -14,6 +14,7 @@ obj/
 TestResults/
 *.DotSettings.user
 test-and-build.ps1
+release.ps1
 
 # Local outputs (captures, bench JSON) and secrets
 /artifacts/
