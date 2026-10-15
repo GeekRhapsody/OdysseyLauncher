@@ -36,10 +36,11 @@ public sealed class ThemePlan
             CardCandidates[system.Id] = resolver.SystemModels(system.Id);
         }
 
-        // Favourites and Recently played have no system, but a theme can give each its own card ([systems.favourites]).
+        // Favourites, Recently played and All games have no system, but a theme can give each its own card ([systems.favourites]).
         CardCandidates[VirtualCards] = resolver.SystemModels(null);
         CardCandidates[Navigator.FavouritesId] = resolver.SystemModels(Navigator.FavouritesId);
         CardCandidates[Navigator.RecentlyPlayedId] = resolver.SystemModels(Navigator.RecentlyPlayedId);
+        CardCandidates[Navigator.AllGamesId] = resolver.SystemModels(Navigator.AllGamesId);
 
         // A6 logos/: only read when some card's chain shows a logo (a theme without them reads nothing).
         if (AnyCardShowsLogo())
@@ -51,6 +52,7 @@ public sealed class ThemePlan
 
             AddLogo(Navigator.FavouritesId);
             AddLogo(Navigator.RecentlyPlayedId);
+            AddLogo(Navigator.AllGamesId);
         }
 
         void AddLogo(string id)

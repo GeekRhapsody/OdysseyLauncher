@@ -10,7 +10,7 @@ using Launcher.Core.Theming;
 
 namespace Launcher.App.Screens;
 
-/// <summary>One card of the systems grid: a configured system, or Favourites or Recently played.</summary>
+/// <summary>One card of the systems grid: a configured system, or Favourites, Recently played or All games.</summary>
 /// <param name="Template">The card's model, as an index into the systems grid's templates.</param>
 /// <param name="Logo">The card's logo from the theme (A6 <c>logos/</c>), for a slot whose chain names <c>logo</c>; null for none.</param>
 public sealed record SystemEntry(
@@ -22,13 +22,21 @@ public sealed record SystemEntry(
     SystemSummary? Summary,
     VirtualKind Virtual,
     int Template,
-    MediaRef? Logo = null);
+    MediaRef? Logo = null)
+{
+    /// <summary>
+    /// Its list follows <c>games_sort</c> (a system, and All games) and can be cached; Favourites' and Recently played's
+    /// keep their own order and change with every favourite and play.
+    /// </summary>
+    public bool Sorted => Virtual is VirtualKind.None or VirtualKind.AllGames;
+}
 
 public enum VirtualKind
 {
     None,
     Favourites,
     RecentlyPlayed,
+    AllGames,
 }
 
 /// <summary>
@@ -39,6 +47,7 @@ public static class Palette
 {
     public static readonly Color Favourites = new("#C99A2E");
     public static readonly Color RecentlyPlayed = new("#2E8C7A");
+    public static readonly Color AllGames = new("#4A5FA8");
 
     public static Color ForSystem(Rgb? themeColour, string id)
     {
@@ -215,7 +224,7 @@ public sealed class GamesSource : IGridSource
     /// <summary>The media kinds this list was loaded with (the theme's, when it was built).</summary>
     public IReadOnlyList<string> Kinds { get; }
 
-    /// <summary>The order a system's list was read in (<c>games_sort</c>); a virtual list's own order is fixed.</summary>
+    /// <summary>The order a system's or All games' list was read in (<c>games_sort</c>); Favourites' and Recently played's own order is fixed.</summary>
     public GamesOrdering Ordering { get; private init; }
 
     /// <summary>The systems its games come from (one, except in a virtual list).</summary>
@@ -260,9 +269,10 @@ public sealed class GamesSource : IGridSource
         return new GamesSource(id, name, rows, media, kinds, colourOf, _ => name) { Ordering = ordering };
     }
 
+    /// <param name="ordering">The order All games was read in; the default for Favourites and Recently played.</param>
     public static GamesSource ForVirtual(
         string id, string name, IReadOnlyList<VirtualGameRow> list, IReadOnlyList<GameMediaRow> media, IReadOnlyList<string> kinds,
-        Func<string, Color> colourOf, Func<string, string> nameOf)
+        Func<string, Color> colourOf, Func<string, string> nameOf, GamesOrdering ordering = default)
     {
         var rows = new (string, GameRow)[list.Count];
         for (var i = 0; i < rows.Length; i++)
@@ -270,7 +280,7 @@ public sealed class GamesSource : IGridSource
             rows[i] = (list[i].SystemId, list[i].Game);
         }
 
-        return new GamesSource(id, name, rows, media, kinds, colourOf, nameOf);
+        return new GamesSource(id, name, rows, media, kinds, colourOf, nameOf) { Ordering = ordering };
     }
 
     /// <summary>

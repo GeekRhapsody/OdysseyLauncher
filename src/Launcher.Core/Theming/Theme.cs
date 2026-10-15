@@ -171,7 +171,7 @@ public enum ThemeOrigin
 /// <param name="Folder">The theme's folder, an absolute path.</param>
 /// <param name="LookTransitionMs">How long a cross-fade between looks takes.</param>
 /// <param name="Logos">
-/// Each card's image, by system id (or <c>favourites</c> and <c>recently_played</c>), relative to the theme's folder: a
+/// Each card's image, by system id (or <c>favourites</c>, <c>recently_played</c> and <c>all_games</c>), relative to the theme's folder: a
 /// system's <c>logo</c>, else <c>logos/&lt;id&gt;.png</c>, <c>.jpg</c>, <c>.jpeg</c> or <c>.webp</c>.
 /// </param>
 public sealed record Theme(

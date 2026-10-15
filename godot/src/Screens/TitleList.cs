@@ -96,7 +96,7 @@ public sealed partial class TitleList : Control
 
     /// <summary>
     /// Main thread: shows the source's titles (null hides the list). <paramref name="showSystems"/> adds each game's
-    /// system on the right (Favourites and Recently played).
+    /// system on the right (Favourites, Recently played and All games).
     /// </summary>
     public void Bind(GamesSource? source, bool showSystems)
     {

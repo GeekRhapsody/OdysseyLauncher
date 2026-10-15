@@ -54,7 +54,7 @@ games_layout = "grid"
 games_columns = 0
 games_rows = 0
 # The systems' order: "alphabetical" (by name), "manufacturer", "release_year" or "manufacturer_year" (by
-# manufacturer, then year); ties go by name. Favourites and Recently played always come first.
+# manufacturer, then year); ties go by name. Favourites, Recently played and All games always come first.
 systems_sort = "alphabetical"
 # "ascending" (A to Z, oldest first) or "descending". Systems without a manufacturer or year come last either way.
 systems_sort_order = "ascending"

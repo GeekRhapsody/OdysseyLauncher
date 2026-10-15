@@ -213,11 +213,8 @@ public sealed partial class SystemDetailsPanel : UiPanel
             return new Loaded(entry, entry.System!.Description, fields);
         }
 
-        // Favourites and Recently played: their games, counted, and the systems they come from.
-        var library = services.Library;
-        IReadOnlyList<VirtualGameRow> games = entry.Virtual == VirtualKind.Favourites
-            ? await library.GetFavouritesAsync(CancellationToken.None).ConfigureAwait(false)
-            : await library.GetRecentlyPlayedAsync(Navigator.RecentlyPlayedLimit, CancellationToken.None).ConfigureAwait(false);
+        // Favourites, Recently played and All games: their games, counted, and the systems they come from.
+        var games = await Navigator.VirtualGamesAsync(services.Library, entry.Virtual, default, CancellationToken.None).ConfigureAwait(false);
         var systems = new HashSet<string>(StringComparer.Ordinal);
         foreach (var game in games)
         {

@@ -351,7 +351,7 @@ public partial class Main : Node3D
         var templatesMs = clock.Elapsed.TotalMilliseconds;
 
         // Every shown system fits in the pool (empty ones aren't shown unless the setting says so), with room for the
-        // columns to change; the virtual systems are 2 more.
+        // columns to change; the virtual systems are 3 more.
         var shownSystems = 0;
         foreach (var system in services.Systems)
         {
@@ -361,7 +361,7 @@ public partial class Main : Node3D
             }
         }
 
-        var systemSlots = Math.Clamp(shownSystems + 2 + ItemGrid.MaxColumns, 24, MaxSystemSlots);
+        var systemSlots = Math.Clamp(shownSystems + 3 + ItemGrid.MaxColumns, 24, MaxSystemSlots);
 
         // The cards' logos (A6 logos/) stream through a streamer of their own, one worker, whose arrays are only made
         // for a theme whose cards show logos; for any other it's never asked for anything.

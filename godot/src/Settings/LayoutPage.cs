@@ -44,7 +44,7 @@ public sealed partial class LayoutPage : ListPanel
         _systemsSort = AddSortRow("Sort by", "systems_sort", "Sort systems by", Sorts.SystemsNames, () => SystemsSortChoices());
         _systemsOrder = AddSortRow("Order", "systems_sort_order", "Systems' order", Sorts.OrderNames,
             () => OrderChoices(sort => SystemsOrderDetail((SystemSort)Current("systems_sort", (int)Display.SystemsSort.Sort), sort)));
-        AddNote("Favourites and Recently played always come first.");
+        AddNote("Favourites, Recently played and All games always come first. All games follows the games' sort.");
 
         AddSection("Games");
         _games = AddRow("Games view", activated: () => ChooseLayout("games_layout", "Games view", GamesChoices()));

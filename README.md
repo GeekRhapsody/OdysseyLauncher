@@ -27,7 +27,7 @@ Odyssey Launcher is built with Godot 4 and C# for Windows. **Performance is the 
 - **Animated items.** The focused item lifts and sways, and models can carry their own animations: the console theme's Mega Drive takes a cartridge when you focus it, and the Switch slides a Joy-Con up its rail.
 - **Pick it up and turn it round.** Press R3 to bring the focused game up large in the middle of the screen. Turn it with the right stick to read the back of the box or look along its spine.
 - **Several layouts.** Show systems and games as a grid (automatic size, or your own columns and rows), a carousel, one item at a time, or a list of titles beside the focused game's model. Each system can have its own layout.
-- **Favourites and Recently played** appear as cards of their own at the start of the systems grid.
+- **Favourites, Recently played and All games** appear as cards of their own at the start of the systems grid.
 
 ![Inspecting a game and turning it with the right stick](docs/readme/inspect.webp)
 

@@ -61,7 +61,7 @@ public sealed partial class UiSounds : Node
         }
     }
 
-    /// <summary>A system (or Favourites, or Recently played) is being entered. Main thread.</summary>
+    /// <summary>A system (or Favourites, Recently played or All games) is being entered. Main thread.</summary>
     public void Whoosh()
     {
         if (_hasWhoosh && On)

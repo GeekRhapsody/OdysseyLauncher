@@ -52,7 +52,7 @@ public sealed class ScrollBench : IDisposable
         _streamer = streamer;
         _options = options;
         _intervals = new double[(int)(options.BenchScrollSeconds * 250) + 1000];
-        _systems = services.Systems.Count + 2;
+        _systems = services.Systems.Count + 3;
         var biggest = 0;
         foreach (var system in services.Systems)
         {
@@ -63,6 +63,13 @@ public sealed class ScrollBench : IDisposable
                 _system = system.SystemId;
                 _systemGames = system.GameCount;
             }
+        }
+
+        // All games (--bench-system=all_games) scrolls the whole library.
+        if (options.BenchSystem == Navigator.AllGamesId)
+        {
+            _system = Navigator.AllGamesId;
+            _systemGames = _games;
         }
 
         if (_system is null || _systemGames == 0 || !navigator.EnterSystem(_system))

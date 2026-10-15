@@ -166,6 +166,14 @@ public sealed class LibraryService : ILibrary, IPlayHistory, IDisposable
             : _readers.RunAsync<IReadOnlyList<GameMediaRow>>(c => LibraryStore.GetGameMedia(c, gameIds, kinds), cancellationToken);
     }
 
+    public Task<IReadOnlyList<GameMediaRow>> GetAllGameMediaAsync(IReadOnlyList<string> kinds, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(kinds);
+        return kinds.Count == 0
+            ? Task.FromResult<IReadOnlyList<GameMediaRow>>([])
+            : _readers.RunAsync<IReadOnlyList<GameMediaRow>>(c => LibraryStore.GetAllGameMedia(c, kinds), cancellationToken);
+    }
+
     public Task<IReadOnlyList<VirtualGameRow>> GetFavouritesAsync(CancellationToken cancellationToken)
     {
         var config = Config;
@@ -177,6 +185,12 @@ public sealed class LibraryService : ILibrary, IPlayHistory, IDisposable
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(limit);
         var config = Config;
         return _readers.RunAsync<IReadOnlyList<VirtualGameRow>>(c => LibraryStore.GetRecentlyPlayed(c, limit, config), cancellationToken);
+    }
+
+    public Task<IReadOnlyList<VirtualGameRow>> GetAllGamesAsync(GamesOrdering ordering, CancellationToken cancellationToken)
+    {
+        var config = Config;
+        return _readers.RunAsync<IReadOnlyList<VirtualGameRow>>(c => LibraryStore.GetAllGames(c, ordering, config), cancellationToken);
     }
 
     public Task<GameDetails?> GetGameAsync(long gameId, CancellationToken cancellationToken) =>

@@ -20,7 +20,7 @@ from PIL import Image
 
 SOURCE = next((a.split('=', 1)[1] for a in sys.argv[1:] if a.startswith('--source=')), 'slab_images')
 TARGET = 'godot/themes/slab/logos'
-RENAMES = {'auto-favorites': 'favourites', 'auto-lastplayed': 'recently_played'}
+RENAMES = {'auto-favorites': 'favourites', 'auto-lastplayed': 'recently_played', 'auto-allgames': 'all_games'}
 EXTRA = {'astrocade'}  # [systems.astrocde] logo = "logos/astrocade.webp"
 MAX_SIDE = 512
 MARGIN = 0.02          # of the cropped picture's longer side, so soft edges and shadows aren't cut

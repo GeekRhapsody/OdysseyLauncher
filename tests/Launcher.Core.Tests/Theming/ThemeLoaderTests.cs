@@ -927,7 +927,7 @@ public sealed class ThemeLoaderTests
 
         var config = new ConfigLoader().Load(new ConfigSources { HomeDir = "C:/home", ConfigDir = "C:/config", FileExists = null }).Config;
         var resolver = new ModelResolver(slab, ThemeFixtures.Base, UserModels.None("C:/config"), config, "C:/data");
-        foreach (var id in config.Systems.Select(s => s.Id).Append("favourites").Append("recently_played"))
+        foreach (var id in config.Systems.Select(s => s.Id).Concat(["favourites", "recently_played", "all_games"]))
         {
             var logo = resolver.LogoOf(id);
             Assert.True(logo is not null && File.Exists(logo.Path), $"{id} has no logo in the Slab theme.");
@@ -941,7 +941,7 @@ public sealed class ThemeLoaderTests
         }
 
         // Every image in its logos folder is some built-in system's, or a virtual card's.
-        var known = config.Systems.Select(s => s.Id).Concat(["favourites", "recently_played", "astrocade"]).ToHashSet(StringComparer.Ordinal);
+        var known = config.Systems.Select(s => s.Id).Concat(["favourites", "recently_played", "all_games", "astrocade"]).ToHashSet(StringComparer.Ordinal);
         Assert.All(Directory.GetFiles(slab.PathOf(Theme.LogosFolder)), file => Assert.Contains(Path.GetFileNameWithoutExtension(file), known));
     }
 

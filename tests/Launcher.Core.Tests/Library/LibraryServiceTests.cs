@@ -347,6 +347,40 @@ public sealed class LibraryServiceTests : IAsyncLifetime
         Assert.Single(await _library.GetRecentlyPlayedAsync(1, Ct));
     }
 
+    [Fact]
+    public async Task All_games_lists_every_systems_visible_games_in_the_games_sort()
+    {
+        Rom("snes/Gamma.sfc");
+        Rom("snes/Alpha.sfc");
+        Rom("snes/Hidden.sfc");
+        Rom("nes/Beta.nes");
+        Rom("megadrive/Delta.md");
+        Art("nes/covers/Beta.png", TestImages.Png(700, 1000));
+        Art("snes/screenshots/Gamma.png", TestImages.Png(640, 480));
+        await _library.RescanAsync(null, null, Ct);
+        await _library.SetHiddenAsync(new GameKey("snes", "hidden.sfc"), true, Ct);
+        await _library.SetFavouriteAsync(new GameKey("nes", "beta.nes"), true, Ct);
+        await _library.SetTitleOverrideAsync(new GameKey("megadrive", "delta.md"), "Epsilon", Ct);
+        UserData("INSERT INTO play_stats (system_id, path_key, play_count, last_played_at) VALUES ('snes', 'gamma.sfc', 1, 200), ('nes', 'beta.nes', 1, 100)");
+
+        var all = await _library.GetAllGamesAsync(default, Ct);
+        Assert.Equal([("snes", "Alpha"), ("nes", "Beta"), ("megadrive", "Epsilon"), ("snes", "Gamma")], all.Select(r => (r.SystemId, r.Game.Title)));
+        Assert.Equal([false, true, false, false], all.Select(r => r.Game.IsFavourite));
+        Assert.Equal("media/nes/covers/Beta.png", all[1].Game.CoverPath);
+
+        Assert.Equal(["Gamma", "Epsilon", "Beta", "Alpha"],
+            (await _library.GetAllGamesAsync(new GamesOrdering(GameSort.Alphabetical, SortOrder.Descending), Ct)).Select(r => r.Game.Title));
+        Assert.Equal(["Gamma", "Beta", "Alpha", "Epsilon"],
+            (await _library.GetAllGamesAsync(new GamesOrdering(GameSort.LastPlayed, SortOrder.Descending), Ct)).Select(r => r.Game.Title));
+
+        var media = await _library.GetAllGameMediaAsync(["cover", "screenshot"], Ct);
+        Assert.Equal([("cover", all[1].Game.GameId), ("screenshot", all[3].Game.GameId)], media.Select(m => (m.Kind, m.GameId)).Order());
+
+        // A disabled system's games leave All games at once, before a full rescan drops them.
+        _library.Config = LoadConfig("[systems.nes]\nenabled = false\n");
+        Assert.Equal(["Alpha", "Epsilon", "Gamma"], (await _library.GetAllGamesAsync(default, Ct)).Select(r => r.Game.Title));
+    }
+
     // ---- Sorting a system's games ([display] games_sort) ----------------------------------------
 
     private async Task<string[]> Titles(string system, GameSort sort, SortOrder order = SortOrder.Ascending) =>

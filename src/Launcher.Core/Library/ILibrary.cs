@@ -47,7 +47,7 @@ public sealed class MediaChangedEventArgs(IReadOnlyList<GameKey>? games) : Event
 /// <summary>A system's games, visible ones only, already in grid order.</summary>
 public sealed record GameList(string SystemId, IReadOnlyList<GameRow> Games);
 
-/// <summary>A cell of a virtual system (Favourites, Recently played), which mixes systems.</summary>
+/// <summary>A cell of a virtual system (Favourites, Recently played, All games), which mixes systems.</summary>
 public readonly record struct VirtualGameRow(string SystemId, GameRow Game);
 
 /// <summary>Everything about one game, for the focused item and for launching.</summary>
@@ -194,9 +194,18 @@ public interface ILibrary
     /// <summary>The same for chosen games: a virtual system's, or games whose media just changed.</summary>
     Task<IReadOnlyList<GameMediaRow>> GetGameMediaAsync(IReadOnlyList<long> gameIds, IReadOnlyList<string> kinds, CancellationToken cancellationToken);
 
+    /// <summary>Every game's media of the given kinds (All games): one query on <c>media</c>.</summary>
+    Task<IReadOnlyList<GameMediaRow>> GetAllGameMediaAsync(IReadOnlyList<string> kinds, CancellationToken cancellationToken);
+
     Task<IReadOnlyList<VirtualGameRow>> GetFavouritesAsync(CancellationToken cancellationToken);
 
     Task<IReadOnlyList<VirtualGameRow>> GetRecentlyPlayedAsync(int limit, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// All games: every visible game of every enabled system, in <paramref name="ordering"/>'s order (settings.toml's
+    /// <c>games_sort</c>), as a system's list is (A4 Grid queries).
+    /// </summary>
+    Task<IReadOnlyList<VirtualGameRow>> GetAllGamesAsync(GamesOrdering ordering, CancellationToken cancellationToken);
 
     Task<GameDetails?> GetGameAsync(long gameId, CancellationToken cancellationToken);
 

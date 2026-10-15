@@ -316,7 +316,7 @@ This checks what a script mustn't do: restart, shut down and sleep the PC from t
 
 This checks what the scripts can't: the grid and settings with the whole catalogue, and a real shortcut or script as a game. It uses the M3 set-up (`C:\OdysseyTest`) and the export.
 
-1. **Only what you have.** Start the launcher with your ROM folders: the systems grid shows the systems that have games (Favourites and Recently played first), not the other 150 or so. Settings, then Emulators, lists only the programs those systems use. In `C:\OdysseyTest\config\settings.toml` set `[display]` `hide_empty_systems = false`, restart: every system has a card, empty ones with "0 games".
+1. **Only what you have.** Start the launcher with your ROM folders: the systems grid shows the systems that have games (Favourites, Recently played and All games first), not the other 150 or so. Settings, then Emulators, lists only the programs those systems use. In `C:\OdysseyTest\config\settings.toml` set `[display]` `hide_empty_systems = false`, restart: every system has a card, empty ones with "0 games".
 2. **ES-DE folders.** Put a ROM in a folder named `genesis` (and none in `megadrive`): the Mega Drive system finds it after a rescan (View, then F5, or Settings, Library).
 3. **A shortcut as a game.** Make `ports\Notepad.lnk` (a shortcut to notepad.exe) under your ROM root and rescan. Ports shows it; launch it: Notepad opens in front of the launcher's running screen, and when you close Notepad the launcher comes back with focus. A script, `ports\Hello & World.bat` containing `@pause`, does the same (a console window; any key ends it), and nothing after the `&` runs as a separate command. A file with a `%` in its path says so and doesn't start.
 4. **A catalogue emulator.** Install one the catalogue lists (for example Stella under `C:\Emulators\Stella\64-bit\`, the folder ES-DE looks in), put an Atari 2600 ROM in `atari2600`, and launch it: Stella opens that game. Set another emulator on Atari 2600's page (X on its card) and launch again.
@@ -458,7 +458,7 @@ This checks what a capture can't: a real pad on the screen, and how the model lo
 1. **The screen.** On the systems grid, press Y on Mega Drive. Its details open: the console on the left, large, on Mega Drive's background, with the cartridge going in as it does when focused in the grid; on the right its whole description, then its details (maker, year, games, last scan, emulator and alternatives, ROM folder, file types, view, sort, models, ScreenScraper and IGDB ids). Y or B goes back to the grid, on Mega Drive.
 2. **Scrolling.** Up and down scroll the description and details; LB and RB a page at a time.
 3. **Turning.** Push the right stick: the console turns as it does in the grid, and stays turned when you let go. Left and right on the D-pad turn it a step at a time, held to keep turning.
-4. **Others.** Try Game Gear and Game Boy (the console theme's other consoles), a system with a memory card (its name on the label), and Favourites and Recently played (their games counted). A system whose ROM folder you set in the settings lists that folder.
+4. **Others.** Try Game Gear and Game Boy (the console theme's other consoles), a system with a memory card (its name on the label), and Favourites, Recently played and All games (their games counted). A system whose ROM folder you set in the settings lists that folder.
 5. **Docked.** Docked to the 4K display, open Mega Drive's details: the console is as sharp as the grid's items, not blurred.
 
 ### Send back

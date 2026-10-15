@@ -7,7 +7,7 @@ namespace Launcher.Core.Library;
 /// The systems' order (<c>[display] systems_sort</c> and <c>systems_sort_order</c>). Descending reverses what the sort
 /// names (the manufacturer, the year, or the name for alphabetical); ties are always broken by name, A to Z, and a
 /// system without the manufacturer or year the sort needs comes last either way. Names compare ignoring case, with
-/// numbers in order ("PlayStation 2" before "PlayStation 10"). Favourites and Recently played aren't systems: the
+/// numbers in order ("PlayStation 2" before "PlayStation 10"). Favourites, Recently played and All games aren't systems: the
 /// grid puts them first.
 /// </summary>
 public static class SystemOrder

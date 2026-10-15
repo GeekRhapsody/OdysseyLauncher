@@ -31,7 +31,7 @@ public readonly record struct GridLayout(GridShape Shape, int Columns = 0, int R
         _ => new GridLayout(GridShape.Grid, display.SystemsGrid.Columns, display.SystemsGrid.Rows),
     };
 
-    /// <param name="system">The system shown, for its own layout and grid size; null for Favourites and Recently played.</param>
+    /// <param name="system">The system shown, for its own layout and grid size; null for Favourites, Recently played and All games.</param>
     public static GridLayout Games(DisplaySettings display, SystemConfig? system)
     {
         var size = display.GamesGridFor(system);

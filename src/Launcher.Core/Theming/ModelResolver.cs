@@ -250,7 +250,7 @@ public sealed class ModelResolver
     }
 
     /// <summary>
-    /// The candidates for a system's card, best first, without repeats: <c>favourites</c> and <c>recently_played</c> for
+    /// The candidates for a system's card, best first, without repeats: <c>favourites</c>, <c>recently_played</c> and <c>all_games</c> for
     /// those cards, null for the theme's default card. Each carries the chains of the theme whose model it is; the
     /// user's own card takes the active theme's.
     /// </summary>
@@ -292,7 +292,7 @@ public sealed class ModelResolver
     }
 
     /// <summary>
-    /// A card's image (A6 <c>logos/</c>): the active theme's for the system (or <c>favourites</c>, <c>recently_played</c>),
+    /// A card's image (A6 <c>logos/</c>): the active theme's for the system (or <c>favourites</c>, <c>recently_played</c>, <c>all_games</c>),
     /// else the base theme's; null when neither has one.
     /// </summary>
     public LogoFile? LogoOf(string id)

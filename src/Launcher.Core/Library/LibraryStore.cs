@@ -94,16 +94,18 @@ internal static class LibraryStore
 
     // The grid queries select only what a cell draws. Title order uses games_by_system when no title is
     // overridden; the COALESCE keeps overridden titles in their own place. Another order (A4 Grid queries) joins what
-    // it sorts by, and sorts in a temporary B-tree.
-    private const string GamesSelect = """
-        SELECT g.game_id, COALESCE(o.title, g.title), m.path, f.added_at IS NOT NULL, m.width, m.height, m.size_bytes, m.mtime_ms, o.template
+    // it sorts by, and sorts in a temporary B-tree, as All games always does.
+    private const string GamesColumns =
+        "g.game_id, COALESCE(o.title, g.title), m.path, f.added_at IS NOT NULL, m.width, m.height, m.size_bytes, m.mtime_ms, o.template";
+
+    private const string GamesFrom = """
         FROM games g
         LEFT JOIN user.game_overrides o ON o.system_id = g.system_id AND o.path_key = g.path_key
         LEFT JOIN user.favourites f ON f.system_id = g.system_id AND f.path_key = g.path_key
         LEFT JOIN media m ON m.game_id = g.game_id AND m.kind = 'cover'
         """;
 
-    private const string GamesWhere = "WHERE g.system_id = $system AND COALESCE(o.hidden, 0) = 0";
+    private const string Visible = "COALESCE(o.hidden, 0) = 0";
     private const string TitleKey = "COALESCE(o.sort_title, g.sort_title)";
     private const string PlayStatsJoin = "LEFT JOIN user.play_stats p ON p.system_id = g.system_id AND p.path_key = g.path_key";
     private const string ReleaseDate = "NULLIF(COALESCE(o.release_date, mt.release_date), '')";
@@ -113,37 +115,43 @@ internal static class LibraryStore
     /// by title, A to Z (then by id, so the order is stable); a game without a date the sort needs (never played, no
     /// release date, a creation time never read) comes last either way. A game never played has no play time.
     /// </summary>
-    internal static string GamesSql(GamesOrdering ordering)
+    /// <param name="allSystems">
+    /// Every system's games (All games), each row starting with its system's id, as the virtual lists' rows do; else
+    /// one system's (<c>$system</c>).
+    /// </param>
+    internal static string GamesSql(GamesOrdering ordering, bool allSystems = false)
     {
         var direction = ordering.Order == SortOrder.Descending ? " DESC" : string.Empty;
+        var select = $"SELECT {(allSystems ? "g.system_id, " : string.Empty)}{GamesColumns}\n{GamesFrom}";
+        var where = allSystems ? $"WHERE {Visible}" : $"WHERE g.system_id = $system AND {Visible}";
         return ordering.Sort switch
         {
             GameSort.LastPlayed => $"""
-                {GamesSelect}
+                {select}
                 {PlayStatsJoin}
-                {GamesWhere}
+                {where}
                 ORDER BY p.last_played_at IS NULL, p.last_played_at{direction}, {TitleKey}, g.game_id
                 """,
             GameSort.PlayTime => $"""
-                {GamesSelect}
+                {select}
                 {PlayStatsJoin}
-                {GamesWhere}
+                {where}
                 ORDER BY COALESCE(p.total_seconds, 0){direction}, {TitleKey}, g.game_id
                 """,
             GameSort.Added => $"""
-                {GamesSelect}
-                {GamesWhere}
+                {select}
+                {where}
                 ORDER BY g.added_ms IS NULL, g.added_ms{direction}, {TitleKey}, g.game_id
                 """,
             GameSort.ReleaseDate => $"""
-                {GamesSelect}
+                {select}
                 LEFT JOIN metadata mt ON mt.game_id = g.game_id
-                {GamesWhere}
+                {where}
                 ORDER BY {ReleaseDate} IS NULL, {ReleaseDate}{direction}, {TitleKey}, g.game_id
                 """,
             _ => $"""
-                {GamesSelect}
-                {GamesWhere}
+                {select}
+                {where}
                 ORDER BY {TitleKey}{direction}, g.game_id{direction}
                 """,
         };
@@ -206,6 +214,16 @@ internal static class LibraryStore
             WHERE g.system_id = $system AND m.kind IN ({KindParameters(command, kinds)})
             """;
         command.Parameters.AddWithValue("$system", systemId);
+        var rows = new List<GameMediaRow>();
+        ReadGameMedia(command, rows);
+        return rows;
+    }
+
+    /// <summary>Every game's media of these kinds (All games), through <c>media</c>'s kind.</summary>
+    public static List<GameMediaRow> GetAllGameMedia(SqliteConnection connection, IReadOnlyList<string> kinds)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = $"SELECT {GameMediaColumns} FROM media m WHERE m.kind IN ({KindParameters(command, kinds)})";
         var rows = new List<GameMediaRow>();
         ReadGameMedia(command, rows);
         return rows;
@@ -316,7 +334,11 @@ internal static class LibraryStore
     public static List<VirtualGameRow> GetRecentlyPlayed(SqliteConnection connection, int limit, AppConfig config) =>
         ReadVirtual(connection, RecentSql, limit, config);
 
-    private static List<VirtualGameRow> ReadVirtual(SqliteConnection connection, string sql, int? limit, AppConfig config)
+    /// <summary>Every visible game of every system (All games), in <paramref name="ordering"/>'s order.</summary>
+    public static List<VirtualGameRow> GetAllGames(SqliteConnection connection, GamesOrdering ordering, AppConfig config) =>
+        ReadVirtual(connection, GamesSql(ordering, allSystems: true), null, config, 4096);
+
+    private static List<VirtualGameRow> ReadVirtual(SqliteConnection connection, string sql, int? limit, AppConfig config, int capacityHint = 0)
     {
         using var command = connection.CreateCommand();
         command.CommandText = sql;
@@ -326,7 +348,7 @@ internal static class LibraryStore
         }
 
         using var reader = command.ExecuteReader();
-        var rows = new List<VirtualGameRow>();
+        var rows = new List<VirtualGameRow>(capacityHint);
         while (reader.Read())
         {
             // Rows of systems that are now disabled stay until the next full rescan drops them.

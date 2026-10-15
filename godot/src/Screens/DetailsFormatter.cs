@@ -131,7 +131,7 @@ public static class DetailsFormatter
         return rows;
     }
 
-    /// <summary>Favourites' or Recently played's fields: how many games it holds, and from how many systems.</summary>
+    /// <summary>Favourites', Recently played's or All games' fields: how many games it holds, and from how many systems.</summary>
     public static IReadOnlyList<(string Label, string Value)> VirtualFields(int games, int systems)
     {
         var rows = new List<(string, string)>();
@@ -140,10 +140,13 @@ public static class DetailsFormatter
         return rows;
     }
 
-    /// <summary>What Favourites or Recently played is, for its details screen.</summary>
-    public static string VirtualDescription(VirtualKind kind) => kind == VirtualKind.Favourites
-        ? "The games you've marked as favourites, from every system. Press L3 (or F) on a game to add it, or to take it out."
-        : "The games you've played most recently, from every system, newest first.";
+    /// <summary>What Favourites, Recently played or All games is, for its details screen.</summary>
+    public static string VirtualDescription(VirtualKind kind) => kind switch
+    {
+        VirtualKind.Favourites => "The games you've marked as favourites, from every system. Press L3 (or F) on a game to add it, or to take it out.",
+        VirtualKind.RecentlyPlayed => "The games you've played most recently, from every system, newest first.",
+        _ => "Every game in your library, from every system, in one list, sorted as the settings' Layout page says.",
+    };
 
     /// <summary>The subtitle under a system's name: who made it and when, and how many games there are.</summary>
     public static string SystemSubtitle(SystemConfig system, int games)

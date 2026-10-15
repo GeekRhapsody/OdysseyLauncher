@@ -98,14 +98,14 @@ public sealed record DisplaySettings(string Theme, ScreenMode ScreenMode = Scree
     /// <summary><c>games_columns</c> and <c>games_rows</c>: the games grid's size; 0 is automatic. A system can have its own.</summary>
     public GridSize GamesGrid { get; init; }
 
-    /// <summary>How a system's games are shown: its own <c>games_layout</c>, else these settings'. Null: Favourites and Recently played.</summary>
+    /// <summary>How a system's games are shown: its own <c>games_layout</c>, else these settings'. Null: Favourites, Recently played and All games.</summary>
     public GamesLayout GamesLayoutFor(SystemConfig? system) => system?.GamesLayout ?? GamesLayout;
 
     /// <summary>The games grid's size for a system: its own columns and rows where it sets them, else these settings'.</summary>
     public GridSize GamesGridFor(SystemConfig? system) =>
         new(system?.GamesColumns ?? GamesGrid.Columns, system?.GamesRows ?? GamesGrid.Rows);
 
-    /// <summary><c>systems_sort</c> and <c>systems_sort_order</c>: the systems' order (Favourites and Recently played always come first).</summary>
+    /// <summary><c>systems_sort</c> and <c>systems_sort_order</c>: the systems' order (Favourites, Recently played and All games always come first).</summary>
     public SystemsOrdering SystemsSort { get; init; }
 
     /// <summary><c>games_sort</c> and <c>games_sort_order</c>: a system's games' order, unless the system has its own (<see cref="GamesSortFor"/>).</summary>

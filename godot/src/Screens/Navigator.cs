@@ -33,6 +33,7 @@ public sealed partial class Navigator : Node
 {
     public const string FavouritesId = "favourites";
     public const string RecentlyPlayedId = "recently_played";
+    public const string AllGamesId = "all_games";
     public const int RecentlyPlayedLimit = 60;
     private const double DetailsDelay = 0.12;
     private const float TransitionSeconds = 0.45f;
@@ -158,7 +159,7 @@ public sealed partial class Navigator : Node
     public event Action<long>? GameDetailsRequested;
 
     /// <summary>
-    /// Y on a system, Favourites or Recently played: its details screen should open (its description, every field, and
+    /// Y on a system, Favourites, Recently played or All games: its details screen should open (its description, every field, and
     /// its card's model). The card.
     /// </summary>
     public event Action<SystemEntry>? SystemDetailsRequested;
@@ -175,10 +176,13 @@ public sealed partial class Navigator : Node
 
     private GridLayout SystemsLayout() => GridLayout.Systems(Display);
 
-    /// <summary>A list's layout: the games layout, with the system's own grid size (Favourites and Recently played use settings.toml's).</summary>
+    /// <summary>A list's layout: the games layout, with the system's own grid size (the virtual lists use settings.toml's).</summary>
     private GridLayout GamesLayout(string id) => GridLayout.Games(Display, _services.Config.FindSystem(id));
 
-    /// <summary>A system's games' order: its own <c>games_sort</c>, else settings.toml's (Favourites and Recently played have their own).</summary>
+    /// <summary>
+    /// A system's games' order: its own <c>games_sort</c>, else settings.toml's, which All games follows too (Favourites
+    /// and Recently played have their own).
+    /// </summary>
     private GamesOrdering GamesSort(string id) => Display.GamesSortFor(_services.Config.FindSystem(id));
 
     /// <summary>The media streamer, for evicting textures while a game runs and for a theme's layout.</summary>
@@ -405,7 +409,7 @@ public sealed partial class Navigator : Node
         }
     }
 
-    /// <summary>X: the focused system's or game's options. Favourites and Recently played have none.</summary>
+    /// <summary>X: the focused system's or game's options. Favourites, Recently played and All games have none.</summary>
     private void RequestOptions()
     {
         if (_screen == Screen.Systems)
@@ -416,7 +420,7 @@ public sealed partial class Navigator : Node
             }
             else
             {
-                ShowStatus("Favourites and Recently played have no options. Press X on a system or a game.");
+                ShowStatus("Favourites, Recently played and All games have no options. Press X on a system or a game.");
             }
 
             return;
@@ -567,7 +571,7 @@ public sealed partial class Navigator : Node
         _stage.Show(_theme.LookFor(entry.Virtual == VirtualKind.None ? entry.Id : null), _theme.TransitionSeconds);
 
         var ordering = GamesSort(entry.Id);
-        var cached = entry.Virtual == VirtualKind.None ? _cache.Find(s => s.Id == entry.Id && s.Ordering == ordering) : null;
+        var cached = entry.Sorted ? _cache.Find(s => s.Id == entry.Id && s.Ordering == ordering) : null;
         if (cached is not null)
         {
             var theme = _theme;
@@ -600,17 +604,25 @@ public sealed partial class Navigator : Node
                 }
                 else
                 {
-                    var rows = entry.Virtual == VirtualKind.Favourites
-                        ? await library.GetFavouritesAsync(token).ConfigureAwait(false)
-                        : await library.GetRecentlyPlayedAsync(RecentlyPlayedLimit, token).ConfigureAwait(false);
-                    var ids = new long[rows.Count];
-                    for (var i = 0; i < ids.Length; i++)
+                    var rows = await VirtualGamesAsync(library, entry.Virtual, ordering, token).ConfigureAwait(false);
+                    IReadOnlyList<GameMediaRow> media;
+                    if (entry.Virtual == VirtualKind.AllGames)
                     {
-                        ids[i] = rows[i].Game.GameId;
+                        media = await library.GetAllGameMediaAsync(kinds, token).ConfigureAwait(false);
+                    }
+                    else
+                    {
+                        var ids = new long[rows.Count];
+                        for (var i = 0; i < ids.Length; i++)
+                        {
+                            ids[i] = rows[i].Game.GameId;
+                        }
+
+                        media = await library.GetGameMediaAsync(ids, kinds, token).ConfigureAwait(false);
                     }
 
-                    var media = await library.GetGameMediaAsync(ids, kinds, token).ConfigureAwait(false);
-                    source = GamesSource.ForVirtual(entry.Id, entry.Name, rows, media, kinds, theme.ColourOf, nameOf);
+                    source = GamesSource.ForVirtual(entry.Id, entry.Name, rows, media, kinds, theme.ColourOf, nameOf,
+                        entry.Sorted ? ordering : default);
                 }
 
                 _queue.Post(() => OnGamesLoaded(source, focusIndex, focusGame, theme));
@@ -640,7 +652,7 @@ public sealed partial class Navigator : Node
             return;
         }
 
-        if (!source.Id.Equals(FavouritesId, StringComparison.Ordinal) && !source.Id.Equals(RecentlyPlayedId, StringComparison.Ordinal))
+        if (source.Id is not (FavouritesId or RecentlyPlayedId))
         {
             _cache.Remove(source);
             _cache.Insert(0, source);
@@ -703,6 +715,11 @@ public sealed partial class Navigator : Node
             return "Nothing played yet.";
         }
 
+        if (id == AllGamesId)
+        {
+            return "No games yet. Set your ROM folders in the settings (Menu), then rescan.";
+        }
+
         var system = _services.Config.FindSystem(id);
         var folder = system is null || system.RomDirs.Count == 0 ? "its ROM folder" : system.RomDirs[0];
         return $"No games found in {folder}. Add some, then rescan from the settings (Menu), or press F5 on the systems screen.";
@@ -734,7 +751,7 @@ public sealed partial class Navigator : Node
         var layout = GamesLayout(source.Id);
         _gamesGrid.Layout = layout;
         _gamesGrid.Bind(source, focus);
-        _overlay.List.Bind(layout.Shape == GridShape.List ? source : null, source.SystemIds.Count > 1 || source.Id is FavouritesId or RecentlyPlayedId);
+        _overlay.List.Bind(layout.Shape == GridShape.List ? source : null, source.SystemIds.Count > 1 || source.Id is FavouritesId or RecentlyPlayedId or AllGamesId);
         DebugHooks.Layout = $"{SystemsLayout()}/{layout}";
     }
 
@@ -846,12 +863,13 @@ public sealed partial class Navigator : Node
         var token = _shutdown.Token;
         var kinds = source.Kinds;
         var ids = source.Id is FavouritesId or RecentlyPlayedId ? source.GameIds() : null;
+        var all = source.Id is AllGamesId;
         _ = Task.Run(async () =>
         {
             try
             {
-                var rows = ids is null
-                    ? await library.GetGameMediaAsync(source.Id, kinds, token).ConfigureAwait(false)
+                var rows = all ? await library.GetAllGameMediaAsync(kinds, token).ConfigureAwait(false)
+                    : ids is null ? await library.GetGameMediaAsync(source.Id, kinds, token).ConfigureAwait(false)
                     : await library.GetGameMediaAsync(ids, kinds, token).ConfigureAwait(false);
                 _queue.Post(() =>
                 {
@@ -1021,9 +1039,7 @@ public sealed partial class Navigator : Node
                 }
                 else
                 {
-                    var list = entry.Virtual == VirtualKind.Favourites
-                        ? await library.GetFavouritesAsync(token).ConfigureAwait(false)
-                        : await library.GetRecentlyPlayedAsync(RecentlyPlayedLimit, token).ConfigureAwait(false);
+                    var list = await VirtualGamesAsync(library, entry.Virtual, ordering, token).ConfigureAwait(false);
                     rows = new GameRow[list.Count];
                     for (var i = 0; i < rows.Length; i++)
                     {
@@ -1362,6 +1378,15 @@ public sealed partial class Navigator : Node
         });
     }
 
+    /// <summary>A virtual card's games: Favourites, Recently played, or All games in <paramref name="ordering"/>'s order. Thread pool.</summary>
+    public static Task<IReadOnlyList<VirtualGameRow>> VirtualGamesAsync(ILibrary library, VirtualKind kind, GamesOrdering ordering, CancellationToken token) =>
+        kind switch
+        {
+            VirtualKind.Favourites => library.GetFavouritesAsync(token),
+            VirtualKind.RecentlyPlayed => library.GetRecentlyPlayedAsync(RecentlyPlayedLimit, token),
+            _ => library.GetAllGamesAsync(ordering, token),
+        };
+
     private SystemEntry? FindEntry(string id)
     {
         foreach (var entry in _systems.Entries)
@@ -1539,7 +1564,7 @@ public sealed partial class Navigator : Node
             _systemsGrid.Bind(_systems, Math.Max(0, focus));
             OnFocusChanged();
         }
-        else if (_screen == Screen.Games && _games is { } games && FindEntry(games.Id) is { Virtual: VirtualKind.None } entry
+        else if (_screen == Screen.Games && _games is { } games && FindEntry(games.Id) is { Sorted: true } entry
                  && GamesSort(games.Id) != games.Ordering)
         {
             var focusIndex = Math.Max(0, _gamesGrid.FocusIndex);
@@ -1698,21 +1723,28 @@ public sealed partial class Navigator : Node
         };
         var hideEmpty = _services.Config.Settings.Display.HideEmptySystems;
         var systems = new List<SystemEntry>(summaries.Count);
+        var games = 0;
         foreach (var summary in summaries)
         {
+            if (_services.Config.FindSystem(summary.SystemId) is not { } system)
+            {
+                continue;
+            }
+
+            games += summary.GameCount;
             if (hideEmpty && summary.GameCount == 0)
             {
                 continue;
             }
 
-            if (_services.Config.FindSystem(summary.SystemId) is { } system)
-            {
-                systems.Add(new SystemEntry(system.Id, system.Name, DetailsFormatter.SystemSubtitle(system, summary.GameCount),
-                    _theme.ColourOf(system.Id), system, summary, VirtualKind.None, _theme.CardTemplateOf(system.Id), _theme.LogoOf(system.Id)));
-            }
+            systems.Add(new SystemEntry(system.Id, system.Name, DetailsFormatter.SystemSubtitle(system, summary.GameCount),
+                _theme.ColourOf(system.Id), system, summary, VirtualKind.None, _theme.CardTemplateOf(system.Id), _theme.LogoOf(system.Id)));
         }
 
-        // Favourites and Recently played stay first, whatever the systems' order.
+        entries.Add(new(AllGamesId, "All games", DetailsFormatter.GamesCount(games), Palette.AllGames, null, null, VirtualKind.AllGames,
+            _theme.CardTemplateOf(AllGamesId), _theme.LogoOf(AllGamesId)));
+
+        // Favourites, Recently played and All games stay first, whatever the systems' order.
         SystemOrder.Sort(systems, static entry => entry.System!, _services.Config.Settings.Display.SystemsSort);
         entries.AddRange(systems);
         return entries;
