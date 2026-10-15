@@ -46,7 +46,7 @@ public sealed partial class SystemDetailsPanel : UiPanel
         var templates = theme.CardTemplates;
         _model = ModelView.Show(
             frame, templates[Math.Clamp(entry.Template, 0, templates.Count - 1)], entry.Name, entry.Colour,
-            theme.LookFor(entry.Virtual == VirtualKind.None ? entry.Id : null), entry.Logo, theme.Plan.Paths.CacheDir);
+            theme.LookFor(entry.Virtual == VirtualKind.None ? entry.Id : null), entry.Logo, theme.Plan.Paths.CacheDir, theme.Plan.Active.Motion);
 
         // The description and the fields: one focusable block that up and down scroll.
         _info = new PanelContainer

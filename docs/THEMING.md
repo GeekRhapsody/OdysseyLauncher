@@ -71,6 +71,7 @@ Every theme builds on Memory Card, so a partial theme always works, and a theme 
 - **Which template and card a system gets:** a system your theme doesn't assign a template (and your theme has no `[defaults] game_template`) gets Memory Card's template for it; a system with no card in your theme (and no `[defaults] system_model`) gets Memory Card's slab (section 5).
 - **Colours:** a system your theme gives no `colour` takes Memory Card's.
 - **Menus:** each `[ui.menu]` key your theme doesn't write is Memory Card's, which writes none: the launcher's own deep blue menus and its font.
+- **Motion:** each `[motion]` key your theme doesn't write is Memory Card's, which writes none: the launcher's own sway and bob (1).
 
 ## 3. The manifest (`theme.toml`)
 
@@ -140,12 +141,17 @@ background = "#141414"                # the panels; their rows, frames and borde
 text = "#ECECEC"                      # the text; the dim and faint text are mixed from it towards background
 accent = "#C8C8C8"                    # the focused row's border and glow, section headings and values
 font = "fonts/menu.ttf"               # a TTF, OTF, WOFF or WOFF2 inside the folder, at most 4 MB
+
+[motion]                              # optional: the grids' own motion (see "Motion" below); every key is optional
+focus_sway = 1.0                      # how far the focused item sways: 0 to 3 times the launcher's own (1); 0 faces you
+idle_bob = 1.0                        # how far the other items bob: 0 to 3 times the launcher's own (1); 0 holds them still
 ```
 
 - **Colours** are `#RRGGBB` in sRGB. The four corners blend in sRGB, as on the PS2.
 - **Lights** are in view space, so they stay put while the grid scrolls. Any direction but zero is valid. Lights you don't define are off.
 - **Per-system looks:** a system's `background`, `ambient` or `lights` block replaces the theme's block of that name whole. Blocks it leaves out come from the theme's look. Entering a system cross-fades to its look, and leaving cross-fades back.
 - **Menus** (`[ui.menu]`) are the settings, the options and details screens, the power menu, dialogs, the on-screen keyboard, the pickers and the job cards. The text over the grids (a system's or game's name, the hints, the list layout's titles) and the status indicators keep the launcher's look, and so do the titles printed on cards. Setting any of `background`, `text` and `accent` gives the menus a palette mixed from the three (the launcher's own for those you leave out); setting none keeps the launcher's own menus exactly. Keep the text light on a dark background, or dark on a light one: dim and faint text are mixed between the two. Green, amber and red (done, a warning, a failure) are the same in every theme. The theme's menus apply at once when the theme is switched, even with the settings open.
+- **Motion** (`[motion]`) scales the motion the grid adds to models (section 8): `focus_sway` the focused item's sway from side to side, which shows its spine, and `idle_bob` the gentle up and down of every other item. Both are multiples of the launcher's own, so 1 changes nothing, 0.5 is half, 2 is twice, and 0 stops it (a focused item then faces you). They apply to both grids and to a system's details, and cost nothing: a calmer or livelier theme is as fast as any other. A clip still replaces the motion it stands for, whatever the values.
 - **A menu font** is read off the main thread once the theme is chosen; the menus keep the font they have until it has loaded, a fraction of a second. Only its printable ASCII is drawn ahead at the menus' main sizes, so other characters are drawn the first time they show, as with the default font. The menus are laid out at 1280×800 for the default font: a font that's much wider at the same size can cut titles short (with "…") or wrap details onto more lines, so check your theme's menus with `--open=settings` (section 10). Characters your font lacks are drawn in a system font.
 - **System ids** are the launcher's: `gb`, `gbc`, `gba`, `nes`, `snes`, `n64`, `gc`, `mastersystem`, `megadrive`, `saturn`, `dreamcast`, `psx`, `ps2` and `psp`, plus any system the user defines. An entry for a system the user doesn't have is ignored. Favourites and Recently played are `favourites` and `recently_played`: their `model`, `tint`, `logo` and `slots` work as a system's (the Console theme's star and clock are `[systems.favourites]` and `[systems.recently_played]`), and their games keep their own systems' templates.
 - **Mistakes never stop the launcher.** Each problem is reported with its file, line, column and key, for example:
@@ -163,6 +169,7 @@ font = "fonts/menu.ttf"               # a TTF, OTF, WOFF or WOFF2 inside the fol
   - A `video` that isn't a slot's name, or a `video_delay_ms` out of range, is an error, and the template plays no video (or keeps the delay it extends). A `video` on a slot the model has no material for, or a `video_delay_ms` without a `video`, is a warning.
   - A `video` that isn't an `.mp4` inside the folder is an error, and the card shows its video material's own texture. A `video` in an entry without its own `model` is a warning, and is ignored.
   - A bad `[ui.menu]` colour is an error, and that colour is Memory Card's (the launcher's own). A `font` that isn't a TTF, OTF, WOFF or WOFF2 inside the folder, or is over 4 MB, is an error, and the menus keep the default font; so do they if the file can't be read as a font (a warning when the theme is applied).
+  - A `[motion]` value that isn't a number from 0 to 3 is an error, and that value is Memory Card's (1).
   - Unknown keys are warnings, with a "did you mean" suggestion.
 
 ## 4. Media slots and fallback chains
@@ -358,7 +365,7 @@ The grid adds its own motion:
 - It **always** lifts the focused item towards you and grows it a little.
 - **Only for a state without a clip**, it adds the procedural motion: a gentle bob while idle, a sway while focused, and a spin towards the camera on launch.
 
-So a `focused` clip replaces the sway, and a `launch` clip replaces the spin.
+So a `focused` clip replaces the sway, and a `launch` clip replaces the spin. Your theme's `[motion]` (section 3) sets how far the sway and the bob go, for models without those clips.
 
 The player can also look at a game close up: R3 (or Z) brings the focused game to the middle of the screen, facing the camera, its front about 90% of the window's height (less if that would make it wider than 90% of the window). Its `focused` clip keeps playing there, and the player can turn it with the right stick. A game template is seen far larger there than in the grid, so its authored textures and its front's art should hold up at that size.
 

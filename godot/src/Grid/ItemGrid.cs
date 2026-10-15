@@ -239,6 +239,10 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
     private float _previousPitch;
     private float _swayTime;
 
+    // The theme's motion (A6 Motion): the focused item's sway and the others' bob, as multiples of the launcher's own.
+    private float _focusSway = 1;
+    private float _idleBob = 1;
+
     // The focused card's video (A6 Card videos): its cell and model, the material showing it, and its own clock for a
     // card without a focused clip.
     private CardVideo? _video;
@@ -688,6 +692,10 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
         var material = new ShaderMaterial { Shader = ItemShader };
         material.SetShaderParameter(ShaderParams.GridFade, _gridFade);
         material.SetShaderParameter(ShaderParams.TintCase, _systemCards && template.Tint);
+        if (_idleBob != 1)
+        {
+            material.SetShaderParameter(ShaderParams.IdleBob, _idleBob);
+        }
         material.SetShaderParameter(ShaderParams.SlotState, _stateTexture);
         for (var i = 0; i < ItemTemplate.MaxAuthoredTextures; i++)
         {
@@ -737,6 +745,22 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
         else
         {
             material.SetShaderParameter(ShaderParams.EdgeFade, Vector3.Zero);
+        }
+    }
+
+    /// <summary>Main thread: the theme's sway and bob (A6 Motion), for the focused item and every material's shader.</summary>
+    public void SetMotion(ThemeMotion motion)
+    {
+        _focusSway = motion.FocusSway;
+        if (motion.IdleBob == _idleBob)
+        {
+            return;
+        }
+
+        _idleBob = motion.IdleBob;
+        foreach (var material in _materials)
+        {
+            material.SetShaderParameter(ShaderParams.IdleBob, _idleBob);
         }
     }
 
@@ -2465,8 +2489,8 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
     }
 
     /// <summary>
-    /// The focused item lifts towards the camera and grows a little (always), and sways to show its spine unless a
-    /// focused clip animates it; launching, it spins up and flies forward unless a launch clip plays instead (A7's
+    /// The focused item lifts towards the camera and grows a little (always), and sways to show its spine (as much as
+    /// the theme's <c>focus_sway</c> says) unless a focused clip animates it; launching, it spins up and flies forward unless a launch clip plays instead (A7's
     /// procedural fallbacks). The player's turn (<see cref="Turn"/>) is about its middle, and blends with the focus.
     /// Inspected (<paramref name="inspect"/>, 0 to 1), it rests in the middle of the view, large (<see cref="Inspected"/>),
     /// instead of in its cell, without the lift and growth (which that place already has).
@@ -2496,7 +2520,7 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
         var scale = 1 + (FocusScale - 1) * eased * (1 - inspected);
 
         // Inspected, it faces the camera (only the player turns it): swaying that close, its near edge would leave the view.
-        var angle = model?.HasClip(ModelClip.Focused) == true ? 0 : (0.3f + 0.3f * MathF.Sin(time * 1.1f)) * eased * (1 - inspected);
+        var angle = model?.HasClip(ModelClip.Focused) == true ? 0 : (0.3f + 0.3f * MathF.Sin(time * 1.1f)) * _focusSway * eased * (1 - inspected);
         var lift = _focusLift * eased * (1 - inspected);
         if (launch > 0 && model?.HasClip(ModelClip.Launch) != true)
         {

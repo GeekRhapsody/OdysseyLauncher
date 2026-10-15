@@ -100,7 +100,7 @@ public static class ThemeLoader
     public const int SupportedFormat = 1;
     public const int DefaultLookTransitionMs = 300;
 
-    private static readonly string[] RootKeys = ["format", "name", "author", "look_transition_ms", "look", "defaults", "templates", "systems", "ui"];
+    private static readonly string[] RootKeys = ["format", "name", "author", "look_transition_ms", "look", "defaults", "templates", "systems", "ui", "motion"];
     private static readonly string[] LookKeys = ["background", "ambient", "lights"];
     private static readonly string[] BackgroundKeys = ["top_left", "top_right", "bottom_left", "bottom_right"];
     private static readonly string[] AmbientKeys = ["colour", "energy"];
@@ -113,6 +113,7 @@ public static class ThemeLoader
     private static readonly string[] SourceKeywords = ["generated", "authored"];
     private static readonly string[] UiKeys = ["menu"];
     private static readonly string[] MenuKeys = ["background", "text", "accent", "font"];
+    private static readonly string[] MotionKeys = ["focus_sway", "idle_bob"];
 
     /// <summary>What a card's chain can name: systems have no art but their logo.</summary>
     private static readonly string[] CardSources = [MediaKinds.Logo, "generated", "authored"];
@@ -180,10 +181,33 @@ public static class ThemeLoader
             var defaults = ReadDefaults(v.Table(root, string.Empty, "defaults"), templates);
             var systems = ReadSystems(v.Table(root, string.Empty, "systems"), templates, look);
             var menu = ReadMenu(v.Table(root, string.Empty, "ui"));
+            var motion = ReadMotion(v.Table(root, string.Empty, "motion"));
             return new Theme(source.Id, name ?? source.Id, author, source.Origin, source.Folder, transition, look, defaults, templates, systems, Logos(systems))
             {
                 Menu = menu,
+                Motion = motion,
             };
+        }
+
+        // ---- Motion --------------------------------------------------------------------------------
+
+        /// <summary>
+        /// <c>[motion]</c> (A6 Motion): each key the theme sets replaces the base's; a bad one is an error and keeps the
+        /// base's.
+        /// </summary>
+        private ThemeMotion ReadMotion(TomlTableNode? table)
+        {
+            var inherited = baseTheme?.Motion ?? ThemeMotion.Default;
+            if (table is null)
+            {
+                return inherited;
+            }
+
+            const string prefix = "motion";
+            v.WarnUnknownKeys(table, prefix, MotionKeys);
+            return new ThemeMotion(
+                (float?)v.Number(table, prefix, "focus_sway", 0, ThemeMotion.Max) ?? inherited.FocusSway,
+                (float?)v.Number(table, prefix, "idle_bob", 0, ThemeMotion.Max) ?? inherited.IdleBob);
         }
 
         // ---- Menus ---------------------------------------------------------------------------------

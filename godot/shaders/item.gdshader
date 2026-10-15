@@ -68,6 +68,8 @@ uniform float grid_fade = 0.0;
 uniform vec3 edge_fade = vec3(0.2, 0.22, 0.8);
 // A system card's plain materials take its system's colour.
 uniform bool tint_case = false;
+// How far unfocused items bob, as a multiple of the launcher's own (the theme's [motion] idle_bob, A6 Motion).
+uniform float idle_bob = 1.0;
 
 // The focused game's video (A6 Game videos), shown on one cell's slot face in place of that slot's art:
 // (the cell, the slot, the picture's width over its height, its fade in); a cell of -1 shows none. Drawn whole (fitted
@@ -164,7 +166,7 @@ void vertex() {
 
 	// Unfocused items bob gently, unless an idle clip animates them (A7); it costs nothing on the CPU (A3).
 	if (custom.b >= 0.0 && animated < 0.5) {
-		VERTEX.y += sin(TIME * 1.3 + custom.b) * 0.012;
+		VERTEX.y += sin(TIME * 1.3 + custom.b) * 0.012 * idle_bob;
 	}
 
 	// A generated spine or back, or the generated backing of art drawn whole, takes its colour from the cover once the

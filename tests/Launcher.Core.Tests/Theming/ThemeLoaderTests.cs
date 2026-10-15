@@ -1068,4 +1068,84 @@ public sealed class ThemeLoaderTests
 
         Assert.NotEqual(ThemeFixtures.Base.Look.Background, slab.Look.Background);
     }
+
+    // ---- Motion (A6 Motion) -----------------------------------------------------------------------
+
+    [Fact]
+    public void A_theme_without_motion_moves_as_the_launcher_does()
+    {
+        Assert.Same(ThemeMotion.Default, ThemeFixtures.Base.Motion);
+        Assert.Same(ThemeMotion.Default, ThemeFixtures.Load(ThemeFixtures.SlabFolder).Motion);
+        Assert.Same(ThemeMotion.Default, ThemeFixtures.Parse("name = \"Test\"").Theme!.Motion);
+        Assert.Equal(new ThemeMotion(1, 1), ThemeMotion.Default);
+    }
+
+    [Fact]
+    public void Motion_is_read_as_multiples_of_the_launchers_own()
+    {
+        var result = ThemeFixtures.Parse("""
+            name = "Test"
+
+            [motion]
+            focus_sway = 0.5
+            idle_bob = 2
+            """);
+
+        Assert.Empty(result.Diagnostics);
+        Assert.Equal(new ThemeMotion(0.5f, 2), result.Theme!.Motion);
+    }
+
+    [Fact]
+    public void Each_motion_key_left_out_is_the_base_themes()
+    {
+        var baseTheme = ThemeFixtures.ParseBase("""
+            format = 1
+            name = "Base"
+
+            [look.background]
+            top_left = "#000000"
+            top_right = "#000000"
+            bottom_left = "#000000"
+            bottom_right = "#000000"
+
+            [look.ambient]
+            colour = "#202020"
+
+            [[look.lights]]
+            direction = [0, -1, 0]
+
+            [motion]
+            focus_sway = 1.5
+            idle_bob = 0.5
+            """, new FakeThemeFiles());
+
+        var motion = ThemeFixtures.Parse("""
+            name = "Test"
+
+            [motion]
+            idle_bob = 0
+            """, baseTheme: baseTheme).Theme!.Motion;
+
+        Assert.Equal(new ThemeMotion(1.5f, 0), motion);
+    }
+
+    [Fact]
+    public void Motion_mistakes_are_reported_at_their_keys_and_keep_the_base_value()
+    {
+        var result = ThemeFixtures.Parse("""
+            name = "Test"
+
+            [motion]
+            focus_swey = 2
+            idle_bob = 4
+            """);
+
+        var warning = Single(result, Severity.Warning);
+        Assert.Equal("motion.focus_swey", warning.Key);
+        Assert.Contains("did you mean 'focus_sway'?", warning.Message, StringComparison.Ordinal);
+        var error = Single(result, Severity.Error);
+        Assert.Equal(("motion.idle_bob", 5), (error.Key, error.Line));
+        Assert.Contains("out of range (0 to 3)", error.Message, StringComparison.Ordinal);
+        Assert.Equal(ThemeMotion.Default, result.Theme!.Motion);
+    }
 }

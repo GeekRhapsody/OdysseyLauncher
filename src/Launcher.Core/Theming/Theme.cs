@@ -140,6 +140,21 @@ public sealed record ThemeMenu(Rgb? Background, Rgb? Text, Rgb? Accent, string? 
     public bool SetsColour => Background is not null || Text is not null || Accent is not null;
 }
 
+/// <summary>
+/// <c>[motion]</c> (A6 Motion): how much the grids' procedural motion moves, as multiples of the launcher's own (1). Each
+/// value is the theme's, else the base theme's, else 1.
+/// </summary>
+/// <param name="FocusSway">The focused item's sway about its vertical, showing its spine (0: it faces the camera).</param>
+/// <param name="IdleBob">How far the items not focused bob up and down (0: they hold still).</param>
+public sealed record ThemeMotion(float FocusSway, float IdleBob)
+{
+    /// <summary>The largest multiple a theme may set.</summary>
+    public const float Max = 3;
+
+    /// <summary>The launcher's own motion.</summary>
+    public static ThemeMotion Default { get; } = new(1, 1);
+}
+
 public enum ThemeOrigin
 {
     /// <summary>
@@ -177,6 +192,9 @@ public sealed record Theme(
 
     /// <summary><c>[ui.menu]</c>: the menus' colours and font, layered over the base theme's (A6 Menus).</summary>
     public ThemeMenu Menu { get; init; } = ThemeMenu.None;
+
+    /// <summary><c>[motion]</c>: the focused item's sway and the others' bob, layered over the base theme's (A6 Motion).</summary>
+    public ThemeMotion Motion { get; init; } = ThemeMotion.Default;
 
     /// <summary>The look for a system's games, or the theme's own look for the systems grid (null) and virtual systems.</summary>
     public Look LookFor(string? systemId) =>

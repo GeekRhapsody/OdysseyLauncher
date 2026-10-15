@@ -10,6 +10,7 @@ using Launcher.App.Theming;
 using Launcher.Core.Library;
 using Launcher.Core.Media;
 using ThemeLook = Launcher.Core.Theming.Look;
+using ThemeMotion = Launcher.Core.Theming.ThemeMotion;
 
 namespace Launcher.App.Screens;
 
@@ -113,7 +114,8 @@ public sealed partial class ModelView : Control
     /// <param name="colour">Its plain colour (a system's card takes its system's).</param>
     /// <param name="logo">The card's logo, for a slot whose chain names <c>logo</c>; null for none.</param>
     /// <param name="cacheDir">Where logos' derivatives are (<see cref="ThemeLogos.CacheRoot"/> under it).</param>
-    public static ModelView Show(Control parent, ItemTemplate model, string title, Color colour, ThemeLook look, MediaRef? logo, string cacheDir)
+    /// <param name="motion">The theme's sway (A6 Motion), as the grid's focused item has it.</param>
+    public static ModelView Show(Control parent, ItemTemplate model, string title, Color colour, ThemeLook look, MediaRef? logo, string cacheDir, ThemeMotion motion)
     {
         if (_shared is null || !IsInstanceValid(_shared))
         {
@@ -123,6 +125,7 @@ public sealed partial class ModelView : Control
         var view = _shared;
         view._stage.Show(look, 0);
         view._grid.SetBackground(view._stage.Colours);
+        view._grid.SetMotion(motion);
         if (view._model != model)
         {
             view._model = model;

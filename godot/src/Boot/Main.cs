@@ -346,6 +346,7 @@ public partial class Main : Node3D
         _look!.Show(theme.LookFor(null), 0);
         var lookMs = clock.Elapsed.TotalMilliseconds;
         _gamesGrid!.SetBackground(_look.Colours);
+        _gamesGrid.SetMotion(theme.Plan.Active.Motion);
         _gamesGrid.SetTemplates(theme.GameTemplates);
         var templatesMs = clock.Elapsed.TotalMilliseconds;
 
@@ -375,6 +376,7 @@ public partial class Main : Node3D
             RowsVisible = SystemRowsVisible,
             Name = "Systems",
         };
+        _systemsGrid.SetMotion(theme.Plan.Active.Motion);
         _systemsGrid.SetTemplates(theme.CardTemplates);
         var gridsMs = clock.Elapsed.TotalMilliseconds;
         AddChild(_systemsGrid);

@@ -1164,8 +1164,10 @@ public sealed partial class Navigator : Node
         _perGameLoading.Clear();
 
         _systemsGrid.DisableTextures();
+        _systemsGrid.SetMotion(theme.Plan.Active.Motion);
         _systemsGrid.SetTemplates(theme.CardTemplates);
         _gamesGrid.DisableTextures();
+        _gamesGrid.SetMotion(theme.Plan.Active.Motion);
         _gamesGrid.SetTemplates(theme.GameTemplates);
         _loader.FreeRetired();
         InstallLayout(theme);
