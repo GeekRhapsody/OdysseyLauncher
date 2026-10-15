@@ -79,7 +79,27 @@ public sealed class SteamGridDbScraper : IScraper
 
     public async Task<ProviderResult> FetchAsync(string providerGameId, ScrapeQuery query, CancellationToken cancellationToken)
     {
-        // One saved response holds each art list asked for, so a rebuild can read it back.
+        ArgumentNullException.ThrowIfNull(query);
+        var response = await FetchListsAsync(providerGameId, query.WantedMedia, cancellationToken).ConfigureAwait(false);
+        return response is null ? ProviderResult.NotFound : new ProviderResult(Parse(response), null, response);
+    }
+
+    /// <summary>
+    /// The game's grids, heroes and logos (those of <paramref name="kinds"/>), at most <paramref name="limit"/> of each,
+    /// in the order <see cref="Parse"/> takes them: one request a kind.
+    /// </summary>
+    public async Task<IReadOnlyList<ScrapedArt>> ArtOptionsAsync(string providerGameId, IReadOnlySet<string> kinds, int limit, CancellationToken cancellationToken)
+    {
+        var response = await FetchListsAsync(providerGameId, kinds, cancellationToken).ConfigureAwait(false);
+        return response is null ? [] : ArtOptions(response, limit);
+    }
+
+    /// <summary>
+    /// Asks for each art list of <paramref name="kinds"/> and returns them as one saved response (so a rebuild can read it
+    /// back); null when the game is gone (or never existed): a stale match.
+    /// </summary>
+    private async Task<string?> FetchListsAsync(string providerGameId, IReadOnlySet<string> kinds, CancellationToken cancellationToken)
+    {
         var saved = new JsonObject { ["id"] = providerGameId };
         var game = Uri.EscapeDataString(providerGameId);
         (string Kind, string Path)[] lists =
@@ -90,7 +110,7 @@ public sealed class SteamGridDbScraper : IScraper
         ];
         foreach (var (kind, path) in lists)
         {
-            if (!query.WantedMedia.Contains(kind))
+            if (!kinds.Contains(kind))
             {
                 continue;
             }
@@ -98,8 +118,7 @@ public sealed class SteamGridDbScraper : IScraper
             var (reply, replyKind) = await _http.SendAsync(Id, _gate, () => Get(path), Classify, kind + " list", cancellationToken).ConfigureAwait(false);
             if (replyKind == ReplyKind.NotFound)
             {
-                // The game is gone (or never existed): a stale match.
-                return ProviderResult.NotFound;
+                return null;
             }
 
             using var document = LenientJson.Parse(reply.Text);
@@ -109,8 +128,7 @@ public sealed class SteamGridDbScraper : IScraper
             }
         }
 
-        var response = saved.ToJsonString();
-        return new ProviderResult(Parse(response), null, response);
+        return saved.ToJsonString();
     }
 
     public async Task<string> TestConnectionAsync(CancellationToken cancellationToken)
@@ -208,7 +226,10 @@ public sealed class SteamGridDbScraper : IScraper
             : reply.Body;
     }
 
-    /// <summary>Reads a saved response (<see cref="FetchAsync"/>'s): the first item of each art list. Offline and pure.</summary>
+    /// <summary>
+    /// Reads a saved response (<see cref="FetchAsync"/>'s): the first of each kind's <see cref="ArtOptions"/>, the
+    /// cover then the hero and the logo. Offline and pure.
+    /// </summary>
     public static ScrapedGame? Parse(string response)
     {
         ArgumentNullException.ThrowIfNull(response);
@@ -218,30 +239,62 @@ public sealed class SteamGridDbScraper : IScraper
             return null;
         }
 
-        var root = document.RootElement;
         var media = new List<ScrapedMedia>();
-        var covers = root.Arr(MediaKinds.Cover).ToList();
-        var cover = CoverDimensions
-            .Select(d => covers.FirstOrDefault(g => $"{g.Str("width")}x{g.Str("height")}" == d))
-            .FirstOrDefault(g => g.ValueKind == JsonValueKind.Object);
-        if (cover.ValueKind == JsonValueKind.Object && cover.Str("url") is { } coverUrl)
+        foreach (var kind in (ReadOnlySpan<string>)[MediaKinds.Cover, MediaKinds.Hero, MediaKinds.Logo])
         {
-            media.Add(new ScrapedMedia(MediaKinds.Cover, coverUrl));
-        }
-        else if (covers.FirstOrDefault().Str("url") is { } anyCover)
-        {
-            media.Add(new ScrapedMedia(MediaKinds.Cover, anyCover));
-        }
-
-        foreach (var kind in (ReadOnlySpan<string>)[MediaKinds.Hero, MediaKinds.Logo])
-        {
-            if (root.Arr(kind).FirstOrDefault().Str("url") is { } url)
+            if (Options(document.RootElement, kind, 1).FirstOrDefault() is { } first)
             {
-                media.Add(new ScrapedMedia(kind, url));
+                media.Add(first.Full);
             }
         }
 
         return new ScrapedGame(id, Media: media);
+    }
+
+    /// <summary>
+    /// Reads a saved response (<see cref="FetchAsync"/>'s): each art list's images, at most <paramref name="limit"/> a
+    /// kind, in the order a scrape takes them. Covers: by <see cref="CoverDimensions"/> (the case's ratio first), then
+    /// any other size, each size in SteamGridDB's order; heroes and logos in SteamGridDB's order. Covers come first,
+    /// then logos, then heroes. Offline and pure.
+    /// </summary>
+    public static IReadOnlyList<ScrapedArt> ArtOptions(string response, int limit)
+    {
+        ArgumentNullException.ThrowIfNull(response);
+        using var document = LenientJson.Parse(response);
+        if (document is null)
+        {
+            return [];
+        }
+
+        var options = new List<ScrapedArt>();
+        foreach (var kind in (ReadOnlySpan<string>)[MediaKinds.Cover, MediaKinds.Logo, MediaKinds.Hero])
+        {
+            options.AddRange(Options(document.RootElement, kind, limit));
+        }
+
+        return options;
+    }
+
+    private static IEnumerable<ScrapedArt> Options(JsonElement root, string kind, int limit)
+    {
+        var items = root.Arr(kind)
+            .Select((item, index) => (Item: item, Index: index))
+            .Where(i => i.Item.Str("url") is not null);
+        if (kind == MediaKinds.Cover)
+        {
+            items = items.OrderBy(i =>
+            {
+                var rank = Array.IndexOf(CoverDimensions, $"{i.Item.Str("width")}x{i.Item.Str("height")}");
+                return rank < 0 ? CoverDimensions.Length : rank;
+            }).ThenBy(i => i.Index);
+        }
+
+        return items.Take(Math.Max(0, limit)).Select(i =>
+        {
+            var url = i.Item.Str("url")!;
+            return new ScrapedArt(kind, new ScrapedMedia(kind, url), new ScrapedMedia(kind, i.Item.Str("thumb") ?? url),
+                (int)(i.Item.Num("width") ?? 0), (int)(i.Item.Num("height") ?? 0), i.Item.Str("style"));
+        }).ToList();
     }
 
     private HttpRequestMessage Get(string path)

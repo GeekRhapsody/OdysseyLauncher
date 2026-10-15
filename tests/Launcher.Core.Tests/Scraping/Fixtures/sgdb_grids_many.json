@@ -1,0 +1,16 @@
+{ "success": true, "page": 0, "total": 14, "limit": 50, "data": [
+  { "id": 101, "style": "alternate", "width": 600, "height": 900, "mime": "image/png", "url": "https://cdn2.steamgriddb.com/grid/g101.png", "thumb": "https://cdn2.steamgriddb.com/thumb/g101.jpg" },
+  { "id": 102, "style": "alternate", "width": 342, "height": 482, "mime": "image/png", "url": "https://cdn2.steamgriddb.com/grid/g102.png", "thumb": "https://cdn2.steamgriddb.com/thumb/g102.jpg" },
+  { "id": 103, "style": "material", "width": 660, "height": 930, "mime": "image/png", "url": "https://cdn2.steamgriddb.com/grid/g103.png", "thumb": "https://cdn2.steamgriddb.com/thumb/g103.jpg" },
+  { "id": 104, "style": "alternate", "width": 512, "height": 512, "mime": "image/png", "url": "https://cdn2.steamgriddb.com/grid/g104.png", "thumb": "https://cdn2.steamgriddb.com/thumb/g104.jpg" },
+  { "id": 105, "style": "white_logo", "width": 660, "height": 930, "mime": "image/png", "url": "https://cdn2.steamgriddb.com/grid/g105.png", "thumb": "https://cdn2.steamgriddb.com/thumb/g105.jpg" },
+  { "id": 106, "style": "alternate", "width": 600, "height": 900, "mime": "image/png", "url": "https://cdn2.steamgriddb.com/grid/g106.png", "thumb": "https://cdn2.steamgriddb.com/thumb/g106.jpg" },
+  { "id": 107, "style": "alternate", "width": 660, "height": 930, "mime": "image/png", "url": "https://cdn2.steamgriddb.com/grid/g107.png", "thumb": "https://cdn2.steamgriddb.com/thumb/g107.jpg" },
+  { "id": 108, "style": "blurred", "width": 342, "height": 482, "mime": "image/png", "url": "https://cdn2.steamgriddb.com/grid/g108.png", "thumb": "https://cdn2.steamgriddb.com/thumb/g108.jpg" },
+  { "id": 109, "style": "alternate", "width": 660, "height": 930, "mime": "image/png", "url": "https://cdn2.steamgriddb.com/grid/g109.png" },
+  { "id": 110, "style": "alternate", "width": 600, "height": 900, "mime": "image/png", "url": "https://cdn2.steamgriddb.com/grid/g110.png", "thumb": "https://cdn2.steamgriddb.com/thumb/g110.jpg" },
+  { "id": 111, "style": "alternate", "width": 660, "height": 930, "mime": "image/png", "thumb": "https://cdn2.steamgriddb.com/thumb/g111.jpg" },
+  { "id": 112, "style": "alternate", "width": 660, "height": 930, "mime": "image/png", "url": "https://cdn2.steamgriddb.com/grid/g112.png", "thumb": "https://cdn2.steamgriddb.com/thumb/g112.jpg" },
+  { "id": 113, "style": "alternate", "width": 660, "height": 930, "mime": "image/png", "url": "https://cdn2.steamgriddb.com/grid/g113.png", "thumb": "https://cdn2.steamgriddb.com/thumb/g113.jpg" },
+  { "id": 114, "style": "no_logo", "width": 660, "height": 930, "mime": "image/png", "url": "https://cdn2.steamgriddb.com/grid/g114.png", "thumb": "https://cdn2.steamgriddb.com/thumb/g114.jpg" }
+] }

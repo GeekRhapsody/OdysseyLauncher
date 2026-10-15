@@ -237,12 +237,35 @@ public sealed class ScraperUnitTests
         Assert.Equal("https://cdn2.steamgriddb.com/hero/h1.png", game.MediaOrEmpty.Single(m => m.Kind == "hero").Url);
         Assert.Equal("https://cdn2.steamgriddb.com/logo/l1.png", game.MediaOrEmpty.Single(m => m.Kind == "logo").Url);
         Assert.Null(game.Title);
+    }
 
-        static string Data(string fixture)
-        {
-            using var document = System.Text.Json.JsonDocument.Parse(ScrapeBed.Fixture(fixture));
-            return document.RootElement.GetProperty("data").GetRawText();
-        }
+    [Fact]
+    public void SteamGridDB_offers_its_art_in_the_order_a_scrape_takes_it_twelve_of_a_kind_at_most()
+    {
+        var saved = $$"""{"id":"5170","cover":{{Data("sgdb_grids_many.json")}},"hero":{{Data("sgdb_heroes.json")}},"logo":{{Data("sgdb_logos.json")}}}""";
+
+        var options = SteamGridDbScraper.ArtOptions(saved, ScrapeService.ArtChoiceLimit);
+
+        // Covers first, by size (the case's ratio first, then the smaller one, then 600x900, then anything else), each
+        // size in SteamGridDB's order; 111 has no image, and 104 (512x512, the 13th) is past the limit.
+        var covers = options.Where(o => o.Kind == "cover").ToList();
+        Assert.Equal(["g103", "g105", "g107", "g109", "g112", "g113", "g114", "g102", "g108", "g101", "g106", "g110"],
+            covers.Select(c => Path.GetFileNameWithoutExtension(c.Full.Url)));
+        Assert.Equal("https://cdn2.steamgriddb.com/thumb/g103.jpg", covers[0].Thumb.Url);
+        Assert.Equal("https://cdn2.steamgriddb.com/grid/g109.png", covers[3].Thumb.Url);       // no thumbnail: the image itself
+        Assert.Equal((660, 930, "material"), (covers[0].Width, covers[0].Height, covers[0].Style));
+        Assert.Equal(["cover", "logo", "hero"], options.Select(o => o.Kind).Distinct());
+
+        // The first of each is what a scrape takes.
+        var game = SteamGridDbScraper.Parse(saved)!;
+        Assert.Equal(covers[0].Full.Url, game.MediaOrEmpty.Single(m => m.Kind == "cover").Url);
+        Assert.Equal(3, SteamGridDbScraper.ArtOptions(saved, 1).Count);
+    }
+
+    private static string Data(string fixture)
+    {
+        using var document = System.Text.Json.JsonDocument.Parse(ScrapeBed.Fixture(fixture));
+        return document.RootElement.GetProperty("data").GetRawText();
     }
 
     [Fact]

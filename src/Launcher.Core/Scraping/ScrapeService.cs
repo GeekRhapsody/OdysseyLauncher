@@ -127,6 +127,48 @@ public sealed class MatchCover
     public override string ToString() => $"{Provider} {ProviderGameId} cover";
 }
 
+/// <summary>
+/// One image the user can choose for a kind once they've chosen a provider's game (2026-10-15: the art chooser of
+/// manual matching). Its thumbnail comes from <see cref="ScrapeService.GetArtThumbAsync"/>; choosing it means passing it
+/// to <see cref="ScrapeService.ScrapeGameWithMatchAsync(GameKey, string, string, IReadOnlyList{ArtChoice}, CancellationToken)"/>.
+/// What to download stays in Core, as for <see cref="MatchCover"/>.
+/// </summary>
+public sealed class ArtChoice
+{
+    internal ArtChoice(string provider, string providerGameId, ScrapedArt art)
+    {
+        Provider = provider;
+        ProviderGameId = providerGameId;
+        Art = art;
+    }
+
+    public string Provider { get; }
+
+    public string ProviderGameId { get; }
+
+    /// <summary>A <see cref="MediaKinds"/> value: cover, logo or hero.</summary>
+    public string Kind => Art.Kind;
+
+    /// <summary>The full image's size; 0 when the provider doesn't say.</summary>
+    public int Width => Art.Width;
+
+    public int Height => Art.Height;
+
+    /// <summary>The provider's word for its style, when it has one.</summary>
+    public string? Style => Art.Style;
+
+    internal ScrapedArt Art { get; }
+
+    public override string ToString() => $"{Provider} {ProviderGameId} {Kind}";
+}
+
+/// <summary>The images a provider's game offers for each kind, when it has more than one (the art chooser).</summary>
+/// <param name="Kinds">Each wanted kind with two images or more, cover then logo then hero; each list in the order a scrape takes them, at most <see cref="ScrapeService.ArtChoiceLimit"/>.</param>
+public sealed record ArtChoices(string Provider, string ProviderGameId, IReadOnlyList<(string Kind, IReadOnlyList<ArtChoice> Choices)> Kinds)
+{
+    public static ArtChoices None(string provider, string providerGameId) => new(provider, providerGameId, []);
+}
+
 /// <summary>One provider's answer to a manual match search.</summary>
 /// <param name="InOrder">Whether config's provider and fallback list names it; one that doesn't is still used for the game if the user chooses one of its results.</param>
 /// <param name="Candidates">The file's own match first (<see cref="MatchCandidate.MatchedBy"/>), then the closest name; empty when nothing was found or it wasn't searched.</param>
@@ -250,6 +292,12 @@ public sealed class ScrapeService : IDisposable
     /// <summary>How many search hits' covers <see cref="GetMatchCoverAsync"/> keeps (a few megabytes at most).</summary>
     public const int MatchCoverCache = 200;
 
+    /// <summary>How many images of a kind the art chooser offers, at most (<see cref="GetArtChoicesAsync"/>).</summary>
+    public const int ArtChoiceLimit = 12;
+
+    /// <summary>The kinds the art chooser offers, in its order.</summary>
+    private static readonly string[] ArtKinds = [MediaKinds.Cover, MediaKinds.Logo, MediaKinds.Hero];
+
     private readonly ScrapeServiceOptions _options;
     private readonly LibraryService _library;
     private readonly Dictionary<string, IScraper> _scrapers;
@@ -267,6 +315,7 @@ public sealed class ScrapeService : IDisposable
     private readonly ConcurrentDictionary<long, ConcurrentQueue<ProviderNotice>> _notices = new();
     private readonly ConcurrentDictionary<string, ProviderNotice> _resting = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<(string Provider, string Id), byte[]> _matchCovers = new();
+    private readonly ConcurrentDictionary<(string Provider, string Url), byte[]> _artThumbs = new();
     private readonly HashSet<long> _startedBatches = [];
     private Task? _runner;
     private long _generation;
@@ -453,11 +502,23 @@ public sealed class ScrapeService : IDisposable
     /// bring again, goes (<see cref="ScrapeStore.SaveReplacing"/>), so a corrected match leaves nothing of the wrong
     /// game behind.
     /// </summary>
-    public async Task<ScrapeBatchResult> ScrapeGameWithMatchAsync(GameKey game, string provider, string providerGameId, CancellationToken cancellationToken)
+    public Task<ScrapeBatchResult> ScrapeGameWithMatchAsync(GameKey game, string provider, string providerGameId, CancellationToken cancellationToken) =>
+        ScrapeGameWithMatchAsync(game, provider, providerGameId, [], cancellationToken);
+
+    /// <summary>
+    /// <see cref="ScrapeGameWithMatchAsync(GameKey, string, string, CancellationToken)"/> with the images the user
+    /// chose in the art chooser (2026-10-15; <see cref="GetArtChoicesAsync"/>): each is downloaded first and replaces the
+    /// game's file of its kind, as the user's own image does (<see cref="UserArtService"/>), since the user chose it.
+    /// The scrape then leaves those kinds alone (they have files). One that can't be downloaded changes nothing: its
+    /// kind is scraped as usual.
+    /// </summary>
+    public async Task<ScrapeBatchResult> ScrapeGameWithMatchAsync(GameKey game, string provider, string providerGameId, IReadOnlyList<ArtChoice> art,
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(provider);
+        ArgumentNullException.ThrowIfNull(art);
         ObjectDisposedException.ThrowIf(_disposed, this);
-        if (!_scrapers.ContainsKey(provider))
+        if (!_scrapers.TryGetValue(provider, out var scraper))
         {
             throw new ArgumentException($"'{provider}' isn't a provider.", nameof(provider));
         }
@@ -467,13 +528,46 @@ public sealed class ScrapeService : IDisposable
             throw new ArgumentException("A provider's game id can't be empty.", nameof(providerGameId));
         }
 
+        if (art.Any(a => a.Provider != provider || a.ProviderGameId != providerGameId))
+        {
+            throw new ArgumentException("Every chosen image must be the chosen game's.", nameof(art));
+        }
+
         var now = _clock.GetUtcNow().ToUnixTimeMilliseconds();
         await _library.WriteAsync(c =>
         {
             ScrapeStore.SaveManualMatch(c, game, provider, providerGameId, now);
             return true;
         }, cancellationToken).ConfigureAwait(false);
+
+        if (art.Count > 0)
+        {
+            await SaveChosenArtAsync(game, scraper, art, cancellationToken).ConfigureAwait(false);
+        }
+
         return await RunBatchAsync(ManualKind, $"{game.SystemId}/{game.PathKey}", 0, _ => [game], cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>Downloads each chosen image and makes it the game's file of its kind; a failure is logged and changes nothing.</summary>
+    private async Task SaveChosenArtAsync(GameKey game, IScraper scraper, IReadOnlyList<ArtChoice> art, CancellationToken cancellationToken)
+    {
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _lifetime.Token);
+        var userArt = new UserArtService(_library, Derivatives);
+        foreach (var choice in art.DistinctBy(a => a.Kind, StringComparer.Ordinal))
+        {
+            try
+            {
+                var bytes = await scraper.DownloadAsync(choice.Art.Full, linked.Token).ConfigureAwait(false);
+                var result = await userArt.SetAsync(game, choice.Kind, bytes, linked.Token).ConfigureAwait(false);
+                _log.Write(result.Status == UserArtStatus.Set ? LogLevel.Info : LogLevel.Warning,
+                    $"{scraper.Id}: {game.SystemId}/{game.PathKey}: chosen {choice.Kind}: {result.Status}{(result.Message is null ? string.Empty : ": " + result.Message)}");
+            }
+            catch (ProviderException e)
+            {
+                _log.Write(LogLevel.Warning, $"{scraper.Id}: {game.SystemId}/{game.PathKey}: chosen {choice.Kind}: {e.Message}");
+                Rest(e);
+            }
+        }
     }
 
     private async Task<ScrapeQuery> FileQueryAsync(GameContext context, SystemConfig system, ScrapingSettings settings, CancellationToken cancellationToken)
@@ -566,24 +660,7 @@ public sealed class ScrapeService : IDisposable
             return null;
         }
 
-        using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _lifetime.Token);
-        byte[] image;
-        try
-        {
-            var media = await scraper.SearchCoverAsync(cover.Candidate, linked.Token).ConfigureAwait(false);
-            var bytes = media is null ? [] : await scraper.DownloadAsync(media, linked.Token).ConfigureAwait(false);
-            image = ImageFormats.Sniff(bytes) is null ? [] : bytes;
-        }
-        catch (ProviderException e) when (e.Failure == ProviderFailure.Rejected)
-        {
-            // Refused or gone (ScreenScraper's NOMEDIA): it has no cover to show.
-            image = [];
-        }
-        catch (ProviderException e)
-        {
-            Rest(e);
-            throw new ProviderException(e.Provider, e.Failure, _redactor.Redact(e.Message), e.Until);
-        }
+        var image = await DownloadSmallAsync(scraper, token => scraper.SearchCoverAsync(cover.Candidate, token), cancellationToken).ConfigureAwait(false);
 
         // A crude bound: the panel shows a search or two's worth at a time.
         if (_matchCovers.Count >= MatchCoverCache)
@@ -593,6 +670,109 @@ public sealed class ScrapeService : IDisposable
 
         _matchCovers[key] = image;
         return image.Length == 0 ? null : image;
+    }
+
+    /// <summary>
+    /// The art chooser (2026-10-15): once the user has chosen a provider's game, the images it has of each wanted kind
+    /// (<c>[scraping] media</c>: cover, logo, hero), when it has two or more, at most <see cref="ArtChoiceLimit"/> a
+    /// kind, the one a scrape would take first. Only SteamGridDB offers a choice (one request a kind); the others, and
+    /// a resting provider, answer none at once. Throws <see cref="ProviderException"/> when the lists couldn't be
+    /// fetched (the message redacted).
+    /// </summary>
+    public async Task<ArtChoices> GetArtChoicesAsync(string provider, string providerGameId, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(provider);
+        ArgumentNullException.ThrowIfNull(providerGameId);
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (!_scrapers.TryGetValue(provider, out var scraper) || scraper.Unavailable is not null || IsResting(provider, out _))
+        {
+            return ArtChoices.None(provider, providerGameId);
+        }
+
+        var wanted = _library.Config.Settings.Scraping.Media;
+        var kinds = ArtKinds.Where(k => wanted.Contains(k) && scraper.Capabilities.Media.Contains(k)).ToHashSet(StringComparer.Ordinal);
+        if (kinds.Count == 0)
+        {
+            return ArtChoices.None(provider, providerGameId);
+        }
+
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _lifetime.Token);
+        IReadOnlyList<ScrapedArt> options;
+        try
+        {
+            options = await scraper.ArtOptionsAsync(providerGameId, kinds, ArtChoiceLimit, linked.Token).ConfigureAwait(false);
+        }
+        catch (ProviderException e)
+        {
+            Rest(e);
+            throw new ProviderException(e.Provider, e.Failure, _redactor.Redact(e.Message), e.Until);
+        }
+
+        var choices = new List<(string, IReadOnlyList<ArtChoice>)>();
+        foreach (var kind in ArtKinds)
+        {
+            var ofKind = options.Where(o => o.Kind == kind).Take(ArtChoiceLimit).Select(o => new ArtChoice(provider, providerGameId, o)).ToList();
+            if (kinds.Contains(kind) && ofKind.Count >= 2)
+            {
+                choices.Add((kind, ofKind));
+            }
+        }
+
+        return new ArtChoices(provider, providerGameId, choices);
+    }
+
+    /// <summary>
+    /// An art choice's thumbnail, as the provider serves it (PNG, JPEG or WebP); null when it's gone or isn't an image.
+    /// Kept as <see cref="GetMatchCoverAsync"/>'s covers are. Throws <see cref="ProviderException"/> when the download
+    /// failed (the message redacted).
+    /// </summary>
+    public async Task<byte[]?> GetArtThumbAsync(ArtChoice choice, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(choice);
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        var key = (choice.Provider, choice.Art.Thumb.Url);
+        if (_artThumbs.TryGetValue(key, out var kept))
+        {
+            return kept.Length == 0 ? null : kept;
+        }
+
+        if (!_scrapers.TryGetValue(choice.Provider, out var scraper) || IsResting(choice.Provider, out _))
+        {
+            return null;
+        }
+
+        var image = await DownloadSmallAsync(scraper, _ => Task.FromResult<ScrapedMedia?>(choice.Art.Thumb), cancellationToken).ConfigureAwait(false);
+        if (_artThumbs.Count >= MatchCoverCache)
+        {
+            _artThumbs.Clear();
+        }
+
+        _artThumbs[key] = image;
+        return image.Length == 0 ? null : image;
+    }
+
+    /// <summary>
+    /// Downloads a small image for the match panels: empty when there's none, it was refused or gone (ScreenScraper's
+    /// NOMEDIA), or it isn't an image. Any other failure rests the provider as a scrape would, and is rethrown redacted.
+    /// </summary>
+    private async Task<byte[]> DownloadSmallAsync(IScraper scraper, Func<CancellationToken, Task<ScrapedMedia?>> find, CancellationToken cancellationToken)
+    {
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _lifetime.Token);
+        try
+        {
+            var media = await find(linked.Token).ConfigureAwait(false);
+            var bytes = media is null ? [] : await scraper.DownloadAsync(media, linked.Token).ConfigureAwait(false);
+            return ImageFormats.Sniff(bytes) is null ? [] : bytes;
+        }
+        catch (ProviderException e) when (e.Failure == ProviderFailure.Rejected)
+        {
+            return [];
+        }
+        catch (ProviderException e)
+        {
+            Rest(e);
+            throw new ProviderException(e.Provider, e.Failure, _redactor.Redact(e.Message), e.Until);
+        }
     }
 
     private static async Task<ScrapeCandidate?> IdentifyAsync(IScraper scraper, Task<ScrapeQuery> file, CancellationToken cancellationToken)

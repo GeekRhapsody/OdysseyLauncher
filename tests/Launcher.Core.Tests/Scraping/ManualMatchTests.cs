@@ -390,6 +390,118 @@ public sealed class ManualMatchTests : IAsyncLifetime
         Assert.Equal(["steamgriddb", "screenscraper"], game.Scrape!.Providers);
     }
 
+    // ---- Choosing the art (2026-10-15) ----------------------------------------------------------------
+
+    [Fact]
+    public async Task SteamGridDB_offers_each_wanted_kind_it_has_several_of_and_the_others_offer_none()
+    {
+        _bed.Reconfigure("media = [\"cover\", \"hero\", \"logo\", \"spine\"]");
+        _bed.Http.On("GET", u => ScrapeBed.Is(u, "steamgriddb.com", "/api/v2/grids/game/"), _ => FakeHttpHandler.Json(ScrapeBed.Fixture("sgdb_grids_many.json")));
+        _bed.Http.On("GET", u => ScrapeBed.Is(u, "steamgriddb.com", "/api/v2/logos/game/"), _ => FakeHttpHandler.Json(
+            """{"success":true,"data":[{"id":31,"url":"https://cdn2.steamgriddb.com/logo/l1.png"},{"id":32,"url":"https://cdn2.steamgriddb.com/logo/l2.png"}]}"""));
+        using var service = _bed.Service();
+
+        var choices = await service.GetArtChoicesAsync("steamgriddb", "5170", Ct);
+
+        // Twelve covers, the scrape's own first; two logos; one hero, so no choice of hero (it's still asked for).
+        Assert.Equal(["cover", "logo"], choices.Kinds.Select(k => k.Kind));
+        var covers = choices.Kinds[0].Choices;
+        Assert.Equal(ScrapeService.ArtChoiceLimit, covers.Count);
+        Assert.All(covers, c => Assert.Equal(("steamgriddb", "5170", "cover"), (c.Provider, c.ProviderGameId, c.Kind)));
+        Assert.Equal((660, 930, "material"), (covers[0].Width, covers[0].Height, covers[0].Style));
+        Assert.Equal(1, _bed.Http.Count("/heroes/game/5170"));
+
+        // The other providers offer none, and ask nothing.
+        var requests = _bed.Http.Requests.Count;
+        Assert.Empty((await service.GetArtChoicesAsync("screenscraper", "1187", Ct)).Kinds);
+        Assert.Empty((await service.GetArtChoicesAsync("igdb", "1234", Ct)).Kinds);
+        Assert.Equal(requests, _bed.Http.Requests.Count);
+
+        // A choice's thumbnail is its small copy, downloaded once.
+        Assert.NotNull(ImageFormats.Sniff((await service.GetArtThumbAsync(covers[1], Ct))!));
+        Assert.NotNull(await service.GetArtThumbAsync(covers[1], Ct));
+        Assert.Equal(1, _bed.Http.Count("cdn2.steamgriddb.com/thumb/g105.jpg"));
+        Assert.Equal(0, _bed.Http.Count("cdn2.steamgriddb.com/grid/"));
+    }
+
+    [Fact]
+    public async Task Only_the_wanted_kinds_are_offered()
+    {
+        // The bed wants a cover, a label and a spine: SteamGridDB has only covers of those, and is asked for nothing else.
+        _bed.Http.On("GET", u => ScrapeBed.Is(u, "steamgriddb.com", "/api/v2/grids/game/"), _ => FakeHttpHandler.Json(ScrapeBed.Fixture("sgdb_grids_many.json")));
+        using var service = _bed.Service();
+
+        var choices = await service.GetArtChoicesAsync("steamgriddb", "5170", Ct);
+
+        Assert.Equal(["cover"], choices.Kinds.Select(k => k.Kind));
+        Assert.Equal(0, _bed.Http.Count("/heroes/") + _bed.Http.Count("/logos/"));
+    }
+
+    [Fact]
+    public async Task A_chosen_image_replaces_the_games_file_of_its_kind_and_the_scrape_leaves_it_alone()
+    {
+        _bed.Reconfigure("fallback = []\nmedia = [\"cover\", \"hero\"]");
+        _bed.Rom(Sonic);
+        var old = _bed.MediaFile(Sonic, MediaKinds.Cover, ".jpg");
+        Directory.CreateDirectory(Path.GetDirectoryName(old)!);
+        File.WriteAllBytes(old, TestSupport.TestImages.Jpeg(40, 56));
+        await _bed.ScanAsync();
+        var key = Key(Sonic);
+        _bed.Http.On("GET", u => ScrapeBed.Is(u, "steamgriddb.com", "/api/v2/grids/game/"), _ => FakeHttpHandler.Json(ScrapeBed.Fixture("sgdb_grids_many.json")));
+        using var service = _bed.Service();
+        var choices = await service.GetArtChoicesAsync("steamgriddb", "5170", Ct);
+        var second = choices.Kinds.Single(k => k.Kind == MediaKinds.Cover).Choices[1];
+        var grids = _bed.Http.Count("/grids/game/5170");
+
+        await service.ScrapeGameWithMatchAsync(key, "steamgriddb", "5170", [second], Ct);
+
+        // The chosen cover's full image replaced the old one, whatever its format; the scrape didn't ask for the grids
+        // again, and filled the hero as usual.
+        Assert.Equal(1, _bed.Http.Count("cdn2.steamgriddb.com/grid/g105.png"));
+        Assert.Equal(0, _bed.Http.Count("cdn2.steamgriddb.com/grid/g103.png"));
+        Assert.Equal(grids, _bed.Http.Count("/grids/game/5170"));
+        Assert.False(File.Exists(old));
+        Assert.Equal(ScrapeBed.Png("/grid/g105.png"), File.ReadAllBytes(_bed.MediaFile(Sonic, MediaKinds.Cover, ".png")));
+        var game = await _bed.Game("megadrive", "Sonic the Hedgehog 3 (Europe).md");
+        var media = await _bed.Library.GetGameMediaInfoAsync(game.GameId, Ct);
+        Assert.Equal("media/megadrive/covers/Sonic the Hedgehog 3 (Europe).png", media.Single(m => m.Kind == MediaKinds.Cover).Media.Path);
+        Assert.Contains(media, m => m.Kind == MediaKinds.Hero);
+        Assert.Equal("manual", _bed.Query<string>("SELECT method FROM scraper_matches WHERE scraper = 'steamgriddb'"));
+    }
+
+    [Fact]
+    public async Task A_chosen_image_that_cant_be_downloaded_leaves_the_games_file()
+    {
+        _bed.Reconfigure("fallback = []\nmedia = [\"cover\"]");
+        _bed.Rom(Sonic);
+        var old = _bed.MediaFile(Sonic, MediaKinds.Cover, ".jpg");
+        Directory.CreateDirectory(Path.GetDirectoryName(old)!);
+        File.WriteAllBytes(old, TestSupport.TestImages.Jpeg(40, 56));
+        await _bed.ScanAsync();
+        _bed.Http.On("GET", u => ScrapeBed.Is(u, "steamgriddb.com", "/api/v2/grids/game/"), _ => FakeHttpHandler.Json(ScrapeBed.Fixture("sgdb_grids_many.json")));
+        _bed.Http.On("GET", u => u.Host == "cdn2.steamgriddb.com" && u.AbsolutePath.StartsWith("/grid/", StringComparison.Ordinal),
+            _ => FakeHttpHandler.Text("Not Found", HttpStatusCode.NotFound));
+        using var service = _bed.Service();
+        var choices = await service.GetArtChoicesAsync("steamgriddb", "5170", Ct);
+
+        await service.ScrapeGameWithMatchAsync(Key(Sonic), "steamgriddb", "5170", [choices.Kinds[0].Choices[2]], Ct);
+
+        Assert.True(File.Exists(old));
+        Assert.False(File.Exists(_bed.MediaFile(Sonic, MediaKinds.Cover, ".png")));
+    }
+
+    [Fact]
+    public async Task A_chosen_image_must_be_the_chosen_games()
+    {
+        _bed.Rom(Sonic);
+        await _bed.ScanAsync();
+        _bed.Http.On("GET", u => ScrapeBed.Is(u, "steamgriddb.com", "/api/v2/grids/game/"), _ => FakeHttpHandler.Json(ScrapeBed.Fixture("sgdb_grids_many.json")));
+        using var service = _bed.Service();
+        var cover = (await service.GetArtChoicesAsync("steamgriddb", "5170", Ct)).Kinds[0].Choices[0];
+
+        await Assert.ThrowsAsync<ArgumentException>(() => service.ScrapeGameWithMatchAsync(Key(Sonic), "steamgriddb", "1", [cover], Ct));
+    }
+
     [Fact]
     public async Task A_choice_must_name_a_provider_and_a_game()
     {

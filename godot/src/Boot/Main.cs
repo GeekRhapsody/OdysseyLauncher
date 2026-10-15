@@ -961,7 +961,10 @@ public partial class Main : Node3D
                 _jobs.Jobs.End(_jobs.Jobs.Start("demo", "Scanning your ROM folders", "systems", null), JobState.Finished, "Done: 12 new games, 0 removed.");
                 break;
             case "match":
-                OpenMatchForDebug();
+                OpenMatchForDebug(art: false);
+                break;
+            case "art":
+                OpenMatchForDebug(art: true);
                 break;
             case "details":
                 OpenDetailsForDebug();
@@ -1009,9 +1012,11 @@ public partial class Main : Node3D
 
     /// <summary>
     /// <c>--open=match</c>: the game options and the match panel over made-up results, for the game at
-    /// <c>--start-index</c> of <c>--start-system</c> (read off the main thread). Nothing is searched or scraped.
+    /// <c>--start-index</c> of <c>--start-system</c> (read off the main thread). Nothing is searched or scraped. With
+    /// <paramref name="art"/> (<c>--open=art</c>), the art chooser over made-up images too, as choosing a SteamGridDB
+    /// result opens it.
     /// </summary>
-    private void OpenMatchForDebug()
+    private void OpenMatchForDebug(bool art)
     {
         var library = _services!.Library;
         var options = _settings!.Options!;
@@ -1034,15 +1039,22 @@ public partial class Main : Node3D
             {
                 if (game is null)
                 {
-                    GD.PushWarning("--open=match needs --start-system with games in it.");
+                    GD.PushWarning($"--open={(art ? "art" : "match")} needs --start-system with games in it.");
                     return;
                 }
 
                 // The match panel a frame later, as when the options' row opens it.
                 _ui!.Push(new GameOptionsPanel(options, game));
-                GetTree().CreateTimer(0).Timeout += () => _ui.Push(new GameMatchPanel(options, game,
-                    (provider, id) => GD.Print($"Match: would scrape with {provider} {id}."),
-                    GameMatchPanel.MadeUpResults(game, options.SystemName(game.Key.SystemId))));
+                GetTree().CreateTimer(0).Timeout += () =>
+                {
+                    _ui.Push(new GameMatchPanel(options, game,
+                        (provider, id, _) => GD.Print($"Match: would scrape with {provider} {id}."),
+                        GameMatchPanel.MadeUpResults(game, options.SystemName(game.Key.SystemId))));
+                    if (art)
+                    {
+                        _ui.Push(GameArtPanel.MadeUp(options, game));
+                    }
+                };
             });
         });
     }

@@ -22,7 +22,8 @@ namespace Launcher.App.Options;
 /// keep to. Each provider's current match is marked, so scraping again with it is one press. From 2026-10-07 each
 /// result shows its cover, so games of one name can be told apart: downloaded small and decoded off the main thread,
 /// each provider's from the top of its list, two at a time, and kept while the panel is open (a search for another
-/// name shows the ones it already has at once).
+/// name shows the ones it already has at once). From 2026-10-15, choosing a game whose provider has several images of a
+/// wanted kind (SteamGridDB) first opens the art chooser (<see cref="GameArtPanel"/>); B there comes back here.
 /// </summary>
 public sealed partial class GameMatchPanel : ListPanel
 {
@@ -38,9 +39,10 @@ public sealed partial class GameMatchPanel : ListPanel
     private readonly Dictionary<(string Provider, string Id), Cover> _covers = [];
     private readonly Dictionary<(string Provider, string Id), SettingRow> _coverRows = [];
     private readonly ItemOptions _options;
+    private readonly GameDetails _game;
     private readonly GameKey _key;
     private readonly string _title;
-    private readonly Action<string, string> _scrape;
+    private readonly Action<string, string, IReadOnlyList<ArtChoice>> _scrape;
     private readonly bool _madeUp;
     private MatchSearch? _search;
     private string? _failure;
@@ -49,13 +51,20 @@ public sealed partial class GameMatchPanel : ListPanel
     private CancellationTokenSource? _cancel;
     private CancellationTokenSource? _coverCancel;
     private int _coverGeneration;
+    private CancellationTokenSource? _artCancel;
+    private bool _choosing;
+    private bool _closed;
 
-    /// <param name="scrape">Gets the provider and its game's id when the user chooses one (the panel has closed by then).</param>
+    /// <param name="scrape">
+    /// Gets the provider, its game's id and the images chosen in the art chooser (empty when there was none) when the user
+    /// chooses one (the panel has closed by then).
+    /// </param>
     /// <param name="madeUp">Results to show instead of searching (<c>--open=match</c>): nothing is searched or scraped.</param>
-    public GameMatchPanel(ItemOptions options, GameDetails game, Action<string, string> scrape, MatchSearch? madeUp = null)
+    public GameMatchPanel(ItemOptions options, GameDetails game, Action<string, string, IReadOnlyList<ArtChoice>> scrape, MatchSearch? madeUp = null)
         : base($"Scrape {game.Title}")
     {
         _options = options;
+        _game = game;
         _key = game.Key;
         _title = game.Title;
         _scrape = scrape;
@@ -114,6 +123,8 @@ public sealed partial class GameMatchPanel : ListPanel
 
     public override void OnClosed()
     {
+        _closed = true;
+        _artCancel?.Cancel();
         _cancel?.Cancel();
         _coverCancel?.Cancel();
         _coverGeneration++;
@@ -347,7 +358,7 @@ public sealed partial class GameMatchPanel : ListPanel
                         try
                         {
                             var bytes = await jobs.GetMatchCoverAsync(item.Cover, token).ConfigureAwait(false);
-                            texture = bytes is null ? null : Decode(bytes);
+                            texture = bytes is null ? null : Thumbnails.FromBytes(bytes, DecodeSize);
                             caption = texture is null ? "No cover" : null;
                         }
                         catch (OperationCanceledException)
@@ -390,52 +401,6 @@ public sealed partial class GameMatchPanel : ListPanel
         }
     }
 
-    /// <summary>Worker thread: a cover's bytes as a texture no larger than <see cref="DecodeSize"/>; null when they can't be read.</summary>
-    private static ImageTexture? Decode(byte[] bytes)
-    {
-        // Decoding and the texture call into Godot: once the app is quitting, it doesn't start (GodotWork).
-        if (!GodotWork.TryEnter())
-        {
-            return null;
-        }
-
-        try
-        {
-            return DecodeImage(bytes);
-        }
-        finally
-        {
-            GodotWork.Exit();
-        }
-    }
-
-    private static ImageTexture? DecodeImage(byte[] bytes)
-    {
-        var image = new Image();
-        var error = ImageFormats.Sniff(bytes) switch
-        {
-            ".png" => image.LoadPngFromBuffer(bytes),
-            ".jpg" => image.LoadJpgFromBuffer(bytes),
-            ".webp" => image.LoadWebpFromBuffer(bytes),
-            _ => Error.FileUnrecognized,
-        };
-        if (error != Error.Ok || image.IsEmpty())
-        {
-            image.Dispose();
-            return null;
-        }
-
-        var scale = Math.Min(1.0, Math.Min((double)DecodeSize.X / image.GetWidth(), (double)DecodeSize.Y / image.GetHeight()));
-        if (scale < 1)
-        {
-            image.Resize(Math.Max(1, (int)Math.Round(image.GetWidth() * scale)), Math.Max(1, (int)Math.Round(image.GetHeight() * scale)), Image.Interpolation.Lanczos);
-        }
-
-        var texture = ImageTexture.CreateFromImage(image);
-        image.Dispose();
-        return texture;
-    }
-
     /// <summary>
     /// <c>--open=match</c>: made-up covers for the made-up results, a gradient in a colour of each one's own, and none
     /// for the prototype, so a capture shows both.
@@ -473,11 +438,85 @@ public sealed partial class GameMatchPanel : ListPanel
         }
     }
 
+    /// <summary>
+    /// A on a result: asks its provider for its images (SteamGridDB has several of each kind; the others answer at once
+    /// with none), and opens the art chooser when it has a choice to make; otherwise scrapes with it at once.
+    /// </summary>
     private void Choose(string provider, string id)
     {
-        GD.Print($"Match: {_key.SystemId}/{_key.PathKey}: scraping with {provider} {id}");
+        if (_choosing)
+        {
+            return;
+        }
+
+        if (_madeUp)
+        {
+            Scrape(provider, id, []);
+            return;
+        }
+
+        _choosing = true;
+        var name = _search?.Providers.FirstOrDefault(p => p.Provider == provider)?.DisplayName ?? provider;
+        ShowStatus($"Looking for {name}'s images…", UiStyle.Dim);
+        _artCancel?.Cancel();
+        var cancel = new CancellationTokenSource();
+        _artCancel = cancel;
+        var options = _options;
+        var gameId = _game.GameId;
+        _ = Task.Run(async () =>
+        {
+            ArtChoices? choices = null;
+            var current = new Dictionary<string, string>(StringComparer.Ordinal);
+            try
+            {
+                choices = await options.Jobs.GetArtChoicesAsync(provider, id, cancel.Token).ConfigureAwait(false);
+                if (choices.Kinds.Count > 0)
+                {
+                    // The kinds the game has a file for now: the chooser offers to keep it.
+                    foreach (var row in await options.Library.GetGameMediaInfoAsync(gameId, cancel.Token).ConfigureAwait(false))
+                    {
+                        current[row.Kind] = options.Library.MediaPath(row.Media.Path);
+                    }
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
+            catch (Exception e)
+            {
+                // Scraped as before: the first of each kind.
+                GD.PushWarning($"Match: {provider} {id}: its images couldn't be listed: {e.Message}");
+                choices = null;
+            }
+
+            options.Ui.Queue.Post(() =>
+            {
+                if (_closed || !IsInstanceValid(this))
+                {
+                    return;
+                }
+
+                _choosing = false;
+                ShowStatus(null);
+                if (choices is { Kinds.Count: > 0 })
+                {
+                    GD.Print($"Match: {_key.SystemId}/{_key.PathKey}: {provider} {id} offers {string.Join(", ", choices.Kinds.Select(k => $"{k.Choices.Count} {k.Kind}"))}");
+                    Layer.Push(new GameArtPanel(options, _game, choices, current, picks => Scrape(provider, id, picks)));
+                }
+                else
+                {
+                    Scrape(provider, id, []);
+                }
+            });
+        });
+    }
+
+    private void Scrape(string provider, string id, IReadOnlyList<ArtChoice> art)
+    {
+        GD.Print($"Match: {_key.SystemId}/{_key.PathKey}: scraping with {provider} {id}{(art.Count == 0 ? string.Empty : $" and the chosen {string.Join(", ", art.Select(a => a.Kind))}")}");
         Close();
-        _scrape(provider, id);
+        _scrape(provider, id, art);
     }
 
     /// <summary>For the log: the provider's match for the file itself (its ROM index), when it had one.</summary>

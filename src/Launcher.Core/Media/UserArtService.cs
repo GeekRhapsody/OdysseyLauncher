@@ -77,28 +77,17 @@ public sealed class UserArtService(LibraryService library, DerivativeService? de
                     return new UserArtResult(UserArtStatus.NotAnImage, null, Message: $"'{Path.GetFileName(sourceFile)}' isn't an image the launcher can read.");
                 }
 
-                var relative = PathFor(game, details.RelPath, kind, extension);
-                var target = Full(relative);
-
-                // Choosing the file that's already there (from the art folder itself) changes nothing.
-                if (!string.Equals(Path.GetFullPath(sourceFile), Path.GetFullPath(target), StringComparison.OrdinalIgnoreCase))
+                return Replace(game, details.RelPath, kind, extension, target =>
                 {
-                    Directory.CreateDirectory(Path.GetDirectoryName(target)!);
-                    var temporary = target + ".import.tmp";
-                    File.Copy(sourceFile, temporary, overwrite: true);
-                    File.Move(temporary, target, overwrite: true);
-                }
-
-                // One image per kind: the game's file in another format, or named after its whole ROM name, would be a second one.
-                foreach (var other in OwnFiles(details.RelPath, game.SystemId, kind))
-                {
-                    if (!string.Equals(other, relative, StringComparison.Ordinal))
+                    // Choosing the file that's already there (from the art folder itself) changes nothing.
+                    if (!string.Equals(Path.GetFullPath(sourceFile), Path.GetFullPath(target), StringComparison.OrdinalIgnoreCase))
                     {
-                        File.Delete(Full(other));
+                        File.Copy(sourceFile, target + ".import.tmp", overwrite: true);
+                        return true;
                     }
-                }
 
-                return new UserArtResult(UserArtStatus.Set, relative);
+                    return false;
+                });
             }
             catch (Exception e) when (e is IOException or UnauthorizedAccessException)
             {
@@ -106,6 +95,81 @@ public sealed class UserArtService(LibraryService library, DerivativeService? de
             }
         }, cancellationToken).ConfigureAwait(false);
 
+        return await IndexAsync(game, written, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Makes <paramref name="image"/> (PNG, JPEG or WebP bytes: an image the user chose from a provider's, 2026-10-15)
+    /// the game's file of <paramref name="kind"/>, as <see cref="SetAsync(GameKey, string, string, CancellationToken)"/> does
+    /// with a file.
+    /// </summary>
+    public async Task<UserArtResult> SetAsync(GameKey game, string kind, ReadOnlyMemory<byte> image, CancellationToken cancellationToken)
+    {
+        CheckKind(kind);
+        var details = await _library.GetGameAsync(game, cancellationToken).ConfigureAwait(false);
+        if (details is null)
+        {
+            return new UserArtResult(UserArtStatus.NotInLibrary, null, Message: $"{game.SystemId}/{game.PathKey} isn't in the library: rescan its system first.");
+        }
+
+        var written = await Task.Run(() =>
+        {
+            int width, height;
+            using (var stream = new MemoryStream(image.ToArray(), writable: false))
+            {
+                if (ImageFormats.Sniff(image.Span) is not { } extension || !ImageHeaders.TryReadSize(stream, out width, out height) || width <= 0 || height <= 0)
+                {
+                    return new UserArtResult(UserArtStatus.NotAnImage, null, Message: "It isn't a PNG, JPEG or WebP image the launcher can read.");
+                }
+
+                try
+                {
+                    return Replace(game, details.RelPath, kind, extension, target =>
+                    {
+                        File.WriteAllBytes(target + ".import.tmp", image.ToArray());
+                        return true;
+                    });
+                }
+                catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+                {
+                    return new UserArtResult(UserArtStatus.NotAnImage, null, Message: $"It couldn't be saved: {e.Message}");
+                }
+            }
+        }, cancellationToken).ConfigureAwait(false);
+
+        return await IndexAsync(game, written, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Worker thread: <paramref name="write"/> writes the image to the path it's given plus <c>.import.tmp</c> (false: it's
+    /// the file already), which is moved over the game's file of <paramref name="kind"/>; the game's other files of that
+    /// kind go.
+    /// </summary>
+    private UserArtResult Replace(GameKey game, string relPath, string kind, string extension, Func<string, bool> write)
+    {
+        var relative = PathFor(game, relPath, kind, extension);
+        var target = Full(relative);
+        Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+        if (write(target))
+        {
+            File.Move(target + ".import.tmp", target, overwrite: true);
+        }
+
+        // One image per kind: the game's file in another format, or named after its whole ROM name, would be a second one.
+        foreach (var other in OwnFiles(relPath, game.SystemId, kind))
+        {
+            if (!string.Equals(other, relative, StringComparison.Ordinal))
+            {
+                File.Delete(Full(other));
+            }
+        }
+
+        return new UserArtResult(UserArtStatus.Set, relative);
+    }
+
+    /// <summary>A set image's derivative is baked and it's indexed (raising <c>MediaChanged</c>); a refusal is returned as it is.</summary>
+    private async Task<UserArtResult> IndexAsync(GameKey game, UserArtResult written, CancellationToken cancellationToken)
+    {
         if (written.Status != UserArtStatus.Set)
         {
             return written;

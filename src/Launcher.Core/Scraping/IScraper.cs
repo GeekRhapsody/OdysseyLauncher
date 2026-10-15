@@ -60,6 +60,16 @@ public sealed record ScrapeQuery(
 /// <param name="Region">The provider's region code, when it has one.</param>
 public sealed record ScrapedMedia(string Kind, string Url, string? Region = null);
 
+/// <summary>
+/// One of the images a provider has for a kind (2026-10-15: the art chooser of manual matching), in the order a scrape
+/// would take them.
+/// </summary>
+/// <param name="Full">The image a scrape downloads.</param>
+/// <param name="Thumb">A small copy, to show in the chooser (<see cref="Full"/> when the provider has none).</param>
+/// <param name="Width">The full image's size; 0 when the provider doesn't say.</param>
+/// <param name="Style">The provider's word for its style (SteamGridDB's <c>alternate</c>, <c>blurred</c>, <c>official</c>), when it has one.</param>
+public sealed record ScrapedArt(string Kind, ScrapedMedia Full, ScrapedMedia Thumb, int Width, int Height, string? Style);
+
 /// <summary>A provider's answer for one game, normalised. Missing fields are null.</summary>
 /// <param name="ReleaseDate">ISO 8601, possibly partial: '1994', '1994-01' or '1994-01-23'.</param>
 /// <param name="Rating">0 to 1.</param>
@@ -192,6 +202,14 @@ public interface IScraper
     /// Null when it has none. <see cref="DownloadAsync"/> fetches it.
     /// </summary>
     Task<ScrapedMedia?> SearchCoverAsync(ScrapeCandidate candidate, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Every image the provider's game has of each of <paramref name="kinds"/>, the one a scrape takes first, at most
+    /// <paramref name="limit"/> a kind (2026-10-15: manual matching's art chooser). Empty when the game is gone, and for
+    /// a provider that doesn't offer a choice (all but SteamGridDB), which makes no request.
+    /// </summary>
+    Task<IReadOnlyList<ScrapedArt>> ArtOptionsAsync(string providerGameId, IReadOnlySet<string> kinds, int limit, CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyList<ScrapedArt>>([]);
 
     /// <summary>Downloads one image. The bytes are checked (and rejected if they aren't an image) by the media store.</summary>
     Task<byte[]> DownloadAsync(ScrapedMedia media, CancellationToken cancellationToken);

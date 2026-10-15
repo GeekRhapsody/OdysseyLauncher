@@ -256,11 +256,30 @@ public sealed class LibraryJobs : IDisposable
     }
 
     /// <summary>
+    /// The art chooser: the images a chosen provider's game has of each wanted kind, when it has several. Thread pool;
+    /// throws <see cref="ProviderException"/> when they couldn't be fetched.
+    /// </summary>
+    public async Task<ArtChoices> GetArtChoicesAsync(string provider, string providerGameId, CancellationToken cancellationToken)
+    {
+        using var cancel = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _shutdown.Token);
+        return await Scraper().GetArtChoicesAsync(provider, providerGameId, cancel.Token).ConfigureAwait(false);
+    }
+
+    /// <summary>The art chooser: a choice's thumbnail (PNG, JPEG or WebP bytes), or null. Thread pool; throws <see cref="ProviderException"/> when the download failed.</summary>
+    public async Task<byte[]?> GetArtThumbAsync(ArtChoice choice, CancellationToken cancellationToken)
+    {
+        using var cancel = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _shutdown.Token);
+        return await Scraper().GetArtThumbAsync(choice, cancel.Token).ConfigureAwait(false);
+    }
+
+    /// <summary>
     /// Scrapes one game in the background (the game options panel, M7), ahead of any batch. Main thread; false if that
     /// game is being scraped already. <paramref name="done"/> gets the outcome, on the main thread. With
-    /// <paramref name="match"/> (the match panel's choice: a provider and its game's id), that game comes first.
+    /// <paramref name="match"/> (the match panel's choice: a provider and its game's id), that game comes first, and
+    /// <paramref name="art"/> (the art chooser's picks, that game's images) replace the game's files of their kinds.
     /// </summary>
-    public bool ScrapeGame(GameKey game, string title, Action<string>? done = null, (string Provider, string Id)? match = null)
+    public bool ScrapeGame(GameKey game, string title, Action<string>? done = null, (string Provider, string Id)? match = null,
+        IReadOnlyList<ArtChoice>? art = null)
     {
         var jobTitle = $"Scraping {title}";
         foreach (var running in Jobs.Jobs)
@@ -283,7 +302,7 @@ public sealed class LibraryJobs : IDisposable
             try
             {
                 var result = match is { } chosen
-                    ? await scraper.ScrapeGameWithMatchAsync(game, chosen.Provider, chosen.Id, cancel.Token).ConfigureAwait(false)
+                    ? await scraper.ScrapeGameWithMatchAsync(game, chosen.Provider, chosen.Id, art ?? [], cancel.Token).ConfigureAwait(false)
                     : await scraper.ScrapeGameAsync(game, cancel.Token).ConfigureAwait(false);
                 var details = await library.GetGameAsync(game, CancellationToken.None).ConfigureAwait(false);
                 string outcome;

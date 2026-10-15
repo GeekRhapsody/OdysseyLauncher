@@ -185,6 +185,23 @@ public sealed class UserArtServiceTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task An_image_from_bytes_replaces_the_slots_file_in_its_own_format_and_junk_is_refused()
+    {
+        await _service.SetAsync(Key, MediaKinds.Cover, Download("a.jpg", TestSupport.TestImages.Jpeg(40, 56)), Ct);
+
+        var result = await _service.SetAsync(Key, MediaKinds.Cover, ScrapeBed.Png("chosen"), Ct);
+        var junk = await _service.SetAsync(Key, MediaKinds.Cover, "<html>gone</html>"u8.ToArray(), Ct);
+
+        Assert.Equal((UserArtStatus.Set, "media/megadrive/covers/Sonic the Hedgehog 3 (Europe).png"), (result.Status, result.Path));
+        Assert.False(File.Exists(Path.Combine(_bed.Paths.DataDir, "media", "megadrive", "covers", "Sonic the Hedgehog 3 (Europe).jpg")));
+        Assert.Empty(Directory.GetFiles(Path.Combine(_bed.Paths.DataDir, "media", "megadrive", "covers"), "*.tmp"));
+        var cover = (await Media(MediaKinds.Cover))!;
+        Assert.Equal((result.Path, 24, 32), (cover.Media.Path, cover.Width, cover.Height));
+        Assert.Equal(UserArtStatus.NotAnImage, junk.Status);
+        Assert.Equal(result.Path, (await Media(MediaKinds.Cover))!.Media.Path);
+    }
+
+    [Fact]
     public async Task A_rebuild_keeps_the_users_images()
     {
         await _service.SetAsync(Key, MediaKinds.Spine, Download("spine.png", ScrapeBed.Png("spine")), Ct);

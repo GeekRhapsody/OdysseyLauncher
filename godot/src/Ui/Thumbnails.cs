@@ -91,6 +91,54 @@ public static class Thumbnails
     }
 
     /// <summary>
+    /// Worker thread: downloaded image bytes (PNG, JPEG or WebP: manual matching's covers and art choices) as a texture
+    /// scaled down to fit <paramref name="fit"/> (never enlarged); null when they can't be read, or the app is quitting.
+    /// </summary>
+    public static ImageTexture? FromBytes(byte[] bytes, Vector2I fit)
+    {
+        if (!GodotWork.TryEnter())
+        {
+            return null;
+        }
+
+        try
+        {
+            return DecodeBytes(bytes, fit);
+        }
+        finally
+        {
+            GodotWork.Exit();
+        }
+    }
+
+    private static ImageTexture? DecodeBytes(byte[] bytes, Vector2I fit)
+    {
+        var image = new Image();
+        var error = ImageFormats.Sniff(bytes) switch
+        {
+            ".png" => image.LoadPngFromBuffer(bytes),
+            ".jpg" => image.LoadJpgFromBuffer(bytes),
+            ".webp" => image.LoadWebpFromBuffer(bytes),
+            _ => Error.FileUnrecognized,
+        };
+        if (error != Error.Ok || image.IsEmpty())
+        {
+            image.Dispose();
+            return null;
+        }
+
+        var scale = Math.Min(1.0, Math.Min((double)fit.X / image.GetWidth(), (double)fit.Y / image.GetHeight()));
+        if (scale < 1)
+        {
+            image.Resize(Math.Max(1, (int)Math.Round(image.GetWidth() * scale)), Math.Max(1, (int)Math.Round(image.GetHeight() * scale)), Image.Interpolation.Lanczos);
+        }
+
+        var texture = ImageTexture.CreateFromImage(image);
+        image.Dispose();
+        return texture;
+    }
+
+    /// <summary>
     /// Worker thread: a frame from a little way into a video (the first is often black), scaled to fit a square of
     /// <paramref name="side"/> pixels, and its length and file size for a caption; null, with the reason in
     /// <paramref name="info"/>, when it can't be decoded.

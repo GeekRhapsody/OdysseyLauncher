@@ -13,6 +13,7 @@ using Launcher.Core.Files;
 using Launcher.Core.Library;
 using Launcher.Core.Media;
 using Launcher.Core.Models;
+using Launcher.Core.Scraping;
 
 namespace Launcher.App.Options;
 
@@ -453,14 +454,14 @@ public sealed partial class GameOptionsPanel : ListPanel
         Layer.Push(new GameMatchPanel(_options, _game, ScrapeWith));
     }
 
-    private void ScrapeWith(string provider, string providerGameId)
+    private void ScrapeWith(string provider, string providerGameId, IReadOnlyList<ArtChoice> art)
     {
         if (!IsInstanceValid(this) || _scraping)
         {
             return;
         }
 
-        if (!_options.Jobs.ScrapeGame(_game.Key, _game.Title, Scraped, (provider, providerGameId)))
+        if (!_options.Jobs.ScrapeGame(_game.Key, _game.Title, Scraped, (provider, providerGameId), art))
         {
             ShowStatus("It's being scraped already.", UiStyle.Dim, 4);
             return;
