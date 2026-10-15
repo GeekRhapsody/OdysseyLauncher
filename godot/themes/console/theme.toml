@@ -51,6 +51,12 @@ model = "models/systems/gbc.glb"              # built by tools/console-models/ga
 [systems.gba]
 model = "models/systems/gba.glb"              # built by tools/console-models/game_boy.py, turned to a three-quarter view; its focused clip swoops a cartridge in on a barrel roll
 
+[systems.wonderswan]
+model = "models/systems/wonderswan.glb"       # built by tools/console-models/wonderswan.py, turned to a three-quarter view; its focused clip somersaults a cartridge into the back, then hops onto its end for a game played upright
+
+[systems.wonderswancolor]
+model = "models/systems/wonderswancolor.glb"  # built by tools/console-models/wonderswan.py, turned to a three-quarter view; its focused clip swoops a cartridge in, then leaps onto its end in a full twirl
+
 [systems.megadrive]
 model = "models/systems/megadrive.glb"        # built by tools/console-models/mega_drive.py, turned to a three-quarter view; its focused clip inserts a cartridge
 
