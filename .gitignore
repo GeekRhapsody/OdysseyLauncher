@@ -13,6 +13,7 @@ obj/
 .vscode/
 TestResults/
 *.DotSettings.user
+test-and-build.ps1
 
 # Local outputs (captures, bench JSON) and secrets
 /artifacts/

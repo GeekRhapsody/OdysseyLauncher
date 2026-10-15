@@ -228,6 +228,12 @@ public static class ShaderParams
     public static readonly StringName VideoState = "video_state";
     public static readonly StringName VideoWhole = "video_whole";
 
+    /// <summary>The inspected game's art (R3): its array, the cell and fade, and each slot's layer.</summary>
+    public static readonly StringName SlotsInspect = "slots_inspect";
+    public static readonly StringName InspectState = "inspect_state";
+    public static readonly StringName InspectLayersLow = "inspect_layers_low";
+    public static readonly StringName InspectLayersHigh = "inspect_layers_high";
+
     /// <summary>A per-instance uniform: INSTANCE_CUSTOM for an item drawn as its own node (item.gdshader).</summary>
     public static readonly StringName NodeCustom = "node_custom";
     public static readonly StringName BackgroundTopLeft = "bg_top_left";

@@ -264,6 +264,18 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
     private readonly AudioStreamPlayer? _videoSound;
     private bool _turned;
 
+    // The inspected game's sharper art (Textures/InspectTextures.cs; only the games grid reads its sources): the cell
+    // it's for (-1: none), whether that cell's slots changed since it was asked for, the request's slots and files, the
+    // art once it's made, the material showing it, and its fade in.
+    private readonly InspectTextures? _inspectArt;
+    private readonly int[] _inspectSlots = new int[Slots];
+    private readonly string[] _inspectPaths = new string[Slots];
+    private int _inspectArtCell = -1;
+    private bool _inspectArtStale;
+    private InspectArt? _inspectArtShown;
+    private ShaderMaterial? _inspectArtMaterial;
+    private float _inspectArtFade;
+
     // Whether the focused item is inspected (R3), and how far it and the item it left are towards that pose (0 to 1).
     private bool _inspecting;
     private float _inspectBlend;
@@ -301,6 +313,7 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
     {
         Name = "Grid";
         _streamer = streamer;
+        _inspectArt = streamer is { DirectSources: true } ? new InspectTextures() : null;
         _maxCells = maxCells;
         _systemCards = systemCards;
         _background = background;
@@ -1125,6 +1138,7 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
     public void DisableTextures()
     {
         _texturesEnabled = false;
+        DropInspectArt();
         for (var cell = 0; cell < _maxCells; cell++)
         {
             _streamer?.CancelCell(cell);
@@ -1255,6 +1269,7 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
             UpdateFocus(dt);
             UpdateVideo(dt);
             UpdateGameVideo(dt);
+            UpdateInspectArt(dt);
             AnimateFades(dt);
             MeasureTexturing();
         }
@@ -1262,6 +1277,7 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
         {
             StopVideo();
             StopGameVideo();
+            DropInspectArt();
             UpdateRoot();
         }
 
@@ -1665,6 +1681,7 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
     {
         StopVideo();
         StopGameVideo();
+        DropInspectArt();
     }
 
     // ---- Game videos ------------------------------------------------------------------------------
@@ -1799,6 +1816,133 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
         _gameVideoTexture = null;
     }
 
+    // ---- The inspected game's art ------------------------------------------------------------------
+
+    private const float InspectArtFadeSeconds = 0.15f;
+
+    private static readonly Vector4 NoInspectArt = new(-1, 0, 0, 0);
+
+    /// <summary>
+    /// The inspected game's slot art at <see cref="InspectTextures.Size"/> (A3): asked for when it's inspected, faded in
+    /// over the grid's layers once it's made, kept while the item eases back to its place, and freed once it's there.
+    /// </summary>
+    private void UpdateInspectArt(float dt)
+    {
+        if (_inspectArt is null)
+        {
+            return;
+        }
+
+        var want = !_texturesEnabled ? -1
+            : _focusCell >= 0 && _inspecting ? _focusCell
+            : _inspectArtCell >= 0 && IsInspected(_inspectArtCell) ? _inspectArtCell
+            : -1;
+        if (want != _inspectArtCell || _inspectArtStale)
+        {
+            DropInspectArt();
+            if (want >= 0)
+            {
+                RequestInspectArt(want);
+            }
+        }
+
+        if (_inspectArtCell < 0)
+        {
+            return;
+        }
+
+        if (_inspectArtShown is null)
+        {
+            if (!_inspectArt.TryTake(out var art))
+            {
+                return;
+            }
+
+            _inspectArtShown = art;
+            _inspectArtFade = 0;
+        }
+
+        if (_cellModel[_inspectArtCell] is not { } model || MaterialOf(_inspectArtCell, model) is not { } material)
+        {
+            return;
+        }
+
+        var changed = false;
+        if (material != _inspectArtMaterial)
+        {
+            ClearInspectArtMaterial();
+
+            // Disposed at once: a Variant holding an object keeps a reference until the GC finalises it, and this array
+            // is freed as soon as the item is back in its place.
+            using (var texture = Variant.CreateFrom(_inspectArtShown!.Texture))
+            {
+                material.SetShaderParameter(ShaderParams.SlotsInspect, texture);
+            }
+
+            material.SetShaderParameter(ShaderParams.InspectLayersLow, _inspectArtShown.LayersLow);
+            material.SetShaderParameter(ShaderParams.InspectLayersHigh, _inspectArtShown.LayersHigh);
+            _inspectArtMaterial = material;
+            changed = true;
+        }
+
+        if (_inspectArtFade < 1 || changed)
+        {
+            _inspectArtFade = Math.Min(1, _inspectArtFade + dt / InspectArtFadeSeconds);
+            material.SetShaderParameter(ShaderParams.InspectState, new Vector4(_inspectArtCell, _inspectArtFade, 0, 0));
+        }
+    }
+
+    /// <summary>Asks for the cell's art: every slot that shows media, from its source file.</summary>
+    private void RequestInspectArt(int cell)
+    {
+        var count = 0;
+        for (var slot = 0; slot < Slots; slot++)
+        {
+            var i = cell * Slots + slot;
+            if (_wanted[i] && _media[i].Path is { } path)
+            {
+                _inspectSlots[count] = slot;
+                _inspectPaths[count] = MediaFolder.FullPath(_streamer!.MediaDir, path);
+                count++;
+            }
+        }
+
+        _inspectArtCell = cell;
+        _inspectArtStale = false;
+        if (count > 0)
+        {
+            _inspectArt!.Request(cell, _inspectSlots.AsSpan(0, count), _inspectPaths.AsSpan(0, count));
+        }
+    }
+
+    /// <summary>Drops the inspected game's art (and any request for it), and shows the grid's layers again.</summary>
+    private void DropInspectArt()
+    {
+        if (_inspectArtCell < 0)
+        {
+            return;
+        }
+
+        _inspectArt?.Cancel();
+        ClearInspectArtMaterial();
+        _inspectArtShown?.Texture.Dispose();
+        _inspectArtShown = null;
+        _inspectArtCell = -1;
+        _inspectArtStale = false;
+        _inspectArtFade = 0;
+    }
+
+    private void ClearInspectArtMaterial()
+    {
+        if (_inspectArtMaterial is { } material)
+        {
+            material.SetShaderParameter(ShaderParams.InspectState, NoInspectArt);
+            material.SetShaderParameter(ShaderParams.SlotsInspect, default(Variant));
+        }
+
+        _inspectArtMaterial = null;
+    }
+
     // ---- Slots ------------------------------------------------------------------------------------
 
     /// <summary>
@@ -1842,6 +1986,11 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
     private void Apply(int cell, int slot, int channel, SlotResolution resolution, int item)
     {
         var i = cell * Slots + slot;
+        if (cell == _inspectArtCell)
+        {
+            _inspectArtStale = true;
+        }
+
         if (_textured[i] && _fade[i] < 1)
         {
             _fadingSlots--;
@@ -1894,6 +2043,11 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
 
     private void HideCell(int cell)
     {
+        if (cell == _inspectArtCell)
+        {
+            DropInspectArt();
+        }
+
         ReleaseNode(cell);
         RemoveInstance(cell);
         _cellTemplate[cell] = -1;

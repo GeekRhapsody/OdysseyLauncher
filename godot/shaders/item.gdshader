@@ -35,6 +35,14 @@ uniform sampler2DArray slots_large : source_color, filter_linear_mipmap_anisotro
 uniform sampler2DArray slots_small : source_color, filter_linear_mipmap_anisotropic, repeat_disable;
 uniform sampler2D slot_state : filter_nearest, repeat_disable;
 
+// The inspected game's art (R3), read again at 1024² (Textures/InspectTextures.cs): one cell's slots, faded in over the
+// grid's layers. inspect_state = (the cell, or -1 for none; the fade in); inspect_layers_low and _high are slots 0-3's
+// and 4-7's layers in slots_inspect (-1: that slot keeps the grid's layer).
+uniform sampler2DArray slots_inspect : source_color, filter_linear_mipmap_anisotropic, repeat_disable;
+uniform vec4 inspect_state = vec4(-1.0, 0.0, 0.0, 0.0);
+uniform vec4 inspect_layers_low = vec4(-1.0);
+uniform vec4 inspect_layers_high = vec4(-1.0);
+
 // INSTANCE_CUSTOM for an item drawn as its own node (Grid/ItemGrid.cs); a MultiMesh leaves it at -1 and uses its own.
 instance uniform vec4 node_custom = vec4(-1.0, 0.0, 0.0, 0.0);
 
@@ -222,10 +230,22 @@ vec3 authored(vec2 uv) {
 	return v_base * texel;
 }
 
+// The slot's media at a point of its square (its layer is coord.z): the grid's layer, or the inspected game's sharper
+// art fading in over it.
+vec4 slot_texel(vec3 coord) {
+	vec4 texel = v_slot == SLOT_COVER ? texture(slots_large, coord) : texture(slots_small, coord);
+	if (abs(v_cell - inspect_state.x) < 0.5) {
+		float layer = v_slot < 4 ? inspect_layers_low[v_slot] : inspect_layers_high[v_slot - 4];
+		if (layer >= 0.0) {
+			texel = mix(texel, texture(slots_inspect, vec3(coord.xy, layer)), inspect_state.y);
+		}
+	}
+	return texel;
+}
+
 // The slot's media, cropped to the face.
 vec3 media(vec2 uv, float face_aspect) {
-	vec3 coord = vec3(crop(uv, v_state.y, face_aspect), v_state.w);
-	return v_slot == SLOT_COVER ? texture(slots_large, coord).rgb : texture(slots_small, coord).rgb;
+	return slot_texel(vec3(crop(uv, v_state.y, face_aspect), v_state.w)).rgb;
 }
 
 // Art drawn whole, fitted inside the face over the slot's fallback: its authored texture (a screen's black, say), or
@@ -258,8 +278,7 @@ vec3 art_whole(vec2 uv, float face_aspect) {
 	if (any(lessThan(p, vec2(0.0))) || any(greaterThan(p, vec2(1.0)))) {
 		return base;
 	}
-	vec3 coord = vec3(p, v_state.w);
-	vec4 texel = v_slot == SLOT_COVER ? texture(slots_large, coord) : texture(slots_small, coord);
+	vec4 texel = slot_texel(vec3(p, v_state.w));
 	return mix(base, texel.rgb, texel.a);
 }
 

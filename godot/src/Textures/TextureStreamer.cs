@@ -50,9 +50,6 @@ public sealed class TextureStreamer : IDisposable
     /// <summary>POC: the layers' format when the sources are read directly (no runtime BC7 encoder in exports).</summary>
     public const Image.Format DirectFormat = Image.Format.Rgba8;
 
-    /// <summary>POC: the largest source image a worker reads.</summary>
-    private const long MaxSourceBytes = 64L * 1024 * 1024;
-
     /// <summary>A3: 4 MB per frame.</summary>
     public const long DefaultBudgetBytes = 4L * 1024 * 1024;
 
@@ -164,6 +161,9 @@ public sealed class TextureStreamer : IDisposable
 
     /// <summary>The layers' format: BC7 from derivatives, or RGBA8 from the sources themselves (POC).</summary>
     public Image.Format Format { get; }
+
+    /// <summary>Whether it reads the media folder's images themselves (the games grid's), not baked derivatives.</summary>
+    public bool DirectSources => _direct;
 
     /// <summary>The slot channels requests are for.</summary>
     public SlotLayout Layout { get; private set; } = SlotLayout.Empty;
@@ -763,86 +763,20 @@ public sealed class TextureStreamer : IDisposable
     }
 
     /// <summary>
-    /// POC: reads a source image (PNG, JPEG or WebP, told apart by its first bytes) into the worker's buffer, decodes
-    /// it into a pooled image, squeezes the whole image to the layer's square (as a derivative does, so the shader's crop
-    /// by the media's aspect still applies) and builds its mips. Null if there's no such file or it doesn't decode.
+    /// POC: reads a source image (PNG, JPEG or WebP) and decodes it into a pooled image, squeezed whole to the layer's
+    /// square with mips (as a derivative is, so the shader's crop by the media's aspect still applies). Null if there's
+    /// no such file or it doesn't decode.
     /// </summary>
     private Image? DecodeSource(string path, ref byte[] buffer, bool large)
     {
-        if (!TryReadFile(path, ref buffer, MaxSourceBytes, out var read))
-        {
-            return null;
-        }
-
-        var data = buffer.AsSpan(0, read);
         var image = TakeImage();
-        var error = data switch
-        {
-            [0x89, (byte)'P', (byte)'N', (byte)'G', ..] => image.LoadPngFromBuffer(data),
-            [0xFF, 0xD8, 0xFF, ..] => image.LoadJpgFromBuffer(data),
-            [(byte)'R', (byte)'I', (byte)'F', (byte)'F', _, _, _, _, (byte)'W', (byte)'E', (byte)'B', (byte)'P', ..] => image.LoadWebpFromBuffer(data),
-            _ => Error.FileUnrecognized,
-        };
-
-        if (error != Error.Ok || image.IsEmpty())
+        if (!SourceImages.TryLoadSquare(path, ref buffer, image, large ? LargeSize : SmallSize, DirectFormat))
         {
             Recycle(image);
             return null;
         }
 
-        if (image.GetFormat() != DirectFormat)
-        {
-            image.Convert(DirectFormat);
-        }
-
-        var size = large ? LargeSize : SmallSize;
-        image.Resize(size, size, Image.Interpolation.Lanczos);
-        image.GenerateMipmaps();
         return image;
-    }
-
-    /// <summary>Reads a whole file into the worker's buffer (growing it if need be). False if it's missing or too big.</summary>
-    private static bool TryReadFile(string path, ref byte[] buffer, long maxBytes, out int read)
-    {
-        read = 0;
-        SafeFileHandle handle;
-        try
-        {
-            handle = File.OpenHandle(path, FileMode.Open, System.IO.FileAccess.Read, FileShare.Read, FileOptions.SequentialScan);
-        }
-        catch (FileNotFoundException)
-        {
-            return false;
-        }
-        catch (DirectoryNotFoundException)
-        {
-            return false;
-        }
-
-        using var file = handle;
-        var length = RandomAccess.GetLength(file);
-        if (length > maxBytes)
-        {
-            return false;
-        }
-
-        if (length > buffer.Length)
-        {
-            buffer = new byte[length];
-        }
-
-        while (read < length)
-        {
-            var n = RandomAccess.Read(file, buffer.AsSpan(read, (int)length - read), read);
-            if (n == 0)
-            {
-                break;
-            }
-
-            read += n;
-        }
-
-        return true;
     }
 
     /// <summary>

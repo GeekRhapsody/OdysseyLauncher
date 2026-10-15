@@ -240,7 +240,7 @@ Moved or not done:
 - to later (not scheduled), needing the owner's choice:
   - streaming per-game models by the visible rows (or packing their meshes), for lists with many hundreds of them
   - the rest of material remapping (metallic, normal, emissive, unlit, alpha, texture transform), which A7 now lists as planned; mipmapped user textures are done
-  - carried over from M5: the LRU texture cache and the focused item's full-resolution art
+  - carried over from M5: the LRU texture cache and the focused item's full-resolution art (the inspected game's art at 1024² was done on 2026-10-15: ARCHITECTURE.md A3 Media slots)
 - ReadyToRun, which would take the new converter's first-call JIT (+33 ms of our start-up) off the boot: still waits for the owner's approval of the crossgen2 pack
 - the owner's manual test: a Blender model imported for a real game, and the sample theme's clips on the real display ([manual-tests.md](manual-tests.md#m6-part-2-your-own-models-the-sample-theme-and-clips)). Skinned and morph-target clips are untested.
 
