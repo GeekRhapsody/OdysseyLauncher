@@ -2,8 +2,8 @@
 
   <!--
     Writes a synthetic library into a user folder (the portable layout of the app's user-dir option): 20 systems, one with
-    10,000 games, with covers and baked BC7 derivatives taken from the M1 spike library by hardlink. Not part of
-    the solution. Usage is in Program.cs and docs/perf/m5-navigation.md.
+    10,000 games, with covers hardlinked from a folder of JPEGs (the M1 spike library's, or stand-ins the tool generates
+    with generate-covers). Not part of the solution. Usage is in Program.cs and docs/perf/m5-navigation.md.
   -->
   <PropertyGroup>
     <OutputType>Exe</OutputType>

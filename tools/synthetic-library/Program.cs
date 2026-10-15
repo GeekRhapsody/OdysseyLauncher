@@ -8,15 +8,18 @@ using Launcher.Core.Library;
 using Launcher.Core.Media;
 using Launcher.Core.Models;
 
-// synthetic-library --out=<absolute folder> --covers=<absolute M1 spike library> [--games=10000] [--others=<n>]
+// synthetic-library --out=<absolute folder> --covers=<absolute folder> [--generate-covers] [--games=10000] [--others=<n>]
 //                   [--no-art-every=9] [--slots=back,spine,...] [--models=<n>]
 //
 // Writes a portable user folder for `--user-dir`: settings, systems and emulators config, 20 systems (the 14 built-in
 // ones plus 6 more), PlayStation 2 with --games games and the others with --others each (default 30 to 400), and
 // empty ROM files with generated No-Intro-style names. Every game but one in --no-art-every has a cover in the media
-// folder (DataDir/media), hardlinked from the spike library's JPEGs, and its baked BC7 derivative in cache/textures,
-// hardlinked from the spike's DDS files, so the library costs almost no disk. With --slots, those games also get art
-// of each named kind (a different spike image for each), for themes whose templates use more slots than the cover.
+// folder (DataDir/media), hardlinked from the covers folder's JPEGs (<covers>/jpg/00000.jpg to 09999.jpg: the M1
+// spike library has them, and --generate-covers writes any that are missing, about 850 MB in a minute), so the
+// library costs almost no disk. The covers folder must be on the same volume as --out. The games grid decodes the
+// images itself, so there are no derivatives (docs/ARCHITECTURE.md decisions log, 2026-10-05). With --slots, those
+// games also get art of each named kind (a different image for each), for themes whose templates use more slots than
+// the cover.
 // With --models, that many PlayStation 2 games, spread evenly, get a per-game model of their own
 // (DataDir/media/ps2/models/<name>.glb, M6): a lathed figure on a plinth, about 1,000 triangles, with a cover
 // slot on the plinth and, on every third, a small texture of its own. Then it scans the library, so the app boots warm.
@@ -25,7 +28,7 @@ using Launcher.Core.Models;
 var options = Options.Parse(args);
 if (options is null)
 {
-    Console.Error.WriteLine("usage: synthetic-library --out=<absolute folder> --covers=<absolute spike library> [--games=10000] [--others=<n>] [--no-art-every=9] [--slots=back,spine,...] [--models=<n>]");
+    Console.Error.WriteLine("usage: synthetic-library --out=<absolute folder> --covers=<absolute folder> [--generate-covers] [--games=10000] [--others=<n>] [--no-art-every=9] [--slots=back,spine,...] [--models=<n>]");
     return 2;
 }
 
@@ -38,6 +41,19 @@ if (Directory.Exists(root) && Directory.EnumerateFileSystemEntries(root).Any() &
 }
 
 var stopwatch = Stopwatch.StartNew();
+if (options.GenerateCovers)
+{
+    var written = Covers.Generate(options.Covers);
+    Console.WriteLine($"Wrote {written:N0} covers into {Path.Combine(options.Covers, "jpg")} in {stopwatch.Elapsed.TotalSeconds:0.0} s.");
+    stopwatch.Restart();
+}
+
+if (Covers.FirstMissing(options.Covers) is { } missing)
+{
+    Console.Error.WriteLine($"The covers folder has no {missing}. Add --generate-covers to write stand-ins, or point --covers at the M1 spike library.");
+    return 1;
+}
+
 if (Directory.Exists(root))
 {
     Directory.Delete(root, recursive: true);
@@ -46,8 +62,6 @@ if (Directory.Exists(root))
 Directory.CreateDirectory(root);
 File.WriteAllText(Path.Combine(root, Marker), "Made by tools/synthetic-library. Safe to delete.\n");
 var romRoot = Path.Combine(root, "ROMs");
-var cacheDir = Path.Combine(root, "cache", TextureDerivatives.FolderName);
-Directory.CreateDirectory(cacheDir);
 
 File.WriteAllText(Path.Combine(root, ConfigSources.SettingsFileName), $"""
     [paths]
@@ -100,7 +114,7 @@ if (loaded.HasErrors)
 }
 
 var random = new Random(20260928);
-var spikeCover = 0;
+var sourceCover = 0;
 var covers = 0;
 var games = 0;
 var models = 0;
@@ -146,13 +160,12 @@ foreach (var system in generatedSystems)
             continue;
         }
 
-        // The spike's cover N, as the game's art, and its baked derivative under the key the app looks up; each
-        // extra slot kind gets another spike image.
-        var n = spikeCover++;
-        Link(system.Id, MediaKinds.Cover, stem, n % 10_000);
+        // Cover N as the game's art; each extra slot kind gets another image.
+        var n = sourceCover++;
+        Link(system.Id, MediaKinds.Cover, stem, n % Covers.Count);
         for (var k = 0; k < options.Slots.Count; k++)
         {
-            Link(system.Id, options.Slots[k], stem, (n + 3_331 * (k + 1)) % 10_000);
+            Link(system.Id, options.Slots[k], stem, (n + 3_331 * (k + 1)) % Covers.Count);
         }
 
         covers++;
@@ -178,40 +191,27 @@ return 0;
 
 void Link(string systemId, string kind, string stem, int n)
 {
-    var sourceJpeg = Path.Combine(options.Covers, "jpg", n.ToString("D5", CultureInfo.InvariantCulture) + ".jpg");
-    var sourceDds = Path.Combine(options.Covers, "dds-bc7", n.ToString("D5", CultureInfo.InvariantCulture) + ".dds");
     var relative = MediaStore.RelativePathFor(systemId, stem, kind, ".jpg");
     var art = Path.Combine(root, relative.Replace('/', Path.DirectorySeparatorChar));
     Directory.CreateDirectory(Path.GetDirectoryName(art)!);
-    HardLink(art, sourceJpeg);
-    var info = new FileInfo(art);
-    var key = TextureDerivatives.FileName(relative, info.Length, new DateTimeOffset(info.LastWriteTimeUtc).ToUnixTimeMilliseconds());
-    var derivative = Path.Combine(cacheDir, key);
-    if (!File.Exists(derivative))
-    {
-        HardLink(derivative, sourceDds);
-    }
+    HardLink(art, Covers.PathOf(options.Covers, n));
 }
 
 static void HardLink(string link, string target)
 {
-    if (!File.Exists(target))
-    {
-        throw new FileNotFoundException($"The spike library has no {target}. Generate it first (docs/SPIKE_RESULTS.md, Reproducing).", target);
-    }
-
     if (!NativeMethods.CreateHardLinkW(link, target, 0))
     {
         throw new IOException($"Couldn't hardlink {link} to {target}: Win32 error {Marshal.GetLastWin32Error()}.");
     }
 }
 
-internal sealed record Options(string Out, string Covers, int Games, int? Others, int NoArtEvery, IReadOnlyList<string> Slots, int Models)
+internal sealed record Options(string Out, string Covers, bool GenerateCovers, int Games, int? Others, int NoArtEvery, IReadOnlyList<string> Slots, int Models)
 {
     public static Options? Parse(string[] args)
     {
         string? output = null;
         string? covers = null;
+        var generateCovers = false;
         var games = 10_000;
         int? others = null;
         var noArtEvery = 9;
@@ -227,6 +227,9 @@ internal sealed record Options(string Out, string Covers, int Games, int? Others
                     break;
                 case "--covers" when Path.IsPathFullyQualified(value):
                     covers = Path.GetFullPath(value);
+                    break;
+                case "--generate-covers" when arg == name:
+                    generateCovers = true;
                     break;
                 case "--games" when int.TryParse(value, CultureInfo.InvariantCulture, out var n) && n > 0:
                     games = n;
@@ -257,7 +260,7 @@ internal sealed record Options(string Out, string Covers, int Games, int? Others
             }
         }
 
-        return output is null || covers is null ? null : new Options(output, covers, games, others, noArtEvery, slots, models);
+        return output is null || covers is null ? null : new Options(output, covers, generateCovers, games, others, noArtEvery, slots, models);
     }
 }
 

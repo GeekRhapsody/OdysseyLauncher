@@ -8,12 +8,14 @@ Everything is ExportRelease on .NET 8.0.31, Mobile/D3D12, with the shader baker 
 
 | Library | How it's made | Systems | Games | Art |
 |---|---|---|---|---|
-| Synthetic | `tools/synthetic-library` (below): the 14 built-in systems plus 6 more; PlayStation 2 has 10,000 games, the others 30–400 | 20 (22 cards with Favourites and Recently played) | 14,215 | 12,636 covers in `ConfigDir/media`, with baked BC7 derivatives; every ninth game has none |
+| Synthetic | `tools/synthetic-library` (below): the 14 built-in systems plus 6 more; PlayStation 2 has 10,000 games, the others 30–400 | 20 (22 cards with Favourites and Recently played) | 14,215 | 12,636 covers in `ConfigDir/media`, with baked BC7 derivatives (the tool wrote them until 2026-10-15; the games grid has read the images directly since 2026-10-05); every ninth game has none |
 | Real | The owner's NAS over SMB (`S:\`), the 14 built-in systems pointed at their folders with `rom_dirs`. Read only. | 14 (16 cards) | 9,422 | none: art is indexed from `ConfigDir/media` only, and scraping is M4 |
 
 ```powershell
-# The synthetic library, from the M1 spike's covers (hardlinked, so it costs almost no disk). About 50 s.
-dotnet run --project tools/synthetic-library -c ExportRelease -- "--out=$PWD\artifacts\synthetic" "--covers=$PWD\artifacts\spike-library"
+# The synthetic library, its covers hardlinked from a folder of JPEGs, so it costs almost no disk. About 50 s.
+# The M1 spike's (--covers=$PWD\artifacts\spike-library) were 512x512; without them, --generate-covers writes
+# 512x720 stand-ins into the folder (once, about a minute).
+dotnet run --project tools/synthetic-library -c ExportRelease -- "--out=$PWD\artifacts\synthetic" "--covers=$PWD\artifacts\covers" --generate-covers
 
 # The real library: a user folder whose systems.toml points each system at the NAS, e.g.
 #   [systems.ps2]
