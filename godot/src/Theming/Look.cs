@@ -220,7 +220,6 @@ public static class ShaderParams
     public static readonly StringName SpineSize = "spine_size";
     public static readonly StringName SpineColumns = "spine_columns";
     public static readonly StringName GridFade = "grid_fade";
-    public static readonly StringName EdgeFade = "edge_fade";
     public static readonly StringName TintCase = "tint_case";
     public static readonly StringName IdleBob = "idle_bob";
 

@@ -12,8 +12,7 @@ render_mode cull_back, depth_draw_opaque;
 //   r: the pool cell, which picks its row of slot_state and its place in the title atlas
 //   g: the plain colour of a box with no art (or of a system card), sRGB packed as r * 65536 + g * 256 + b
 //   b: the idle phase, or -1 when focused
-//   a: 1 when an idle clip animates it, so it doesn't bob as well; plus 2 while it's inspected (R3: large in the
-//      middle of the view), so it doesn't fade at the view's top and bottom
+//   a: 1 when an idle clip animates it, so it doesn't bob as well
 // and slot_state holds, per cell (y) and media slot (x): what the slot shows without media (1 generated,
 // 0 authored; plus 2 when the art is drawn whole over that, and 4 more when it's a logo), the media's aspect (0 when
 // none is wanted), its fade in, and its layer. Two more columns per cell reshape a box to its game's art (A6 shape = "media"):
@@ -63,9 +62,6 @@ uniform int spine_columns = 2;
 
 // 0 = drawn normally, 1 = exactly the background behind it: transitions fade whole grids without blending.
 uniform float grid_fade = 0.0;
-// Items fade towards the background near the top and bottom of the screen, under the overlay's text:
-// (top band, bottom band, strength), in screen fractions.
-uniform vec3 edge_fade = vec3(0.2, 0.22, 0.8);
 // A system card's plain materials take its system's colour.
 uniform bool tint_case = false;
 // How far unfocused items bob, as a multiple of the launcher's own (the theme's [motion] idle_bob, A6 Motion).
@@ -90,7 +86,6 @@ varying flat int v_tex;
 varying flat vec4 v_state;
 varying flat vec4 v_cover;
 varying flat float v_focus;
-varying flat float v_inspected;
 varying flat vec3 v_plain;
 varying flat vec3 v_dominant;
 varying flat vec3 v_ink;
@@ -157,8 +152,7 @@ void vertex() {
 	}
 	v_cover = texelFetch(slot_state, ivec2(SLOT_COVER, cell), 0);
 	v_focus = custom.b < 0.0 ? 1.0 : 0.0;
-	v_inspected = step(1.5, custom.a);
-	float animated = custom.a - 2.0 * v_inspected;
+	float animated = custom.a;
 	float packed = custom.g;
 	v_plain = to_linear(vec3(floor(packed / 65536.0), mod(floor(packed / 256.0), 256.0), mod(packed, 256.0)) / 255.0);
 	v_base = COLOR.rgb;
@@ -379,8 +373,7 @@ void fragment() {
 		mix(bg_top_left, bg_top_right, SCREEN_UV.x),
 		mix(bg_bottom_left, bg_bottom_right, SCREEN_UV.x),
 		SCREEN_UV.y));
-	float edge = max(1.0 - smoothstep(0.0, edge_fade.x, SCREEN_UV.y), smoothstep(1.0 - edge_fade.y, 1.0, SCREEN_UV.y));
-	float fade = max(grid_fade, edge * edge_fade.z * (1.0 - v_inspected));
+	float fade = grid_fade;
 	ALBEDO = albedo * (1.0 - fade);
 	ROUGHNESS = roughness;
 	SPECULAR = 0.5 * (1.0 - fade);

@@ -90,7 +90,6 @@ public sealed partial class ModelView : Control
         {
             Name = "Model",
             Layout = new GridLayout(GridShape.Single),
-            FadeAtEdges = false,
         };
         _viewport.AddChild(_grid);
 

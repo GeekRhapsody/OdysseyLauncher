@@ -182,7 +182,6 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
     private readonly SceneInstance?[] _cellScene;
     private readonly Node3D?[] _cellNode;
     private readonly bool[] _shaped;
-    private readonly bool[] _inspectedCell;
 
     // Per pool cell and slot: cell × Slots + slot.
     private readonly bool[] _wanted;
@@ -292,7 +291,6 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
     private float _envelopeHeight;
 
     private float _gridFade;
-    private bool _fadeAtEdges = true;
     private Vector3 _offset;
     private float _zoom = 1;
     private bool _rootDirty = true;
@@ -339,7 +337,6 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
         _cellScene = new SceneInstance?[maxCells];
         _cellNode = new Node3D?[maxCells];
         _shaped = new bool[maxCells];
-        _inspectedCell = new bool[maxCells];
         _wanted = new bool[maxCells * Slots];
         _textured = new bool[maxCells * Slots];
         _fade = new float[maxCells * Slots];
@@ -451,23 +448,6 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
             }
 
             Visible = value < 1;
-        }
-    }
-
-    /// <summary>
-    /// Whether items fade into the background near the top and bottom of the view, under the overlay's text (on by
-    /// default). Off for a model shown on its own, which fills its view (a system's details).
-    /// </summary>
-    public bool FadeAtEdges
-    {
-        get => _fadeAtEdges;
-        set
-        {
-            _fadeAtEdges = value;
-            foreach (var material in _materials)
-            {
-                ApplyEdgeFade(material);
-            }
         }
     }
 
@@ -706,7 +686,6 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
         }
 
         _background.ApplyTo(material);
-        ApplyEdgeFade(material);
         if (IsInsideTree())
         {
             _atlas.ApplyTo(material);
@@ -732,19 +711,6 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
             }
 
             return true;
-        }
-    }
-
-    /// <summary>The shader's default bands (item.gdshader <c>edge_fade</c>), or none.</summary>
-    private void ApplyEdgeFade(ShaderMaterial material)
-    {
-        if (_fadeAtEdges)
-        {
-            material.SetShaderParameter(ShaderParams.EdgeFade, default(Variant));
-        }
-        else
-        {
-            material.SetShaderParameter(ShaderParams.EdgeFade, Vector3.Zero);
         }
     }
 
@@ -2076,7 +2042,6 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
         RemoveInstance(cell);
         _cellTemplate[cell] = -1;
         _cellModel[cell] = null;
-        _inspectedCell[cell] = false;
         WriteShape(cell);
         _cellItem[cell] = -1;
         for (var slot = 0; slot < Slots; slot++)
@@ -2215,23 +2180,13 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
         return new Vector3(size.Width, size.Height, size.Depth);
     }
 
-    /// <summary>Whether the cell's item is inspected, or still on its way there or back (it then doesn't fade at the edges).</summary>
+    /// <summary>Whether the cell's item is inspected, or still on its way there or back.</summary>
     private bool IsInspected(int cell) =>
         cell >= 0 && ((cell == _focusCell && (_inspecting || _inspectBlend > 0)) || (cell == _previousCell && _previousInspect > 0));
 
-    /// <summary>Writes the cell's data again if whether it's inspected changed.</summary>
-    private void SyncInspected(int cell)
-    {
-        if (cell >= 0 && _inspectedCell[cell] != IsInspected(cell))
-        {
-            WriteCustom(cell);
-        }
-    }
-
     /// <summary>
     /// The cell's per-instance data (item.gdshader): the cell, the plain colour packed into one channel, the idle phase
-    /// (-1: focused), and 1 when a clip animates it (so the shader doesn't bob it too), plus 2 while it's inspected (so
-    /// it doesn't fade at the view's top and bottom).
+    /// (-1: focused), and 1 when a clip animates it (so the shader doesn't bob it too).
     /// </summary>
     private void WriteCustom(int cell)
     {
@@ -2243,8 +2198,7 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
         var phase = cell == _focusCell ? -1 : _cellPhase[cell];
         var plain = _cellPlain[cell];
         var packed = (Math.Clamp(plain.R8, 0, 255) << 16) | (Math.Clamp(plain.G8, 0, 255) << 8) | Math.Clamp(plain.B8, 0, 255);
-        _inspectedCell[cell] = IsInspected(cell);
-        var animated = (model.HasClip(ModelClip.Idle) && _cellScene[cell] is not null ? 1 : 0) + (_inspectedCell[cell] ? 2 : 0);
+        var animated = model.HasClip(ModelClip.Idle) && _cellScene[cell] is not null ? 1 : 0;
 
         // A node's data goes through an instance uniform as a Vector4: Godot converts a Color given to one from sRGB
         // to linear, which would scramble the cell and the packed colour.
@@ -2419,7 +2373,6 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
                     SetCellTransform(replaced, _cellBase[replaced]);
                     UseBatched(replaced);
                     _previousCell = -1;
-                    SyncInspected(replaced);
                 }
 
                 _previousCell = _focusCell;
@@ -2469,7 +2422,6 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
             }
 
             SetCellTransform(_focusCell, FocusTransform(_focusCell, _focusBlend, _swayTime, launch, _turnYaw, _turnPitch, _inspectBlend));
-            SyncInspected(_focusCell);
         }
 
         if (_previousCell >= 0)
@@ -2477,7 +2429,6 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
             _previousBlend = Math.Max(0, _previousBlend - dt * FocusBlendPerSecond);
             _previousInspect = Math.Max(0, _previousInspect - dt * InspectBlendPerSecond);
             SetCellTransform(_previousCell, FocusTransform(_previousCell, _previousBlend, 0, 0, _previousYaw, _previousPitch, _previousInspect));
-            SyncInspected(_previousCell);
 
             // A batched model's clip has blended back to rest by now (ClipBlendSeconds), so it can rejoin its MultiMesh.
             if (_previousBlend <= 0 && _previousInspect <= 0 && _focusTime >= ClipBlendSeconds)
