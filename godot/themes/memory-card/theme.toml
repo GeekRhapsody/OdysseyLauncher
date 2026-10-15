@@ -24,7 +24,7 @@ energy = 1.0
 
 [[look.lights]]
 direction = [0.7, -0.2, -0.6]
-colour = "#8090FF"
+colour = "#FFFFFF"
 energy = 0.5
 
 [[look.lights]]
