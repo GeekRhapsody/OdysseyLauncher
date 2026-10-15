@@ -25,7 +25,7 @@ Measured on 15 October 2026 on the development PC (Intel Core i5-11400F, 64 GB, 
   - The theme silent until every box has changed (the final version): `Apply` takes 3.2 ms on the export, and the switch's frame is **18–20 ms**. Coming back to the launcher's own palette, no frame is over 18 ms.
 - **A switch between themes with the same menus** does nothing.
 - **A menu font** is read and parsed on a worker (`FontFile.LoadDynamicFont`: 2–8 ms for the 220 KB TTF), never before `interactive`, and set in about 0.1 ms. The menus then lay out again on the next frame. Its printable ASCII at the menus' three main sizes is drawn ahead, a third of a size a frame. Other characters and sizes are rasterised when first drawn, as with the default font. A theme without a font pays none of this.
-- **Memory:** a font stays in memory while its theme is active, at most 4 MB (the budget), plus its glyph atlases. A replaced font is released at once (`MenuLook.Release`), not at the next full collection.
+- **Memory:** a font stays in memory while its theme is active, at most 4 MB (the budget), plus its glyph atlases (0.7 MB of textures for the 242 KB test font, after the warm-up and a settings page). A replaced font is released at once (`MenuLook.Release`), not at the next full collection, and leaves nothing behind (D).
 
 ## Results
 
@@ -53,7 +53,7 @@ The palette is applied once, in the warm-up after `interactive` (0.6 ms with the
 | Texture memory at the end | 358 MB | 358 MB |
 | Video memory at the end, each run | 436, 436, 436, 428, 436 MB | 444, 444, 436, 436, 444 MB |
 
-The video memory isn't pinned down. Texture memory is identical, and the after build's earlier run, before `Release` (`switch-after2` in the artifacts, not kept), ranged from 435 to 453 MB. So a used font may leave up to about 8 MB of buffers behind, which a later look could chase. An 18.8 ms frame at about frame 277, with no switch near it, showed up in 2 of the 16 runs of the after builds (B and C, as the change was refined) and in none of the 8 before. It's under the hitch threshold and not explained.
+The 8 MB difference in video memory is run-to-run spread, not something the font leaves behind (D). An 18.8 ms frame at about frame 277, with no switch near it, showed up in 2 of the 16 runs of the after builds (B and C, as the change was refined) and in none of the 8 before. It's under the hitch threshold and not explained.
 
 **C. Console → Slab → Console, with the settings open** (no font theme), frames over 18 ms after the settings opened.
 
@@ -62,6 +62,35 @@ The video memory isn't pinned down. Texture memory is identical, and the after b
 | Switch to Slab (frame ~165) | none | 35.4–37.7 ms | 18.3–19.4 ms |
 | Back to Console (frame ~432) | none | 30.2–31.4 ms | none |
 | Hitches | 1 | 3 | 1 |
+
+**D. Does a used font leave memory behind?** No. B's 8 MB is the way Godot counts video memory. Measured the same day on the same builds, with `--memory-log` (one sample a second) beside `--bench`, by a script that runs the export as `bench-export.ps1` does (one warm-up, then the runs). The data is in [menus/](menus/) (`memory-*`: each run's JSON and CSV).
+
+- **What "video memory" counts.** On D3D12 it's the allocator's heaps (`RenderingDeviceDriverD3D12::get_total_memory_used`: D3D12MA's `BlockBytes`), not the bytes in them. Texture and buffer memory are counted per resource. So video memory moves in whole heaps: every end figure in these runs, of every build and theme, is 427.9, 435.9, 443.9 or 451.9 MB (8 MB apart), with a few runs at 434.8, 439.0, 439.9 or 447.0 MB. Which heap a run ends on depends on the order its uploads happened in.
+- **B again, 10 runs each.** Console → a theme → Slab with the settings open, as in B. The theme was `menu-font` (only a menu font, a 242 KB TTF) or `menu-palette` (only `background = "#202020"`). Texture memory at the end was 357.7 MB in all 30 runs, and buffer memory 17.0–17.2 MB.
+
+  | Build, middle theme | Video memory at the end, each run | Median |
+  |---|---|---|
+  | After, the font | 428, 444, 436, 444, 435, 452, 436, 436, 444, 436 MB | 436 MB |
+  | After, the palette | 444, 444, 436, 444, 436, 436, 436, 444, 439, 444 MB | 441 MB |
+  | Before (ignores `[ui.menu]`), the font theme | 444, 447, 436, 444, 436, 444, 452, 444, 440, 444 MB | 444 MB |
+
+  The font run's median is the lowest of the three, and the before build, which never loads the font, spans the same heaps.
+- **Forty switches.** To make a leak per font add up, two user themes with Console's and Slab's ids replaced the built-in ones, so the `theme` step went back and forth between two themes on Memory Card's models alone. They differed only in their menus: a font in one (`alternate-font`), `background = "#202020"` in one (`alternate-palette`), or nothing (`alternate-none`). Each run made 40 switches, one a second with the settings open, so 20 fonts were loaded, used and released (3,000 frames, 3 runs each).
+
+  | Themes | Video memory, before the first switch → the end | Texture memory during the run |
+  |---|---|---|
+  | No difference | 292.7 → 299.8 MB (+7.1, +7.1, +7.1) | 253.6 MB throughout |
+  | A palette | 292.7 → 302.5 MB (+8.2, +10.5, +9.8) | 253.6 MB throughout |
+  | A font | 293.1 → 300.7 MB (+7.6 in all 3) | 254.3 MB with the font, 253.6 MB after each release |
+
+  The font's glyph textures (0.7 MB) are freed at every release. The 7–10 MB rise in video memory comes from the switches themselves, with or without a font (it's in the "no difference" runs too). So there was nothing to fix.
+
+```powershell
+# D: as B, with --memory-log=<run>.csv and themes/menu-font or themes/menu-palette in the user folder, 10 runs each
+'--theme=console', '--open=settings', '--nav-script=wait,wait,wait,wait,theme,wait,wait,wait,wait,wait,wait,wait,wait,theme'
+# D, forty switches: themes/console and themes/slab in the user folder (the two alternating themes), 3,000 frames
+'--theme=console', '--open=settings', "--nav-script=wait,wait,wait,wait,$((1..40 | ForEach-Object { 'theme,wait' }) -join ',')"
+```
 
 ## Captures
 

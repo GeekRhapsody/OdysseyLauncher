@@ -1,0 +1,135 @@
+{
+  "format": 2,
+  "created_utc": "2026-10-15T17:04:01.9803011+00:00",
+  "app_version": "0.15.0\u002Bca697d977e96b92cfddde3ba0c1be7d2d90d4c13",
+  "godot_version": "4.7.2-stable (official)",
+  "dotnet_version": ".NET 8.0.32",
+  "machine": {
+    "os": "Windows 10.0.26300",
+    "cpu": "11th Gen Intel(R) Core(TM) i5-11400F @ 2.60GHz",
+    "gpu": "NVIDIA GeForce RTX 3060",
+    "rendering_method": "mobile",
+    "rendering_driver": "d3d12"
+  },
+  "display": {
+    "refresh_hz": 60,
+    "refresh_assumed": false,
+    "window_width": 1280,
+    "window_height": 800,
+    "vsync": "Enabled",
+    "headless": false,
+    "window_mode": "Windowed",
+    "scene_render_width": 1280,
+    "scene_render_height": 800,
+    "screen_width": 1920,
+    "screen_height": 1080
+  },
+  "scenario": "boot",
+  "options": {
+    "render_scale": 1,
+    "upscaler": "bilinear",
+    "upload_cap": 4,
+    "no_textures": false,
+    "theme": "slab",
+    "media_slots": "cover (512\u00B2), back (256\u00B2), spine (256\u00B2), label (256\u00B2), screenshot (256\u00B2)",
+    "layout": "grid/grid"
+  },
+  "library": {
+    "systems": 22,
+    "games": 14215,
+    "system": null,
+    "system_games": 0
+  },
+  "app_startup_ms": 519.6646,
+  "startup_ms": {
+    "engine_start": 21.216499999999996,
+    "autoload_enter_tree": 869.2965,
+    "main_ready": 910.1379,
+    "config_loaded": 994.3254,
+    "theme_resolved": 1005.3874000000001,
+    "first_frame_drawn": 1071.9591,
+    "library_opened": 1193.4192,
+    "systems_loaded": 1228.7561,
+    "models_loaded": 1320.3832,
+    "scene_built": 1348.3872000000001,
+    "systems_grid_bound": 1370.0366,
+    "interactive": 1388.9611,
+    "warm_up_done": 1551.1914000000002
+  },
+  "frames": {
+    "count": 600,
+    "mean_ms": 16.602716666666687,
+    "min_ms": 1.036,
+    "max_ms": 42.412,
+    "p50_ms": 16.661,
+    "p95_ms": 16.967,
+    "p99_ms": 17.063,
+    "std_dev_ms": 1.5188173687847464,
+    "hitch_threshold_ms": 25,
+    "hitch_count": 1,
+    "over2x_count": 1,
+    "worst": [
+      {
+        "frame": 12,
+        "ms": 42.412
+      },
+      {
+        "frame": 435,
+        "ms": 18.868
+      },
+      {
+        "frame": 0,
+        "ms": 18.187
+      },
+      {
+        "frame": 272,
+        "ms": 17.22
+      },
+      {
+        "frame": 165,
+        "ms": 17.19
+      },
+      {
+        "frame": 433,
+        "ms": 17.172
+      },
+      {
+        "frame": 255,
+        "ms": 17.063
+      },
+      {
+        "frame": 523,
+        "ms": 17.051
+      },
+      {
+        "frame": 460,
+        "ms": 17.047
+      },
+      {
+        "frame": 339,
+        "ms": 17.038
+      }
+    ]
+  },
+  "render_ms": {
+    "cpu_mean_ms": 0.2695816665266951,
+    "gpu_mean_ms": 0.2413383351142208
+  },
+  "gc": {
+    "gen0": 1,
+    "gen1": 1,
+    "gen2": 0,
+    "pause_ms": 2.515,
+    "allocated_bytes": 5521616,
+    "main_thread_allocated_bytes": 2751232
+  },
+  "scroll": null,
+  "textures": null,
+  "memory": {
+    "working_set_bytes": 453787648,
+    "peak_working_set_bytes": 484270080,
+    "managed_heap_bytes": 12170504,
+    "texture_mem_bytes": 375099392,
+    "video_mem_bytes": 448696320
+  }
+}
