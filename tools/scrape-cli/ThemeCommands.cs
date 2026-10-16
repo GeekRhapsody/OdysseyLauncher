@@ -164,6 +164,13 @@ internal static class ThemeCommands
                     throw new ArgumentException($"Unknown: themes {verb}. Use list, install, update or remove.");
             }
         }
+        catch (ThemeChangesException e)
+        {
+            progress.End();
+            Console.Error.WriteLine(e.Message);
+            Console.Error.WriteLine("  --discard-changes overwrites them (files git doesn't track stay).");
+            return 1;
+        }
         catch (GitException e)
         {
             progress.End();
@@ -172,10 +179,6 @@ internal static class ThemeCommands
             {
                 Console.Error.WriteLine("  --replace moves it to the backups folder and installs the listed theme.");
             }
-            else if (e.Message.Contains("changes of your own", StringComparison.Ordinal))
-            {
-                Console.Error.WriteLine("  --discard-changes overwrites them (files git doesn't track stay).");
-            }
 
             return 1;
         }
@@ -183,7 +186,7 @@ internal static class ThemeCommands
 
     private static void Report(ThemeOperationResult result)
     {
-        Console.WriteLine($"{result.Status.Listing.Name}: {Describe(result.Status)}");
+        Console.WriteLine($"{result.Status.Listing.Name}: {(result.Updated ? string.Empty : "up to date; ")}{Describe(result.Status)}");
         if (result.BackupFolder is not null)
         {
             Console.WriteLine($"  The theme that was there is in {result.BackupFolder}");
@@ -199,7 +202,6 @@ internal static class ThemeCommands
     {
         var state = status.State switch
         {
-            ThemeInstallState.Installed when status.UpdateAvailable => $"update available ({status.InstalledCommit?[..7]} -> {status.Listing.ShortCommit})",
             ThemeInstallState.Installed => $"installed ({status.InstalledCommit?[..7]})",
             ThemeInstallState.ManualInstall => "another theme of that id is installed (--replace)",
             ThemeInstallState.Broken => "broken: an interrupted download (--replace)",

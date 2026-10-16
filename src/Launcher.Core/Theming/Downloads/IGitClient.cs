@@ -37,8 +37,7 @@ public interface IGitClient
 
     /// <summary>
     /// Clones <paramref name="url"/> into <paramref name="folder"/> (which mustn't exist, or be empty), checking nothing
-    /// out: <see cref="CheckOut"/> or <see cref="ResetToRemote"/> does, with line endings as committed whatever the user's
-    /// git settings.
+    /// out: <see cref="ResetTo"/> does, with line endings as committed whatever the user's git settings.
     /// </summary>
     void Clone(string url, string folder, IProgress<GitProgress>? progress, CancellationToken cancellation);
 
@@ -51,21 +50,24 @@ public interface IGitClient
     /// <summary><c>origin</c>'s URL; null for none.</summary>
     string? OriginUrl(string folder);
 
-    /// <summary>Whether the repository has the commit.</summary>
-    bool HasCommit(string folder, string commit);
-
     /// <summary>Whether a tracked file was changed or deleted. Files git doesn't track are ignored, as ES-DE does.</summary>
     bool HasLocalChanges(string folder);
 
     /// <summary>Whether the checked-out commit has any files (an interrupted clone has none).</summary>
     bool HasTrackedFiles(string folder);
 
-    /// <summary>Checks the commit out, detached, overwriting changes to tracked files (untracked files stay).</summary>
-    void CheckOut(string folder, string commit);
+    /// <summary>
+    /// The tip of the branch the clone follows on <c>origin</c> (its default branch), as of the last fetch: what an update
+    /// brings it to, as ES-DE's do.
+    /// </summary>
+    string RemoteTip(string folder);
+
+    /// <summary>Whether <paramref name="ancestor"/> is <paramref name="descendant"/> or comes before it (a fast-forward).</summary>
+    bool IsAncestor(string folder, string ancestor, string descendant);
 
     /// <summary>
-    /// Discards changes to tracked files and moves the checked-out branch to its <c>origin</c> branch's tip (after a
-    /// <see cref="Fetch"/>): the theme list's refresh.
+    /// Moves the checked-out branch to the commit, overwriting changes to tracked files (untracked files stay). A
+    /// detached HEAD is put back on the branch it follows first.
     /// </summary>
-    void ResetToRemote(string folder);
+    void ResetTo(string folder, string commit);
 }

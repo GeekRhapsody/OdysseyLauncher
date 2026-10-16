@@ -89,10 +89,13 @@ public sealed class ThemeDownloader
         Run(listing, $"Downloading {listing.Name}", (downloads, progress, token) =>
             downloads.InstallAsync(listing, BaseTheme(), replace, progress, token), Installed);
 
-    /// <summary>Brings an installed theme to the commit the list pins (<paramref name="discardChanges"/>: overwriting the user's edits).</summary>
+    /// <summary>
+    /// Fetches an installed theme and brings it to its branch's tip, as ES-DE does (<paramref name="discardChanges"/>:
+    /// overwriting the user's own changes). When an update would overwrite them, the user is asked first.
+    /// </summary>
     public void Update(ThemeListing listing, bool discardChanges) =>
         Run(listing, $"Updating {listing.Name}", (downloads, progress, token) =>
-            downloads.UpdateAsync(listing, BaseTheme(), discardChanges, progress, token), Updated);
+            downloads.UpdateAsync(listing, BaseTheme(), discardChanges, progress, token), Updated, () => AskToOverwrite(listing));
 
     /// <summary>Deletes an installed theme. The page refuses the theme in use first.</summary>
     public void Remove(ThemeListing listing) =>
@@ -115,7 +118,8 @@ public sealed class ThemeDownloader
         ThemeListing listing,
         string title,
         Func<ThemeDownloads, IProgress<GitProgress>, CancellationToken, Task<ThemeOperationResult>> operation,
-        Action<ThemeOperationResult> done)
+        Action<ThemeOperationResult> done,
+        Action? changesInTheWay = null)
     {
         if (Busy is not null)
         {
@@ -136,6 +140,7 @@ public sealed class ThemeDownloader
             ThemeOperationResult? result = null;
             string? failure = null;
             var cancelled = false;
+            var changes = false;
             try
             {
                 result = await operation(_downloads, progress, cancel.Token).ConfigureAwait(false);
@@ -143,6 +148,10 @@ public sealed class ThemeDownloader
             catch (OperationCanceledException)
             {
                 cancelled = true;
+            }
+            catch (ThemeChangesException)
+            {
+                changes = true;
             }
             catch (GitException e)
             {
@@ -171,6 +180,13 @@ public sealed class ThemeDownloader
                     }
 
                     done(result);
+                }
+                else if (changes && changesInTheWay is not null)
+                {
+                    jobs.End(job, JobState.Cancelled, "Waiting: your own changes are in the way.");
+                    Changed?.Invoke();
+                    changesInTheWay();
+                    return;
                 }
                 else if (cancelled)
                 {
@@ -215,13 +231,31 @@ public sealed class ThemeDownloader
     {
         var listing = result.Status.Listing;
         var inUse = listing.Id == ActiveThemeId;
+        if (!result.Updated)
+        {
+            Tell($"{listing.Name} is up to date: there's nothing new.", UiStyle.Good);
+            return;
+        }
+
         if (inUse)
         {
             _settings.ThemeFilesChanged(listing.Id);
         }
 
-        Tell(inUse ? $"{listing.Name} is up to date, and loaded again." : $"{listing.Name} is up to date.", UiStyle.Good);
+        Tell(inUse ? $"{listing.Name} is updated, and loaded again." : $"{listing.Name} is updated.", UiStyle.Good);
     }
+
+    // Its author changed the theme, and so did the user: updating overwrites the user's changes (ES-DE asks too).
+    private void AskToOverwrite(ThemeListing listing) =>
+        ConfirmDialog.Ask(_settings.Layer, $"Update {listing.Name}?",
+            $"{listing.Name} has an update, but you've changed it too, and updating it overwrites your changes. Files you added are kept.",
+            "Update it", "Keep my changes", yes =>
+            {
+                if (yes)
+                {
+                    Update(listing, discardChanges: true);
+                }
+            }, destructive: true);
 
     public string? ActiveThemeId => _settings.Services.Theme?.Active.Id;
 

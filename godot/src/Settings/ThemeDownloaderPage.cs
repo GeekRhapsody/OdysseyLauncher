@@ -7,16 +7,15 @@ using System.Threading.Tasks;
 using Godot;
 using Launcher.App.Navigation;
 using Launcher.App.Ui;
-using Launcher.Core.Config;
 using Launcher.Core.Theming.Downloads;
 
 namespace Launcher.App.Settings;
 
 /// <summary>
 /// The theme downloader (Settings, Download themes; A6 Downloading themes), as ES-DE's: every theme the list offers,
-/// with its first screenshot, who made it and what the user has of it. A gets it, updates it, or uses it once it's
-/// current; X shows its details and screenshots; Y removes it. The list kept from last time shows at once, and is
-/// fetched again each time the page opens. A download carries on when the page closes, on its progress card.
+/// with its first screenshot, who made it and what the user has of it. A gets it, or, once it's installed, fetches its
+/// updates (as ES-DE's A does); X shows its details and screenshots; Y removes it. The list kept from last time shows
+/// at once, and is fetched again each time the page opens. A download carries on when the page closes, on its card.
 /// </summary>
 public sealed partial class ThemeDownloaderPage : ListPanel
 {
@@ -38,7 +37,7 @@ public sealed partial class ThemeDownloaderPage : ListPanel
         Subtitle = settings.ThemesList is { } local
             ? $"From {local} · installed in {_downloader.Paths.ThemesDir}"
             : $"From github.com/GeekRhapsody/odyssey-themes · installed in {_downloader.Paths.ThemesDir}";
-        SetHints("A  Get, update or use     X  Details     Y  Remove     B  Back");
+        SetHints("A  Get or update     X  Details     Y  Remove     B  Back");
         _downloader.Changed += ShowList;
         ShowList();
         _downloader.Refresh();
@@ -148,13 +147,13 @@ public sealed partial class ThemeDownloaderPage : ListPanel
         FocusRow(Math.Max(0, focusedIndex));
     }
 
-    // The same entries, in the same order, at the same commits (a list read again has new records of the same values).
+    // The same entries, in the same order (a list read again has new records of the same values).
     private static bool SameThemes(ThemeListResult a, ThemeListResult b) =>
         a.Themes.Count == b.Themes.Count && a.Themes.Zip(b.Themes).All(p => SameListing(p.First.Listing, p.Second.Listing));
 
     /// <summary>Whether two reads of the list say the same about a theme (its records' lists aren't compared by value).</summary>
     public static bool SameListing(ThemeListing a, ThemeListing b) =>
-        a.Id == b.Id && a.Commit == b.Commit && a.Name == b.Name && a.Version == b.Version && a.Deprecated == b.Deprecated
+        a.Id == b.Id && a.Url == b.Url && a.Name == b.Name && a.Version == b.Version && a.Deprecated == b.Deprecated
         && a.Screenshots.Select(s => s.Image).SequenceEqual(b.Screenshots.Select(s => s.Image));
 
     private void Describe(SettingRow row, ThemeStatus status)
@@ -181,7 +180,6 @@ public sealed partial class ThemeDownloaderPage : ListPanel
             { NeedsNewerApp: true } => ($"Needs {status.Listing.MinAppVersion}", UiStyle.Warning),
             { State: ThemeInstallState.NotInstalled } => ("Get", UiStyle.Accent),
             { State: ThemeInstallState.ManualInstall or ThemeInstallState.Broken } => ("Replace", UiStyle.Warning),
-            { UpdateAvailable: true } => ("Update", UiStyle.Warning),
             _ when status.Listing.Id == _downloader.ActiveThemeId => ("In use", UiStyle.Good),
             _ => ("Installed", UiStyle.Good),
         };
@@ -193,8 +191,6 @@ public sealed partial class ThemeDownloaderPage : ListPanel
         var listing = status.Listing;
         var text = status.State switch
         {
-            ThemeInstallState.Installed when status.UpdateAvailable =>
-                $"An update: {listing.Version ?? listing.ShortCommit} (you have {status.InstalledCommit?[..7]})",
             ThemeInstallState.Installed => listing.Id == activeId ? "Installed, and the theme in use" : "Installed",
             ThemeInstallState.ManualInstall => $"Another theme is in its folder, '{listing.Id}': A replaces it, keeping a copy",
             ThemeInstallState.Broken => "Its download was interrupted: A downloads it again",
@@ -214,7 +210,7 @@ public sealed partial class ThemeDownloaderPage : ListPanel
         return text;
     }
 
-    /// <summary>A on a theme (its row, or its details' first row): get it, replace what's in its folder, update it, or use it.</summary>
+    /// <summary>A on a theme (its row, or its details' first row): get it, replace what's in its folder, or update it.</summary>
     public static void Act(SettingsController settings, UiPanel from, ThemeStatus status)
     {
         var downloader = settings.Themes;
@@ -254,33 +250,8 @@ public sealed partial class ThemeDownloaderPage : ListPanel
                 return;
         }
 
-        if (status.UpdateAvailable)
-        {
-            if (!status.LocalChanges)
-            {
-                downloader.Update(listing, discardChanges: false);
-                return;
-            }
-
-            ConfirmDialog.Ask(settings.Layer, $"Update {listing.Name}?",
-                $"You've changed some of {listing.Name}'s files, and updating it overwrites them. Files you added are kept.",
-                "Update it", "Keep my changes", yes =>
-                {
-                    if (yes)
-                    {
-                        downloader.Update(listing, discardChanges: true);
-                    }
-                }, destructive: true);
-            return;
-        }
-
-        if (listing.Id == downloader.ActiveThemeId)
-        {
-            from.ShowStatus($"{listing.Name} is the theme in use, and up to date.", UiStyle.Good, 4);
-            return;
-        }
-
-        settings.Save(from, [new ConfigEdit(ConfigFileKind.Settings, ["display", "theme"], listing.Id)], $"Theme: {listing.Name}. Loading it now…");
+        // Installed: its updates, fetched now (the user's own changes are asked about if an update would overwrite them).
+        downloader.Update(listing, discardChanges: false);
     }
 
     /// <summary>Y on a theme: deletes its folder, asked first. The theme in use can't be: another is chosen first.</summary>

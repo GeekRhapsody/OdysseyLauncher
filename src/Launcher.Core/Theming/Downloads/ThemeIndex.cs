@@ -63,8 +63,7 @@ public sealed record ThemeCovers(int SystemCards, int Templates, bool Menus, boo
 
 /// <summary>A theme the list offers (A6 Downloading themes).</summary>
 /// <param name="Id">The folder it's installed in, <c>ConfigDir/themes/&lt;id&gt;/</c>: a valid theme id, never a built-in one.</param>
-/// <param name="Url">The theme's git repository.</param>
-/// <param name="Commit">The commit the list pins: what the owner tested. An update is the list pinning another.</param>
+/// <param name="Url">The theme's git repository: users get its default branch, and its author's later pushes as updates (as in ES-DE).</param>
 /// <param name="Version">For display only.</param>
 /// <param name="MinAppVersion">The oldest launcher that can use it; null for any.</param>
 /// <param name="New">Shown as new.</param>
@@ -75,17 +74,12 @@ public sealed record ThemeListing(
     string Author,
     string Description,
     string Url,
-    string Commit,
     string? Version,
     string? MinAppVersion,
     bool New,
     bool Deprecated,
     ThemeCovers? Covers,
-    IReadOnlyList<ThemeScreenshot> Screenshots)
-{
-    /// <summary>The commit's first seven characters, as git shows it.</summary>
-    public string ShortCommit => Commit[..7];
-}
+    IReadOnlyList<ThemeScreenshot> Screenshots);
 
 /// <summary>The theme list, read from <c>themes.json</c>.</summary>
 /// <param name="LatestAppVersion">The launcher's latest release, as the list knows it; null when it doesn't say.</param>
@@ -181,7 +175,6 @@ public static class ThemeIndexReader
                 entry.Author ?? string.Empty,
                 entry.Description ?? string.Empty,
                 entry.Url!,
-                entry.Commit!.ToLowerInvariant(),
                 entry.Version,
                 entry.MinAppVersion,
                 entry.New,
@@ -231,11 +224,6 @@ public static class ThemeIndexReader
             return $"'{entry.Id}': '{entry.Url}' isn't an https URL";
         }
 
-        if (entry.Commit is not { Length: 40 } commit || !commit.All(char.IsAsciiHexDigit))
-        {
-            return $"'{entry.Id}': the commit must be a full 40-character sha";
-        }
-
         if (entry.MinAppVersion is { } min && !AppVersion.TryParse(min, out _))
         {
             return $"'{entry.Id}': min_app_version '{min}' isn't a version";
@@ -281,8 +269,6 @@ public static class ThemeIndexReader
         public string? Description { get; set; }
 
         public string? Url { get; set; }
-
-        public string? Commit { get; set; }
 
         public string? Version { get; set; }
 

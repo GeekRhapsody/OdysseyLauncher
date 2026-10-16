@@ -5,7 +5,7 @@ public enum ThemeInstallState
 {
     NotInstalled,
 
-    /// <summary>A clone of the listed repository.</summary>
+    /// <summary>A clone of the listed repository. Whether it has an update is known only by fetching, as in ES-DE.</summary>
     Installed,
 
     /// <summary>
@@ -20,7 +20,6 @@ public enum ThemeInstallState
 
 /// <summary>A listed theme and what the user has of it.</summary>
 /// <param name="InstalledCommit">The commit checked out, for <see cref="ThemeInstallState.Installed"/>.</param>
-/// <param name="UpdateAvailable">Installed, at another commit than the list pins.</param>
 /// <param name="LocalChanges">Installed, with tracked files changed: updating would overwrite them.</param>
 /// <param name="NeedsNewerApp">The theme's <c>min_app_version</c> is above the running launcher's.</param>
 /// <param name="Problem">Why the folder couldn't be read, when it couldn't.</param>
@@ -28,7 +27,6 @@ public sealed record ThemeStatus(
     ThemeListing Listing,
     ThemeInstallState State,
     string? InstalledCommit,
-    bool UpdateAvailable,
     bool LocalChanges,
     bool NeedsNewerApp,
     string? Problem = null)
@@ -37,8 +35,8 @@ public sealed record ThemeStatus(
 }
 
 /// <summary>
-/// Compares the list with the user's themes folder (A6 Downloading themes). Offline: an update is a pinned commit the
-/// clone isn't at, which ES-DE can only learn by fetching. Does file I/O: never on the main thread.
+/// Compares the list with the user's themes folder (A6 Downloading themes), from the clones alone: no network. Does
+/// file I/O: never on the main thread.
 /// </summary>
 public static class ThemeInventory
 {
@@ -51,33 +49,27 @@ public static class ThemeInventory
         var folder = Path.Combine(themesDir, listing.Id);
         if (!Directory.Exists(folder))
         {
-            return new ThemeStatus(listing, ThemeInstallState.NotInstalled, null, false, false, needsNewer);
+            return new ThemeStatus(listing, ThemeInstallState.NotInstalled, null, false, needsNewer);
         }
 
         try
         {
             if (!git.IsRepository(folder) || !SameRepository(git.OriginUrl(folder), listing.Url))
             {
-                return new ThemeStatus(listing, ThemeInstallState.ManualInstall, null, false, false, needsNewer);
+                return new ThemeStatus(listing, ThemeInstallState.ManualInstall, null, false, needsNewer);
             }
 
             var head = git.HeadCommit(folder);
             if (head is null || !git.HasTrackedFiles(folder))
             {
-                return new ThemeStatus(listing, ThemeInstallState.Broken, head, false, false, needsNewer);
+                return new ThemeStatus(listing, ThemeInstallState.Broken, head, false, needsNewer);
             }
 
-            return new ThemeStatus(
-                listing,
-                ThemeInstallState.Installed,
-                head,
-                !head.Equals(listing.Commit, StringComparison.OrdinalIgnoreCase),
-                git.HasLocalChanges(folder),
-                needsNewer);
+            return new ThemeStatus(listing, ThemeInstallState.Installed, head, git.HasLocalChanges(folder), needsNewer);
         }
         catch (GitException e)
         {
-            return new ThemeStatus(listing, ThemeInstallState.Broken, null, false, false, needsNewer, e.Message);
+            return new ThemeStatus(listing, ThemeInstallState.Broken, null, false, needsNewer, e.Message);
         }
     }
 

@@ -5,14 +5,13 @@ namespace Launcher.Core.Tests.Theming.Downloads;
 
 public sealed class ThemeIndexReaderTests
 {
-    private const string Commit = "0123456789abcdef0123456789ABCDEF01234567";
     private static readonly string ListFolder = Path.Combine(Path.GetTempPath(), "list");
     private static readonly string[] Reserved = ["memory-card", "console", "slab"];
 
     private static ThemeIndex Read(string json) => ThemeIndexReader.Read(json, "themes.json", ListFolder, Reserved);
 
-    private static string Entry(string id, string extra = "", string url = "https://github.com/someone/odyssey-x.git", string commit = Commit) =>
-        $$"""{ "id": "{{id}}", "name": "{{id.ToUpperInvariant()}}", "url": "{{url}}", "commit": "{{commit}}"{{extra}} }""";
+    private static string Entry(string id, string extra = "", string url = "https://github.com/someone/odyssey-x.git") =>
+        $$"""{ "id": "{{id}}", "name": "{{id.ToUpperInvariant()}}", "url": "{{url}}"{{extra}} }""";
 
     private static string List(params string[] entries) =>
         $$"""{ "format": 1, "latest_app_version": "0.17.0", "themes": [{{string.Join(",", entries)}}] }""";
@@ -29,7 +28,6 @@ public sealed class ThemeIndexReaderTests
                 {
                   "id": "zebra", "name": "Zebra", "author": "Someone", "description": "Stripes.",
                   "url": "https://github.com/someone/zebra.git",
-                  "commit": "0123456789ABCDEF0123456789abcdef01234567",
                   "version": "1.2.0", "min_app_version": "0.16.0", "new": true,
                   "covers": { "system_cards": 42, "templates": 3, "menus": true, "card_videos": false, "game_videos": true },
                   "screenshots": [
@@ -38,6 +36,7 @@ public sealed class ThemeIndexReaderTests
                     { "image": "screenshots/zebra/02.webp", "caption": "" },
                   ],
                 },
+                // An entry from before 2026-10-16 may still pin a commit: it's ignored, and the theme follows its branch.
                 { "id": "aardvark", "name": "Aardvark", "url": "https://gitlab.com/x/aardvark", "commit": "0123456789abcdef0123456789abcdef01234567", "deprecated": true },
               ],
             }
@@ -48,12 +47,12 @@ public sealed class ThemeIndexReaderTests
         var zebra = index.Themes[1];
         Assert.Equal(("Zebra", "Someone", "Stripes.", "1.2.0", "0.16.0", true, false),
             (zebra.Name, zebra.Author, zebra.Description, zebra.Version, zebra.MinAppVersion, zebra.New, zebra.Deprecated));
-        Assert.Equal("0123456789abcdef0123456789abcdef01234567", zebra.Commit);
-        Assert.Equal("0123456", zebra.ShortCommit);
         Assert.Equal(new ThemeCovers(42, 3, true, false, true), zebra.Covers);
         var shot = Assert.Single(zebra.Screenshots);
         Assert.Equal((Path.Combine(ListFolder, "screenshots", "zebra", "01.webp"), "Systems"), (shot.Image, shot.Caption));
         Assert.True(index.Themes[0].Deprecated);
+
+        // covers is optional: a theme that doesn't say what it brings is listed all the same.
         Assert.Null(index.Themes[0].Covers);
 
         // The two bad screenshots are left out, each with a warning.
@@ -75,14 +74,12 @@ public sealed class ThemeIndexReaderTests
     }
 
     [Theory]
-    [InlineData("http://github.com/someone/x.git", Commit, "", "isn't an https URL")]
-    [InlineData("C:/themes/x", Commit, "", "isn't an https URL")]
-    [InlineData("https://github.com/someone/x.git", "0123456", "", "full 40-character sha")]
-    [InlineData("https://github.com/someone/x.git", "z123456789abcdef0123456789abcdef01234567", "", "full 40-character sha")]
-    [InlineData("https://github.com/someone/x.git", Commit, ", \"min_app_version\": \"soon\"", "isn't a version")]
-    public void An_entry_with_a_bad_url_commit_or_version_is_left_out(string url, string commit, string extra, string problem)
+    [InlineData("http://github.com/someone/x.git", "", "isn't an https URL")]
+    [InlineData("C:/themes/x", "", "isn't an https URL")]
+    [InlineData("https://github.com/someone/x.git", ", \"min_app_version\": \"soon\"", "isn't a version")]
+    public void An_entry_with_a_bad_url_or_version_is_left_out(string url, string extra, string problem)
     {
-        var index = Read(List(Entry("x", extra, url, commit)));
+        var index = Read(List(Entry("x", extra, url)));
 
         Assert.Empty(index.Themes);
         Assert.Contains(problem, Assert.Single(index.Diagnostics).Message, StringComparison.Ordinal);

@@ -596,8 +596,9 @@ This checks what the tests can't: the published list on GitHub, a real theme's c
 1. **The list.** Menu, then Look, then Download themes. The themes show within a few seconds, each with its first screenshot, and "Get" on its right. X on one shows its details; A on a screenshot shows it full screen, left and right go through them, B goes back.
 2. **Get.** A on a theme: a progress card counts up, then "<name> is installed" asks to use it. Use it: the theme loads without a restart. `C:\OdysseyThemesTest\themes\<id>\` holds it, and `themes-staging` is gone.
 3. **Offline.** Turn the network off and open Download themes again: the list from last time shows, with a line saying it couldn't be brought up to date. Turn it back on.
-4. **Remove.** Choose another theme under Theme, then Y on the downloaded one and Remove it: its folder is gone. Y on the theme in use says to choose another first.
-5. **From the command line.** `.\tools\scrape-cli\bin\Debug\net8.0\odyssey-scrape.exe --user-dir=C:\OdysseyThemesTest themes` lists the same themes and states.
+4. **Update.** A on the installed theme: "up to date". Change a line of its `theme.toml` by hand and press A again: still "up to date", and your change is kept (there's nothing new to overwrite it).
+5. **Remove.** Choose another theme under Theme, then Y on the downloaded one and Remove it: its folder is gone. Y on the theme in use says to choose another first.
+6. **From the command line.** `.\tools\scrape-cli\bin\Debug\net8.0\odyssey-scrape.exe --user-dir=C:\OdysseyThemesTest themes` lists the same themes and states.
 
 ### Send back
 

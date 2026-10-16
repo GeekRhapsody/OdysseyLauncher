@@ -10,7 +10,6 @@
       "author": "Example Author",
       "description": "Dark slabs with every system's logo, and grey menus.",
       "url": "https://example.invalid/odyssey-carbon.git",
-      "commit": "1111111111111111111111111111111111111111",
       "version": "1.0.0",
       "new": true,
       "covers": { "system_cards": 171, "templates": 0, "menus": true, "card_videos": false, "game_videos": false },
@@ -25,7 +24,6 @@
       "author": "Example Author",
       "description": "Each system's console as its card: handhelds that load a cartridge when focused, a CPC with its monitor playing a tape's loading screen.",
       "url": "https://example.invalid/odyssey-living-room.git",
-      "commit": "2222222222222222222222222222222222222222",
       "version": "2.3.1",
       "min_app_version": "0.16.0",
       "covers": { "system_cards": 19, "templates": 1, "menus": false, "card_videos": true, "game_videos": false },
@@ -40,7 +38,6 @@
       "author": "Someone Else",
       "description": "The memory card browser's own look.",
       "url": "https://example.invalid/odyssey-crystal.git",
-      "commit": "3333333333333333333333333333333333333333",
       "deprecated": true,
       "screenshots": [
         { "image": "screenshots/crystal/01.webp", "caption": "Systems" }
@@ -52,7 +49,6 @@
       "author": "Example Author",
       "description": "For a launcher that isn't out yet.",
       "url": "https://example.invalid/odyssey-tomorrow.git",
-      "commit": "4444444444444444444444444444444444444444",
       "min_app_version": "9.0.0"
     }
   ]

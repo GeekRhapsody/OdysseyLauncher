@@ -15,7 +15,7 @@ public sealed class LibGit2Client : IGitClient
     {
         cancellation.ThrowIfCancellationRequested();
         // No checkout yet: the clone's own config comes first, so the user's git settings (core.autocrlf) can't change
-        // the files from what the list's owner tested. The caller checks out the commit it wants.
+        // the files from what the theme's author committed. The caller resets to the commit it wants (ResetTo).
         var options = new CloneOptions(FetchOptionsFor(progress, cancellation)) { RecurseSubmodules = false, Checkout = false };
         Run(() =>
         {
@@ -53,12 +53,6 @@ public sealed class LibGit2Client : IGitClient
         return repo.Network.Remotes["origin"]?.Url;
     }, CancellationToken.None);
 
-    public bool HasCommit(string folder, string commit) => Run(() =>
-    {
-        using var repo = new Repository(folder);
-        return repo.Lookup<Commit>(commit) is not null;
-    }, CancellationToken.None);
-
     public bool HasLocalChanges(string folder) => Run(() =>
     {
         using var repo = new Repository(folder);
@@ -72,22 +66,57 @@ public sealed class LibGit2Client : IGitClient
         return repo.Index.Count > 0;
     }, CancellationToken.None);
 
-    public void CheckOut(string folder, string commit) => Run(() =>
+    public string RemoteTip(string folder) => Run(() =>
     {
         using var repo = new Repository(folder);
-        var target = repo.Lookup<Commit>(commit)
-            ?? throw new GitException($"The theme's repository doesn't have the listed version (commit {commit[..Math.Min(7, commit.Length)]})");
-        Commands.Checkout(repo, target, new CheckoutOptions { CheckoutModifiers = CheckoutModifiers.Force });
+        return RemoteBranch(repo).Tip.Sha;
     }, CancellationToken.None);
 
-    public void ResetToRemote(string folder) => Run(() =>
+    public bool IsAncestor(string folder, string ancestor, string descendant) => Run(() =>
     {
         using var repo = new Repository(folder);
-        var tip = repo.Head.TrackedBranch?.Tip
-            ?? (repo.Refs["refs/remotes/origin/HEAD"]?.ResolveToDirectReference()?.Target as Commit)
-            ?? throw new GitException("The list's folder has no branch to update");
-        repo.Reset(ResetMode.Hard, tip);
+        if (repo.Lookup<Commit>(ancestor) is not { } older || repo.Lookup<Commit>(descendant) is not { } newer)
+        {
+            return false;
+        }
+
+        return older.Sha == newer.Sha || repo.ObjectDatabase.FindMergeBase(older, newer)?.Sha == older.Sha;
     }, CancellationToken.None);
+
+    public void ResetTo(string folder, string commit) => Run(() =>
+    {
+        using var repo = new Repository(folder);
+        var target = repo.Lookup<Commit>(commit) ?? throw new GitException($"The repository has no commit {commit[..Math.Min(7, commit.Length)]}");
+        if (repo.Info.IsHeadDetached)
+        {
+            // A detached HEAD (checked out by hand, or by an older version of the launcher): back on the branch it
+            // follows, as ES-DE does, so the next update moves it.
+            var remote = RemoteBranch(repo);
+            var name = remote.FriendlyName[(remote.RemoteName.Length + 1)..];
+            var local = repo.Branches[name] ?? repo.CreateBranch(name, target);
+            repo.Branches.Update(local, b => b.TrackedBranch = remote.CanonicalName);
+            Commands.Checkout(repo, local, new CheckoutOptions { CheckoutModifiers = CheckoutModifiers.Force });
+        }
+
+        repo.Reset(ResetMode.Hard, target);
+    }, CancellationToken.None);
+
+    // The branch the clone follows: its own branch's upstream, else the one origin's HEAD names (its default branch).
+    private static Branch RemoteBranch(Repository repo)
+    {
+        if (!repo.Info.IsHeadDetached && repo.Head.TrackedBranch is { Tip: not null } tracked)
+        {
+            return tracked;
+        }
+
+        if (repo.Refs["refs/remotes/origin/HEAD"] is SymbolicReference { Target: { } target } && repo.Branches[target.CanonicalName] is { Tip: not null } branch)
+        {
+            return branch;
+        }
+
+        return repo.Branches.FirstOrDefault(b => b.IsRemote && b.RemoteName == "origin" && b.Tip is not null && !b.CanonicalName.EndsWith("/HEAD", StringComparison.Ordinal))
+            ?? throw new GitException("The repository has no branch to follow");
+    }
 
     private static FetchOptions FetchOptionsFor(IProgress<GitProgress>? progress, CancellationToken cancellation)
     {

@@ -38,13 +38,35 @@ public sealed record ThemeListResult(ThemeIndex Index, IReadOnlyList<ThemeStatus
 
 /// <param name="Diagnostics">The theme's manifest's problems, as the app will report them.</param>
 /// <param name="BackupFolder">Where a theme the install replaced was moved; null when nothing was.</param>
-public sealed record ThemeOperationResult(ThemeStatus Status, IReadOnlyList<Diagnostic> Diagnostics, string? BackupFolder = null);
+/// <param name="Updated">False for an update that found nothing new.</param>
+public sealed record ThemeOperationResult(ThemeStatus Status, IReadOnlyList<Diagnostic> Diagnostics, string? BackupFolder = null, bool Updated = true);
+
+/// <summary>
+/// An update would overwrite the user's own changes to a theme (edited files, or commits its branch doesn't have):
+/// <see cref="ThemeDownloads.UpdateAsync"/> again with <c>discardChanges</c> once the user agrees.
+/// </summary>
+public sealed class ThemeChangesException : Exception
+{
+    public ThemeChangesException()
+    {
+    }
+
+    public ThemeChangesException(string message)
+        : base(message)
+    {
+    }
+
+    public ThemeChangesException(string message, Exception inner)
+        : base(message, inner)
+    {
+    }
+}
 
 /// <summary>
 /// The theme downloader (A6 Downloading themes), as ES-DE's: a curated list in a git repository (<c>themes.json</c> and
-/// screenshots), cloned into the cache and refreshed when the downloader opens, and each listed theme a git clone in
-/// <c>ConfigDir/themes/&lt;id&gt;/</c>. Unlike ES-DE's, each entry pins a commit, so a theme changes only when the list's
-/// owner, who tests each one, moves it. One operation at a time; every method does I/O on the thread pool.
+/// screenshots), cloned into the cache and refreshed when the downloader opens, and each listed theme a git clone of its
+/// repository's default branch in <c>ConfigDir/themes/&lt;id&gt;/</c>, brought up to that branch's tip by an update. One
+/// operation at a time; every method does I/O on the thread pool.
 /// </summary>
 public sealed class ThemeDownloads
 {
@@ -143,7 +165,7 @@ public sealed class ThemeDownloads
         Task.Run(() => ThemeInventory.Inspect(_git, listing, Paths.ThemesDir, AppVersion), cancellation);
 
     /// <summary>
-    /// Installs a listed theme: cloned into the staging folder, the pinned commit checked out, its manifest loaded over
+    /// Installs a listed theme: cloned into the staging folder, its default branch checked out, its manifest loaded over
     /// <paramref name="baseTheme"/> (refused if it can't be used at all), then moved into the themes folder. A folder of
     /// the theme's id already there (<see cref="ThemeInstallState.ManualInstall"/> or <see cref="ThemeInstallState.Broken"/>)
     /// is replaced only with <paramref name="replace"/>, after being moved to the backups folder.
@@ -165,10 +187,12 @@ public sealed class ThemeDownloads
     }
 
     /// <summary>
-    /// Brings an installed theme to the commit the list pins: fetched, then checked out (files git doesn't track stay).
-    /// Changes to its tracked files are overwritten only with <paramref name="discardChanges"/>. A version whose manifest
-    /// can't be used is refused, and the theme left as it was.
+    /// Fetches an installed theme and brings it to its branch's tip, as ES-DE does (files git doesn't track stay); nothing
+    /// changes when it's up to date (<see cref="ThemeOperationResult.Updated"/> false). Changes of the user's own (edited
+    /// files, or commits the branch doesn't have) are overwritten only with <paramref name="discardChanges"/>. A new
+    /// version whose manifest can't be used is refused, and the theme left as it was.
     /// </summary>
+    /// <exception cref="ThemeChangesException">There's an update, and changes of the user's own it would overwrite.</exception>
     /// <exception cref="GitException">It couldn't be updated; the message is for the user.</exception>
     public async Task<ThemeOperationResult> UpdateAsync(
         ThemeListing listing, Theme? baseTheme, bool discardChanges, IProgress<GitProgress>? progress = null, CancellationToken cancellation = default)
@@ -266,7 +290,7 @@ public sealed class ThemeDownloads
             try
             {
                 _git.Fetch(folder, progress, cancellation);
-                _git.ResetToRemote(folder);
+                _git.ResetTo(folder, _git.RemoteTip(folder));
                 return;
             }
             catch (GitException e) when (_git.HeadCommit(folder) is null || !_git.HasTrackedFiles(folder))
@@ -282,7 +306,7 @@ public sealed class ThemeDownloads
         try
         {
             _git.Clone(_listUrl, fresh, progress, cancellation);
-            _git.ResetToRemote(fresh);
+            _git.ResetTo(fresh, _git.RemoteTip(fresh));
         }
         catch
         {
@@ -322,7 +346,7 @@ public sealed class ThemeDownloads
             Directory.CreateDirectory(Paths.StagingDir);
             _log.Write(LogLevel.Info, $"Themes: cloning '{listing.Id}' from {listing.Url}");
             _git.Clone(listing.Url, staging, progress, cancellation);
-            _git.CheckOut(staging, listing.Commit);
+            _git.ResetTo(staging, _git.RemoteTip(staging));
             diagnostics = Check(listing, staging, baseTheme);
         }
         catch (Exception e) when (e is GitException or OperationCanceledException or IOException or UnauthorizedAccessException)
@@ -357,7 +381,7 @@ public sealed class ThemeDownloads
             throw new GitException($"Couldn't move the theme into {folder}: {e.Message}", e);
         }
 
-        _log.Write(LogLevel.Info, $"Themes: installed '{listing.Id}' at {listing.ShortCommit}");
+        _log.Write(LogLevel.Info, $"Themes: installed '{listing.Id}' at {Short(_git.HeadCommit(folder))}");
         return new ThemeOperationResult(ThemeInventory.Inspect(_git, listing, Paths.ThemesDir, AppVersion), diagnostics, backup);
     }
 
@@ -375,37 +399,43 @@ public sealed class ThemeDownloads
             throw new GitException($"This version of {listing.Name} needs Odyssey Launcher {listing.MinAppVersion} or later");
         }
 
-        if (before.LocalChanges && !discardChanges)
-        {
-            throw new GitException($"{listing.Name} has changes of your own, which updating would overwrite");
-        }
-
-        if (!before.UpdateAvailable && !before.LocalChanges)
-        {
-            return new ThemeOperationResult(before, []);
-        }
-
         try
         {
-            if (!_git.HasCommit(folder, listing.Commit))
+            var head = before.InstalledCommit!;
+            _log.Write(LogLevel.Info, $"Themes: fetching '{listing.Id}' from {listing.Url}");
+            _git.Fetch(folder, progress, cancellation);
+            var tip = _git.RemoteTip(folder);
+
+            // Nothing new: the clone is at the branch's tip, or ahead of it with commits of the user's own. Edits of the
+            // user's own stay too: they're overwritten only for an update.
+            if (_git.IsAncestor(folder, tip, head))
             {
-                _log.Write(LogLevel.Info, $"Themes: fetching '{listing.Id}' from {listing.Url}");
-                _git.Fetch(folder, progress, cancellation);
+                _log.Write(LogLevel.Info, $"Themes: '{listing.Id}' is up to date ({Short(head)})");
+                return new ThemeOperationResult(before, [], Updated: false);
             }
 
-            _git.CheckOut(folder, listing.Commit);
+            // Edits to its files, or commits the branch doesn't have (the clone has diverged), are overwritten only when
+            // the user says so (ES-DE asks too, then resets).
+            if ((before.LocalChanges || !_git.IsAncestor(folder, head, tip)) && !discardChanges)
+            {
+                throw new ThemeChangesException($"{listing.Name} has changes of your own, which updating it would overwrite");
+            }
+
+            _git.ResetTo(folder, tip);
             IReadOnlyList<Diagnostic> diagnostics;
             try
             {
                 diagnostics = Check(listing, folder, baseTheme);
             }
-            catch (GitException) when (before.InstalledCommit is { } old)
+            catch (GitException)
             {
-                _git.CheckOut(folder, old);
+                // A new version this launcher can't use: the theme stays as it was, until its author fixes it or the
+                // launcher is updated.
+                _git.ResetTo(folder, head);
                 throw;
             }
 
-            _log.Write(LogLevel.Info, $"Themes: updated '{listing.Id}' from {before.InstalledCommit?[..7]} to {listing.ShortCommit}");
+            _log.Write(LogLevel.Info, $"Themes: updated '{listing.Id}' from {Short(head)} to {Short(tip)}");
             return new ThemeOperationResult(ThemeInventory.Inspect(_git, listing, Paths.ThemesDir, AppVersion), diagnostics);
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
@@ -414,8 +444,10 @@ public sealed class ThemeDownloads
         }
     }
 
-    // The theme as the app will load it: refused only if it can't be used at all (the owner tested it, so a problem
-    // here is a launcher too old for it, or a damaged download).
+    private static string Short(string? commit) => commit is { Length: >= 7 } ? commit[..7] : commit ?? "nothing";
+
+    // The theme as the app will load it: refused only if it can't be used at all (a launcher too old for it, a damaged
+    // download, or a broken change its author pushed).
     private static IReadOnlyList<Diagnostic> Check(ThemeListing listing, string folder, Theme? baseTheme)
     {
         var manifest = Path.Combine(folder, ThemeLoader.ManifestFileName);

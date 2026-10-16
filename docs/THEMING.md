@@ -485,15 +485,15 @@ The launcher's settings have **Download themes** (under Look): a list of themes 
 .\tools\scrape-cli\bin\Debug\net8.0\odyssey-scrape.exe inspect-theme --json <your theme's folder>
 ```
 
-It loads the theme as the launcher does (every error and warning, with its line), checks each model against its kind's budget, and prints the theme's size and a `covers` block: what the list says your theme brings (system cards and logos, templates, its own menus, videos). Fix every error, and name the folder after the id you want.
+It loads the theme as the launcher does (every error and warning, with its line), checks each model against its kind's budget, and prints the theme's size and a `covers` block: what your theme brings (system cards and logos, templates, its own menus, videos), which the list can show in its details. `covers` is optional. Fix every error, and name the folder after the id you want.
 
 **Submit it:** open an issue or a pull request on `odyssey-themes` with:
-- the repository's https URL, and the commit to list (the full 40-character sha)
+- the repository's https URL: users get its default branch
 - the id, name, your name as the author, and a sentence or two of description
 - the oldest launcher version it needs, if it uses something new (`min_app_version`; the launcher shows the theme to older versions, but won't install it)
 - two to four screenshots, 16:9 (the list shows the first at 192 × 108, and the details show them all full screen): the systems and a system's games at least, taken with `--capture` (section 10) at 1280 × 720 or larger. The list keeps them in `screenshots/<id>/`.
 
-**Updates** reach users when the list's owner moves its commit, after testing it: push your changes, then ask for the new commit to be listed (with new screenshots, if it looks different). Users see "Update" on its row; until then, they keep the commit that was tested.
+**Updates:** the list's owner tests your theme once, before it's listed. After that, whatever you push to its default branch reaches users as an update, the next time they press A on it in Download themes, as with ES-DE's themes. Nobody reviews updates, so keeping the theme working is up to you: try changes before pushing them (on a branch of their own while you work), and don't rewrite the default branch's history. If you push a version the user's launcher can't load, it's refused there and they keep the version they had. Ask for new screenshots to be listed if it looks different.
 
 **Try it before you submit:** a list can be read from a folder with `--themes-list=<folder>` (the launcher's and `odyssey-scrape themes`), and a local list may name a repository by a `file:///` URL, so you can install your theme the way users will:
 

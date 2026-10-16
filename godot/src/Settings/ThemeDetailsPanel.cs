@@ -12,7 +12,7 @@ namespace Launcher.App.Settings;
 /// <summary>
 /// A listed theme's details (X in the theme downloader): its description, who made it, its version, what it brings,
 /// where it comes from and what the user has of it, then its screenshots, each opening full screen on A. Its first row
-/// does what A does in the list. Follows the downloader, so a download's progress and its outcome show here too.
+/// does what A does in the list (get it, or check for updates). Follows the downloader, so a download's progress and its outcome show here too.
 /// </summary>
 public sealed partial class ThemeDetailsPanel : ListPanel
 {
@@ -65,7 +65,7 @@ public sealed partial class ThemeDetailsPanel : ListPanel
         }
 
         var listing = status.Listing;
-        var rebuild = _shown is null || !ThemeDownloaderPage.SameListing(_shown.Listing, listing);
+        var rebuild = _shown is null || !ThemeDownloaderPage.SameListing(_shown.Listing, listing) || _shown.InstalledCommit != status.InstalledCommit;
         _shown = status;
         Heading = listing.Name;
         Subtitle = string.IsNullOrEmpty(listing.Author) ? null : $"By {listing.Author}";
@@ -92,8 +92,21 @@ public sealed partial class ThemeDetailsPanel : ListPanel
         DescribeAction(action, status);
 
         AddSection("About");
-        AddRow("Version", listing.Version is null ? $"Commit {listing.ShortCommit}" : $"{listing.Version} (commit {listing.ShortCommit})");
-        AddRow("What it brings", ThemeDownloaderPage.CoversText(listing.Covers));
+        if (listing.Version is not null)
+        {
+            AddRow("Version", listing.Version);
+        }
+
+        if (status.InstalledCommit is { Length: >= 7 } commit)
+        {
+            AddRow("Installed", $"Commit {commit[..7]}, from its repository's default branch");
+        }
+
+        // covers is optional: a theme that doesn't say what it brings has no row for it.
+        if (listing.Covers is { } covers)
+        {
+            AddRow("What it brings", ThemeDownloaderPage.CoversText(covers));
+        }
         if (listing.MinAppVersion is not null)
         {
             AddRow("Needs", $"Odyssey Launcher {listing.MinAppVersion} or later");
@@ -132,9 +145,7 @@ public sealed partial class ThemeDetailsPanel : ListPanel
                 { NeedsNewerApp: true } => "Can't be installed yet",
                 { State: ThemeInstallState.NotInstalled } => $"Get {listing.Name}",
                 { State: ThemeInstallState.ManualInstall or ThemeInstallState.Broken } => $"Replace what's in its folder with {listing.Name}",
-                { UpdateAvailable: true } => $"Update {listing.Name}",
-                _ when listing.Id == _downloader.ActiveThemeId => "The theme in use",
-                _ => $"Use {listing.Name}",
+                _ => "Check for updates",
             };
         row.Detail = ThemeDownloaderPage.StateText(status, _downloader.ActiveThemeId);
         row.DetailColour = listing.Deprecated || status.NeedsNewerApp ? UiStyle.Warning : UiStyle.Dim;
