@@ -278,8 +278,30 @@ try
 
         case "scan":
             {
-                var summary = await library.RescanAsync(argument, null, stop.Token);
+                // Systems are scanned in parallel: a start line shows what's still running if the scan seems stuck.
+                var clock = System.Diagnostics.Stopwatch.StartNew();
+                var progress = new InlineProgress<JobProgress>(p =>
+                {
+                    if (p.Phase == "scanning")
+                    {
+                        Console.WriteLine($"  [{clock.Elapsed.TotalSeconds,6:0.0} s] started {p.Current}");
+                    }
+                });
+                var summary = await library.RescanAsync(argument, progress, stop.Token);
+                if (summary.Timings is { Count: > 0 } timings)
+                {
+                    Console.WriteLine();
+                    Console.WriteLine($"{"System",-32} {"Listing",9} {"Media",9} {"Files",9} {"Playlists",9}");
+                    foreach (var t in timings.OrderByDescending(t => t.Total))
+                    {
+                        Console.WriteLine($"{t.Name,-32} {t.Listing.TotalSeconds,7:0.0} s {t.Media.TotalSeconds,7:0.0} s {t.FilesSeen,9:N0} {t.PlaylistsRead,9:N0}");
+                    }
+
+                    Console.WriteLine();
+                }
+
                 Console.WriteLine($"Scanned: {summary.Added} added, {summary.Updated} updated, {summary.Removed} removed, {summary.Unchanged} unchanged ({summary.Elapsed.TotalSeconds:0.0} s)");
+                Console.WriteLine($"Scan log: {library.ScanLogPath()}");
                 return 0;
             }
 

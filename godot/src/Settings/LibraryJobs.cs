@@ -102,6 +102,7 @@ public sealed class LibraryJobs : IDisposable
                     for (var i = 0; i < systemIds.Count; i++)
                     {
                         job.Report(i, systemIds.Count);
+                        job.SetNote($"Scanning {SystemName(systemIds[i])}");
                         var summary = await library.RescanAsync(systemIds[i], null, cancel.Token).ConfigureAwait(false);
                         systems.AddRange(summary.Systems);
                     }
@@ -112,6 +113,7 @@ public sealed class LibraryJobs : IDisposable
 
                 var shown = await library.GetSystemsAsync(cancel.Token).ConfigureAwait(false);
                 GD.Print($"Scan: {total.Added} game(s) added, {total.Removed} removed.");
+
                 var outcome = total.Added + total.Removed == 0
                     ? "Done: no new or removed games."
                     : string.Create(CultureInfo.InvariantCulture, $"Done: {total.Added:N0} new game{(total.Added == 1 ? string.Empty : "s")}, {total.Removed:N0} removed.");
@@ -599,7 +601,16 @@ public sealed class LibraryJobs : IDisposable
     /// <summary>The library's scan progress, straight into the job (Progress&lt;T&gt; would post through Godot's context, unbudgeted).</summary>
     private sealed class JobProgressSink(BackgroundJob job) : IProgress<JobProgress>
     {
-        public void Report(JobProgress value) => job.Report(value.Done, value.Total);
+        public void Report(JobProgress value)
+        {
+            if (value.Current is { } current)
+            {
+                job.SetNote($"Scanning {current}");
+                return;
+            }
+
+            job.Report(value.Done, value.Total);
+        }
     }
 
     /// <summary>The scrape service's log, in Godot's output (the service redacts it first).</summary>

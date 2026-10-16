@@ -141,7 +141,11 @@ public interface IPlayHistory
     Task<PlayStats?> GetPlayStatsAsync(GameKey game, CancellationToken cancellationToken);
 }
 
-public sealed record JobProgress(string Phase, int Done, int Total);
+/// <param name="Phase">What is running: "scan" (a system finished), "scanning" (a system started), "swap", "copy", "bake".</param>
+/// <param name="Done">How many items have finished.</param>
+/// <param name="Total">How many items there are.</param>
+/// <param name="Current">The item just started, for a report that only names it (the "scanning" phase: a system's name); null otherwise.</param>
+public sealed record JobProgress(string Phase, int Done, int Total, string? Current = null);
 
 public sealed record SystemScanSummary(
     string SystemId,
@@ -152,10 +156,26 @@ public sealed record SystemScanSummary(
     int FilesSeen,
     int PlaylistsRead);
 
+/// <summary>How long one system's scan took, for finding the slow ones (a NAS share, a huge folder).</summary>
+/// <param name="Listing">Listing the ROM folders and reading playlists that weren't cached.</param>
+/// <param name="Media">Indexing the media folder for the games found; zero when media isn't indexed.</param>
+public sealed record SystemScanTiming(
+    string SystemId,
+    string Name,
+    TimeSpan Listing,
+    TimeSpan Media,
+    int FilesSeen,
+    int PlaylistsRead)
+{
+    public TimeSpan Total => Listing + Media;
+}
+
+/// <param name="Timings">Per system in config order; empty when the summary isn't from a scan of ROM folders.</param>
 public sealed record ScanSummary(
     IReadOnlyList<SystemScanSummary> Systems,
     IReadOnlyList<Diagnostic> Diagnostics,
-    TimeSpan Elapsed)
+    TimeSpan Elapsed,
+    IReadOnlyList<SystemScanTiming>? Timings = null)
 {
     public int Added => Systems.Sum(s => s.Added);
 

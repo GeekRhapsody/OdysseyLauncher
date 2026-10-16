@@ -239,6 +239,17 @@ public sealed class LibraryServiceTests : IAsyncLifetime
         Assert.Equal(160, parallel.Added);
         // 0, then one report per finished system, each count once (every built-in system is enabled).
         Assert.Equal(Enumerable.Range(0, _library.Config.Systems.Count + 1), reports.Where(r => r.Phase == "scan").Select(r => r.Done).Order());
+        // A timing per system, in config order, with the files it saw.
+        Assert.Equal(_library.Config.Systems.Select(s => s.Id), parallel.Timings!.Select(t => t.SystemId));
+        Assert.All(parallel.Timings!.Where(t => t.SystemId == "gb"), t => Assert.Equal(20, t.FilesSeen));
+        // The scan log says it started and ended (systems this quick get no line of their own).
+        var log = await File.ReadAllTextAsync(_library.ScanLogPath(), Ct);
+        Assert.Contains("Scan started: ", log, StringComparison.Ordinal);
+        Assert.Contains("Scan finished in ", log, StringComparison.Ordinal);
+        // And one report per system as it starts, naming it.
+        Assert.Equal(
+            _library.Config.Systems.Select(s => s.Name).Order(),
+            reports.Where(r => r.Phase == "scanning").Select(r => r.Current).Order());
     }
 
     [Fact]

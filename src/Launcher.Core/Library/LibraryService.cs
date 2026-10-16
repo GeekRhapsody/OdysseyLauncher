@@ -1,7 +1,9 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.Runtime.ExceptionServices;
 using Launcher.Core.Config;
 using Launcher.Core.Data;
+using Launcher.Core.Diagnostics;
 using Launcher.Core.Media;
 using Launcher.Core.Scanning;
 using Launcher.Core.Scraping;
@@ -18,8 +20,13 @@ public sealed class LibraryService : ILibrary, IPlayHistory, IDisposable
 {
     public const string LibraryFileName = "library.db";
     public const string UserDataFileName = "userdata.db";
+    public const string ScanLogFileName = "scan.log";
+
+    /// <summary>A system that takes this long to scan gets its own line in the scan log.</summary>
+    private static readonly TimeSpan SlowSystem = TimeSpan.FromSeconds(1);
 
     private readonly string _libraryPath;
+    private readonly FileLog _scanLog;
     private readonly string _userPath;
     private readonly TimeProvider _clock;
     private readonly RomScanner _scanner = new();
@@ -35,6 +42,7 @@ public sealed class LibraryService : ILibrary, IPlayHistory, IDisposable
         DataDir = dataDir;
         _libraryPath = Path.Combine(dataDir, LibraryFileName);
         _userPath = Path.Combine(dataDir, UserDataFileName);
+        _scanLog = new FileLog(ScanLogPath(dataDir), "scan.1.log", clock);
         OpenOutcome = outcome;
         RecreatedBecause = reason;
         _writer = new DbWriter(() => Sqlite.Open(_libraryPath, attachUserData: _userPath), "Library writer");
@@ -58,6 +66,15 @@ public sealed class LibraryService : ILibrary, IPlayHistory, IDisposable
 
     /// <summary>A stored media path's file (<c>media/ps2/covers/Game.png</c>) in the current media folder.</summary>
     public string MediaPath(string stored) => MediaFolder.FullPath(MediaDir, stored);
+
+    /// <summary>
+    /// The scan log, <c>DataDir/logs/scan.log</c>: when a scan starts, each system that took a second or more (its
+    /// listing and media times, files seen and playlists read, written as it finishes, so a scan that hangs shows
+    /// which systems are still out), and how it ended. About 1 MB, then <c>scan.1.log</c>.
+    /// </summary>
+    public string ScanLogPath() => ScanLogPath(DataDir);
+
+    private static string ScanLogPath(string dataDir) => Path.Combine(dataDir, "logs", ScanLogFileName);
 
     /// <summary>Why library.db was recreated, if it was.</summary>
     public string? RecreatedBecause { get; }
@@ -386,12 +403,20 @@ public sealed class LibraryService : ILibrary, IPlayHistory, IDisposable
                 RaiseMediaChanged(mediaChanged);
             }
 
-            return new ScanSummary(summaries, scans.Diagnostics(), stopwatch.Elapsed);
+            return Logged(new ScanSummary(summaries, scans.Diagnostics(), stopwatch.Elapsed, scans.Timings));
         }
         finally
         {
             _jobLock.Release();
         }
+    }
+
+    /// <summary>Writes how a scan ended to the scan log (the writes to library.db included in its time).</summary>
+    private ScanSummary Logged(ScanSummary summary)
+    {
+        _scanLog.Write(LogLevel.Info, string.Create(CultureInfo.InvariantCulture,
+            $"Scan finished in {summary.Elapsed.TotalSeconds:0.0} s: {summary.Added:N0} added, {summary.Updated:N0} updated, {summary.Removed:N0} removed, {summary.Unchanged:N0} unchanged."));
+        return summary;
     }
 
     /// <summary>
@@ -474,7 +499,7 @@ public sealed class LibraryService : ILibrary, IPlayHistory, IDisposable
                 CancellationToken.None).ConfigureAwait(false);
             progress?.Report(new JobProgress("swap", 1, 1));
             RaiseMediaChanged(null);
-            return new ScanSummary(summaries, scans.Diagnostics(), stopwatch.Elapsed);
+            return Logged(new ScanSummary(summaries, scans.Diagnostics(), stopwatch.Elapsed, scans.Timings));
         }
         finally
         {
@@ -504,11 +529,14 @@ public sealed class LibraryService : ILibrary, IPlayHistory, IDisposable
         var count = systems.Count;
         var results = new SystemScan[count];
         var media = new MediaScan?[count];
+        var timings = new SystemScanTiming[count];
         var next = -1;
         var done = 0;
         var mediaDir = MediaDir;
         Exception? failure = null;
+        var threadCount = Math.Clamp(ScanParallelism, 1, Math.Max(count, 1));
         progress?.Report(new JobProgress("scan", 0, count));
+        _scanLog.Write(LogLevel.Info, $"Scan started: {count} system(s), {threadCount} at a time.");
 
         void Work()
         {
@@ -522,7 +550,11 @@ public sealed class LibraryService : ILibrary, IPlayHistory, IDisposable
 
                 try
                 {
+                    // Names the system for the progress card; Done and Total are the finished reports' to give.
+                    progress?.Report(new JobProgress("scanning", 0, count, systems[i].Name));
+                    var started = Stopwatch.GetTimestamp();
                     results[i] = _scanner.Scan(systems[i], caches?[i].Playlists, cancellationToken);
+                    var listed = Stopwatch.GetElapsedTime(started);
                     if (indexMedia)
                     {
                         // Only the media of the games just found: their names, so nothing else's header is read.
@@ -535,6 +567,15 @@ public sealed class LibraryService : ILibrary, IPlayHistory, IDisposable
                         media[i] = MediaScanner.Scan(mediaDir, systems[i].Id, caches?[i].Media, keys, cancellationToken);
                     }
 
+                    timings[i] = new SystemScanTiming(
+                        systems[i].Id, systems[i].Name, listed, Stopwatch.GetElapsedTime(started) - listed,
+                        results[i].FilesSeen, results[i].PlaylistsRead);
+                    if (timings[i].Total >= SlowSystem)
+                    {
+                        _scanLog.Write(LogLevel.Info, string.Create(CultureInfo.InvariantCulture,
+                            $"{timings[i].Name}: {timings[i].Total.TotalSeconds:0.0} s (listing {timings[i].Listing.TotalSeconds:0.0} s, media {timings[i].Media.TotalSeconds:0.0} s), {timings[i].FilesSeen:N0} files, {timings[i].PlaylistsRead:N0} playlists read."));
+                    }
+
                     progress?.Report(new JobProgress("scan", Interlocked.Increment(ref done), count));
                 }
                 catch (Exception e)
@@ -544,7 +585,7 @@ public sealed class LibraryService : ILibrary, IPlayHistory, IDisposable
             }
         }
 
-        var threads = new Thread[Math.Clamp(ScanParallelism, 1, Math.Max(count, 1))];
+        var threads = new Thread[threadCount];
         for (var t = 0; t < threads.Length; t++)
         {
             threads[t] = new Thread(Work) { IsBackground = true, Name = "ROM scan" };
@@ -558,17 +599,18 @@ public sealed class LibraryService : ILibrary, IPlayHistory, IDisposable
 
         if (failure is not null)
         {
+            _scanLog.Write(failure is OperationCanceledException ? LogLevel.Warning : LogLevel.Error, $"Scan stopped: {failure.Message}");
             ExceptionDispatchInfo.Throw(failure);
         }
 
-        return new ScanResults(results, media);
+        return new ScanResults(results, media, timings);
     }
 
     /// <summary>What the previous scan left in the library, so unchanged playlists and images aren't read again.</summary>
     private sealed record ScanCache(Dictionary<string, PlaylistEntry> Playlists, Dictionary<string, MediaEntry>? Media);
 
     /// <summary>Per system, in config order: the ROM scan and the media found (null when media isn't indexed).</summary>
-    private sealed record ScanResults(IReadOnlyList<SystemScan> Roms, IReadOnlyList<MediaScan?> Media)
+    private sealed record ScanResults(IReadOnlyList<SystemScan> Roms, IReadOnlyList<MediaScan?> Media, IReadOnlyList<SystemScanTiming> Timings)
     {
         public List<Diagnostic> Diagnostics()
         {
