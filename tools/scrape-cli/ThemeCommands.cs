@@ -77,7 +77,10 @@ internal static class ThemeCommands
             }
         }
 
-        var covers = ThemeCovers.Of(theme);
+        // Only the launcher's own systems (its built-in catalogue) and its three collections count as cards.
+        var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        var builtIn = new ConfigLoader().Load(new ConfigSources { HomeDir = home, ConfigDir = home, FileExists = null });
+        var covers = ThemeCovers.Of(theme, [.. builtIn.Config.Systems.Select(s => s.Id), "favourites", "recently_played", "all_games"]);
         var size = Directory.EnumerateFiles(folder, "*", SearchOption.AllDirectories)
             .Where(f => !f.Contains($"{Path.DirectorySeparatorChar}.git{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
             .Sum(f => new FileInfo(f).Length);

@@ -139,6 +139,16 @@ public sealed class ThemeIndexReaderTests
     }
 
     [Fact]
+    public void Covers_count_only_the_launchers_systems_when_told_them()
+    {
+        var slab = ThemeFixtures.Load(ThemeFixtures.SlabFolder);
+        var logos = Directory.GetFiles(Path.Combine(ThemeFixtures.SlabFolder, "logos")).Length;
+
+        Assert.Equal(logos - 1, ThemeCovers.Of(slab, [.. slab.Logos.Keys.Where(id => id != "dreamcast")]).SystemCards);
+        Assert.Equal(2, ThemeCovers.Of(slab, ["dreamcast", "favourites", "no-such-system"]).SystemCards);
+    }
+
+    [Fact]
     public void Covers_are_written_as_the_lists_block()
     {
         var json = ThemeCoversJson.Serialize(new ThemeCovers(42, 3, true, false, true));

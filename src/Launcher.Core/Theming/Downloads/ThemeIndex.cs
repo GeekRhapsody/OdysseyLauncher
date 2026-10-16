@@ -20,7 +20,11 @@ public sealed record ThemeScreenshot(string Image, string Caption);
 public sealed record ThemeCovers(int SystemCards, int Templates, bool Menus, bool CardVideos, bool GameVideos)
 {
     /// <summary>Counts what a loaded theme sets itself.</summary>
-    public static ThemeCovers Of(Theme theme)
+    /// <param name="systems">
+    /// The systems the launcher has (and Favourites, Recently played and All games), so a card or logo for any other id
+    /// (a set of logos made for ES-DE has many) isn't counted; null counts every id.
+    /// </param>
+    public static ThemeCovers Of(Theme theme, IReadOnlyCollection<string>? systems = null)
     {
         ArgumentNullException.ThrowIfNull(theme);
         var cards = new HashSet<string>(StringComparer.Ordinal);
@@ -49,6 +53,11 @@ public sealed record ThemeCovers(int SystemCards, int Templates, bool Menus, boo
             {
                 cards.Add(id);
             }
+        }
+
+        if (systems is not null)
+        {
+            cards.IntersectWith(systems);
         }
 
         var templates = theme.Templates.Values.Where(t => t.ThemeId == theme.Id).ToList();
