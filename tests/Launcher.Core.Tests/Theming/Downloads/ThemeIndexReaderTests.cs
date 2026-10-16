@@ -132,6 +132,16 @@ public sealed class ThemeIndexReaderTests
     }
 
     [Fact]
+    public void Covers_count_a_logo_a_system_names_once()
+    {
+        // Slab's 171 images: logos/astrocade.webp is Bally Astrocade's ([systems.astrocde] logo), not a system "astrocade".
+        var covers = ThemeCovers.Of(ThemeFixtures.Load(ThemeFixtures.SlabFolder));
+
+        Assert.Equal(Directory.GetFiles(Path.Combine(ThemeFixtures.SlabFolder, "logos")).Length, covers.SystemCards);
+        Assert.Equal((0, true), (covers.Templates, covers.Menus));
+    }
+
+    [Fact]
     public void Covers_are_written_as_the_lists_block()
     {
         var json = ThemeCoversJson.Serialize(new ThemeCovers(42, 3, true, false, true));

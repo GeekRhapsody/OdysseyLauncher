@@ -32,9 +32,23 @@ public sealed record ThemeCovers(int SystemCards, int Templates, bool Menus, boo
             }
         }
 
-        foreach (var id in theme.Logos.Keys)
+        // A logo a [systems.<id>] logo names is that system's, not also the id its file name happens to be
+        // (Slab's logos/astrocade.webp is Bally Astrocade's, whose id is astrocde).
+        var named = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var system in theme.Systems.Values)
         {
-            cards.Add(id);
+            if (system.Logo is { } logo)
+            {
+                named.Add(logo);
+            }
+        }
+
+        foreach (var (id, logo) in theme.Logos)
+        {
+            if (!named.Contains(logo) || (theme.Systems.TryGetValue(id, out var system) && string.Equals(system.Logo, logo, StringComparison.OrdinalIgnoreCase)))
+            {
+                cards.Add(id);
+            }
         }
 
         var templates = theme.Templates.Values.Where(t => t.ThemeId == theme.Id).ToList();
