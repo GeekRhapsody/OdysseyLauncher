@@ -55,16 +55,18 @@ public sealed record DebugOptions
     public const string SaveResponsesArg = "--save-responses";
     public const string LayoutArg = "--layout";
     public const string MemoryLogArg = "--memory-log";
+    public const string ThemesListArg = "--themes-list";
 
     /// <summary>
     /// What <c>--open</c> can show once the app is interactive (M7), for captures of each settings screen and shared
     /// component: the settings screen, the on-screen keyboard, the three pickers, a confirmation, a progress card, the
     /// power menu, the match panel over made-up results, the art chooser over made-up images (2026-10-15), a game's
-    /// details screen (the last three for <see cref="StartSystem"/>'s game at <see cref="StartIndex"/>), and the screen
-    /// shown while a game runs, for a made-up game.
+    /// details screen (the last three for <see cref="StartSystem"/>'s game at <see cref="StartIndex"/>), the screen
+    /// shown while a game runs, for a made-up game, and the theme downloader (2026-10-16; with <see cref="ThemesList"/>,
+    /// a local list, nothing is fetched).
     /// </summary>
     public static IReadOnlyList<string> OpenTargets { get; } =
-        ["settings", "keyboard", "folder-picker", "image-picker", "program-picker", "confirm", "progress", "power", "match", "art", "details", "running"];
+        ["settings", "keyboard", "folder-picker", "image-picker", "program-picker", "confirm", "progress", "power", "match", "art", "details", "running", "themes"];
 
     public const int DefaultCaptureFrame = 60;
     public const int DefaultBenchFrames = 600;
@@ -83,7 +85,7 @@ public sealed record DebugOptions
         CaptureArg, CaptureFrameArg, BenchArg, BenchFramesArg, BenchScenarioArg, BenchSystemArg, BenchScrollSecondsArg,
         NoTexturesArg, RenderScaleArg, UpscalerArg, UploadCapArg, StartSystemArg, StartIndexArg, NavScriptArg, LaunchArg,
         UserDirArg, QuitAfterLaunchArg, ThemeArg, NoOverlayArg, OpenArg, OpenPathArg,
-        FakeStatusArg, SaveResponsesArg, LayoutArg, MemoryLogArg,
+        FakeStatusArg, SaveResponsesArg, LayoutArg, MemoryLogArg, ThemesListArg,
     ];
 
     /// <summary>
@@ -183,6 +185,13 @@ public sealed record DebugOptions
     public string? OpenPath { get; init; }
 
     /// <summary>
+    /// <c>--themes-list</c>: a folder the theme downloader reads its list (<c>themes.json</c> and screenshots) from, as it
+    /// is, instead of fetching the published one (A6 Downloading themes): for captures, and testing a list before
+    /// publishing it. Null for the published list.
+    /// </summary>
+    public string? ThemesList { get; init; }
+
+    /// <summary>
     /// <c>--fake-status=&lt;battery&gt;/&lt;network&gt;</c>: what the status indicators show instead of the device's own
     /// state, for captures on a PC with no battery or no Wi-Fi; null for the real state. The battery is <c>none</c>,
     /// a percentage, or a percentage and <c>+</c> (plugged in); the network is <c>off</c>, <c>lan</c>, or <c>wifi0</c>
@@ -280,6 +289,7 @@ public sealed record DebugOptions
                 SaveResponsesArg => options with { SaveResponses = true },
                 LayoutArg => options with { Layout = ParseLayout(value, errors) },
                 MemoryLogArg => options with { MemoryLogPath = ParsePath(name, value, ".csv", errors) },
+                ThemesListArg => options with { ThemesList = ParsePath(name, value, null, errors) },
                 _ => options,
             };
         }
@@ -546,6 +556,7 @@ public sealed record DebugOptions
         FakeStatusArg => $"{FakeStatusArg}=42+/wifi2",
         LayoutArg => $"{LayoutArg}=grid:4x2/list",
         MemoryLogArg => $"{MemoryLogArg}=C:/bench/memory.csv",
+        ThemesListArg => $"{ThemesListArg}=C:/odyssey-themes",
         _ => $"{BenchFramesArg}={DefaultBenchFrames}",
     };
 }

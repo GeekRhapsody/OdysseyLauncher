@@ -588,3 +588,17 @@ This checks what the fake emulator can't: Eden playing with the pads the launche
 
 - Anything that differed, especially a button in the wrong place (with step 4's setting on or off), a pad left out that should be a player, or the Deck pressing twice (as two players).
 - The log lines: `Select-String -Path "$env:APPDATA\Godot\app_userdata\Odyssey Launcher\logs\godot.log" -Pattern '^Launch|error|warning'`. `Launch controllers for Eden: ...` says which pad became which player and why any was left out.
+
+## The theme downloader
+
+This checks what the tests can't: the published list on GitHub, a real theme's clone over the network, and the page with a pad (docs/ARCHITECTURE.md A6, "Downloading themes"). It needs `GeekRhapsody/odyssey-themes` to exist with at least one theme listed, and uses the export with its own user folder, so your themes aren't touched: `& .\artifacts\export\windows\OdysseyLauncher.exe ++ --user-dir=C:\OdysseyThemesTest`.
+
+1. **The list.** Menu, then Look, then Download themes. The themes show within a few seconds, each with its first screenshot, and "Get" on its right. X on one shows its details; A on a screenshot shows it full screen, left and right go through them, B goes back.
+2. **Get.** A on a theme: a progress card counts up, then "<name> is installed" asks to use it. Use it: the theme loads without a restart. `C:\OdysseyThemesTest\themes\<id>\` holds it, and `themes-staging` is gone.
+3. **Offline.** Turn the network off and open Download themes again: the list from last time shows, with a line saying it couldn't be brought up to date. Turn it back on.
+4. **Remove.** Choose another theme under Theme, then Y on the downloaded one and Remove it: its folder is gone. Y on the theme in use says to choose another first.
+5. **From the command line.** `.\tools\scrape-cli\bin\Debug\net8.0\odyssey-scrape.exe --user-dir=C:\OdysseyThemesTest themes` lists the same themes and states.
+
+### Send back
+
+- Anything that differed, how long step 2 took and the theme's size, and the log lines: `Select-String -Path "$env:APPDATA\Godot\app_userdata\Odyssey Launcher\logs\godot.log" -Pattern '^Themes|error|warning'`.

@@ -51,6 +51,17 @@ public class DebugOptionsTests
     }
 
     [Fact]
+    public void The_theme_downloader_can_be_opened_over_a_local_list()
+    {
+        var list = Path.Combine(Path.GetTempPath(), "themes-list");
+        var result = DebugOptions.Parse(["--open=themes", $"--themes-list={list}", "--nav-script=down,y"]);
+
+        Assert.True(result.IsValid, string.Join("; ", result.Errors));
+        Assert.Equal(("themes", list), (result.Options.Open, result.Options.ThemesList));
+        Assert.Null(DebugOptions.Parse([]).Options.ThemesList);
+    }
+
+    [Fact]
     public void Fake_status_shows_a_made_up_battery_and_network()
     {
         Assert.Null(DebugOptions.Parse([]).Options.FakeStatus);

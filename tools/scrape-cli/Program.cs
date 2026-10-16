@@ -53,6 +53,19 @@ const string Usage = """
                                   images, marquees, videos and manuals copied in as covers, screenshots, logos,
                                   videos and manuals
 
+    Themes (2026-10-16; A6 Downloading themes):
+      inspect-theme [--json] <folder>
+                                  Checks a theme as the app loads it, and its models against the spec and budgets;
+                                  --json also prints the list's covers block for it. No network
+      themes [list]               The theme list, refreshed (git), and what's installed of each theme
+      themes install [--replace] <id>
+                                  Clones the theme at the commit the list pins into ConfigDir/themes/<id>/;
+                                  --replace first moves a theme of that id that isn't the listed one to the backups
+      themes update [--discard-changes] <id>
+                                  Brings it to the commit the list pins; --discard-changes overwrites your edits
+      themes remove <id>          Deletes it
+      --themes-list=<folder> reads the list from a folder, as it is, instead of fetching it.
+
     <rel path> is the ROM's path under its system's ROM folder, as on disk: megadrive/Sonic the Hedgehog 3 (Europe).md
     Credentials: ConfigDir/secrets.toml ([screenscraper] dev_id, dev_password, username, password;
     [steamgriddb] api_key; [igdb] client_id, client_secret), or ODYSSEY_* environment variables. The Steam store
@@ -64,6 +77,10 @@ var arguments = args.ToList();
 string? userDir = null;
 string? from = null;
 var saveResponses = false;
+var json = false;
+var replace = false;
+var discardChanges = false;
+string? themesList = null;
 var kind = ModelKind.PerGame;
 var only = SystemScrapeFilter.All;
 foreach (var argument in arguments.ToList())
@@ -76,6 +93,18 @@ foreach (var argument in arguments.ToList())
     else if (argument == "--save-responses")
     {
         saveResponses = true;
+        arguments.Remove(argument);
+    }
+    else if (argument is "--json" or "--replace" or "--discard-changes")
+    {
+        json |= argument == "--json";
+        replace |= argument == "--replace";
+        discardChanges |= argument == "--discard-changes";
+        arguments.Remove(argument);
+    }
+    else if (argument.StartsWith("--themes-list=", StringComparison.Ordinal))
+    {
+        themesList = Path.GetFullPath(argument["--themes-list=".Length..]);
         arguments.Remove(argument);
     }
     else if (argument.StartsWith("--from=", StringComparison.Ordinal))
@@ -121,6 +150,33 @@ if (arguments.Count == 0 || arguments[0] is "help" or "-h" or "--help")
 
 var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
 var paths = userDir is null ? PlatformPaths.Detect(AppContext.BaseDirectory) : PlatformPaths.InOneFolder(userDir, home);
+
+// The theme commands need neither the config nor the library.
+if (arguments[0] is "inspect-theme" or "themes")
+{
+    using var cancel = new CancellationTokenSource();
+    Console.CancelKeyPress += (_, e) =>
+    {
+        e.Cancel = true;
+        cancel.Cancel();
+    };
+    try
+    {
+        return arguments[0] == "inspect-theme"
+            ? ThemeCommands.Inspect(Require(arguments.Count > 1 ? string.Join(' ', arguments.Skip(1)) : null), json)
+            : await ThemeCommands.RunAsync(paths, themesList, arguments.Skip(1).ToList(), replace, discardChanges, cancel.Token);
+    }
+    catch (OperationCanceledException)
+    {
+        Console.WriteLine("Stopped.");
+        return 1;
+    }
+    catch (ArgumentException e)
+    {
+        Console.Error.WriteLine(e.Message);
+        return 2;
+    }
+}
 var loaded = new ConfigLoader().Load(ConfigSources.FromDirectory(paths.ConfigDir, paths.HomeDir) with { FileExists = null });
 var accounts = ProviderAccounts.Load(paths.ConfigDir, builtIn: ProviderAccounts.BuiltIn);
 foreach (var diagnostic in loaded.Diagnostics.Concat(accounts.Diagnostics).Where(d => d.Severity != Severity.Info))

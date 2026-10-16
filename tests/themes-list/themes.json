@@ -1,0 +1,59 @@
+{
+  // A made-up theme list for captures and tests of the theme downloader (--themes-list, odyssey-scrape themes):
+  // its themes' repositories don't exist, so nothing here can be installed. The screenshots are the app's own themes.
+  "format": 1,
+  "latest_app_version": "0.17.0",
+  "themes": [
+    {
+      "id": "carbon",
+      "name": "Carbon",
+      "author": "Example Author",
+      "description": "Dark slabs with every system's logo, and grey menus.",
+      "url": "https://example.invalid/odyssey-carbon.git",
+      "commit": "1111111111111111111111111111111111111111",
+      "version": "1.0.0",
+      "new": true,
+      "covers": { "system_cards": 171, "templates": 0, "menus": true, "card_videos": false, "game_videos": false },
+      "screenshots": [
+        { "image": "screenshots/carbon/01.webp", "caption": "Systems" },
+        { "image": "screenshots/carbon/02.webp", "caption": "PlayStation 2's games" }
+      ]
+    },
+    {
+      "id": "living-room",
+      "name": "Living Room",
+      "author": "Example Author",
+      "description": "Each system's console as its card: handhelds that load a cartridge when focused, a CPC with its monitor playing a tape's loading screen.",
+      "url": "https://example.invalid/odyssey-living-room.git",
+      "commit": "2222222222222222222222222222222222222222",
+      "version": "2.3.1",
+      "min_app_version": "0.16.0",
+      "covers": { "system_cards": 19, "templates": 1, "menus": false, "card_videos": true, "game_videos": false },
+      "screenshots": [
+        { "image": "screenshots/living-room/01.webp", "caption": "Systems" },
+        { "image": "screenshots/living-room/02.webp", "caption": "PlayStation 2's games" }
+      ]
+    },
+    {
+      "id": "crystal",
+      "name": "Crystal",
+      "author": "Someone Else",
+      "description": "The memory card browser's own look.",
+      "url": "https://example.invalid/odyssey-crystal.git",
+      "commit": "3333333333333333333333333333333333333333",
+      "deprecated": true,
+      "screenshots": [
+        { "image": "screenshots/crystal/01.webp", "caption": "Systems" }
+      ]
+    },
+    {
+      "id": "tomorrow",
+      "name": "Tomorrow",
+      "author": "Example Author",
+      "description": "For a launcher that isn't out yet.",
+      "url": "https://example.invalid/odyssey-tomorrow.git",
+      "commit": "4444444444444444444444444444444444444444",
+      "min_app_version": "9.0.0"
+    }
+  ]
+}

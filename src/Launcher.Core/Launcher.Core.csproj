@@ -24,6 +24,8 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.12" />
     <PackageReference Include="Tomlyn" Version="2.10.1" />
+    <!-- Theme downloads (Theming/Downloads): git clones of the listed themes, as ES-DE does. Native libgit2 comes with it. -->
+    <PackageReference Include="LibGit2Sharp" Version="0.32.0" />
   </ItemGroup>
 
 </Project>

@@ -21,6 +21,7 @@ Four themes come with the repo:
 9. [Making models in Blender](#9-making-models-in-blender)
 10. [Testing a theme](#10-testing-a-theme)
 11. [Troubleshooting](#11-troubleshooting)
+12. [Publishing a theme](#12-publishing-a-theme)
 
 ## 1. Quick start
 
@@ -450,6 +451,8 @@ It scrolls the biggest system from the first row to the last and reports frame t
 - the theme looks right with games that have art and games that have none (a synthetic library has both)
 - the focused and launch clips return to the rest pose
 
+Then, to offer it in the launcher's theme downloader, see section 12.
+
 ## 11. Troubleshooting
 
 | You see | Why | Fix |
@@ -464,3 +467,38 @@ It scrolls the biggest system from the first row to the last and reports frame t
 | A clip doesn't play | It isn't named idle, focused or launch, or it wasn't exported | Rename the action, and push it onto the NLA stack |
 | A game's video doesn't play | The template has no `video`, the slot it names isn't one of the model's materials, the game has no video (the game's details list its media), or a settings screen or panel is open | Check the console's warnings and the game's media |
 | "more than twice the ... may have" in the log | The model is too heavy, so it was rejected | Decimate it, or merge materials |
+
+## 12. Publishing a theme
+
+The launcher's settings have **Download themes** (under Look): a list of themes anyone can get, update and remove from the couch, like ES-DE's theme downloader. The list is [`GeekRhapsody/odyssey-themes`](https://github.com/GeekRhapsody/odyssey-themes), and the launcher's owner tests every theme before it's added. Each theme is a git repository of its own, which the launcher clones into the user's `themes/` folder.
+
+**Your repository:**
+- Put `theme.toml` at the top of the repository: the repository *is* the theme folder. A theme in a subfolder isn't found.
+- The folder it's installed in is the list's `id`, not your repository's name: pick one in lower-case letters, digits, `_` and `-` (`neon-arcade`), and not `memory-card`, `console` or `slab`.
+- Keep the history small. A user downloads every commit, so a 20 MB model committed ten times costs them 200 MB. Commit models when they're finished, and squash early work before you submit.
+- Mark binary files as binary in a `.gitattributes` (`*.glb binary`, `*.png binary`, `*.webp binary`, `*.mp4 binary`), so no git setting ever changes their bytes. The launcher checks out files exactly as committed whatever its user's git settings, but your collaborators' clones won't.
+- A file a user adds to your theme's folder (their own logo, say) survives updates, because git doesn't track it. A file of yours they edit is overwritten by an update, and the launcher asks them first.
+
+**Check it** with the command the list's owner runs, from this repository after `dotnet build`:
+
+```
+.\tools\scrape-cli\bin\Debug\net8.0\odyssey-scrape.exe inspect-theme --json <your theme's folder>
+```
+
+It loads the theme as the launcher does (every error and warning, with its line), checks each model against its kind's budget, and prints the theme's size and a `covers` block: what the list says your theme brings (system cards and logos, templates, its own menus, videos). Fix every error, and name the folder after the id you want.
+
+**Submit it:** open an issue or a pull request on `odyssey-themes` with:
+- the repository's https URL, and the commit to list (the full 40-character sha)
+- the id, name, your name as the author, and a sentence or two of description
+- the oldest launcher version it needs, if it uses something new (`min_app_version`; the launcher shows the theme to older versions, but won't install it)
+- two to four screenshots, 16:9 (the list shows the first at 192 × 108, and the details show them all full screen): the systems and a system's games at least, taken with `--capture` (section 10) at 1280 × 720 or larger. The list keeps them in `screenshots/<id>/`.
+
+**Updates** reach users when the list's owner moves its commit, after testing it: push your changes, then ask for the new commit to be listed (with new screenshots, if it looks different). Users see "Update" on its row; until then, they keep the commit that was tested.
+
+**Try it before you submit:** a list can be read from a folder with `--themes-list=<folder>` (the launcher's and `odyssey-scrape themes`), and a local list may name a repository by a `file:///` URL, so you can install your theme the way users will:
+
+```
+godot --path godot -- --user-dir=<absolute folder> --open=themes --themes-list=<absolute folder with themes.json>
+```
+
+`tests/themes-list/themes.json` in this repository is an example list (its themes are made up, so they can't be installed).

@@ -24,6 +24,9 @@ public static class ThemeCatalog
     /// <summary>The default theme (settings.toml's default <c>[display] theme</c>).</summary>
     public const string DefaultId = "slab";
 
+    /// <summary>Whether a folder's name can be a theme's id: lower-case letters, digits, '_' and '-'.</summary>
+    public static bool IsValidId(string id) => TomlValidator.IsValidId(id);
+
     /// <summary>Every <c>&lt;id&gt;/theme.toml</c> under the user's themes folder. Does file I/O: never on the main thread.</summary>
     public static List<ThemeSource> UserSources(string themesDir, List<Diagnostic> diagnostics) =>
         Sources(themesDir, ThemeOrigin.User, diagnostics);

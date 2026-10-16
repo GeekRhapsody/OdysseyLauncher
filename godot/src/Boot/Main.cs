@@ -691,7 +691,7 @@ public partial class Main : Node3D
         AddChild(hud);
         var context = new UiContext(_ui!, _queue, PlatformServices.CreateFileLocations(services.Paths.HomeDir), services.Paths.HomeDir,
             services.Paths.DataDir, () => services.Config.Settings.RomRoot, PlatformServices.CreateImageDecoder());
-        _settings = new SettingsController(services, context, _jobs) { Rescan = navigator.Rescan };
+        _settings = new SettingsController(services, context, _jobs) { Rescan = navigator.Rescan, ThemesList = _options.ThemesList };
         _settings.ConfigApplied += config =>
         {
             _launch?.ApplyConfig(config);
@@ -704,6 +704,15 @@ public partial class Main : Node3D
             if (id != navigator.ThemeId)
             {
                 navigator.SwitchTheme(id);
+            }
+        };
+
+        // A download installed or updated the theme in use (A6 Downloading themes): loaded again from its new files.
+        _settings.ThemeUpdated += id =>
+        {
+            if (id == navigator.ThemeId)
+            {
+                navigator.ReloadTheme();
             }
         };
 
@@ -977,6 +986,11 @@ public partial class Main : Node3D
                 break;
             case "running":
                 Launch().ShowRunningScreenForDebug("Example Game");
+                break;
+            case "themes":
+                // A frame after the settings, as when its row opens it (the settings' first focus lands on a page then hidden).
+                settings.Open();
+                GetTree().CreateTimer(0).Timeout += () => _ui!.Push(new ThemeDownloaderPage(settings));
                 break;
         }
     }

@@ -43,8 +43,18 @@ public sealed class TempDir : IDisposable
             }
             catch (UnauthorizedAccessException)
             {
+                // Git leaves its objects read-only (the theme download tests' clones).
+                ClearReadOnly();
                 Thread.Sleep(50 * (attempt + 1));
             }
+        }
+    }
+
+    private void ClearReadOnly()
+    {
+        foreach (var file in Directory.EnumerateFiles(Path, "*", new EnumerationOptions { RecurseSubdirectories = true, AttributesToSkip = 0 }))
+        {
+            System.IO.File.SetAttributes(file, FileAttributes.Normal);
         }
     }
 }

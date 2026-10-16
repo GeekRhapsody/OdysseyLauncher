@@ -85,7 +85,7 @@ Odyssey Launcher is built with Godot 4 and C# for Windows. **Performance is the 
 
 ### Themes
 
-The **Slab** theme (the default) shows each system as a dark slab with its logo. **Console** shows each system as its console (still a work in progress: four consoles and a PC so far). Switch themes from the settings or with <kbd>T</kbd>, without a restart.
+The **Slab** theme (the default) shows each system as a dark slab with its logo. **Console** shows each system as its console (still a work in progress: four consoles and a PC so far). Switch themes from the settings or with <kbd>T</kbd>, without a restart, and get more from **Download themes** in the settings: themes from a tested list, kept up to date from there, as ES-DE's theme downloader does.
 
 ![Switching from the Console theme to Slab](docs/readme/themes.webp)
 
@@ -165,7 +165,7 @@ You can also replace any single model from the system and game options, without 
 
 Models are checked against the model spec and its budgets, oversized textures are scaled down, and any problem is written to a log you can read.
 
-The guide for theme authors is [docs/THEMING.md](docs/THEMING.md). It covers the manifest, media slots and fallbacks, the model spec and budgets, animation clips, making models in Blender, and testing. A sample theme to copy is in [samples/themes/retro-tv](samples/themes/retro-tv).
+The guide for theme authors is [docs/THEMING.md](docs/THEMING.md). It covers the manifest, media slots and fallbacks, the model spec and budgets, animation clips, making models in Blender, testing, and getting a theme onto the download list. A sample theme to copy is in [samples/themes/retro-tv](samples/themes/retro-tv).
 
 ## Credits
 
@@ -180,4 +180,5 @@ They're used under the [Creative Commons Attribution-NonCommercial-ShareAlike 2.
 - [Godot Engine](https://godotengine.org), which renders everything.
 - [ES-DE](https://es-de.org), whose systems catalogue, folder names, emulator commands, release years and descriptions are the basis of the built-in systems.
 - [Lucide](https://lucide.dev) for the status indicator icons (ISC licence).
+- [LibGit2Sharp](https://github.com/libgit2/libgit2sharp) (MIT licence) and [libgit2](https://libgit2.org) (GPLv2 with a linking exception), with which the theme downloader clones and updates themes; ES-DE's theme downloader is the model for it.
 - [ScreenScraper](https://www.screenscraper.fr), [IGDB](https://www.igdb.com), [SteamGridDB](https://www.steamgriddb.com) and Steam for game metadata and art.

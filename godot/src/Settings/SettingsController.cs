@@ -45,6 +45,23 @@ public sealed class SettingsController(AppServices services, UiContext ui, Libra
     /// </summary>
     public event Action<string>? MediaFolderChanged;
 
+    /// <summary>
+    /// Main thread: a theme's files changed on disk (a download installed or updated it, 2026-10-16), with its id; the
+    /// navigator loads it again if it's the theme in use.
+    /// </summary>
+    public event Action<string>? ThemeUpdated;
+
+    /// <summary><c>--themes-list</c>: a local theme list the downloader reads instead of fetching the published one.</summary>
+    public string? ThemesList { get; set; }
+
+    /// <summary>The theme downloader (A6 Downloading themes), made the first time its page opens.</summary>
+    public ThemeDownloader Themes => _themes ??= new ThemeDownloader(this, ThemesList);
+
+    private ThemeDownloader? _themes;
+
+    /// <summary>Main thread: raises <see cref="ThemeUpdated"/>.</summary>
+    public void ThemeFilesChanged(string id) => ThemeUpdated?.Invoke(id);
+
     /// <summary>Main thread, from the Library section: rescan (the navigator's rescan, so the grid refreshes after it).</summary>
     public Action<IReadOnlyList<string>?>? Rescan { get; set; }
 

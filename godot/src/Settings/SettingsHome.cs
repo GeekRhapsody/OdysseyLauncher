@@ -55,6 +55,8 @@ public sealed partial class SettingsHome : ListPanel
 
         AddSection("Look");
         _theme = AddRow("Theme", activated: ChooseTheme);
+        AddRow("Download themes", "Themes made for Odyssey Launcher: get them, keep them up to date, or remove them",
+            activated: () => Layer.Push(new ThemeDownloaderPage(_settings)));
         _layout = AddRow("Layout", activated: () => Layer.Push(new LayoutPage(_settings)));
         _graphics = AddRow("Graphics", activated: () => Layer.Push(new GraphicsPage(_settings)));
 
