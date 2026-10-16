@@ -25,6 +25,3 @@ tint_system_model = false                  # every card stays grey: the image is
 [defaults.system_slots]
 label = ["logo", "authored"]               # the system's image, over the slab's own grey; just the grey without one
 
-# logos/ names each image after its system's id; Bally Astrocade's id is astrocde.
-[systems.astrocde]
-logo = "logos/astrocade.webp"

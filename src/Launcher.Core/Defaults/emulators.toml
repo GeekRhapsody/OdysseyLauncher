@@ -280,11 +280,11 @@ executable = "{retroarch}/retroarch.exe"
 core = "{retroarch}/cores/ardens_libretro.dll"
 args = ["-L", "{core}", "--fullscreen", "{rom}"]
 
-[emulators.retroarch-mame-astrocde]
+[emulators.retroarch-mame-astrocade]
 name = "RetroArch: MAME - Current"
 executable = "{retroarch}/retroarch.exe"
 core = "{retroarch}/cores/mame_libretro.dll"
-args = ["-L", "{core}", "--fullscreen", "astrocde -rompath \"{rom_dir};{rom_root}/astrocde\" -cart \"{rom}\""]
+args = ["-L", "{core}", "--fullscreen", "astrocde -rompath \"{rom_dir};{rom_root}/astrocade\" -cart \"{rom}\""]
 
 [emulators.retroarch-stella]
 name = "RetroArch: Stella"
@@ -1293,10 +1293,10 @@ name = "MAME [Model A540] · Archimedes"
 executable = "{emulators}/mame/mame.exe"
 args = ["-rompath", "{rom_dir};{rom_root}/archimedes", "aa540", "-flop1", "{rom}"]
 
-[emulators.mame-astrocde]
+[emulators.mame-astrocade]
 name = "MAME · Bally Astrocade"
 executable = "{emulators}/mame/mame.exe"
-args = ["-rompath", "{rom_dir};{rom_root}/astrocde", "astrocde", "-cart", "{rom_stem}"]
+args = ["-rompath", "{rom_dir};{rom_root}/astrocade", "astrocde", "-cart", "{rom_stem}"]
 
 [emulators.mame-atari7800]
 name = "MAME · Atari 7800 ProSystem"

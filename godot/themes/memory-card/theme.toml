@@ -512,7 +512,7 @@ game_template = "dvd_case"
 [systems.arduboy]                       # Arduboy Miniature Game System
 colour = "#9E955C"
 
-[systems.astrocde]                       # Bally Astrocade
+[systems.astrocade]                       # Bally Astrocade
 colour = "#9E5C71"
 
 [systems.atari2600]                       # Atari 2600

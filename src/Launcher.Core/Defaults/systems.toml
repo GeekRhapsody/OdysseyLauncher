@@ -21,7 +21,7 @@
 # year and description come from ES-DE's theme metadata (themes/linear-es-de/system/metadata/<id>.xml in ES-DE's
 # repository, read on 2026-10-03): the year is the earliest systemReleaseYear of the system and its aliases (the
 # Mega Drive's is megadrivejp's 1988, not megadrive's 1990), the description the system's own English
-# systemDescription (astrocde's is astrocade.xml), its paragraphs joined, its dates day first and its spelling
+# systemDescription (astrocade's is astrocade.xml), its paragraphs joined, its dates day first and its spelling
 # British (product names such as Game Boy Color keep theirs). ES-DE gives the catch-all systems (arcade,
 # consolearcade, desktop, lcdgames, pcarcade, ports) no year ("Various"), so they come last when sorting by year.
 #
@@ -169,14 +169,15 @@ emulator = "retroarch-arduous"
 alt_emulators = ["retroarch-ardens"]
 screenscraper_id = 263
 
-[systems.astrocde]
+[systems.astrocade]
 name = "Bally Astrocade"
 manufacturer = "Bally"
 year = 1977
 description = "The Bally Astrocade (also known as Bally Arcade or initially as Bally ABA-1000) is a second-generation home video game console and simple computer system designed by a team at Midway, at that time the videogame division of Bally. It was originally announced as the \"Bally Home Library Computer\" in October 1977 and initially made available for mail order in December 1977. But due to production delays, the units were first released to stores in April 1978 and its branding changed to \"Bally Professional Arcade\". It was marketed only for a limited time before Bally decided to exit the market. The rights were later picked up by a third-party company, who re-released it and sold it until around 1984. The Astrocade is particularly notable for its very powerful graphics capabilities for the time of release and for the difficulty in accessing those capabilities."
+aliases = ["astrocde"]
 extensions = [".7z", ".zip"]
-emulator = "retroarch-mame-astrocde"
-alt_emulators = ["mame-astrocde"]
+emulator = "retroarch-mame-astrocade"
+alt_emulators = ["mame-astrocade"]
 screenscraper_id = 44
 
 [systems.atari2600]

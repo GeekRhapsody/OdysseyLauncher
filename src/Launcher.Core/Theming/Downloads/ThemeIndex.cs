@@ -33,7 +33,7 @@ public sealed record ThemeCovers(int SystemCards, int Templates, bool Menus, boo
         }
 
         // A logo a [systems.<id>] logo names is that system's, not also the id its file name happens to be
-        // (Slab's logos/astrocade.webp is Bally Astrocade's, whose id is astrocde).
+        // (a theme's logos/astrocade.webp can be given to one system and still not be the system "astrocade"'s).
         var named = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var system in theme.Systems.Values)
         {
