@@ -159,6 +159,28 @@ public sealed partial class ModelView : Control
     }
 
     /// <summary>
+    /// Main thread, as a theme is applied (2026-10-16): a parked view lets its model go, so a theme switched from can
+    /// be freed (<see cref="ModelLoader.ReleaseUnused"/>). Returns the model a view on screen still shows, to be kept
+    /// until a later switch; null when there's none.
+    /// </summary>
+    public static ItemTemplate? ReleaseParked()
+    {
+        if (_shared is not { } view || !IsInstanceValid(view) || view._model is null)
+        {
+            return null;
+        }
+
+        if (view.Visible)
+        {
+            return view._model;
+        }
+
+        view._grid.SetTemplates([]);
+        view._model = null;
+        return null;
+    }
+
+    /// <summary>
     /// The model's slot layout: with a logo, a one-layer array (made here, on opening a details screen: one layer is
     /// quick to make, and it's kept for the next system with the same model); without, none.
     /// </summary>

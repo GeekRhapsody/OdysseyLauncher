@@ -509,6 +509,7 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
     /// </summary>
     public void SetTemplates(IReadOnlyList<ItemTemplate> templates)
     {
+        StopVideo();
         StopGameVideo();
         UnbindAll();
         foreach (var instance in _instances)
@@ -522,6 +523,19 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
             {
                 scene.Root.QueueFree();
             }
+        }
+
+        // Their wrappers are let go now rather than by their finalisers (2026-10-16), which hold the old templates'
+        // meshes and textures, and so a theme switched from, in video memory. The nodes freed above, at the end of the
+        // frame, are the last to hold them.
+        foreach (var multiMesh in _multiMeshes)
+        {
+            multiMesh?.Dispose();
+        }
+
+        foreach (var material in _materials)
+        {
+            material.Dispose();
         }
 
         _templates.Clear();
@@ -1230,6 +1244,8 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
     {
         foreach (var warm in _warmInstances)
         {
+            // Its MultiMesh's wrapper would hold the template's mesh until its finaliser ran (2026-10-16).
+            warm.Multimesh?.Dispose();
             warm.QueueFree();
         }
 
@@ -1241,6 +1257,7 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
 
         _warmNode.Visible = false;
         _warmNode.Mesh = null;
+        _warmNode.MaterialOverride = null;
         Visible = _gridFade < 1;
     }
 

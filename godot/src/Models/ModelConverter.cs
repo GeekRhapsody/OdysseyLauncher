@@ -62,6 +62,47 @@ public sealed class ConvertedModel
 
     /// <summary>The clips it plays, by <see cref="ModelClip"/>; null where it has none.</summary>
     public Animation?[] Clips { get; } = new Animation?[3];
+
+    /// <summary>
+    /// Main thread, once nothing will draw it again (2026-10-16): lets its meshes, textures and node tree go now. A
+    /// wrapper keeps its native object alive until its finaliser runs, which the app's SustainedLowLatency mode can put
+    /// off for the session, so a theme switched away from kept its video memory until a restart. Nodes still drawing
+    /// them (freed at the end of the frame) keep them until then. Nothing may use it afterwards.
+    /// </summary>
+    public void Free()
+    {
+        if (Scene is { } scene && GodotObject.IsInstanceValid(scene))
+        {
+            DisposeMeshes(scene);
+            scene.QueueFree();
+        }
+
+        Scene = null;
+        Mesh?.Dispose();
+        foreach (var texture in Authored)
+        {
+            texture?.Dispose();
+        }
+
+        foreach (var clip in Clips)
+        {
+            clip?.Dispose();
+        }
+
+        // The meshes Upload gave the node tree: only their wrappers and the nodes hold them.
+        static void DisposeMeshes(Node node)
+        {
+            if (node is MeshInstance3D { Mesh: { } mesh })
+            {
+                mesh.Dispose();
+            }
+
+            foreach (var child in node.GetChildren())
+            {
+                DisposeMeshes(child);
+            }
+        }
+    }
 }
 
 /// <summary>

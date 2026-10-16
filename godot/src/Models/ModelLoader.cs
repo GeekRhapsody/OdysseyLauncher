@@ -25,8 +25,9 @@ public enum ModelState
 /// its budget, scales its textures down and remembers the result, so a bad file is caught before Godot parses it and
 /// only processed once; a built-in theme's is read from the PCK. Every model is then parsed by
 /// <see cref="GltfDocument"/> and converted on its own worker, so they load in parallel, and the main thread only
-/// adopts the result, within a time budget per frame. Models are kept for the session (a theme switch reloads user
-/// files; <see cref="ReleasePerGame"/> drops per-game models no list needs). A candidate that's rejected or fails
+/// adopts the result, within a time budget per frame. Models are kept while a theme uses them (a theme switch reloads
+/// user files and frees what the new theme doesn't use, <see cref="ReleaseUnused"/>; <see cref="ReleasePerGame"/>
+/// drops per-game models no list needs). A candidate that's rejected or fails
 /// is logged to the model log the user can read (<c>DataDir/logs/models.log</c>), and the next candidate in line is used.
 /// </summary>
 public sealed class ModelLoader
@@ -44,7 +45,7 @@ public sealed class ModelLoader
     private readonly Dictionary<string, ConvertedModel> _models = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _failed = new(StringComparer.Ordinal);
     private readonly HashSet<string> _loading = new(StringComparer.Ordinal);
-    private readonly List<ConvertedModel> _retired = [];
+    private readonly List<(ConvertedModel Model, bool PerGame)> _retired = [];
     private readonly ConcurrentQueue<(string File, ConvertedModel? Model, string? Error, double WorkerMs)> _parsed = new();
     private long _bytesSinceCollect;
     private ModelCache? _cache;
@@ -157,8 +158,7 @@ public sealed class ModelLoader
 
     /// <summary>
     /// Main thread: user files are read again next time (a theme switch picks up edited models). The grids still draw
-    /// the forgotten models until the next theme is applied, so their node trees are freed then
-    /// (<see cref="FreeRetired"/>).
+    /// the forgotten models until the next theme is applied, so they're freed then (<see cref="ReleaseUnused"/>).
     /// </summary>
     public void ForgetUserModels()
     {
@@ -167,9 +167,9 @@ public sealed class ModelLoader
             if (entry.Candidate.Origin == ThemeOrigin.User && entry.State != ModelState.Loading)
             {
                 _entries.Remove(key);
-                if (_models.Remove(entry.File, out var model) && model.Scene is not null)
+                if (_models.Remove(entry.File, out var model))
                 {
-                    _retired.Add(model);
+                    _retired.Add((model, entry.Candidate.Level == ModelLevel.UserGame));
                 }
 
                 _failed.Remove(entry.File);
@@ -178,20 +178,65 @@ public sealed class ModelLoader
     }
 
     /// <summary>
-    /// Main thread, once a theme has been applied and the grids hold none of the forgotten models: frees their node
-    /// trees, which are never in the scene tree (each theme switch away from models with clips leaked them).
+    /// Main thread, once a theme has been applied and the grids hold only its templates (and the per-game models'
+    /// lists): frees every model none of <paramref name="inUse"/> is (2026-10-16). Models used to stay for the session,
+    /// so switching from a theme with big models (Console's) to one with small ones (Slab's) gave none of their video
+    /// memory back until a restart. Per-game models are left to <see cref="ReleasePerGame"/>: a game list may still
+    /// hold one forgotten for the switch, so only its node tree is freed, as before. Loads in flight finish. Returns
+    /// how many models were freed (per-game ones not counted).
     /// </summary>
-    public void FreeRetired()
+    public int ReleaseUnused(IReadOnlyCollection<ItemTemplate> inUse)
     {
-        foreach (var model in _retired)
+        var freed = 0;
+        var keep = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var (key, entry) in new List<KeyValuePair<string, Entry>>(_entries))
         {
-            if (model.Scene is { } scene && GodotObject.IsInstanceValid(scene))
+            if (entry.State != ModelState.Ready || entry.Candidate.Level == ModelLevel.UserGame || IsInUse(entry.Template!))
+            {
+                keep.Add(entry.File);
+            }
+            else
+            {
+                _entries.Remove(key);
+            }
+        }
+
+        foreach (var file in new List<string>(_models.Keys))
+        {
+            if (!keep.Contains(file) && _models.Remove(file, out var model))
+            {
+                _retired.Add((model, false));
+            }
+        }
+
+        foreach (var (model, perGame) in _retired)
+        {
+            if (!perGame)
+            {
+                model.Free();
+                freed++;
+            }
+            else if (model.Scene is { } scene && GodotObject.IsInstanceValid(scene))
             {
                 scene.QueueFree();
             }
         }
 
         _retired.Clear();
+        return freed;
+
+        bool IsInUse(ItemTemplate template)
+        {
+            foreach (var used in inUse)
+            {
+                if (used == template)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
     }
 
     /// <summary>
@@ -236,8 +281,12 @@ public sealed class ModelLoader
     /// <summary>Main thread, at exit: frees the models' node trees, which are never in the scene tree.</summary>
     public void FreeScenes()
     {
-        _retired.AddRange(_models.Values);
-        foreach (var model in _retired)
+        foreach (var model in _models.Values)
+        {
+            _retired.Add((model, false));
+        }
+
+        foreach (var (model, _) in _retired)
         {
             if (model.Scene is { } scene && GodotObject.IsInstanceValid(scene))
             {

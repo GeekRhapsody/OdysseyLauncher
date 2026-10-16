@@ -44,6 +44,9 @@ public sealed partial class Navigator : Node
     private const string GamesHints = "A / Enter  Play     B / Esc  Back     X / O  Options     Y / I  Details     L3 / F  Favourite     R3 / Z  Zoom     LB RB  Page     LT RT  Letter";
     private const double TitlesDelay = 0.4;
 
+    /// <summary>How long after a theme is applied its predecessor's leftovers are collected, in seconds (2026-10-16).</summary>
+    private const double ThemeCollectDelay = 1;
+
     private static readonly GridPose Shown = new(0, 1, 0);
     private static readonly GridPose SystemsHidden = new(1, 1.12f, 0.7f);
     private static readonly GridPose GamesHidden = new(1, 0.82f, -1.6f);
@@ -66,6 +69,7 @@ public sealed partial class Navigator : Node
     private ThemeRuntime? _pendingTheme;
     private bool _switchingTheme;
     private double _themeRequestedAt;
+    private double _themeCollectDue = -1;
     private SystemsSource _systems = null!;
     private GamesSource? _games;
     private Screen _screen = Screen.Systems;
@@ -280,6 +284,16 @@ public sealed partial class Navigator : Node
         {
             _titlesDue = -1;
             RefreshTitles();
+        }
+
+        if (_themeCollectDue >= 0 && _clock >= _themeCollectDue)
+        {
+            // 2026-10-16: every texture or array the old theme's materials were given went through a Variant, whose
+            // disposer holds it until its finaliser runs; the app's SustainedLowLatency mode can put that off for good,
+            // which kept a theme switched from in video memory. By now the nodes that drew them are freed and the new
+            // theme's arrays are installed, so a background full collection lets them all go.
+            _themeCollectDue = -1;
+            GC.Collect(2, GCCollectionMode.Forced, blocking: false);
         }
 
         if (_perGameLoading.Count > 0 && _theme.PollLoads())
@@ -1185,7 +1199,17 @@ public sealed partial class Navigator : Node
         _gamesGrid.DisableTextures();
         _gamesGrid.SetMotion(theme.Plan.Active.Motion);
         _gamesGrid.SetTemplates(theme.GameTemplates);
-        _loader.FreeRetired();
+
+        // What the new theme doesn't use is freed now, video memory and all (2026-10-16), not kept for the session.
+        var inUse = new List<ItemTemplate>(theme.GameTemplates);
+        inUse.AddRange(theme.CardTemplates);
+        if (ModelView.ReleaseParked() is { } detailsModel)
+        {
+            inUse.Add(detailsModel);
+        }
+
+        var freed = _loader.ReleaseUnused(inUse);
+        _themeCollectDue = _clock + ThemeCollectDelay;
         InstallLayout(theme);
         InstallCardLayout(theme);
 
@@ -1217,7 +1241,7 @@ public sealed partial class Navigator : Node
         }
 
         DebugHooks.Theme = (theme.Plan.Active.Id, theme.Layout.ToString());
-        GD.Print(FormattableString.Invariant($"Theme: now '{theme.Plan.Active.Id}' ({theme.Plan.Active.Name}), {_clock - _themeRequestedAt:0.000} s after it was asked for, applied in {clock.Elapsed.TotalMilliseconds:0.0} ms on the main thread (the menus {menusMs:0.0} ms): {theme.GameTemplates.Count} game template(s), {theme.CardTemplates.Count} system model(s); media slots: {theme.Layout}."));
+        GD.Print(FormattableString.Invariant($"Theme: now '{theme.Plan.Active.Id}' ({theme.Plan.Active.Name}), {_clock - _themeRequestedAt:0.000} s after it was asked for, applied in {clock.Elapsed.TotalMilliseconds:0.0} ms on the main thread (the menus {menusMs:0.0} ms): {theme.GameTemplates.Count} game template(s), {theme.CardTemplates.Count} system model(s), {freed} model(s) freed; media slots: {theme.Layout}."));
         ShowStatus($"Theme: {theme.Plan.Active.Name}");
         OnFocusChanged();
     }
