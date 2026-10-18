@@ -84,6 +84,25 @@ Print($"rescan, 1% changed (30 touched, 35 added, 35 deleted): {await MedianAsyn
 }):F1}");
 Print($"rebuild: {await Time(() => library.RebuildAsync(null, default)):F1}");
 
+// The media folder indexed, as the app does: a cover for every ROM file (a playlist's tracks' match no game, as in a
+// folder shared with ES-DE). "Rescan the library and media" against "Rescan the library" (2026-10-18), which lists
+// no media folder when no game is new.
+var cover = Launcher.Core.Tests.TestSupport.TestImages.Png(64, 90);
+var mediaRoot = Path.Combine(work, "full0", "media");
+foreach (var rom in Directory.EnumerateFiles(romRoot, "*", SearchOption.AllDirectories))
+{
+    var relPath = Path.GetRelativePath(romRoot, rom);
+    var system = relPath[..relPath.IndexOf(Path.DirectorySeparatorChar, StringComparison.Ordinal)];
+    var target = Path.Combine(mediaRoot, system, "covers", Path.ChangeExtension(relPath[(system.Length + 1)..], ".png"));
+    Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+    File.WriteAllBytes(target, cover);
+}
+
+library.IndexMedia = true;
+await library.RescanAsync(null, RescanMedia.All, null, default);
+Print($"rescan with media, nothing changed: {await MedianAsync(7, async () => await Time(() => library.RescanAsync(null, RescanMedia.All, null, default))):F1}");
+Print($"rescan with media only where games are new, nothing changed: {await MedianAsync(7, async () => await Time(() => library.RescanAsync(null, RescanMedia.SystemsWithNewGames, null, default))):F1}");
+
 // One 10,000-game system, with 200 favourites to join against.
 var bigRoot = Path.Combine(work, "BigROMs");
 Directory.CreateDirectory(Path.Combine(bigRoot, "snes"));

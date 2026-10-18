@@ -142,7 +142,8 @@ The **Slab** theme (the default) shows each system as a dark slab with its logo.
 | Settings | Menu | F1 (or Escape on the systems screen) |
 | Power menu | View | P |
 | Next theme | | T |
-| Rescan the library | | F5 |
+| Rescan the library (ROM folders, and media for new games) | | F5 |
+| Rescan the library and media | | Shift+F5 |
 
 ## Configuration
 

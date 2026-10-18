@@ -147,6 +147,19 @@ public interface IPlayHistory
 /// <param name="Current">The item just started, for a report that only names it (the "scanning" phase: a system's name); null otherwise.</param>
 public sealed record JobProgress(string Phase, int Done, int Total, string? Current = null);
 
+/// <summary>Which media folders a rescan indexes (2026-10-18). Its ROM folders are always listed.</summary>
+public enum RescanMedia
+{
+    /// <summary>Every scanned system's: "Rescan the library and media" (Shift+F5), for files put there or removed by hand.</summary>
+    All,
+
+    /// <summary>
+    /// Only those of systems where the scan found games the library didn't have (a new, moved or renamed file, or a
+    /// first scan): "Rescan the library" (F5) and the scans at launch. An unchanged system's media folder isn't listed.
+    /// </summary>
+    SystemsWithNewGames,
+}
+
 public sealed record SystemScanSummary(
     string SystemId,
     int Added,
@@ -253,6 +266,9 @@ public interface ILibrary
 
     /// <summary>Rescans one system, or every enabled one when <paramref name="systemId"/> is null (which also drops disabled systems).</summary>
     Task<ScanSummary> RescanAsync(string? systemId, IProgress<JobProgress>? progress, CancellationToken cancellationToken);
+
+    /// <summary>As <see cref="RescanAsync(string?, IProgress{JobProgress}?, CancellationToken)"/>, indexing the media folders <paramref name="media"/> says.</summary>
+    Task<ScanSummary> RescanAsync(string? systemId, RescanMedia media, IProgress<JobProgress>? progress, CancellationToken cancellationToken);
 
     /// <summary>Builds a new library.db from disk, with no network, and swaps it in atomically.</summary>
     Task<ScanSummary> RebuildAsync(IProgress<JobProgress>? progress, CancellationToken cancellationToken);

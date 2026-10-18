@@ -55,6 +55,11 @@ public sealed class LibraryJobs : IDisposable
 
     public bool Scanning => Jobs.Running(ScanKind) is not null;
 
+    /// <summary>The media folders the running scan indexes; null when none is running. Main thread.</summary>
+    public RescanMedia? ScanningMedia => Scanning ? _scanMedia : null;
+
+    private RescanMedia _scanMedia;
+
     /// <summary>A batch is running (scrape all missing, or a system).</summary>
     public bool Scraping => Jobs.Running(ScrapeKind) is not null;
 
@@ -75,16 +80,22 @@ public sealed class LibraryJobs : IDisposable
 
     // ---- Scans ---------------------------------------------------------------------------------------
 
-    /// <summary>Rescans the given systems (null: every one) in the background. Main thread; false if a scan is running.</summary>
-    public bool Scan(IReadOnlyList<string>? systemIds)
+    /// <summary>
+    /// Rescans the given systems (null: every one) in the background, indexing the media folders <paramref name="media"/>
+    /// says. Main thread; false if a scan is running.
+    /// </summary>
+    public bool Scan(IReadOnlyList<string>? systemIds, RescanMedia media)
     {
         if (Scanning)
         {
             return false;
         }
 
+        _scanMedia = media;
         var cancel = CancellationTokenSource.CreateLinkedTokenSource(_shutdown.Token);
-        var job = Jobs.Start(ScanKind, systemIds is { Count: 1 } ? $"Scanning {SystemName(systemIds[0])}" : "Scanning your ROM folders", "systems", cancel.Cancel);
+        var title = systemIds is { Count: 1 } ? $"Scanning {SystemName(systemIds[0])}"
+            : media == RescanMedia.All ? "Scanning your ROM and media folders" : "Scanning your ROM folders";
+        var job = Jobs.Start(ScanKind, title, "systems", cancel.Cancel);
         var library = _services.Library;
         var progress = new JobProgressSink(job);
         _ = Task.Run(async () =>
@@ -94,7 +105,7 @@ public sealed class LibraryJobs : IDisposable
                 ScanSummary total;
                 if (systemIds is null)
                 {
-                    total = await library.RescanAsync(null, progress, cancel.Token).ConfigureAwait(false);
+                    total = await library.RescanAsync(null, media, progress, cancel.Token).ConfigureAwait(false);
                 }
                 else
                 {
@@ -103,7 +114,7 @@ public sealed class LibraryJobs : IDisposable
                     {
                         job.Report(i, systemIds.Count);
                         job.SetNote($"Scanning {SystemName(systemIds[i])}");
-                        var summary = await library.RescanAsync(systemIds[i], null, cancel.Token).ConfigureAwait(false);
+                        var summary = await library.RescanAsync(systemIds[i], media, null, cancel.Token).ConfigureAwait(false);
                         systems.AddRange(summary.Systems);
                     }
 

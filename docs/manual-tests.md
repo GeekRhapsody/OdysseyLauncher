@@ -144,7 +144,7 @@ Use only the gamepad from here on.
 1. **Systems grid.** The launcher opens on the systems grid with a system focused (the first one with games). Its name is top left, with its maker, year and games under it. Its details are on its details screen (Y: see [a system's details](#a-systems-details)).
    - The D-pad and the left stick move the focus. Held, a move repeats after about a third of a second, then speeds up over the next second and a half.
    - LB and RB move four rows at a time.
-   - View opens the power menu (see [the power menu](#the-power-menu)); B closes it. Rescanning is in the settings: Menu, then Rescan the library. A "Scanning your ROM folders" card shows top right with its progress (M7), then the counts update.
+   - View opens the power menu (see [the power menu](#the-power-menu)); B closes it. Rescanning is in the settings: Menu, then Rescan the library (or F5 on the systems screen). A "Scanning your ROM folders" card shows top right with its progress (M7), then the counts update. Rescan the library and media (or Shift+F5) shows "Scanning your ROM and media folders" instead. With the ROMs and media on the NAS and nothing changed, the first is clearly quicker: `DataDir\logs\scan.log` names which folders each scan listed, and a slow system's line shows its media time as 0.0 s in the quick one. Copy a new ROM into one system's folder and rescan the library: that game shows its cover (if the media folder has one), and the log shows a media time for that system only.
 2. **Games grid.** Press A on Mega Drive.
    - The systems grid flies towards you and fades while the games come up from behind: clamshell cases with your ROMs' titles, and plain boxes (no art until M4).
    - The title top left follows the focus, with the system under it. A game's details are on its details screen (Y: see [a game's details](#a-games-details-and-videos)).
@@ -235,7 +235,7 @@ This checks what captures can't: switching themes on the real display, the look 
 2. Start the export full screen: `& .\artifacts\export\windows\OdysseyLauncher.exe --fullscreen ++ --user-dir=C:\OdysseyTest`, and use only the gamepad.
 3. **Looks.** Press A on Mega Drive: the background and lights cross-fade to Mega Drive's blue look over about a third of a second while the games come up. B cross-fades back.
 4. **Switching.** On the systems grid, press Menu, choose Theme, then Slot Showcase (from M7 the settings choose the theme; Menu used to cycle through them). The cards become square tiles, the background turns plum and teal, and nothing restarts. Close the settings and enter Mega Drive: the games are tall cases with a screenshot panel; games with no screenshot show a test card there. Choose Memory Card the same way to go back.
-5. **Your own model.** Quit, copy any `.glb` with a material named `cover` (for example `tests\themes\slot-showcase\models\templates\showcase_case.glb`) to `C:\OdysseyTest\media\megadrive\model\<a ROM's name without its extension>.glb`, start again and press F5 to rescan. Enter Mega Drive: that one game shows your model, the same height as its neighbours, with its cover on the `cover` material.
+5. **Your own model.** Quit, copy any `.glb` with a material named `cover` (for example `tests\themes\slot-showcase\models\templates\showcase_case.glb`) to `C:\OdysseyTest\media\megadrive\model\<a ROM's name without its extension>.glb`, start again and press Shift+F5 to rescan the library and media. Enter Mega Drive: that one game shows your model, the same height as its neighbours, with its cover on the `cover` material.
 
 ### Send back
 
@@ -255,7 +255,7 @@ This checks what the scripts can't: a model made in Blender (or downloaded) impo
    - Enter Mega Drive: your two games show your models, fitted into their cells, with their art on any slot materials.
    - Press Menu on the systems grid, choose Theme, then Retro TV, and close the settings. The cards are consoles whose cartridges rise and settle (the idle clip). The focused console lifts its cartridge higher and wobbles (focused).
    - Enter Mega Drive: every game is a television showing its screenshot (else its cover, else colour bars), with its logo (else its title) on the stand. The focused television's aerials sway. Press A: the television spins and its aerials fold before the emulator starts (at most 2 s).
-6. **Clearing removes the model.** `& $cli --user-dir=C:\OdysseyTest clear "megadrive/<the first ROM's file name>"`, then press F5 in the app: that game shows its template again, and its file in `models\games\megadrive\` is gone.
+6. **Clearing removes the model.** `& $cli --user-dir=C:\OdysseyTest clear "megadrive/<the first ROM's file name>"`, then press Shift+F5 in the app: that game shows its template again, and its file in `models\games\megadrive\` is gone.
 
 ### Send back
 
@@ -317,7 +317,7 @@ This checks what a script mustn't do: restart, shut down and sleep the PC from t
 This checks what the scripts can't: the grid and settings with the whole catalogue, and a real shortcut or script as a game. It uses the M3 set-up (`C:\OdysseyTest`) and the export.
 
 1. **Only what you have.** Start the launcher with your ROM folders: the systems grid shows the systems that have games (Favourites, Recently played and All games first), not the other 150 or so. Settings, then Emulators, lists only the programs those systems use. In `C:\OdysseyTest\config\settings.toml` set `[display]` `hide_empty_systems = false`, restart: every system has a card, empty ones with "0 games".
-2. **ES-DE folders.** Put a ROM in a folder named `genesis` (and none in `megadrive`): the Mega Drive system finds it after a rescan (View, then F5, or Settings, Library).
+2. **ES-DE folders.** Put a ROM in a folder named `genesis` (and none in `megadrive`): the Mega Drive system finds it after a rescan (F5, or Settings, Library, Rescan the library).
 3. **A shortcut as a game.** Make `ports\Notepad.lnk` (a shortcut to notepad.exe) under your ROM root and rescan. Ports shows it; launch it: Notepad opens in front of the launcher's running screen, and when you close Notepad the launcher comes back with focus. A script, `ports\Hello & World.bat` containing `@pause`, does the same (a console window; any key ends it), and nothing after the `&` runs as a separate command. A file with a `%` in its path says so and doesn't start.
 4. **A catalogue emulator.** Install one the catalogue lists (for example Stella under `C:\Emulators\Stella\64-bit\`, the folder ES-DE looks in), put an Atari 2600 ROM in `atari2600`, and launch it: Stella opens that game. Set another emulator on Atari 2600's page (X on its card) and launch again.
 
@@ -519,7 +519,7 @@ A live scrape needs your credentials, so it's yours to run. Use a user folder of
 
 1. **Regions.** Settings, then Providers, media and credentials, then Preferred regions: Europe 1st, World 2nd, USA 3rd, Japan 4th, the rest Off. Move USA up twice (left, or its ↑): it's 1st, the focus stays on it, and `settings.toml` has `regions = ["us", "eu", "wor", "jp"]`. Turn Japan off and United Kingdom on. Turning off the last one left says it needs at least one.
 2. **A region at work.** X on a game with different US and European covers (Sonic the Hedgehog 3, say), Clear metadata, then Scrape this game: the cover is the US box. Put Europe first again and repeat: the European box.
-3. **No front cover.** On Mega Drive's options, delete one game's cover file in `media\megadrive\covers\` first and rescan (F5). "Scrape games without a front cover" says 1 game of the system's; start it. Only that game is scraped (the progress card counts 1), and it gets its cover back.
+3. **No front cover.** On Mega Drive's options, delete one game's cover file in `media\megadrive\covers\` first and rescan the library and media (Shift+F5). "Scrape games without a front cover" says 1 game of the system's; start it. Only that game is scraped (the progress card counts 1), and it gets its cover back.
 4. **No screenshot.** With Screenshot on under Media to scrape, "Scrape games without a screenshot" counts the games without one; start it, then open it again: the count is now the games no provider has a screenshot for.
 5. **Not scraped recently.** Right after step 4, "Scrape games not scraped in the last 30 days" counts only the games steps 2 to 4 didn't scrape; with every game scraped today it says there's nothing to scrape.
 

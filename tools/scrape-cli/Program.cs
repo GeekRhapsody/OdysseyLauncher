@@ -32,7 +32,8 @@ const string Usage = """
       show <system>/<rel path>    Prints what the library has for a game
       resume                      Carries on with batches a stopped run left unfinished
       bake                        Bakes every missing cover derivative (and removes stale ones)
-      scan [<system>]             Rescans ROM folders (every system without an argument)
+      scan [--quick] [<system>]   Rescans ROM folders and media folders (every system without an argument); with
+                                  --quick, media folders only for systems with new games, as F5 does in the app
       ss-systems                  Lists ScreenScraper's systems against each system's screenscraper_id
 
     Models (M6; no network):
@@ -80,6 +81,7 @@ var saveResponses = false;
 var json = false;
 var replace = false;
 var discardChanges = false;
+var quick = false;
 string? themesList = null;
 var kind = ModelKind.PerGame;
 var only = SystemScrapeFilter.All;
@@ -95,11 +97,12 @@ foreach (var argument in arguments.ToList())
         saveResponses = true;
         arguments.Remove(argument);
     }
-    else if (argument is "--json" or "--replace" or "--discard-changes")
+    else if (argument is "--json" or "--replace" or "--discard-changes" or "--quick")
     {
         json |= argument == "--json";
         replace |= argument == "--replace";
         discardChanges |= argument == "--discard-changes";
+        quick |= argument == "--quick";
         arguments.Remove(argument);
     }
     else if (argument.StartsWith("--themes-list=", StringComparison.Ordinal))
@@ -287,7 +290,7 @@ try
                         Console.WriteLine($"  [{clock.Elapsed.TotalSeconds,6:0.0} s] started {p.Current}");
                     }
                 });
-                var summary = await library.RescanAsync(argument, progress, stop.Token);
+                var summary = await library.RescanAsync(argument, quick ? RescanMedia.SystemsWithNewGames : RescanMedia.All, progress, stop.Token);
                 if (summary.Timings is { Count: > 0 } timings)
                 {
                     Console.WriteLine();

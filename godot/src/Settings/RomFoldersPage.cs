@@ -2,6 +2,7 @@ using System.Linq;
 using Launcher.App.Ui;
 using Launcher.Core.Config;
 using Launcher.Core.Files;
+using Launcher.Core.Library;
 
 namespace Launcher.App.Settings;
 
@@ -79,7 +80,7 @@ public sealed partial class RomFoldersPage : ListPanel
                     {
                         if (result.ChangedFiles.Count > 0 && usesRoot.Count > 0)
                         {
-                            _settings.Rescan?.Invoke(usesRoot);
+                            _settings.Rescan?.Invoke(usesRoot, RescanMedia.All);
                         }
                     },
                     check: () => ConfigInput.CheckFolder(folder));

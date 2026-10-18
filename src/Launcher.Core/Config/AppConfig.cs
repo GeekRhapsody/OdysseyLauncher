@@ -45,7 +45,7 @@ public sealed record Settings(
 /// <param name="Exclude">Glob patterns applied to every system; already folded into each <see cref="SystemConfig.Exclude"/>.</param>
 /// <param name="ScanAtLaunch">
 /// <c>scan_at_launch</c> (2026-10-08): every system is rescanned once the app is interactive, not only those never
-/// scanned. Off by default.
+/// scanned. Off by default. Either is "Rescan the library" (<see cref="Library.RescanMedia.SystemsWithNewGames"/>, 2026-10-18).
 /// </param>
 public sealed record ScanningSettings(IReadOnlyList<string> Exclude, bool ScanAtLaunch = false);
 

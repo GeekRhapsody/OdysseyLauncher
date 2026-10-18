@@ -26,8 +26,11 @@ public enum NavCommand
     /// <summary>L3 (pressing the left stick), or F: the focused game's favourite, in the games grid and its details.</summary>
     Favourite,
 
-    /// <summary>F5: rescan in the grids.</summary>
+    /// <summary>F5: "Rescan the library" on the systems screen (ROM folders, and media only for systems with new games).</summary>
     Rescan,
+
+    /// <summary>Shift+F5: "Rescan the library and media" on the systems screen (every ROM and media folder).</summary>
+    RescanMedia,
 
     /// <summary>T: switch to the next theme for this session (M6; the settings screen chooses and saves one from M7).</summary>
     NextTheme,
@@ -86,7 +89,10 @@ public sealed class NavInput
     private static readonly Binding[] Presses =
     [
         new("nav_accept", NavCommand.Accept), new("nav_back", NavCommand.Back), new("nav_secondary", NavCommand.Secondary),
-        new("nav_first", NavCommand.First), new("nav_last", NavCommand.Last), new("nav_rescan", NavCommand.Rescan),
+        new("nav_first", NavCommand.First), new("nav_last", NavCommand.Last),
+
+        // Before F5's own: an action matches a key with more modifiers than its event, so F5's fires on Shift+F5 too.
+        new("nav_rescan_media", NavCommand.RescanMedia), new("nav_rescan", NavCommand.Rescan),
         new("nav_next_theme", NavCommand.NextTheme), new("nav_menu", NavCommand.Menu), new("nav_alternate", NavCommand.Alternate),
         new("nav_power", NavCommand.Power), new("nav_favourite", NavCommand.Favourite), new("nav_inspect", NavCommand.Inspect),
     ];
@@ -125,13 +131,14 @@ public sealed class NavInput
         AddPress(2, [Key.I], [JoyButton.Y]);
         AddPress(3, [Key.Home], []);
         AddPress(4, [Key.End], []);
-        AddPress(5, [Key.F5], []);
-        AddPress(6, [Key.T], []);
-        AddPress(7, [Key.F1], [JoyButton.Start]);
-        AddPress(8, [Key.O, Key.Menu], [JoyButton.X]);
-        AddPress(9, [Key.P], [JoyButton.Back]);
-        AddPress(10, [Key.F], [JoyButton.LeftStick]);
-        AddPress(11, [Key.Z], [JoyButton.RightStick]);
+        AddPress(5, [Key.F5], [], shift: true);
+        AddPress(6, [Key.F5], []);
+        AddPress(7, [Key.T], []);
+        AddPress(8, [Key.F1], [JoyButton.Start]);
+        AddPress(9, [Key.O, Key.Menu], [JoyButton.X]);
+        AddPress(10, [Key.P], [JoyButton.Back]);
+        AddPress(11, [Key.F], [JoyButton.LeftStick]);
+        AddPress(12, [Key.Z], [JoyButton.RightStick]);
         AddTurn(0, JoyAxis.RightX, -1);
         AddTurn(1, JoyAxis.RightX, 1);
         AddTurn(2, JoyAxis.RightY, -1);
@@ -147,9 +154,10 @@ public sealed class NavInput
     }
 
     private static void Add(int index, Key[] keys, JoyButton[] buttons, (JoyAxis Axis, float Direction)? axis = null) =>
-        Register(Repeating[index], keys, buttons, axis);
+        Register(Repeating[index], keys, buttons, axis, false);
 
-    private static void AddPress(int index, Key[] keys, JoyButton[] buttons) => Register(Presses[index], keys, buttons, null);
+    /// <param name="shift">The keys with Shift held (Shift+F5).</param>
+    private static void AddPress(int index, Key[] keys, JoyButton[] buttons, bool shift = false) => Register(Presses[index], keys, buttons, null, shift);
 
     private static void AddTurn(int index, JoyAxis axis, float direction)
     {
@@ -166,7 +174,7 @@ public sealed class NavInput
     /// </summary>
     public static Vector2 ReadTurn() => Godot.Input.GetVector(Turn[0], Turn[1], Turn[2], Turn[3]);
 
-    private static void Register(Binding binding, Key[] keys, JoyButton[] buttons, (JoyAxis Axis, float Direction)? axis)
+    private static void Register(Binding binding, Key[] keys, JoyButton[] buttons, (JoyAxis Axis, float Direction)? axis, bool shift)
     {
         if (InputMap.HasAction(binding.Keys))
         {
@@ -177,7 +185,7 @@ public sealed class NavInput
         InputMap.AddAction(binding.Pad, StickDeadzone);
         foreach (var key in keys)
         {
-            InputMap.ActionAddEvent(binding.Keys, new InputEventKey { PhysicalKeycode = key });
+            InputMap.ActionAddEvent(binding.Keys, new InputEventKey { PhysicalKeycode = key, ShiftPressed = shift });
         }
 
         foreach (var button in buttons)

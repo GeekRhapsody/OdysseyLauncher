@@ -11,6 +11,7 @@ using Launcher.App.Ui;
 using Launcher.Core.Config;
 using Launcher.Core.Files;
 using Launcher.Core.Importing;
+using Launcher.Core.Library;
 using Launcher.Core.Media;
 using Launcher.Core.Models;
 using Launcher.Core.Scraping;
@@ -280,7 +281,7 @@ public sealed partial class SystemPage : ListPanel
             {
                 if (result.ChangedFiles.Count > 0)
                 {
-                    _settings.Rescan?.Invoke([_systemId]);
+                    _settings.Rescan?.Invoke([_systemId], RescanMedia.All);
                 }
             },
             check: check);

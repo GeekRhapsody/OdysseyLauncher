@@ -20,6 +20,7 @@ using Launcher.App.Ui;
 using Launcher.Core;
 using Launcher.Core.Config;
 using Launcher.Core.Diagnostics;
+using Launcher.Core.Library;
 using Launcher.Core.Platform;
 
 namespace Launcher.App.Boot;
@@ -594,7 +595,11 @@ public partial class Main : Node3D
         }
         else if (step == "rescan")
         {
-            _navigator!.Rescan(null);
+            _navigator!.Rescan(null, RescanMedia.All);
+        }
+        else if (step == "quick-rescan")
+        {
+            _navigator!.Rescan(null, RescanMedia.SystemsWithNewGames);
         }
         else if (step is "click" or "scroll" or "type")
         {
@@ -640,7 +645,8 @@ public partial class Main : Node3D
         }
 
         // A3: nothing is scanned at boot. Systems that have never been scanned are scanned now, in the background, or
-        // every system with [scanning] scan_at_launch (but not during a bench, which measures a library as it is).
+        // every system with [scanning] scan_at_launch (but not during a bench, which measures a library as it is). Both
+        // are "Rescan the library" (2026-10-18): media folders only where there are new games, as there are in a first scan.
         if (!_options.BenchRequested)
         {
             var unscanned = new List<string>();
@@ -659,11 +665,11 @@ public partial class Main : Node3D
             _ = services.CheckInstallsAsync();
             if (services.Config.Settings.Scanning.ScanAtLaunch)
             {
-                _navigator.Rescan(null);
+                _navigator.Rescan(null, RescanMedia.SystemsWithNewGames);
             }
             else if (unscanned.Count > 0)
             {
-                _navigator.Rescan(unscanned.Count == services.Systems.Count ? null : unscanned);
+                _navigator.Rescan(unscanned.Count == services.Systems.Count ? null : unscanned, RescanMedia.SystemsWithNewGames);
             }
             else
             {
@@ -723,7 +729,7 @@ public partial class Main : Node3D
             _streamer?.SetFolders(services.Paths.CacheDir, mediaDir);
             _cardStreamer?.SetFolders(Launcher.Core.Media.ThemeLogos.CacheRoot(services.Paths.CacheDir), mediaDir);
             navigator.ReloadTheme();
-            navigator.Rescan(null);
+            navigator.Rescan(null, RescanMedia.All);
         };
         navigator.SettingsRequested += () =>
         {

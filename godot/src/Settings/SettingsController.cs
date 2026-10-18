@@ -5,6 +5,7 @@ using Godot;
 using Launcher.App.Boot;
 using Launcher.App.Ui;
 using Launcher.Core.Config;
+using Launcher.Core.Library;
 using Launcher.Core.Platform;
 
 namespace Launcher.App.Settings;
@@ -70,8 +71,11 @@ public sealed class SettingsController(AppServices services, UiContext ui, Libra
     /// <summary>Main thread: raises <see cref="ThemeUpdated"/>.</summary>
     public void ThemeFilesChanged(string id) => ThemeUpdated?.Invoke(id);
 
-    /// <summary>Main thread, from the Library section: rescan (the navigator's rescan, so the grid refreshes after it).</summary>
-    public Action<IReadOnlyList<string>?>? Rescan { get; set; }
+    /// <summary>
+    /// Main thread, from the Library section and the folder pages: rescan the given systems (null: all), indexing the
+    /// media folders the <see cref="RescanMedia"/> says (the navigator's rescan, so the grid refreshes after it).
+    /// </summary>
+    public Action<IReadOnlyList<string>?, RescanMedia>? Rescan { get; set; }
 
     public bool IsOpen => Layer.IsOpen;
 

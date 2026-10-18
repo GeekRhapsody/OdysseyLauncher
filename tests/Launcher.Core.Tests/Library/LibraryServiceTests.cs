@@ -734,6 +734,75 @@ public sealed class LibraryServiceTests : IAsyncLifetime
         Assert.Equal([new GameKey("snes", "game b.sfc")], Assert.Single(changes)!);
     }
 
+    // ---- "Rescan the library": media only where there are new games (2026-10-18) ---------------------
+
+    private const RescanMedia Quick = RescanMedia.SystemsWithNewGames;
+
+    [Fact]
+    public async Task A_quick_rescan_with_no_new_games_leaves_media_alone_and_a_full_one_indexes_it()
+    {
+        Rom("snes/Game.sfc");
+        await _library.RescanAsync(null, Quick, null, Ct);
+        Art("snes/covers/Game.png", TestImages.Png(10, 10));
+        var before = Dump();
+
+        var summary = await _library.RescanAsync(null, Quick, null, Ct);
+
+        Assert.Equal((0, 0, 0, 1), Changes(summary));
+        Assert.Equal(before, Dump());
+        Assert.Null((await Game("snes", "Game")).CoverPath);
+
+        await _library.RescanAsync(null, RescanMedia.All, null, Ct);
+        Assert.Equal("media/snes/covers/Game.png", (await Game("snes", "Game")).CoverPath);
+    }
+
+    [Fact]
+    public async Task A_quick_rescan_indexes_the_media_of_only_the_systems_with_new_games()
+    {
+        Rom("snes/Old.sfc");
+        Rom("nes/Other.nes");
+        await _library.RescanAsync(null, Quick, null, Ct);
+        Rom("snes/New.sfc");
+        Art("snes/covers/New.png", TestImages.Png(10, 10));
+        Art("snes/covers/Old.png", TestImages.Png(10, 10));
+        Art("nes/covers/Other.png", TestImages.Png(10, 10));
+
+        var summary = await _library.RescanAsync(null, Quick, null, Ct);
+
+        Assert.Equal(1, summary.Added);
+        Assert.Equal("media/snes/covers/New.png", (await Game("snes", "New")).CoverPath);
+        Assert.Equal("media/snes/covers/Old.png", (await Game("snes", "Old")).CoverPath);
+        Assert.Null((await Game("nes", "Other")).CoverPath);
+    }
+
+    [Fact]
+    public async Task A_quick_first_scan_indexes_media()
+    {
+        Rom("snes/Game.sfc");
+        Art("snes/covers/Game.png", TestImages.Png(10, 10));
+
+        await _library.RescanAsync(null, Quick, null, Ct);
+
+        Assert.Equal("media/snes/covers/Game.png", (await Game("snes", "Game")).CoverPath);
+    }
+
+    [Fact]
+    public async Task A_quick_rescan_drops_a_removed_games_media_rows()
+    {
+        Rom("snes/Keep.sfc");
+        var gone = Rom("snes/Gone.sfc");
+        Art("snes/covers/Keep.png", TestImages.Png(10, 10));
+        Art("snes/covers/Gone.png", TestImages.Png(10, 10));
+        await _library.RescanAsync(null, Quick, null, Ct);
+        File.Delete(gone);
+
+        var summary = await _library.RescanAsync(null, Quick, null, Ct);
+
+        Assert.Equal(1, summary.Removed);
+        var row = Assert.Single(await _library.GetGameMediaAsync("snes", ["cover"], Ct));
+        Assert.Equal("media/snes/covers/Keep.png", row.Media.Path);
+    }
+
     [Fact]
     public async Task Scraped_metadata_comes_with_the_game_details()
     {

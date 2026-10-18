@@ -405,7 +405,10 @@ public sealed partial class Navigator : Node
                 ToggleFavourite();
                 break;
             case NavCommand.Rescan when _screen == Screen.Systems:
-                Rescan(null);
+                Rescan(null, RescanMedia.SystemsWithNewGames);
+                break;
+            case NavCommand.RescanMedia when _screen == Screen.Systems:
+                Rescan(null, RescanMedia.All);
                 break;
             case NavCommand.NextTheme when _screen == Screen.Systems:
                 SwitchTheme(null);
@@ -1487,11 +1490,11 @@ public sealed partial class Navigator : Node
 
     /// <summary>
     /// Rescans the given systems (null: all) in the background, with its progress on the jobs card (M7), then refreshes
-    /// the systems grid. Once at a time.
+    /// the systems grid. Once at a time. <paramref name="media"/>: every media folder, or only those of systems with new games.
     /// </summary>
-    public void Rescan(IReadOnlyList<string>? systemIds)
+    public void Rescan(IReadOnlyList<string>? systemIds, RescanMedia media)
     {
-        if (_jobs?.Scan(systemIds) == false)
+        if (_jobs?.Scan(systemIds, media) == false)
         {
             ShowStatus("A scan is already running.");
         }

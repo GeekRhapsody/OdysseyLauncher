@@ -21,6 +21,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Launcher.Core\Launcher.Core.csproj" />
     <Compile Include="..\..\tests\Launcher.Core.Tests\Benchmarks\FakeRomTree.cs" Link="FakeRomTree.cs" />
+    <Compile Include="..\..\tests\Launcher.Core.Tests\TestSupport\TestImages.cs" Link="TestImages.cs" />
   </ItemGroup>
 
 </Project>

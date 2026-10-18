@@ -359,8 +359,12 @@ public sealed class LibraryService : ILibrary, IPlayHistory, IDisposable
         }
     }
 
+    public Task<ScanSummary> RescanAsync(
+        string? systemId, IProgress<JobProgress>? progress, CancellationToken cancellationToken) =>
+        RescanAsync(systemId, RescanMedia.All, progress, cancellationToken);
+
     public async Task<ScanSummary> RescanAsync(
-        string? systemId, IProgress<JobProgress>? progress, CancellationToken cancellationToken)
+        string? systemId, RescanMedia media, IProgress<JobProgress>? progress, CancellationToken cancellationToken)
     {
         var config = Config;
         IReadOnlyList<SystemConfig> systems;
@@ -380,11 +384,14 @@ public sealed class LibraryService : ILibrary, IPlayHistory, IDisposable
         {
             var stopwatch = Stopwatch.StartNew();
             var indexMedia = IndexMedia;
+            var onlyWhereNew = indexMedia && media == RescanMedia.SystemsWithNewGames;
             var caches = await _readers.RunAsync(
                 c => systems.Select(s => new ScanCache(
-                    LibraryStore.LoadPlaylists(c, s.Id), indexMedia ? LibraryStore.LoadMedia(c, s.Id) : null)).ToList(),
+                    LibraryStore.LoadPlaylists(c, s.Id),
+                    indexMedia ? LibraryStore.LoadMedia(c, s.Id) : null,
+                    onlyWhereNew ? LibraryStore.LoadGameKeys(c, s.Id).ToHashSet(StringComparer.Ordinal) : null)).ToList(),
                 cancellationToken).ConfigureAwait(false);
-            var scans = await Task.Run(() => Scan(systems, caches, indexMedia, progress, cancellationToken), cancellationToken).ConfigureAwait(false);
+            var scans = await Task.Run(() => Scan(systems, caches, indexMedia, media, progress, cancellationToken), cancellationToken).ConfigureAwait(false);
             var keepOnly = systemId is null ? config.Systems.Select(s => s.Id).ToHashSet(StringComparer.Ordinal) : null;
             var now = _clock.GetUtcNow().ToUnixTimeMilliseconds();
             var mediaChanged = new List<GameKey>();
@@ -473,7 +480,7 @@ public sealed class LibraryService : ILibrary, IPlayHistory, IDisposable
                 // Offline and from scratch: no playlist or header cache, nothing from the current library.
                 Sqlite.DeleteFiles(rebuildPath);
                 LibraryDatabase.Prepare(rebuildPath, out _);
-                var scanned = Scan(config.Systems, null, indexMedia, progress, cancellationToken);
+                var scanned = Scan(config.Systems, null, indexMedia, RescanMedia.All, progress, cancellationToken);
                 using var connection = Sqlite.Open(rebuildPath);
                 var added = new List<GameKey>();
                 var written = LibraryStore.Apply(
@@ -523,6 +530,7 @@ public sealed class LibraryService : ILibrary, IPlayHistory, IDisposable
         IReadOnlyList<SystemConfig> systems,
         IReadOnlyList<ScanCache>? caches,
         bool indexMedia,
+        RescanMedia mediaMode,
         IProgress<JobProgress>? progress,
         CancellationToken cancellationToken)
     {
@@ -536,7 +544,8 @@ public sealed class LibraryService : ILibrary, IPlayHistory, IDisposable
         Exception? failure = null;
         var threadCount = Math.Clamp(ScanParallelism, 1, Math.Max(count, 1));
         progress?.Report(new JobProgress("scan", 0, count));
-        _scanLog.Write(LogLevel.Info, $"Scan started: {count} system(s), {threadCount} at a time.");
+        var folders = !indexMedia ? "ROM folders" : mediaMode == RescanMedia.SystemsWithNewGames ? "ROM folders, and media folders of systems with new games" : "ROM and media folders";
+        _scanLog.Write(LogLevel.Info, $"Scan started: {count} system(s), {threadCount} at a time; {folders}.");
 
         void Work()
         {
@@ -559,12 +568,19 @@ public sealed class LibraryService : ILibrary, IPlayHistory, IDisposable
                     {
                         // Only the media of the games just found: their names, so nothing else's header is read.
                         var keys = new List<string>(results[i].Games.Count);
+                        var known = caches?[i].GameKeys;
+                        var anyNew = known is null;
                         foreach (var game in results[i].Games)
                         {
                             keys.Add(game.PathKey);
+                            anyNew = anyNew || !known!.Contains(game.PathKey);
                         }
 
-                        media[i] = MediaScanner.Scan(mediaDir, systems[i].Id, caches?[i].Media, keys, cancellationToken);
+                        // RescanMedia.SystemsWithNewGames: a system with no new game keeps its media rows (null leaves them alone).
+                        if (anyNew)
+                        {
+                            media[i] = MediaScanner.Scan(mediaDir, systems[i].Id, caches?[i].Media, keys, cancellationToken);
+                        }
                     }
 
                     timings[i] = new SystemScanTiming(
@@ -607,7 +623,11 @@ public sealed class LibraryService : ILibrary, IPlayHistory, IDisposable
     }
 
     /// <summary>What the previous scan left in the library, so unchanged playlists and images aren't read again.</summary>
-    private sealed record ScanCache(Dictionary<string, PlaylistEntry> Playlists, Dictionary<string, MediaEntry>? Media);
+    /// <param name="GameKeys">
+    /// The system's games before the scan, for <see cref="RescanMedia.SystemsWithNewGames"/>: its media folder is indexed
+    /// only if the scan finds a game not among them. Null: always indexed.
+    /// </param>
+    private sealed record ScanCache(Dictionary<string, PlaylistEntry> Playlists, Dictionary<string, MediaEntry>? Media, HashSet<string>? GameKeys);
 
     /// <summary>Per system, in config order: the ROM scan and the media found (null when media isn't indexed).</summary>
     private sealed record ScanResults(IReadOnlyList<SystemScan> Roms, IReadOnlyList<MediaScan?> Media, IReadOnlyList<SystemScanTiming> Timings)

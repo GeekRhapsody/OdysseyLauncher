@@ -132,3 +132,15 @@ Excluding a folder saves its whole listing. Excluding a file by name (`gamelist.
 | Release date, descending (joins `metadata`) | | 23.3–26.1 |
 
 All are well inside the 50 ms target. The scans, which now write each file's creation time, were within run-to-run noise: full scan 236–309 ms before and 261–262 after, unchanged rescan 65–71 and 70–73, rebuild 214–218 and 215–252.
+
+## Rescanning without the media folders (added 2026-10-18)
+
+"Rescan the library" (F5, and the scans at launch) lists the ROM folders, and a system's media folder only when the scan finds a game the library didn't have; "Rescan the library and media" (Shift+F5) lists them all (ARCHITECTURE.md decisions log, 2026-10-18). core-bench gives the 10,000-file tree a cover for every ROM file (a playlist's tracks' covers match no game, as in a folder shared with ES-DE) and times an unchanged rescan of every system, ExportRelease on .NET 8, local disk, median of 7:
+
+| Rescan, nothing changed | Time (ms) |
+|---|---|
+| Media not indexed (the existing line) | 52.4 |
+| With every media folder (`RescanMedia.All`) | 110.5 |
+| Media only where games are new (`RescanMedia.SystemsWithNewGames`) | 61.5 |
+
+The quick rescan's cost over none is reading the media and game keys from library.db. On a network share each media folder listing is a round trip per buffer refill, so it saves much more than on the local disk.

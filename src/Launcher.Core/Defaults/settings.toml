@@ -13,8 +13,9 @@ rom_root = "{home}/ROMs"
 # file or folder name at any depth; an excluded folder isn't listed at all, which matters most on network
 # shares. The defaults skip ES-DE's per-system media folders and gamelist files. Set your own list to replace it.
 exclude = ["images", "manuals", "videos", "gamelist.xml"]
-# Rescan every system each time the app starts, in the background, for games added, moved or removed since. false
-# scans only systems never scanned; Settings > Rescan the library (or F5) scans the rest when you ask.
+# Rescan every system each time the app starts, in the background, for games added, moved or removed since (media
+# folders only for systems with new games). false scans only systems never scanned; Settings > Rescan the library
+# (or F5) scans the rest when you ask, and Rescan the library and media (or Shift+F5) every media folder too.
 scan_at_launch = false
 
 [variables]

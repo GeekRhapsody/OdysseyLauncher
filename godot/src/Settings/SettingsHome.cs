@@ -10,6 +10,7 @@ using Godot;
 using Launcher.App.Navigation;
 using Launcher.App.Ui;
 using Launcher.Core.Config;
+using Launcher.Core.Library;
 using Launcher.Core.Scraping;
 using Launcher.Core.Theming;
 
@@ -17,7 +18,7 @@ namespace Launcher.App.Settings;
 
 /// <summary>
 /// The main settings screen (M7): ROM folders, the media folder, emulators, the theme and layout, graphics, the status indicators and navigation sounds, scraping, and the
-/// library's actions (rescan, scrape all missing, and whether it's scanned at launch) with their progress and a way to cancel them. Menu, B or the Back
+/// library's actions (rescan, with or without every media folder, scrape all missing, and whether it's scanned at launch) with their progress and a way to cancel them. Menu, B or the Back
 /// button closes it; every change is saved as it's made, and applies without a restart.
 /// </summary>
 public sealed partial class SettingsHome : ListPanel
@@ -35,6 +36,7 @@ public sealed partial class SettingsHome : ListPanel
     private readonly SettingRow _sounds;
     private readonly SettingRow _scraping;
     private readonly SettingRow _rescan;
+    private readonly SettingRow _rescanMedia;
     private readonly SettingRow _scanAtLaunch;
     private readonly SettingRow _scrapeMissing;
     private readonly SettingRow _problems;
@@ -72,8 +74,11 @@ public sealed partial class SettingsHome : ListPanel
         _scraping = AddRow("Providers, media and credentials", activated: () => Layer.Push(new ScrapingPage(_settings)));
 
         AddSection("Library");
-        _rescan = AddRow("Rescan the library", "Look for new, moved and removed games in every ROM folder", activated: Rescan);
-        _scanAtLaunch = AddRow("Auto scan the library at launch", "Rescan every ROM folder in the background each time the app starts",
+        _rescan = AddRow("Rescan the library", "Look for new, moved and removed games in every ROM folder, and for media only where there are new games",
+            activated: () => Rescan(RescanMedia.SystemsWithNewGames));
+        _rescanMedia = AddRow("Rescan the library and media", "Every ROM folder and every media folder: for art, videos or models you added or removed yourself",
+            activated: () => Rescan(RescanMedia.All));
+        _scanAtLaunch = AddRow("Auto scan the library at launch", "Rescan the library (ROM folders) in the background each time the app starts",
             activated: () => SetScanAtLaunch(null));
         _scanAtLaunch.Adjuster = direction => SetScanAtLaunch(direction > 0);
         _scrapeMissing = AddRow("Scrape all missing metadata", "Games never scraped, not found, or without a front cover", activated: ScrapeMissing);
@@ -249,7 +254,8 @@ public sealed partial class SettingsHome : ListPanel
 
     // ---- Library actions -------------------------------------------------------------------------------
 
-    private void Rescan()
+    /// <param name="media">Every media folder, or only those of systems with new games.</param>
+    private void Rescan(RescanMedia media)
     {
         if (_settings.Jobs.Scanning)
         {
@@ -257,7 +263,7 @@ public sealed partial class SettingsHome : ListPanel
             return;
         }
 
-        _settings.Rescan?.Invoke(null);
+        _settings.Rescan?.Invoke(null, media);
     }
 
     /// <param name="on">Scanned at launch or not; null turns it the other way. It's saved as <c>[scanning] scan_at_launch</c>.</param>
@@ -422,7 +428,9 @@ public sealed partial class SettingsHome : ListPanel
             }
         }
 
-        _rescan.Value = _settings.Jobs.Scanning ? "Running" : null;
+        var scanning = _settings.Jobs.ScanningMedia;
+        _rescan.Value = scanning == RescanMedia.SystemsWithNewGames ? "Running" : null;
+        _rescanMedia.Value = scanning == RescanMedia.All ? "Running" : null;
         _scrapeMissing.Value = _settings.Jobs.Scraping ? "Running" : _counting ? "Counting…" : null;
     }
 
