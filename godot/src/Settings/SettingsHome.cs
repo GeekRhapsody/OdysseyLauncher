@@ -38,6 +38,7 @@ public sealed partial class SettingsHome : ListPanel
     private readonly SettingRow _scanAtLaunch;
     private readonly SettingRow _scrapeMissing;
     private readonly SettingRow _problems;
+    private readonly SettingRow _update;
     private readonly Dictionary<int, SettingRow> _jobRows = [];
     private readonly VBoxContainer _jobs;
     private bool _counting;
@@ -83,9 +84,13 @@ public sealed partial class SettingsHome : ListPanel
         AddSection("Config files");
         _problems = AddRow("Problems in your config files", activated: ShowProblems);
 
+        AddSection("Odyssey Launcher");
+        _update = AddRow("Check for updates", activated: () => _settings.Updater.Check(this));
+
         SetHints("A  Choose     Left Right  No or yes     B / Menu  Close");
         _settings.Jobs.Jobs.Changed += ShowJobs;
         _settings.ConfigApplied += OnConfigApplied;
+        _settings.Updater.Changed += ShowUpdate;
         Refresh();
         ShowJobs();
     }
@@ -96,6 +101,7 @@ public sealed partial class SettingsHome : ListPanel
     {
         _settings.Jobs.Jobs.Changed -= ShowJobs;
         _settings.ConfigApplied -= OnConfigApplied;
+        _settings.Updater.Changed -= ShowUpdate;
     }
 
     private void OnConfigApplied(AppConfig config) => Refresh();
@@ -141,6 +147,17 @@ public sealed partial class SettingsHome : ListPanel
                 : $"{errors} error{(errors == 1 ? string.Empty : "s")}: a setting with an error uses its default until it's fixed";
         _problems.Value = problems == 0 ? null : problems.ToString(CultureInfo.InvariantCulture);
         _problems.ValueColour = UiStyle.Warning;
+        ShowUpdate();
+    }
+
+    private void ShowUpdate()
+    {
+        var updater = _settings.Updater;
+        _update.Detail = updater.Current is { } current
+            ? $"You have {current}. Looks for a newer version on {updater.SourceName}, and installs it if you say so"
+            : $"This build ({Launcher.Core.CoreInfo.Version}) isn't a release's, so it can't be updated";
+        _update.Value = updater.Checking ? "Checking…" : null;
+        _update.ValueColour = UiStyle.Dim;
     }
 
     /// <summary>A grid's size after its layout's name, when it isn't automatic: " (5 columns, automatic rows)".</summary>

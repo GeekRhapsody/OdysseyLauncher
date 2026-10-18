@@ -62,6 +62,18 @@ public class DebugOptionsTests
     }
 
     [Fact]
+    public void Check_for_updates_can_be_opened_over_a_local_feed()
+    {
+        var feed = Path.Combine(Path.GetTempPath(), "update-feed");
+        var result = DebugOptions.Parse(["--open=update", $"--update-feed={feed}"]);
+
+        Assert.True(result.IsValid, string.Join("; ", result.Errors));
+        Assert.Equal(("update", feed), (result.Options.Open, result.Options.UpdateFeed));
+        Assert.Null(DebugOptions.Parse([]).Options.UpdateFeed);
+        Assert.False(DebugOptions.Parse(["--update-feed=relative/feed"]).IsValid);
+    }
+
+    [Fact]
     public void Fake_status_shows_a_made_up_battery_and_network()
     {
         Assert.Null(DebugOptions.Parse([]).Options.FakeStatus);

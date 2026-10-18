@@ -603,3 +603,19 @@ This checks what the tests can't: the published list on GitHub, a real theme's c
 ### Send back
 
 - Anything that differed, how long step 2 took and the theme's size, and the log lines: `Select-String -Path "$env:APPDATA\Godot\app_userdata\Odyssey Launcher\logs\godot.log" -Pattern '^Themes|error|warning'`.
+
+## Updating the launcher
+
+This checks what the tests and the local feed can't: GitHub's API and download over the network, and an update from a real release (docs/ARCHITECTURE.md A1, "Updates"). Until two releases have "Check for updates", it uses an export of this branch labelled as an older version, so GitHub's latest release is offered. Everything happens in `C:\OdysseyUpdateTest`; your installed launcher and AppData aren't touched.
+
+1. **An "old" launcher.** In `Directory.Build.props` set `<Version>` to `0.0.1` (and `config/version` in `godot/project.godot`), then `dotnet build`, `godot --headless --path godot --build-solutions --quit` and `godot --path godot --export-release "Windows Desktop" C:\OdysseyUpdateTest\OdysseyLauncher.exe` (make the folder first; the export's log says "published OdysseyUpdater.exe", and it's beside the executable). Put the version back (`git checkout -- Directory.Build.props godot/project.godot`), and create an empty `C:\OdysseyUpdateTest\portable.txt`.
+2. **Check.** Run `C:\OdysseyUpdateTest\OdysseyLauncher.exe`, open the settings (Menu), and at the bottom choose Check for updates. Within a few seconds, "Update to <latest>?" says you have 0.0.1, lists the release's changes and its size.
+3. **Not now.** B: nothing happens, and `C:\OdysseyUpdateTest\.odyssey-update` doesn't exist.
+4. **Stop.** Check again, choose Update and restart, then press B while it downloads: "Update stopped", and `.odyssey-update` is gone.
+5. **Offline.** Turn the network off and check: "Couldn't check for updates" says GitHub couldn't be reached. Turn it back on.
+6. **A folder it can't write to.** Copy the 0.0.1 export to a folder under `C:\Program Files` (as an administrator), run it as yourself and choose Update and restart: it says the folder can't be written to, and nothing changes.
+7. **Update** (last: the release it installs may not have "Check for updates" yet). Check again and choose Update and restart: the download counts up, the launcher closes, and a few seconds later it opens again at the systems screen. `(Get-Item C:\OdysseyUpdateTest\data_OdysseyLauncher_windows_x86_64\Launcher.Core.dll).VersionInfo.ProductVersion` is the release's version; `userdata` and `portable.txt` are still there, your library and settings with them, and `.odyssey-update` holds at most `OdysseyUpdater.exe` (the helper can't delete itself; the next check does).
+
+### Send back
+
+- Anything that differed, how long the download and the restart took, and `C:\OdysseyUpdateTest\userdata\logs\update.log`.

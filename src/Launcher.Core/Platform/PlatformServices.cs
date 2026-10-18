@@ -27,6 +27,10 @@ public static class PlatformServices
     public static IFileLocations CreateFileLocations(string homeDir) =>
         OperatingSystem.IsWindows() ? new WindowsFileLocations(homeDir) : new PortableFileLocations(homeDir);
 
+    /// <summary>Installs a downloaded update once the launcher has quit; on Linux, nothing (it can't update itself yet).</summary>
+    public static IUpdateInstaller CreateUpdateInstaller() =>
+        OperatingSystem.IsWindows() ? new WindowsUpdateInstaller() : NullUpdateInstaller.Instance;
+
     /// <summary>Null where no decoder exists yet (Linux): derivatives aren't baked there, and covers show as plain boxes.</summary>
     public static Media.IImageDecoder? CreateImageDecoder() =>
         OperatingSystem.IsWindows() ? new WicImageDecoder() : null;

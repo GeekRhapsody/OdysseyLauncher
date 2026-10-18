@@ -154,6 +154,12 @@ jobs:
           if ($pck.Length -lt 1MB) { throw "OdysseyLauncher.pck is only $($pck.Length) bytes: the shader baker didn't run." }
           # The app's themes go beside the executable, not in the PCK: the odyssey_export addon copies them.
           if (-not (Test-Path (Join-Path $out 'themes\memory-card\theme.toml'))) { throw "The export has no themes folder: the odyssey_export addon didn't run." }
+          # The update helper, published with Native AOT by the same addon (it needs the runner's VS C++ build tools):
+          # without it, "Check for updates" can't install the next release.
+          $updater = Get-Item (Join-Path $out 'OdysseyUpdater.exe') -ErrorAction SilentlyContinue
+          if (-not $updater) { throw "The export has no OdysseyUpdater.exe: the odyssey_export addon couldn't publish it (see the export's log)." }
+          # A Native AOT helper is one file of a few MB; a framework-dependent apphost is about 150 KB and needs .NET.
+          if ($updater.Length -lt 1MB) { throw "OdysseyUpdater.exe is only $($updater.Length) bytes: it wasn't published with Native AOT." }
 
       - name: Launch smoke test of the export
         run: |

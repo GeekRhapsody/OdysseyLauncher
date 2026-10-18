@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    OdysseyUpdater.exe, the update helper (docs/ARCHITECTURE.md A1 "Updates"): installs a downloaded update once the
+    launcher has quit, then starts it again. Shipped beside OdysseyLauncher.exe, published with Native AOT by the
+    odyssey_export addon, so it needs no .NET on the user's PC. A Windows program with no console: it logs to a file.
+    No reference to Launcher.Core, which would bring SQLite, libgit2 and the rest into a 2 MB program.
+  -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <AssemblyName>OdysseyUpdater</AssemblyName>
+    <RootNamespace>Launcher.Updater</RootNamespace>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <IsPackable>false</IsPackable>
+    <Configurations>Debug;ExportDebug;ExportRelease</Configurations>
+    <!-- Published by the export with Native AOT (the owner's choice, 2026-10-18); the AOT analysers run on every build. -->
+    <PublishAot>true</PublishAot>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <UseSystemResourceKeys>true</UseSystemResourceKeys>
+    <OptimizationPreference>Size</OptimizationPreference>
+    <!-- The tests run the plain build on the newest installed runtime, like the fake emulator. -->
+    <RollForward>Major</RollForward>
+  </PropertyGroup>
+
+</Project>

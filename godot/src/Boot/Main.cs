@@ -691,7 +691,7 @@ public partial class Main : Node3D
         AddChild(hud);
         var context = new UiContext(_ui!, _queue, PlatformServices.CreateFileLocations(services.Paths.HomeDir), services.Paths.HomeDir,
             services.Paths.DataDir, () => services.Config.Settings.RomRoot, PlatformServices.CreateImageDecoder());
-        _settings = new SettingsController(services, context, _jobs) { Rescan = navigator.Rescan, ThemesList = _options.ThemesList };
+        _settings = new SettingsController(services, context, _jobs) { Rescan = navigator.Rescan, ThemesList = _options.ThemesList, UpdateFeed = _options.UpdateFeed };
         _settings.ConfigApplied += config =>
         {
             _launch?.ApplyConfig(config);
@@ -991,6 +991,10 @@ public partial class Main : Node3D
                 // A frame after the settings, as when its row opens it (the settings' first focus lands on a page then hidden).
                 settings.Open();
                 GetTree().CreateTimer(0).Timeout += () => _ui!.Push(new ThemeDownloaderPage(settings));
+                break;
+            case "update":
+                // "Check for updates" pressed: with --update-feed, from a local folder, so nothing is fetched.
+                settings.Updater.Check(settings.Open());
                 break;
         }
     }

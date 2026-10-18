@@ -25,6 +25,8 @@
     <ProjectReference Include="..\..\src\Launcher.Core\Launcher.Core.csproj" />
     <!-- Built first, but not referenced: the launch tests run it as a process (FakeEmulator.OutputDir). -->
     <ProjectReference Include="..\FakeEmulator\FakeEmulator.csproj" ReferenceOutputAssembly="false" />
+    <!-- The update helper, run as a process by the update tests (UpdaterHelper.OutputDir). -->
+    <ProjectReference Include="..\..\src\Launcher.Updater\Launcher.Updater.csproj" ReferenceOutputAssembly="false" />
   </ItemGroup>
 
   <ItemGroup>
@@ -34,6 +36,7 @@
 
   <ItemGroup>
     <AssemblyMetadata Include="FakeEmulatorDir" Value="$(MSBuildThisFileDirectory)..\FakeEmulator\bin\$(Configuration)\net8.0" />
+    <AssemblyMetadata Include="UpdaterDir" Value="$(MSBuildThisFileDirectory)..\..\src\Launcher.Updater\bin\$(Configuration)\net8.0" />
   </ItemGroup>
 
   <ItemGroup>

@@ -59,6 +59,14 @@ public sealed class SettingsController(AppServices services, UiContext ui, Libra
 
     private ThemeDownloader? _themes;
 
+    /// <summary><c>--update-feed</c>: a local folder "Check for updates" reads releases from instead of GitHub.</summary>
+    public string? UpdateFeed { get; set; }
+
+    /// <summary>"Check for updates" (2026-10-18), made the first time it's used.</summary>
+    public AppUpdater Updater => _updater ??= new AppUpdater(this, UpdateFeed);
+
+    private AppUpdater? _updater;
+
     /// <summary>Main thread: raises <see cref="ThemeUpdated"/>.</summary>
     public void ThemeFilesChanged(string id) => ThemeUpdated?.Invoke(id);
 

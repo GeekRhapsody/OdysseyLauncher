@@ -10,6 +10,7 @@
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/Launcher.Core/Launcher.Core.csproj" />
+    <Project Path="src/Launcher.Updater/Launcher.Updater.csproj" />
   </Folder>
   <Folder Name="/tools/">
     <Project Path="tools/scrape-cli/scrape-cli.csproj" />

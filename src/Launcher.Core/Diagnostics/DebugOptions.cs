@@ -56,6 +56,7 @@ public sealed record DebugOptions
     public const string LayoutArg = "--layout";
     public const string MemoryLogArg = "--memory-log";
     public const string ThemesListArg = "--themes-list";
+    public const string UpdateFeedArg = "--update-feed";
 
     /// <summary>
     /// What <c>--open</c> can show once the app is interactive (M7), for captures of each settings screen and shared
@@ -63,10 +64,11 @@ public sealed record DebugOptions
     /// power menu, the match panel over made-up results, the art chooser over made-up images (2026-10-15), a game's
     /// details screen (the last three for <see cref="StartSystem"/>'s game at <see cref="StartIndex"/>), the screen
     /// shown while a game runs, for a made-up game, and the theme downloader (2026-10-16; with <see cref="ThemesList"/>,
-    /// a local list, nothing is fetched).
+    /// a local list, nothing is fetched), and "Check for updates" (2026-10-18; with <see cref="UpdateFeed"/>, a local
+    /// feed, nothing is fetched).
     /// </summary>
     public static IReadOnlyList<string> OpenTargets { get; } =
-        ["settings", "keyboard", "folder-picker", "image-picker", "program-picker", "confirm", "progress", "power", "match", "art", "details", "running", "themes"];
+        ["settings", "keyboard", "folder-picker", "image-picker", "program-picker", "confirm", "progress", "power", "match", "art", "details", "running", "themes", "update"];
 
     public const int DefaultCaptureFrame = 60;
     public const int DefaultBenchFrames = 600;
@@ -85,7 +87,7 @@ public sealed record DebugOptions
         CaptureArg, CaptureFrameArg, BenchArg, BenchFramesArg, BenchScenarioArg, BenchSystemArg, BenchScrollSecondsArg,
         NoTexturesArg, RenderScaleArg, UpscalerArg, UploadCapArg, StartSystemArg, StartIndexArg, NavScriptArg, LaunchArg,
         UserDirArg, QuitAfterLaunchArg, ThemeArg, NoOverlayArg, OpenArg, OpenPathArg,
-        FakeStatusArg, SaveResponsesArg, LayoutArg, MemoryLogArg, ThemesListArg,
+        FakeStatusArg, SaveResponsesArg, LayoutArg, MemoryLogArg, ThemesListArg, UpdateFeedArg,
     ];
 
     /// <summary>
@@ -192,6 +194,13 @@ public sealed record DebugOptions
     public string? ThemesList { get; init; }
 
     /// <summary>
+    /// <c>--update-feed</c>: a folder "Check for updates" reads its releases from (<c>releases.json</c>, in GitHub's
+    /// shape, and the packages it names by relative URL) instead of GitHub (docs/ARCHITECTURE.md A1 <c>Updates</c>): for
+    /// testing an update end to end without publishing one. Null for GitHub.
+    /// </summary>
+    public string? UpdateFeed { get; init; }
+
+    /// <summary>
     /// <c>--fake-status=&lt;battery&gt;/&lt;network&gt;</c>: what the status indicators show instead of the device's own
     /// state, for captures on a PC with no battery or no Wi-Fi; null for the real state. The battery is <c>none</c>,
     /// a percentage, or a percentage and <c>+</c> (plugged in); the network is <c>off</c>, <c>lan</c>, or <c>wifi0</c>
@@ -290,6 +299,7 @@ public sealed record DebugOptions
                 LayoutArg => options with { Layout = ParseLayout(value, errors) },
                 MemoryLogArg => options with { MemoryLogPath = ParsePath(name, value, ".csv", errors) },
                 ThemesListArg => options with { ThemesList = ParsePath(name, value, null, errors) },
+                UpdateFeedArg => options with { UpdateFeed = ParsePath(name, value, null, errors) },
                 _ => options,
             };
         }
@@ -557,6 +567,7 @@ public sealed record DebugOptions
         LayoutArg => $"{LayoutArg}=grid:4x2/list",
         MemoryLogArg => $"{MemoryLogArg}=C:/bench/memory.csv",
         ThemesListArg => $"{ThemesListArg}=C:/odyssey-themes",
+        UpdateFeedArg => $"{UpdateFeedArg}=C:/odyssey-update-feed",
         _ => $"{BenchFramesArg}={DefaultBenchFrames}",
     };
 }
