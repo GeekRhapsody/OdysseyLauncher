@@ -100,8 +100,9 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
 
     // Inspected (R3), the focused item stands in the middle of the view this share of its height tall (or this share of
     // its width wide, if that's smaller), and gets there or back in 1 / InspectBlendPerSecond seconds.
-    private const float InspectHeight = 0.9f;
-    private const float InspectWidth = 0.9f;
+    // Below the whole view, so turning a deep or wide model round takes less of it off screen (2026-10-18).
+    private const float InspectHeight = 0.75f;
+    private const float InspectWidth = 0.75f;
     private const float InspectBlendPerSecond = 5.0f;
     private const int Slots = MediaSlots.Count;
 
@@ -1077,6 +1078,12 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
     /// focus moves (the next tick lets it go).
     /// </summary>
     public bool Inspecting => _inspecting && CellOf(_focus) == _focusCell;
+
+    /// <summary>
+    /// Whether an item is inspected or easing to or from that pose: from <see cref="ToggleInspect"/> until it's back in its
+    /// place. The list of titles beside a <see cref="GridShape.List"/> goes behind the 3D for that long.
+    /// </summary>
+    public bool InspectShown => _inspecting || _inspectBlend > 0 || _previousInspect > 0;
 
     /// <summary>
     /// Main thread: inspects the focused item (R3), or ends it. Inspected, it moves to the middle of the view and grows

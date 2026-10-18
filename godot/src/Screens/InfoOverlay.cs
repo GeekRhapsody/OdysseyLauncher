@@ -1,4 +1,5 @@
 using Godot;
+using Launcher.App.Theming;
 
 namespace Launcher.App.Screens;
 
@@ -19,6 +20,10 @@ public sealed partial class InfoOverlay : CanvasLayer
     private const float StatusBarRoom = 250;
 
     private Control _root = null!;
+    private CanvasLayer _behind = null!;
+    private Control _behindRoot = null!;
+    private int _listIndex;
+    private bool _listBehind;
     private Label _title = null!;
     private Label _subtitle = null!;
     private Label _favourite = null!;
@@ -35,6 +40,37 @@ public sealed partial class InfoOverlay : CanvasLayer
     /// <summary>The games' titles, shown in the list layout (left), with the focused game's model beside them.</summary>
     public TitleList List { get; } = new();
 
+    /// <summary>
+    /// Main thread: whether the list of titles is drawn behind the 3D, on a background canvas layer (<see
+    /// cref="LookStage.BackgroundLayer"/>), so an inspected game stands in front of it; otherwise it's with the rest of
+    /// the overlay's text, in front. Behind, it's drawn through the 3D's buffer, so it's a little softer when the 3D is
+    /// rendered below the window's resolution. Moves it only when the value changes.
+    /// </summary>
+    public bool ListBehind
+    {
+        get => _listBehind;
+        set
+        {
+            if (_listBehind == value)
+            {
+                return;
+            }
+
+            _listBehind = value;
+            List.GetParent().RemoveChild(List);
+            if (value)
+            {
+                _behindRoot.AddChild(List);
+            }
+            else
+            {
+                // Back where it was: over the scrims and under the heading.
+                _root.AddChild(List);
+                _root.MoveChild(List, _listIndex);
+            }
+        }
+    }
+
     /// <summary>0 = hidden, 1 = shown; for transitions.</summary>
     public float Opacity
     {
@@ -44,6 +80,7 @@ public sealed partial class InfoOverlay : CanvasLayer
             if (_root.Modulate.A != value)
             {
                 _root.Modulate = new Color(1, 1, 1, value);
+                _behindRoot.Modulate = _root.Modulate;
             }
         }
     }
@@ -57,8 +94,17 @@ public sealed partial class InfoOverlay : CanvasLayer
         _root.AddChild(Scrim(top: true));
         _root.AddChild(Scrim(top: false));
 
-        // The games' titles for the list layout, under the heading and the other text.
+        // The games' titles for the list layout, under the heading and the other text. While a game is inspected they go
+        // behind the 3D (ListBehind), on a layer that's shown and hidden with this one.
         _root.AddChild(List);
+        _listIndex = List.GetIndex();
+        _behind = new CanvasLayer { Layer = LookStage.BackgroundLayer, Name = "OverlayBehind" };
+        _behind.Visible = Visible;
+        _behindRoot = new Control { MouseFilter = Control.MouseFilterEnum.Ignore };
+        _behindRoot.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        _behind.AddChild(_behindRoot);
+        AddChild(_behind);
+        VisibilityChanged += () => _behind.Visible = Visible;
 
         var glow = new Color(0.35f, 0.5f, 1.0f, 0.55f);
         var heading = new VBoxContainer { MouseFilter = Control.MouseFilterEnum.Ignore };

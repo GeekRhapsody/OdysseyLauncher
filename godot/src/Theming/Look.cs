@@ -37,7 +37,12 @@ public readonly struct LookColours(Vector3 topLeft, Vector3 topRight, Vector3 bo
 /// </summary>
 public sealed class LookStage
 {
+    /// <summary>
+    /// The highest canvas layer drawn behind the 3D (the environment's <c>background_canvas_max_layer</c>). The gradient
+    /// is the layer under it; the list of titles comes down to it while a game is inspected (<see cref="Screens.InfoOverlay"/>).
+    /// </summary>
     public const int BackgroundLayer = -1;
+    private const int GradientLayer = BackgroundLayer - 1;
     public const int MaxLights = 3;
 
     private static readonly StringName TopLeftParam = "top_left";
@@ -76,7 +81,7 @@ public sealed class LookStage
         _gradient = new ShaderMaterial { Shader = GD.Load<Shader>("res://shaders/background_gradient.gdshader") };
         var rect = new ColorRect { Material = _gradient, MouseFilter = Control.MouseFilterEnum.Ignore };
         rect.SetAnchorsPreset(Control.LayoutPreset.FullRect);
-        var layer = new CanvasLayer { Layer = BackgroundLayer, Name = "Background" };
+        var layer = new CanvasLayer { Layer = GradientLayer, Name = "Background" };
         layer.AddChild(rect);
         parent.AddChild(layer);
 
