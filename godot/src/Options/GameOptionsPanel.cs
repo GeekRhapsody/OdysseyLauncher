@@ -233,18 +233,25 @@ public sealed partial class GameOptionsPanel : ListPanel
     {
         var config = _options.Settings.Services.Config;
         var system = config.FindSystem(_game.Key.SystemId);
-        var suggested = new HashSet<string>(StringComparer.Ordinal);
-        if (system is not null)
-        {
-            suggested.UnionWith(system.OfferedEmulators());
-        }
-
         var systemsName = system is not null && config.Emulators.TryGetValue(system.Emulator, out var e) ? e.Name : system?.Emulator ?? "?";
         var choices = new List<Choice> { new(string.Empty, "The system's emulator", systemsName) };
-        choices.AddRange(config.Emulators.Values
-            .OrderBy(p => suggested.Contains(p.Id) ? 0 : 1)
-            .ThenBy(p => p.Name, StringComparer.CurrentCultureIgnoreCase)
-            .Select(p => new Choice(p.Id, p.Name, (suggested.Contains(p.Id) ? "Suggested · " : string.Empty) + p.ProgramText)));
+
+        // Only what the system offers (2026-10-18), as its page does, then the game's own override if it's none of them.
+        var offered = new List<string>(system?.OfferedEmulators() ?? []);
+        var systemCount = offered.Count;
+        if (_game.EmulatorOverride is { } own && !offered.Contains(own))
+        {
+            offered.Add(own);
+        }
+
+        for (var i = 0; i < offered.Count; i++)
+        {
+            if (config.Emulators.TryGetValue(offered[i], out var profile))
+            {
+                choices.Add(new Choice(profile.Id, profile.Name, (i >= systemCount ? "Not one the system offers · " : string.Empty) + profile.ProgramText));
+            }
+        }
+
         var key = _game.Key;
         Layer.Push(new ChoicePanel($"Emulator for {_game.Title}", "Only this game; the others keep the system's", choices, _game.EmulatorOverride ?? string.Empty, choice =>
             Run(library => library.SetEmulatorOverrideAsync(key, choice.Id.Length == 0 ? null : choice.Id, CancellationToken.None),
