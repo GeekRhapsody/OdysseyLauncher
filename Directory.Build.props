@@ -12,4 +12,13 @@
   <PropertyGroup Condition="'$(Configuration)' == 'ExportRelease'">
     <Optimize>true</Optimize>
   </PropertyGroup>
+
+  <!--
+    An export compiles without Roslyn's compiler server. A server the export's build starts outlives it (ten idle
+    minutes) holding Godot's output pipe, and the console wrapper waits for every holder of that pipe: a local export
+    that had to compile returned ten minutes late (docs/ARCHITECTURE.md decisions log, 2026-10-18).
+  -->
+  <PropertyGroup Condition="'$(Configuration)' == 'ExportRelease' Or '$(Configuration)' == 'ExportDebug'">
+    <UseSharedCompilation>false</UseSharedCompilation>
+  </PropertyGroup>
 </Project>

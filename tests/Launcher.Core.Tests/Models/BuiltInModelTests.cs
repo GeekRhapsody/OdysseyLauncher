@@ -106,18 +106,25 @@ public sealed class BuiltInModelTests
     }
 
     [Theory]
-    [InlineData("ps2_clamshell")]
-    [InlineData("ps2_clamshell_blue")]
-    public void The_PS2_clamshells_faces_have_the_scraped_arts_proportions(string template)
+    [InlineData("ps2_clamshell", 486, 55)]
+    [InlineData("ps2_clamshell_blue", 486, 55)]
+    [InlineData("psp_clamshell", 398, 59)]
+    public void The_PlayStation_clamshells_faces_have_the_scraped_arts_proportions(string template, int front, int spine)
     {
-        // Sized by ScreenScraper's PAL scans (a 486 x 680 front and back, a 55 x 680 spine), so none of the art is cropped.
+        // Sized by ScreenScraper's scans (a front and back, and a spine, each 680 high), so none of the art is cropped.
         var theme = ThemeFixtures.Load(ThemeFixtures.BaseFolder);
         var model = Load(ThemeFixtures.BaseFolder, theme.Templates[template].Model);
 
         Assert.Equal(["case", "cover", "back", "spine"], model.Materials);
-        Assert.Equal(486 / 680f, model.Aspects["cover"], 0.001f);
-        Assert.Equal(486 / 680f, model.Aspects["back"], 0.001f);
-        Assert.Equal(55 / 680f, model.Aspects["spine"], 0.001f);
+        Assert.Equal(front / 680f, model.Aspects["cover"], 0.001f);
+        Assert.Equal(front / 680f, model.Aspects["back"], 0.001f);
+        Assert.Equal(spine / 680f, model.Aspects["spine"], 0.001f);
+    }
+
+    [Fact]
+    public void The_PSPs_games_are_in_its_clamshell()
+    {
+        Assert.Equal("psp_clamshell", ThemeFixtures.Load(ThemeFixtures.BaseFolder).Systems["psp"].GameTemplate);
     }
 
     [Fact]

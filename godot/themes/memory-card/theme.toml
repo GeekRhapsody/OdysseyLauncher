@@ -93,12 +93,15 @@ model = "models/templates/clamshell.glb"
 model = "models/templates/megadrive_clamshell.glb"  # built by tools/console-models/mega_drive_clamshell.py
 
 [templates.ps2_clamshell]          # PlayStation 2: Sony's black case, rounded, with its finger recess, its insert sized by the scraped art: 135 x 190 x 14.8 mm
-model = "models/templates/ps2_clamshell.glb"       # built by tools/console-models/ps2_clamshell.py
+model = "models/templates/ps2_clamshell.glb"       # built by tools/console-models/playstation_clamshell.py
 
 [templates.ps2_clamshell_blue]     # The same case in the later PAL cases' blue. Chosen per game or system
-model = "models/templates/ps2_clamshell_blue.glb"  # built by tools/console-models/ps2_clamshell.py
+model = "models/templates/ps2_clamshell_blue.glb"  # built by tools/console-models/playstation_clamshell.py
 
-[templates.umd_case]               # PSP: 104 x 180 x 14 mm
+[templates.psp_clamshell]          # PSP: Sony's case (clear, a grey stand-in), with its finger recess, its insert sized by the scraped art: 104 x 180 x 14.9 mm
+model = "models/templates/psp_clamshell.glb"       # built by tools/console-models/playstation_clamshell.py
+
+[templates.umd_case]               # N-Gage (PSP's until 2026-10-18): a plain case, 104 x 180 x 14 mm
 model = "models/templates/umd_case.glb"
 
 [templates.switch_case]            # Switch: 105 x 172 x 11.5 mm
@@ -448,7 +451,7 @@ energy = 0.25
 
 [systems.psp]                      # PSP
 colour = "#3B3E48"
-game_template = "umd_case"
+game_template = "psp_clamshell"
 
 [systems.psp.look.background]
 top_left     = "#41434C"
