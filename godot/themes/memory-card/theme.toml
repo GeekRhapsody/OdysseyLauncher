@@ -42,7 +42,7 @@ game_template = "generic_box_spine"                    # for systems this theme 
 # card, or a spine and back in the cover's colour), and always the material's own texture last. For example:
 #   [templates.dvd_case.slots]
 #   back = ["back", "screenshot", "generated"]
-[templates.dvd_case]               # PlayStation 2, GameCube: 135 x 190 x 14 mm
+[templates.dvd_case]               # GameCube and other DVD systems: 135 x 190 x 14 mm
 model = "models/templates/dvd_case.glb"
 
 [templates.jewel_case]             # Saturn, Dreamcast, the other CD systems: 142 x 125 x 10.4 mm
@@ -91,6 +91,12 @@ model = "models/templates/clamshell.glb"
 
 [templates.megadrive_clamshell]    # Mega Drive: Sega's clamshell with its hanger tab, its insert sized by the scraped art: 134 x 190 (205.4 with the tab) x 21.9 mm
 model = "models/templates/megadrive_clamshell.glb"  # built by tools/console-models/mega_drive_clamshell.py
+
+[templates.ps2_clamshell]          # PlayStation 2: Sony's black case, rounded, with its finger recess, its insert sized by the scraped art: 135 x 190 x 14.8 mm
+model = "models/templates/ps2_clamshell.glb"       # built by tools/console-models/ps2_clamshell.py
+
+[templates.ps2_clamshell_blue]     # The same case in the later PAL cases' blue. Chosen per game or system
+model = "models/templates/ps2_clamshell_blue.glb"  # built by tools/console-models/ps2_clamshell.py
 
 [templates.umd_case]               # PSP: 104 x 180 x 14 mm
 model = "models/templates/umd_case.glb"
@@ -417,7 +423,7 @@ energy = 0.25
 
 [systems.ps2]                      # PlayStation 2
 colour = "#1F3A7A"
-game_template = "dvd_case"
+game_template = "ps2_clamshell"
 
 [systems.ps2.look.background]
 top_left     = "#1C2A4C"

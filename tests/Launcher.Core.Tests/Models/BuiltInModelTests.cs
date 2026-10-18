@@ -105,6 +105,28 @@ public sealed class BuiltInModelTests
         Assert.Equal(81 / 680f, model.Aspects["spine"], 0.001f);
     }
 
+    [Theory]
+    [InlineData("ps2_clamshell")]
+    [InlineData("ps2_clamshell_blue")]
+    public void The_PS2_clamshells_faces_have_the_scraped_arts_proportions(string template)
+    {
+        // Sized by ScreenScraper's PAL scans (a 486 x 680 front and back, a 55 x 680 spine), so none of the art is cropped.
+        var theme = ThemeFixtures.Load(ThemeFixtures.BaseFolder);
+        var model = Load(ThemeFixtures.BaseFolder, theme.Templates[template].Model);
+
+        Assert.Equal(["case", "cover", "back", "spine"], model.Materials);
+        Assert.Equal(486 / 680f, model.Aspects["cover"], 0.001f);
+        Assert.Equal(486 / 680f, model.Aspects["back"], 0.001f);
+        Assert.Equal(55 / 680f, model.Aspects["spine"], 0.001f);
+    }
+
+    [Fact]
+    public void The_PS2s_games_are_in_the_black_clamshell()
+    {
+        // The blue one is chosen per game or system.
+        Assert.Equal("ps2_clamshell", ThemeFixtures.Load(ThemeFixtures.BaseFolder).Systems["ps2"].GameTemplate);
+    }
+
     [Fact]
     public void The_Switch_cases_insert_keeps_the_hand_made_models_proportions()
     {
