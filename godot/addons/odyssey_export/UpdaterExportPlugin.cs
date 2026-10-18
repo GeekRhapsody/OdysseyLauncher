@@ -44,19 +44,13 @@ public partial class UpdaterExportPlugin : EditorExportPlugin
         var repo = Path.GetFullPath(Path.Combine(ProjectSettings.GlobalizePath("res://"), ".."));
         var project = Path.Combine(repo, "src", "Launcher.Updater", "Launcher.Updater.csproj");
         var output = Path.Combine(repo, "artifacts", "updater");
-        var start = new ProcessStartInfo("dotnet")
-        {
-            UseShellExecute = false,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            WorkingDirectory = repo,
-        };
+        var start = new ProcessStartInfo("dotnet") { WorkingDirectory = repo };
         foreach (var argument in new[] { "publish", project, "-c", "ExportRelease", "-r", "win-x64", "-o", output, "-nologo" })
         {
             start.ArgumentList.Add(argument);
         }
 
-        // As in the release workflow: build servers would inherit the output pipes and keep this waiting.
+        // As in the release workflow: no build servers, which would outlive the publish (ToolProcess ends any that do).
         start.Environment["MSBUILDDISABLENODEREUSE"] = "1";
         start.Environment["DOTNET_CLI_USE_MSBUILD_SERVER"] = "0";
         start.Environment["UseSharedCompilation"] = "false";
@@ -66,21 +60,19 @@ public partial class UpdaterExportPlugin : EditorExportPlugin
         start.Environment["PATH"] = installer + Path.PathSeparator + System.Environment.GetEnvironmentVariable("PATH");
         try
         {
-            using var process = Process.Start(start)!;
-            var stdout = process.StandardOutput.ReadToEndAsync();
-            var stderr = process.StandardError.ReadToEndAsync();
-            if (!process.WaitForExit(Timeout))
+            // In a job of its own, ended when the publish exits: the linker leaves vctip.exe (its telemetry) running,
+            // holding Godot's output pipe, and the console wrapper waited for it 15 minutes on GitHub's runner.
+            var result = Launcher.Core.Platform.ToolProcess.Run(start, Timeout);
+            if (result.ExitCode is null)
             {
-                process.Kill(entireProcessTree: true);
                 GD.PushError($"Odyssey export: publishing {HelperFileName} took over {Timeout.TotalMinutes:0} minutes, so the export has no update helper.");
                 return;
             }
 
-            var log = stdout.Result + stderr.Result;
             var helper = Path.Combine(output, HelperFileName);
-            if (process.ExitCode != 0 || !File.Exists(helper))
+            if (result.ExitCode != 0 || !File.Exists(helper))
             {
-                GD.PushError($"Odyssey export: publishing {HelperFileName} failed (exit code {process.ExitCode}), so the export has no update helper. Native AOT needs the Visual Studio C++ build tools.\n{Tail(log)}");
+                GD.PushError($"Odyssey export: publishing {HelperFileName} failed (exit code {result.ExitCode}), so the export has no update helper. Native AOT needs the Visual Studio C++ build tools.\n{Tail(result.Output)}");
                 return;
             }
 

@@ -26,6 +26,7 @@ internal static unsafe partial class NativeMethods
     public const int JobObjectAssociateCompletionPortInformationClass = 7;
     public const int JobObjectExtendedLimitInformationClass = 9;
     public const uint JobObjectLimitBreakawayOk = 0x0000_0800;
+    public const uint JobObjectLimitKillOnJobClose = 0x0000_2000;
     public const uint JobObjectMsgActiveProcessZero = 4;
 
     public const uint Infinite = 0xFFFF_FFFF;
