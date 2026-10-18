@@ -1,5 +1,7 @@
 using System;
 using Godot;
+using Launcher.App.Ui;
+using Launcher.Core.Theming;
 
 namespace Launcher.App.Screens;
 
@@ -19,8 +21,10 @@ public sealed partial class TitleList : Control
     private readonly Label[] _systems;
     private readonly int[] _bound;
     private readonly Panel _highlight;
+    private readonly StyleBoxFlat _box;
     private readonly LabelSettings _plain;
     private readonly LabelSettings _focused;
+    private readonly LabelSettings _systemStyle;
     private GamesSource? _source;
     private bool _showSystems;
     private float _scroll = float.NaN;
@@ -40,23 +44,19 @@ public sealed partial class TitleList : Control
         OffsetTop = 150;
         OffsetBottom = -64;
 
-        var box = new StyleBoxFlat
-        {
-            BgColor = new Color(0.16f, 0.24f, 0.62f, 0.7f),
-            BorderColor = new Color("#8FB2FF"),
-            ShadowColor = new Color(0.35f, 0.5f, 1.0f, 0.4f),
-            ShadowSize = 8,
-        };
-        box.SetBorderWidthAll(1);
-        box.SetCornerRadiusAll(8);
+        // The colours are the theme's, set by Use: the launcher's own until then.
+        _box = new StyleBoxFlat { ShadowSize = 8 };
+        _box.SetBorderWidthAll(1);
+        _box.SetCornerRadiusAll(8);
         _highlight = new Panel { MouseFilter = MouseFilterEnum.Ignore, Size = new Vector2(540, RowHeight) };
-        _highlight.AddThemeStyleboxOverride("panel", box);
+        _highlight.AddThemeStyleboxOverride("panel", _box);
         AddChild(_highlight);
 
         var shadow = new Color(0, 0, 0, 0.7f);
-        _plain = new LabelSettings { FontSize = 19, FontColor = new Color("#C9D0E6"), ShadowColor = shadow, ShadowSize = 3, ShadowOffset = Vector2.Zero };
-        _focused = new LabelSettings { FontSize = 19, FontColor = Colors.White, ShadowColor = new Color(0.35f, 0.5f, 1.0f, 0.55f), ShadowSize = 6, ShadowOffset = Vector2.Zero };
-        var systemStyle = new LabelSettings { FontSize = 14, FontColor = new Color("#8E9CC6"), ShadowColor = shadow, ShadowSize = 3, ShadowOffset = Vector2.Zero };
+        _plain = new LabelSettings { FontSize = 19, ShadowColor = shadow, ShadowSize = 3, ShadowOffset = Vector2.Zero };
+        _focused = new LabelSettings { FontSize = 19, FontColor = Colors.White, ShadowSize = 6, ShadowOffset = Vector2.Zero };
+        _systemStyle = new LabelSettings { FontSize = 14, ShadowColor = shadow, ShadowSize = 3, ShadowOffset = Vector2.Zero };
+        Use(OverlayPalette.Legacy);
 
         // Enough labels for the tallest list (2160p is the same 800-high base, stretched) and one coming in at each end.
         var pool = (int)(800 / RowHeight) + 3;
@@ -79,7 +79,7 @@ public sealed partial class TitleList : Control
             AddChild(_titles[i]);
             _systems[i] = new Label
             {
-                LabelSettings = systemStyle,
+                LabelSettings = _systemStyle,
                 MouseFilter = MouseFilterEnum.Ignore,
                 ClipText = true,
                 HorizontalAlignment = HorizontalAlignment.Right,
@@ -89,6 +89,17 @@ public sealed partial class TitleList : Control
             };
             AddChild(_systems[i]);
         }
+    }
+
+    /// <summary>Main thread: the list takes the theme's colours (A6 Menus). Its labels share these settings, so each lays out once.</summary>
+    public void Use(OverlayPalette palette)
+    {
+        _box.BgColor = UiStyle.Colour(palette.ListFocusBox);
+        _box.BorderColor = UiStyle.Colour(palette.ListFocusBorder);
+        _box.ShadowColor = UiStyle.Colour(palette.ListFocusShadow);
+        _plain.FontColor = UiStyle.Colour(palette.ListPlain);
+        _focused.ShadowColor = UiStyle.Colour(palette.Glow);
+        _systemStyle.FontColor = UiStyle.Colour(palette.ListSystem);
     }
 
     /// <summary>The titles a page (LB, RB) moves through: those that show at once.</summary>

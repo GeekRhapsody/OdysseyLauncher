@@ -82,6 +82,9 @@ public static class UiStyle
     /// <summary>One colour of the palette in use.</summary>
     public static Color Colour(MenuRole role) => _colours[(int)role];
 
+    /// <summary>A Core colour as Godot's.</summary>
+    public static Color Colour(Rgba colour) => new(colour.R, colour.G, colour.B, colour.A);
+
     /// <summary>A panel's frame: a new box each time, so its caller can change its margins.</summary>
     public static StyleBoxFlat PanelBox(float radius = 16) => new()
     {

@@ -17,6 +17,7 @@ using Launcher.Core.Config;
 using Launcher.Core.Diagnostics;
 using Launcher.Core.Library;
 using Launcher.Core.Media;
+using OverlayPalette = Launcher.Core.Theming.OverlayPalette;
 
 namespace Launcher.App.Screens;
 
@@ -102,6 +103,9 @@ public sealed partial class Navigator : Node
         _stage = stage;
         _loader = loader;
         _theme = theme;
+
+        // The overlay's colours before it first shows: the theme's menu colours (A6 Menus), else the launcher's own.
+        overlay.Use(OverlayPalette.For(theme.Plan.Active.Menu));
         var systemName = new Dictionary<string, string>(StringComparer.Ordinal);
         foreach (var system in services.Config.Systems)
         {
@@ -1228,6 +1232,7 @@ public sealed partial class Navigator : Node
         _stage.Show(theme.LookFor(shownEntry is { Virtual: VirtualKind.None } ? shownEntry.Id : null), theme.TransitionSeconds);
         var menus = System.Diagnostics.Stopwatch.StartNew();
         MenuLook.Use(theme.Plan.Active.Menu);
+        _overlay.Use(OverlayPalette.For(theme.Plan.Active.Menu));
         var menusMs = menus.Elapsed.TotalMilliseconds;
 
         if (_screen == Screen.Entering && _entering is { } entering && FindEntry(entering) is { } enteringEntry)

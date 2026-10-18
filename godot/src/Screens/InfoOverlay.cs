@@ -1,5 +1,7 @@
 using Godot;
 using Launcher.App.Theming;
+using Launcher.App.Ui;
+using Launcher.Core.Theming;
 
 namespace Launcher.App.Screens;
 
@@ -10,7 +12,8 @@ public sealed record OverlayDetails(long Key, bool Favourite);
 /// The PS2-style text over the grid: the focused item's title top left with a soft glow, what it belongs to under
 /// it, "Favourite" top right on a favourite game, and the controls bottom right. A system's and a game's details are on
 /// their details screens (Y: <see cref="SystemDetailsPanel"/>, <see cref="GameDetailsPanel"/>). 2D, at the project's
-/// base size (1280×800) and stretched, so it's native resolution at 4K.
+/// base size (1280×800) and stretched, so it's native resolution at 4K. Its colours are the theme's (<see
+/// cref="OverlayPalette"/>, from <c>[ui.menu]</c>): the launcher's own blue unless the theme sets menu colours.
 /// </summary>
 public sealed partial class InfoOverlay : CanvasLayer
 {
@@ -30,6 +33,7 @@ public sealed partial class InfoOverlay : CanvasLayer
     private Label _hints = null!;
     private Label _status = null!;
     private long _detailsKey = -1;
+    private OverlayPalette _palette = OverlayPalette.Legacy;
 
     public InfoOverlay()
     {
@@ -106,7 +110,7 @@ public sealed partial class InfoOverlay : CanvasLayer
         AddChild(_behind);
         VisibilityChanged += () => _behind.Visible = Visible;
 
-        var glow = new Color(0.35f, 0.5f, 1.0f, 0.55f);
+        // The colours that follow the theme are set by Paint, below.
         var heading = new VBoxContainer { MouseFilter = Control.MouseFilterEnum.Ignore };
         heading.AddThemeConstantOverride("separation", 2);
         heading.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.TopWide);
@@ -117,7 +121,7 @@ public sealed partial class InfoOverlay : CanvasLayer
 
         _title = new Label
         {
-            LabelSettings = new LabelSettings { FontSize = 34, FontColor = Colors.White, ShadowColor = glow, ShadowSize = 10, ShadowOffset = Vector2.Zero },
+            LabelSettings = new LabelSettings { FontSize = 34, FontColor = Colors.White, ShadowSize = 10, ShadowOffset = Vector2.Zero },
             AutowrapMode = TextServer.AutowrapMode.WordSmart,
             MaxLinesVisible = 2,
             TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis,
@@ -125,10 +129,9 @@ public sealed partial class InfoOverlay : CanvasLayer
         };
         heading.AddChild(_title);
 
-        var subtle = new Color("#B8C4E6");
         _subtitle = new Label
         {
-            LabelSettings = new LabelSettings { FontSize = 18, FontColor = subtle, ShadowColor = new Color(0, 0, 0, 0.6f), ShadowSize = 4, ShadowOffset = Vector2.Zero },
+            LabelSettings = new LabelSettings { FontSize = 18, ShadowColor = new Color(0, 0, 0, 0.6f), ShadowSize = 4, ShadowOffset = Vector2.Zero },
             MouseFilter = Control.MouseFilterEnum.Ignore,
         };
         heading.AddChild(_subtitle);
@@ -143,7 +146,7 @@ public sealed partial class InfoOverlay : CanvasLayer
         _favourite.OffsetBottom = 82;
         _favourite.HorizontalAlignment = HorizontalAlignment.Right;
 
-        _hints = AddLabel(new LabelSettings { FontSize = 14, FontColor = new Color("#9AA6CC") });
+        _hints = AddLabel(new LabelSettings { FontSize = 14 });
         _hints.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.BottomRight);
         _hints.OffsetLeft = -Margin - 1000;
         _hints.OffsetRight = -Margin;
@@ -151,7 +154,7 @@ public sealed partial class InfoOverlay : CanvasLayer
         _hints.OffsetBottom = -18;
         _hints.HorizontalAlignment = HorizontalAlignment.Right;
 
-        _status = AddLabel(new LabelSettings { FontSize = 20, FontColor = Colors.White, ShadowColor = glow, ShadowSize = 8, ShadowOffset = Vector2.Zero });
+        _status = AddLabel(new LabelSettings { FontSize = 20, FontColor = Colors.White, ShadowSize = 8, ShadowOffset = Vector2.Zero });
         _status.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.Center);
         _status.OffsetLeft = -400;
         _status.OffsetRight = 400;
@@ -161,7 +164,26 @@ public sealed partial class InfoOverlay : CanvasLayer
         _status.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         _status.Visible = false;
 
+        Paint();
         ClearDetails();
+    }
+
+    /// <summary>
+    /// Main thread: the overlay takes <paramref name="palette"/>'s colours (the theme's, A6 Menus). Nothing happens when
+    /// it's the one in use; otherwise a few colours are set, and the labels lay out once at the next draw.
+    /// </summary>
+    public void Use(OverlayPalette palette)
+    {
+        if (palette == _palette)
+        {
+            return;
+        }
+
+        _palette = palette;
+        if (IsNodeReady())
+        {
+            Paint();
+        }
     }
 
     /// <summary>Main thread; no allocation when the strings already exist.</summary>
@@ -202,6 +224,16 @@ public sealed partial class InfoOverlay : CanvasLayer
     {
         _status.Visible = status is not null;
         _status.Text = status ?? string.Empty;
+    }
+
+    private void Paint()
+    {
+        var glow = UiStyle.Colour(_palette.Glow);
+        _title.LabelSettings.ShadowColor = glow;
+        _subtitle.LabelSettings.FontColor = UiStyle.Colour(_palette.Subtitle);
+        _hints.LabelSettings.FontColor = UiStyle.Colour(_palette.Hint);
+        _status.LabelSettings.ShadowColor = glow;
+        List.Use(_palette);
     }
 
     private Label AddLabel(LabelSettings settings)
