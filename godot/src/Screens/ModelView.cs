@@ -86,7 +86,7 @@ public sealed partial class ModelView : Control
         _stage = new LookStage(_viewport, camera);
 
         _streamer = DebugHooks.Options.NoTextures ? null : new TextureStreamer(1, 1);
-        _grid = new ItemGrid(_streamer, _stage.Colours, maxCells: 1, blockSize: 192, spines: false, systemCards: true)
+        _grid = new ItemGrid(_streamer, _stage.Backdrop, maxCells: 1, blockSize: 192, spines: false, systemCards: true)
         {
             Name = "Model",
             Layout = new GridLayout(GridShape.Single),
@@ -123,7 +123,7 @@ public sealed partial class ModelView : Control
 
         var view = _shared;
         view._stage.Show(look, 0);
-        view._grid.SetBackground(view._stage.Colours);
+        view._grid.SetBackground(view._stage.Backdrop);
         view._grid.SetMotion(motion);
         if (view._model != model)
         {

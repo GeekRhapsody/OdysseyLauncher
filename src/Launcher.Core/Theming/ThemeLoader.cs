@@ -102,7 +102,9 @@ public static class ThemeLoader
 
     private static readonly string[] RootKeys = ["format", "name", "author", "look_transition_ms", "look", "defaults", "templates", "systems", "ui", "motion"];
     private static readonly string[] LookKeys = ["background", "ambient", "lights"];
-    private static readonly string[] BackgroundKeys = ["top_left", "top_right", "bottom_left", "bottom_right"];
+    private static readonly string[] BackgroundKeys = ["top_left", "top_right", "bottom_left", "bottom_right", "wallpaper", "fit"];
+    private static readonly string[] Corners = ["top_left", "top_right", "bottom_left", "bottom_right"];
+    private static readonly string[] WallpaperFits = ["cover", "stretch"];
     private static readonly string[] AmbientKeys = ["colour", "energy"];
     private static readonly string[] LightKeys = ["direction", "colour", "energy"];
     private static readonly string[] DefaultsKeys = ["system_model", "tint_system_model", "game_template", "system_slots"];
@@ -342,9 +344,9 @@ public static class ThemeLoader
             v.WarnUnknownKeys(table, prefix, BackgroundKeys);
             var corners = new Rgb[4];
             var ok = true;
-            for (var i = 0; i < BackgroundKeys.Length; i++)
+            for (var i = 0; i < Corners.Length; i++)
             {
-                if (Colour(table, prefix, BackgroundKeys[i], required: true) is { } colour)
+                if (Colour(table, prefix, Corners[i], required: true) is { } colour)
                 {
                     corners[i] = colour;
                 }
@@ -354,7 +356,53 @@ public static class ThemeLoader
                 }
             }
 
-            return ok ? new LookBackground(corners[0], corners[1], corners[2], corners[3]) : null;
+            // A bad wallpaper is an error at its key and the gradient alone is kept, not the base's block.
+            var wallpaper = WallpaperPath(table, prefix, "wallpaper");
+            var fit = ReadWallpaperFit(table, prefix, wallpaper is not null);
+            return ok ? new LookBackground(corners[0], corners[1], corners[2], corners[3], wallpaper is null ? null : FullPath(wallpaper), fit) : null;
+        }
+
+        /// <summary>A background's <c>wallpaper</c>: an image inside the theme's folder that exists and is within its budget.</summary>
+        private string? WallpaperPath(TomlTableNode table, string prefix, string key)
+        {
+            if (ImagePath(table, prefix, key) is not { } relative)
+            {
+                return null;
+            }
+
+            var size = source.Files.SizeOf(relative);
+            if (size > LookBackground.MaxWallpaperBytes)
+            {
+                table.TryGet(key, out var node);
+                v.Error(node!, TomlValidator.Join(prefix, key), string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"'{relative}' is {size / (1024.0 * 1024):0.0} MB; a wallpaper can be at most {LookBackground.MaxWallpaperBytes / (1024 * 1024)} MB (it's shown at no more than 1080p)"));
+                return null;
+            }
+
+            return relative;
+        }
+
+        /// <summary>A background's <c>fit</c>: cover (the default) or stretch.</summary>
+        private WallpaperFit ReadWallpaperFit(TomlTableNode table, string prefix, bool hasWallpaper)
+        {
+            var fit = v.String(table, prefix, "fit");
+            table.TryGet("fit", out var node);
+            if (fit is not null && !hasWallpaper && !table.Contains("wallpaper"))
+            {
+                v.Warning(node!, prefix + ".fit", "the background has no wallpaper (add wallpaper = \"<image>\"), so this is never used");
+            }
+
+            switch (fit)
+            {
+                case null or "cover":
+                    return WallpaperFit.Cover;
+                case "stretch":
+                    return WallpaperFit.Stretch;
+                default:
+                    v.Error(node!, prefix + ".fit", $"unknown fit '{fit}'{TomlValidator.Suggest(fit, WallpaperFits)}: use \"cover\" (fill the screen, cropped) or \"stretch\" (the screen's proportions)");
+                    return WallpaperFit.Cover;
+            }
         }
 
         private LookAmbient? ReadAmbient(TomlTableNode table, string prefix)

@@ -24,8 +24,36 @@ public readonly record struct Rgb(byte R, byte G, byte B)
 /// <summary>A light's direction of travel, in view space: +X right, +Y up, +Z towards the viewer (A6).</summary>
 public readonly record struct LightDirection(float X, float Y, float Z);
 
-/// <summary>The icon.sys-style background: one sRGB colour per screen corner.</summary>
-public sealed record LookBackground(Rgb TopLeft, Rgb TopRight, Rgb BottomLeft, Rgb BottomRight);
+/// <summary>How a wallpaper covers the screen.</summary>
+public enum WallpaperFit
+{
+    /// <summary>Scaled to fill the screen at its own proportions, its overflow cropped evenly (the default).</summary>
+    Cover,
+
+    /// <summary>Scaled to the screen's proportions.</summary>
+    Stretch,
+}
+
+/// <summary>The icon.sys-style background: one sRGB colour per screen corner, and an optional wallpaper over it.</summary>
+/// <param name="Wallpaper">
+/// <c>wallpaper</c>: a PNG, JPEG or WebP drawn over the gradient (its transparency shows the gradient), as an absolute
+/// path in the theme that names it (a look block inherited from the base theme keeps the base's file). Null for none.
+/// </param>
+/// <param name="Fit"><c>fit</c>: how the wallpaper covers the screen.</param>
+public sealed record LookBackground(
+    Rgb TopLeft,
+    Rgb TopRight,
+    Rgb BottomLeft,
+    Rgb BottomRight,
+    string? Wallpaper = null,
+    WallpaperFit Fit = WallpaperFit.Cover)
+{
+    /// <summary>
+    /// The largest wallpaper file a theme may ship. It's decoded on a worker and scaled to at most 1080p, as the 3D is
+    /// (A3), so a larger file costs decoding time and no detail.
+    /// </summary>
+    public const long MaxWallpaperBytes = 16L * 1024 * 1024;
+}
 
 /// <param name="Energy">A linear multiplier.</param>
 public sealed record LookAmbient(Rgb Colour, float Energy);

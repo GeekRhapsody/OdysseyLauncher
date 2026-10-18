@@ -5,8 +5,13 @@ using ThemeLook = Launcher.Core.Theming.Look;
 
 namespace Launcher.App.Theming;
 
-/// <summary>A look's four background corners (sRGB), which the item shader fades opaque items into (A3).</summary>
-public readonly struct LookColours(Vector3 topLeft, Vector3 topRight, Vector3 bottomLeft, Vector3 bottomRight)
+/// <summary>
+/// A look's background as the item shader fades opaque items into it (A3): its four corners (sRGB) and the wallpapers
+/// over them (A6 Background), with their weights and aspects as the background layer has them.
+/// </summary>
+public readonly struct LookBackdrop(
+    Vector3 topLeft, Vector3 topRight, Vector3 bottomLeft, Vector3 bottomRight,
+    Texture2D? wallpaperA = null, Texture2D? wallpaperB = null, Vector4 wallpaperState = default)
 {
     public Vector3 TopLeft { get; } = topLeft;
 
@@ -16,16 +21,33 @@ public readonly struct LookColours(Vector3 topLeft, Vector3 topRight, Vector3 bo
 
     public Vector3 BottomRight { get; } = bottomRight;
 
-    public static LookColours Of(ThemeLook look) => new(
-        LookStage.Rgb(look.Background.TopLeft), LookStage.Rgb(look.Background.TopRight),
-        LookStage.Rgb(look.Background.BottomLeft), LookStage.Rgb(look.Background.BottomRight));
+    public Texture2D? WallpaperA { get; } = wallpaperA;
 
-    public void ApplyTo(ShaderMaterial material)
+    public Texture2D? WallpaperB { get; } = wallpaperB;
+
+    /// <summary>(A's weight, B's weight, A's aspect, B's aspect); an aspect of 0 stretches the image.</summary>
+    public Vector4 WallpaperState { get; } = wallpaperState;
+
+    /// <summary>Whether the two show the same textures, so a material needn't be pointed at them again.</summary>
+    public bool SameWallpapers(in LookBackdrop other) => WallpaperA == other.WallpaperA && WallpaperB == other.WallpaperB;
+
+    /// <summary>
+    /// Sets the corners and weights, and the textures when <paramref name="textures"/> is set. Pointing a material at a
+    /// texture remakes its uniform set, so it's done only when they change, not every frame of a cross-fade.
+    /// </summary>
+    public void ApplyTo(ShaderMaterial material, bool textures = true)
     {
         material.SetShaderParameter(ShaderParams.BackgroundTopLeft, TopLeft);
         material.SetShaderParameter(ShaderParams.BackgroundTopRight, TopRight);
         material.SetShaderParameter(ShaderParams.BackgroundBottomLeft, BottomLeft);
         material.SetShaderParameter(ShaderParams.BackgroundBottomRight, BottomRight);
+        material.SetShaderParameter(ShaderParams.BackgroundWallpaperState, WallpaperState);
+        if (textures)
+        {
+            // Nil puts the shader's default back: a slot never filled has weight 0.
+            material.SetShaderParameter(ShaderParams.BackgroundWallpaperA, WallpaperA is { } a ? a : default(Variant));
+            material.SetShaderParameter(ShaderParams.BackgroundWallpaperB, WallpaperB is { } b ? b : default(Variant));
+        }
     }
 }
 
@@ -34,6 +56,11 @@ public readonly struct LookColours(Vector3 topLeft, Vector3 topRight, Vector3 bo
 /// up to three directional lights in view space (children of the camera). <see cref="Show"/> cross-fades to another
 /// look over the theme's <c>look_transition_ms</c>, the way entering a system does; <see cref="Tick"/> drives it with
 /// no allocation. At rest, each corner renders as its exact hex value (Linear tonemapper, Colour ambient, no glow).
+/// <para>
+/// A look's wallpaper (A6 Background) is drawn over the gradient by the same layer, from one of two slots, so a
+/// cross-fade between two wallpapers, or to or from none, blends them as it blends the corners. One still loading
+/// (<see cref="Wallpapers"/>) leaves the gradient alone until it's in, then fades in.
+/// </para>
 /// </summary>
 public sealed class LookStage
 {
@@ -49,6 +76,12 @@ public sealed class LookStage
     private static readonly StringName TopRightParam = "top_right";
     private static readonly StringName BottomLeftParam = "bottom_left";
     private static readonly StringName BottomRightParam = "bottom_right";
+    private static readonly StringName WallpaperAParam = "wallpaper_a";
+    private static readonly StringName WallpaperBParam = "wallpaper_b";
+    private static readonly StringName WallpaperStateParam = "wallpaper_state";
+
+    /// <summary>How long a wallpaper that loaded after its look was shown takes to fade in.</summary>
+    private const float LateWallpaperSeconds = 0.3f;
 
     private readonly Godot.Environment _environment;
     private readonly ShaderMaterial _gradient;
@@ -59,13 +92,26 @@ public sealed class LookStage
     private float _elapsed;
     private float _duration;
     private bool _moving;
+    private bool _changed;
+
+    private readonly Wallpapers? _wallpapers;
+    private ThemeLook? _shown;
+    private Slot _slotA;
+    private Slot _slotB;
 
     /// <summary>
     /// Adds the environment, the gradient layer and the lights, showing <paramref name="look"/>, or black with no lights
-    /// until <see cref="Show"/> (at boot, before the theme is known).
+    /// until <see cref="Show"/> (at boot, before the theme is known). Without <paramref name="wallpapers"/>, looks show
+    /// their gradients alone.
     /// </summary>
-    public LookStage(Node parent, Camera3D camera, ThemeLook? look = null)
+    public LookStage(Node parent, Camera3D camera, ThemeLook? look = null, Wallpapers? wallpapers = null)
     {
+        _wallpapers = wallpapers;
+        if (wallpapers is not null)
+        {
+            wallpapers.Loaded += OnWallpaperLoaded;
+        }
+
         _now = look is null ? default : State.Of(look);
         _environment = new Godot.Environment
         {
@@ -94,8 +140,9 @@ public sealed class LookStage
         Apply(_now);
     }
 
-    /// <summary>The corners on screen now (mid-fade too), for the item materials.</summary>
-    public LookColours Colours => new(_now.TopLeft, _now.TopRight, _now.BottomLeft, _now.BottomRight);
+    /// <summary>The background on screen now (mid-fade too), for the item materials.</summary>
+    public LookBackdrop Backdrop => new(
+        _now.TopLeft, _now.TopRight, _now.BottomLeft, _now.BottomRight, _slotA.Texture, _slotB.Texture, WallpaperState(_now));
 
     /// <summary>True while a cross-fade runs.</summary>
     public bool Moving => _moving;
@@ -103,25 +150,50 @@ public sealed class LookStage
     /// <summary>Main thread: cross-fades to a look over <paramref name="seconds"/> (0: at once), from wherever the last fade got to.</summary>
     public void Show(ThemeLook look, float seconds)
     {
+        _shown = look;
+        var (weightA, weightB) = WallpaperWeights(look.Background);
         _from = _now;
-        _to = State.Of(look);
+        _to = State.Of(look) with { WallpaperA = weightA, WallpaperB = weightB };
         _elapsed = 0;
         _duration = seconds;
         _moving = true;
+        _changed = true;
         if (seconds <= 0)
         {
             Tick(0);
+            _changed = true;
         }
     }
 
-    /// <summary>Main thread, each frame: advances a cross-fade. True when the look changed this frame.</summary>
+    /// <summary>Main thread: starts loading a look's wallpaper ahead of it being shown (a system's card focused).</summary>
+    public void Prefetch(ThemeLook look)
+    {
+        if (_wallpapers is not null && look.Background.Wallpaper is { } path)
+        {
+            _wallpapers.Request(path);
+        }
+    }
+
+    /// <summary>
+    /// Main thread: lets go of the wallpapers not on screen, so a theme applied again (switched to, or updated in place)
+    /// reads its files afresh.
+    /// </summary>
+    public void ForgetWallpapers() => _wallpapers?.Forget(_slotA.Texture, _slotB.Texture);
+
+    /// <summary>
+    /// Main thread, each frame: advances a cross-fade. True when the look changed since the last call (the item
+    /// materials then take <see cref="Backdrop"/>).
+    /// </summary>
     public bool Tick(float dt)
     {
         if (!_moving)
         {
-            return false;
+            var changed = _changed;
+            _changed = false;
+            return changed;
         }
 
+        _changed = false;
         _elapsed += dt;
         var t = _duration <= 0 ? 1 : Math.Min(1, _elapsed / _duration);
         var eased = t * t * (3 - 2 * t);
@@ -137,12 +209,71 @@ public sealed class LookStage
         return true;
     }
 
+    /// <summary>
+    /// The weights that show the background's wallpaper from its slot: (1, 0) or (0, 1), its texture put in a slot
+    /// first if it's in neither; (0, 0) for none, and while it loads (<see cref="OnWallpaperLoaded"/> shows it then).
+    /// </summary>
+    private (float A, float B) WallpaperWeights(LookBackground background)
+    {
+        if (_wallpapers is null || background.Wallpaper is not { } path
+            || _wallpapers.Get(path, out var aspect) is not { } texture)
+        {
+            return (0, 0);
+        }
+
+        var shownAspect = background.Fit == WallpaperFit.Stretch ? 0 : aspect;
+        if (_slotA.Texture == texture)
+        {
+            _slotA.Aspect = shownAspect;
+            return (1, 0);
+        }
+
+        if (_slotB.Texture == texture)
+        {
+            _slotB.Aspect = shownAspect;
+            return (0, 1);
+        }
+
+        // The slot showing less of its wallpaper takes it; mid-fade between two others, what's left of that one is cut.
+        var useA = _now.WallpaperA <= _now.WallpaperB;
+        if (useA)
+        {
+            _slotA = new Slot(texture, shownAspect);
+            _now = _now with { WallpaperA = 0 };
+            _gradient.SetShaderParameter(WallpaperAParam, texture);
+        }
+        else
+        {
+            _slotB = new Slot(texture, shownAspect);
+            _now = _now with { WallpaperB = 0 };
+            _gradient.SetShaderParameter(WallpaperBParam, texture);
+        }
+
+        _wallpapers.Trim(_slotA.Texture, _slotB.Texture);
+        return useA ? (1, 0) : (0, 1);
+    }
+
+    private void OnWallpaperLoaded(string path, Texture2D? texture)
+    {
+        if (texture is not null && _shown is { } shown && shown.Background.Wallpaper == path)
+        {
+            Show(shown, LateWallpaperSeconds);
+        }
+        else
+        {
+            _wallpapers!.Trim(_slotA.Texture, _slotB.Texture);
+        }
+    }
+
+    private Vector4 WallpaperState(in State state) => new(state.WallpaperA, state.WallpaperB, _slotA.Aspect, _slotB.Aspect);
+
     private void Apply(in State state)
     {
         _gradient.SetShaderParameter(TopLeftParam, state.TopLeft);
         _gradient.SetShaderParameter(TopRightParam, state.TopRight);
         _gradient.SetShaderParameter(BottomLeftParam, state.BottomLeft);
         _gradient.SetShaderParameter(BottomRightParam, state.BottomRight);
+        _gradient.SetShaderParameter(WallpaperStateParam, WallpaperState(state));
         _environment.AmbientLightColor = new Color(state.Ambient.X, state.Ambient.Y, state.Ambient.Z);
         _environment.AmbientLightEnergy = state.AmbientEnergy;
         for (var i = 0; i < MaxLights; i++)
@@ -168,10 +299,16 @@ public sealed class LookStage
 
     private readonly record struct LightState(Vector3 Direction, Vector3 Colour, float Energy);
 
-    /// <summary>A look as numbers that blend: a light the look doesn't have is off (energy 0), aimed like the other side's.</summary>
+    /// <summary>A wallpaper slot: its texture and the aspect it's shown at (0: stretched).</summary>
+    private record struct Slot(Texture2D? Texture, float Aspect);
+
+    /// <summary>
+    /// A look as numbers that blend: a light the look doesn't have is off (energy 0), aimed like the other side's; each
+    /// wallpaper slot's weight (a look shows at most one, so they never sum past 1).
+    /// </summary>
     private readonly record struct State(
         Vector3 TopLeft, Vector3 TopRight, Vector3 BottomLeft, Vector3 BottomRight, Vector3 Ambient, float AmbientEnergy,
-        LightState Light0, LightState Light1, LightState Light2)
+        LightState Light0, LightState Light1, LightState Light2, float WallpaperA = 0, float WallpaperB = 0)
     {
         public LightState Light(int i) => i switch
         {
@@ -201,7 +338,8 @@ public sealed class LookStage
         public static State Lerp(in State a, in State b, float t) => new(
             a.TopLeft.Lerp(b.TopLeft, t), a.TopRight.Lerp(b.TopRight, t), a.BottomLeft.Lerp(b.BottomLeft, t),
             a.BottomRight.Lerp(b.BottomRight, t), a.Ambient.Lerp(b.Ambient, t), a.AmbientEnergy + (b.AmbientEnergy - a.AmbientEnergy) * t,
-            Blend(a.Light0, b.Light0, t), Blend(a.Light1, b.Light1, t), Blend(a.Light2, b.Light2, t));
+            Blend(a.Light0, b.Light0, t), Blend(a.Light1, b.Light1, t), Blend(a.Light2, b.Light2, t),
+            a.WallpaperA + (b.WallpaperA - a.WallpaperA) * t, a.WallpaperB + (b.WallpaperB - a.WallpaperB) * t);
 
         private static LightState Blend(in LightState a, in LightState b, float t)
         {
@@ -245,4 +383,7 @@ public static class ShaderParams
     public static readonly StringName BackgroundTopRight = "bg_top_right";
     public static readonly StringName BackgroundBottomLeft = "bg_bottom_left";
     public static readonly StringName BackgroundBottomRight = "bg_bottom_right";
+    public static readonly StringName BackgroundWallpaperA = "bg_wallpaper_a";
+    public static readonly StringName BackgroundWallpaperB = "bg_wallpaper_b";
+    public static readonly StringName BackgroundWallpaperState = "bg_wallpaper_state";
 }

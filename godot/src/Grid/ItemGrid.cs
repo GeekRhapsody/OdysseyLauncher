@@ -295,7 +295,7 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
     private Vector3 _offset;
     private float _zoom = 1;
     private bool _rootDirty = true;
-    private LookColours _background;
+    private LookBackdrop _background;
 
     /// <summary>A copy of a model's node tree for one cell: the geometry to give the cell's data, and its player.</summary>
     private sealed class SceneInstance(ItemTemplate template, Node3D root, GeometryInstance3D[] geometry, AnimationPlayer? player)
@@ -312,7 +312,7 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
     /// <param name="streamer">The media streamer, or null for a grid without media (the systems grid).</param>
     /// <param name="systemCards">A grid of system cards: their plain materials can take the system's colour.</param>
     /// <param name="blockSize">The title atlas's block size in pixels.</param>
-    public ItemGrid(TextureStreamer? streamer, LookColours background, int maxCells, int blockSize, bool spines, bool systemCards)
+    public ItemGrid(TextureStreamer? streamer, LookBackdrop background, int maxCells, int blockSize, bool spines, bool systemCards)
     {
         Name = "Grid";
         _streamer = streamer;
@@ -745,13 +745,17 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
         }
     }
 
-    /// <summary>The look's corners, for items fading into the background (every frame of a look's cross-fade).</summary>
-    public void SetBackground(in LookColours background)
+    /// <summary>
+    /// The look's background, for items fading into it (every frame of a look's cross-fade). The wallpapers' textures
+    /// are set only when they change.
+    /// </summary>
+    public void SetBackground(in LookBackdrop background)
     {
+        var textures = !background.SameWallpapers(_background);
         _background = background;
         foreach (var material in _materials)
         {
-            background.ApplyTo(material);
+            background.ApplyTo(material, textures);
         }
     }
 

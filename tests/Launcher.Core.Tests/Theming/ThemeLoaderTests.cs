@@ -1069,6 +1069,128 @@ public sealed class ThemeLoaderTests
         Assert.NotEqual(ThemeFixtures.Base.Look.Background, slab.Look.Background);
     }
 
+    // ---- Wallpapers (A6 Background) ---------------------------------------------------------------
+
+    private const string Corners = """
+        top_left = "#101010"
+        top_right = "#101010"
+        bottom_left = "#000000"
+        bottom_right = "#000000"
+        """;
+
+    [Fact]
+    public void A_wallpaper_is_a_path_in_the_themes_folder_and_a_systems_background_replaces_the_themes_whole()
+    {
+        var result = ThemeFixtures.Parse($"""
+            name = "Test"
+
+            [look.background]
+            {Corners}
+            wallpaper = "wallpapers/Main.webp"
+
+            [systems.ps2.look.background]
+            {Corners}
+            wallpaper = "wallpapers/ps2.png"
+            fit = "stretch"
+
+            [systems.snes.look.background]
+            {Corners}
+            """, new FakeThemeFiles().File("wallpapers/Main.webp", "wallpapers/ps2.png"));
+
+        Assert.Empty(result.Diagnostics);
+        var theme = result.Theme!;
+        Assert.Equal((Path.GetFullPath("C:/themes/test/wallpapers/Main.webp"), WallpaperFit.Cover), (theme.Look.Background.Wallpaper, theme.Look.Background.Fit));
+        Assert.Equal((Path.GetFullPath("C:/themes/test/wallpapers/ps2.png"), WallpaperFit.Stretch), (theme.LookFor("ps2").Background.Wallpaper, theme.LookFor("ps2").Background.Fit));
+        Assert.Null(theme.LookFor("snes").Background.Wallpaper);
+        Assert.Same(theme.Look, theme.LookFor("all_games"));
+    }
+
+    [Fact]
+    public void A_background_left_out_keeps_the_base_themes_wallpaper_in_the_base_themes_folder()
+    {
+        var baseTheme = ThemeFixtures.ParseBase($"""
+            format = 1
+            name = "Base"
+
+            [look.background]
+            {Corners}
+            wallpaper = "wall.jpg"
+
+            [look.ambient]
+            colour = "#202020"
+
+            [[look.lights]]
+            direction = [0, -1, 0]
+            """, new FakeThemeFiles().File("wall.jpg"));
+
+        var theme = ThemeFixtures.Parse("name = \"Test\"", baseTheme: baseTheme).Theme!;
+
+        Assert.Equal(Path.GetFullPath("C:/app/themes/memory-card/wall.jpg"), theme.Look.Background.Wallpaper);
+    }
+
+    [Theory]
+    [InlineData("../wall.png", "must be a path inside the theme's folder")]
+    [InlineData("wall.gif", "isn't a PNG, JPEG or WebP image")]
+    [InlineData("missing.png", "doesn't exist in the theme's folder")]
+    [InlineData("big.png", "is 16.5 MB; a wallpaper can be at most 16 MB")]
+    public void A_bad_wallpaper_is_an_error_and_the_gradient_is_kept(string path, string message)
+    {
+        var files = new FakeThemeFiles().File("wall.gif").Sized("big.png", (16 * 1024 * 1024) + (512 * 1024));
+        var result = ThemeFixtures.Parse($"""
+            name = "Test"
+
+            [look.background]
+            {Corners}
+            wallpaper = "{path}"
+            """, files);
+
+        var error = Single(result, Severity.Error);
+        Assert.Equal("look.background.wallpaper", error.Key);
+        Assert.Contains(message, error.Message, StringComparison.Ordinal);
+        Assert.Equal(new LookBackground(new Rgb(0x10, 0x10, 0x10), new Rgb(0x10, 0x10, 0x10), default, default), result.Theme!.Look.Background);
+    }
+
+    [Fact]
+    public void A_bad_fit_is_an_error_and_a_fit_without_a_wallpaper_a_warning()
+    {
+        var result = ThemeFixtures.Parse($"""
+            name = "Test"
+
+            [look.background]
+            {Corners}
+            wallpaper = "wall.png"
+            fit = "strech"
+
+            [systems.ps2.look.background]
+            {Corners}
+            fit = "cover"
+            """, new FakeThemeFiles().File("wall.png"));
+
+        var error = Single(result, Severity.Error);
+        Assert.Equal("look.background.fit", error.Key);
+        Assert.Contains("did you mean 'stretch'?", error.Message, StringComparison.Ordinal);
+        Assert.Equal(WallpaperFit.Cover, result.Theme!.Look.Background.Fit);
+        Assert.NotNull(result.Theme.Look.Background.Wallpaper);
+        var warning = Single(result, Severity.Warning);
+        Assert.Equal("systems.ps2.look.background.fit", warning.Key);
+    }
+
+    [Fact]
+    public void The_committed_themes_have_no_wallpaper_but_the_slot_showcases()
+    {
+        foreach (var folder in new[] { ThemeFixtures.BaseFolder, ThemeFixtures.ConsoleFolder, ThemeFixtures.SlabFolder, ThemeFixtures.RetroTvFolder })
+        {
+            var theme = ThemeFixtures.Load(folder);
+            Assert.Null(theme.Look.Background.Wallpaper);
+            Assert.All(theme.Systems.Values, system => Assert.Null(system.Look.Background.Wallpaper));
+        }
+
+        var showcase = ThemeFixtures.Load(ThemeFixtures.SlotShowcaseFolder);
+        Assert.True(File.Exists(showcase.Look.Background.Wallpaper));
+        Assert.True(File.Exists(showcase.LookFor("ps2").Background.Wallpaper));
+        Assert.NotEqual(showcase.Look.Background.Wallpaper, showcase.LookFor("ps2").Background.Wallpaper);
+    }
+
     // ---- Motion (A6 Motion) -----------------------------------------------------------------------
 
     [Fact]

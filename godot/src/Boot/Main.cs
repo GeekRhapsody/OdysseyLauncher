@@ -67,6 +67,7 @@ public partial class Main : Node3D
     private ThemePlan? _plan;
     private ThemeRuntime? _theme;
     private LookStage? _look;
+    private Wallpapers? _wallpapers;
     private Exception? _bootFailure;
     private Camera3D _camera = null!;
     private TextureStreamer? _streamer;
@@ -156,7 +157,8 @@ public partial class Main : Node3D
 
         // The environment, gradient and lights are made now, while the main thread would only wait; the theme's look
         // is shown on them once it's known.
-        _look = new LookStage(this, _camera);
+        _wallpapers = new Wallpapers(_queue);
+        _look = new LookStage(this, _camera, wallpapers: _wallpapers);
         ApplyRenderScale();
         GetViewport().SizeChanged += OnViewportSizeChanged;
 
@@ -305,6 +307,13 @@ public partial class Main : Node3D
             // User models are processed into CacheDir/models/ and their problems logged to DataDir/logs/models.log (A7).
             _loader.UseFolders(plan.Paths.CacheDir, plan.Paths.DataDir, PlatformServices.CreateImageDecoder());
             _theme = new ThemeRuntime(plan, _loader);
+
+            // The theme's wallpaper (A6 Background) is decoded on the thread pool meanwhile; the look shows its gradient
+            // until it's in, and it fades in then.
+            if (plan.Active.Look.Background.Wallpaper is { } wallpaper)
+            {
+                _wallpapers!.Request(wallpaper);
+            }
         }
 
         // The templates games chose are known once the library is open, which can be after the theme is ready.
@@ -346,7 +355,7 @@ public partial class Main : Node3D
         var theme = _theme!;
         _look!.Show(theme.LookFor(null), 0);
         var lookMs = clock.Elapsed.TotalMilliseconds;
-        _gamesGrid!.SetBackground(_look.Colours);
+        _gamesGrid!.SetBackground(_look.Backdrop);
         _gamesGrid.SetMotion(theme.Plan.Active.Motion);
         _gamesGrid.SetTemplates(theme.GameTemplates);
         var templatesMs = clock.Elapsed.TotalMilliseconds;
@@ -372,7 +381,7 @@ public partial class Main : Node3D
             _cardStreamer.SetFolders(Launcher.Core.Media.ThemeLogos.CacheRoot(services.Paths.CacheDir), services.Library.MediaDir);
         }
 
-        _systemsGrid = new ItemGrid(_cardStreamer, _look.Colours, systemSlots, blockSize: 192, spines: false, systemCards: true)
+        _systemsGrid = new ItemGrid(_cardStreamer, _look.Backdrop, systemSlots, blockSize: 192, spines: false, systemCards: true)
         {
             RowsVisible = SystemRowsVisible,
             Name = "Systems",

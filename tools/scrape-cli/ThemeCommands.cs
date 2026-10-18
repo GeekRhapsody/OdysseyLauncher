@@ -84,8 +84,15 @@ internal static class ThemeCommands
         var size = Directory.EnumerateFiles(folder, "*", SearchOption.AllDirectories)
             .Where(f => !f.Contains($"{Path.DirectorySeparatorChar}.git{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
             .Sum(f => new FileInfo(f).Length);
+        // The theme's own wallpapers (A6 Background), not the base theme's it inherits.
+        var ownFolder = Path.GetFullPath(theme.Folder) + Path.DirectorySeparatorChar;
+        var wallpapers = theme.Systems.Values.Select(s => s.Look).Append(theme.Look)
+            .Select(l => l.Background.Wallpaper)
+            .Where(w => w is not null && w.StartsWith(ownFolder, StringComparison.OrdinalIgnoreCase))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Count();
         Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
-            $"{theme.Name} by {theme.Author ?? "(no author)"}: {models.Count} model(s), {covers.SystemCards} system card(s) or logo(s), {covers.Templates} template(s), menus {(covers.Menus ? "yes" : "no")}, card videos {(covers.CardVideos ? "yes" : "no")}, game videos {(covers.GameVideos ? "yes" : "no")}; {size / (1024.0 * 1024):0.0} MB"));
+            $"{theme.Name} by {theme.Author ?? "(no author)"}: {models.Count} model(s), {covers.SystemCards} system card(s) or logo(s), {covers.Templates} template(s), {wallpapers} wallpaper(s), menus {(covers.Menus ? "yes" : "no")}, card videos {(covers.CardVideos ? "yes" : "no")}, game videos {(covers.GameVideos ? "yes" : "no")}; {size / (1024.0 * 1024):0.0} MB"));
         if (json)
         {
             Console.WriteLine("\"covers\": " + ThemeCoversJson.Serialize(covers));

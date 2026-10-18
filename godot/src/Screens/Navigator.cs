@@ -37,6 +37,9 @@ public sealed partial class Navigator : Node
     public const string AllGamesId = "all_games";
     public const int RecentlyPlayedLimit = 60;
     private const double DetailsDelay = 0.12;
+
+    /// <summary>How long a system's card is focused before its wallpaper is fetched ahead (A6 Background), in seconds.</summary>
+    private const double WallpaperDelay = 0.15;
     private const float TransitionSeconds = 0.45f;
     private const double StatusSeconds = 2.5;
     private const int CachedLists = 3;
@@ -80,6 +83,7 @@ public sealed partial class Navigator : Node
     private int _focusedIndex = -1;
     private long _focusKey = -1;
     private double _detailsDue = -1;
+    private double _wallpaperDue = -1;
     private double _statusClearAt = -1;
     private double _clock;
     private GameDetails? _focusedGame;
@@ -257,9 +261,15 @@ public sealed partial class Navigator : Node
         Animate(dt);
         if (_stage.Tick(dt))
         {
-            var colours = _stage.Colours;
-            _systemsGrid.SetBackground(colours);
-            _gamesGrid.SetBackground(colours);
+            var backdrop = _stage.Backdrop;
+            _systemsGrid.SetBackground(backdrop);
+            _gamesGrid.SetBackground(backdrop);
+        }
+
+        if (_wallpaperDue >= 0 && _clock >= _wallpaperDue)
+        {
+            _wallpaperDue = -1;
+            PrefetchWallpaper();
         }
 
         if (_detailsDue >= 0 && _clock >= _detailsDue)
@@ -491,6 +501,7 @@ public sealed partial class Navigator : Node
             }
 
             _detailsDue = -1;
+            _wallpaperDue = _clock + WallpaperDelay;
             return;
         }
 
@@ -507,6 +518,16 @@ public sealed partial class Navigator : Node
 
         // Details wait until the focus rests, so holding a direction doesn't query every step.
         _detailsDue = _clock + DetailsDelay;
+    }
+
+    /// <summary>The focused system's wallpaper starts loading, so entering it shows it at once (A6 Background).</summary>
+    private void PrefetchWallpaper()
+    {
+        if (_screen == Screen.Systems && _focusedIndex >= 0 && _focusedIndex < _systems.Entries.Count
+            && _systems.Entries[_focusedIndex] is { Virtual: VirtualKind.None } entry)
+        {
+            _stage.Prefetch(_theme.LookFor(entry.Id));
+        }
     }
 
     /// <summary>The focused game's details: whether it's a favourite, and the game to launch.</summary>
@@ -1229,6 +1250,7 @@ public sealed partial class Navigator : Node
         _systemsGrid.Bind(_systems, Math.Max(0, systemsFocus));
         BakeLogos();
         var shownEntry = _games is { } shown ? FindEntry(shown.Id) : null;
+        _stage.ForgetWallpapers();
         _stage.Show(theme.LookFor(shownEntry is { Virtual: VirtualKind.None } ? shownEntry.Id : null), theme.TransitionSeconds);
         var menus = System.Diagnostics.Stopwatch.StartNew();
         MenuLook.Use(theme.Plan.Active.Menu);

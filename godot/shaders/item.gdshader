@@ -79,6 +79,10 @@ uniform vec3 bg_top_left = vec3(0.106, 0.122, 0.290);
 uniform vec3 bg_top_right = vec3(0.106, 0.122, 0.290);
 uniform vec3 bg_bottom_left = vec3(0.016, 0.016, 0.047);
 uniform vec3 bg_bottom_right = vec3(0.043, 0.043, 0.141);
+// The look's wallpapers over them, as on that layer (background_gradient.gdshader): read only while the grid fades.
+uniform sampler2D bg_wallpaper_a : filter_linear, repeat_disable;
+uniform sampler2D bg_wallpaper_b : filter_linear, repeat_disable;
+uniform vec4 bg_wallpaper_state = vec4(0.0);
 
 varying flat float v_cell;
 varying flat int v_slot;
@@ -340,6 +344,29 @@ vec3 generated(vec2 uv, float face_aspect, bool loading, out float roughness) {
 	return authored(uv);
 }
 
+// The background behind a screen point, sRGB: the gradient and the wallpapers over it, exactly as
+// background_gradient.gdshader draws them.
+vec2 wallpaper_uv(vec2 uv, float image_aspect, float screen_aspect) {
+	if (image_aspect <= 0.0) {
+		return uv;
+	}
+	return image_aspect > screen_aspect
+		? vec2(0.5 + (uv.x - 0.5) * screen_aspect / image_aspect, uv.y)
+		: vec2(uv.x, 0.5 + (uv.y - 0.5) * image_aspect / screen_aspect);
+}
+
+vec3 backdrop(vec2 uv, float screen_aspect) {
+	vec3 colour = mix(mix(bg_top_left, bg_top_right, uv.x), mix(bg_bottom_left, bg_bottom_right, uv.x), uv.y);
+	if (bg_wallpaper_state.x + bg_wallpaper_state.y > 0.0) {
+		vec4 a = textureLod(bg_wallpaper_a, wallpaper_uv(uv, bg_wallpaper_state.z, screen_aspect), 0.0);
+		vec4 b = textureLod(bg_wallpaper_b, wallpaper_uv(uv, bg_wallpaper_state.w, screen_aspect), 0.0);
+		float wa = a.a * bg_wallpaper_state.x;
+		float wb = b.a * bg_wallpaper_state.y;
+		colour = colour * (1.0 - wa - wb) + a.rgb * wa + b.rgb * wb;
+	}
+	return colour;
+}
+
 void fragment() {
 	vec3 albedo;
 	float roughness = v_roughness;
@@ -369,13 +396,13 @@ void fragment() {
 	// The focused item glows a little, as the PS2 browser's selection does.
 	vec3 emission = albedo * 0.18 * v_focus;
 
-	vec3 background = to_linear(mix(
-		mix(bg_top_left, bg_top_right, SCREEN_UV.x),
-		mix(bg_bottom_left, bg_bottom_right, SCREEN_UV.x),
-		SCREEN_UV.y));
+	// The background is worked out only while the grid fades (a uniform branch: nothing at rest).
 	float fade = grid_fade;
+	if (fade > 0.0) {
+		emission = mix(emission, to_linear(backdrop(SCREEN_UV, VIEWPORT_SIZE.x / VIEWPORT_SIZE.y)), fade);
+	}
 	ALBEDO = albedo * (1.0 - fade);
 	ROUGHNESS = roughness;
 	SPECULAR = 0.5 * (1.0 - fade);
-	EMISSION = mix(emission, background, fade);
+	EMISSION = emission;
 }

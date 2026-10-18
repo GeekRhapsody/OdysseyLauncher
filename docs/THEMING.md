@@ -89,6 +89,8 @@ top_left     = "#1B1F4A"
 top_right    = "#1B1F4A"
 bottom_left  = "#04040C"
 bottom_right = "#0B0B24"
+wallpaper    = "wallpapers/main.webp" # optional: a PNG, JPEG or WebP over the corners, at most 16 MB (see "Wallpapers" below)
+fit          = "cover"                # optional: "cover" (fill the screen, cropped evenly; the default) or "stretch"
 
 [look.ambient]
 colour = "#303038"
@@ -136,6 +138,7 @@ top_left     = "#1E2A4E"
 top_right    = "#3A2418"
 bottom_left  = "#06080E"
 bottom_right = "#100A08"
+wallpaper    = "wallpapers/ps2.png"   # optional: its own wallpaper; without one, its games show the corners alone
 
 [ui.menu]                             # optional: the menus' look (see "Menus" below); every key is optional
 background = "#141414"                # the panels; their rows, frames and borders are mixed from it and accent
@@ -151,6 +154,7 @@ idle_bob = 1.0                        # how far the other items bob: 0 to 3 time
 - **Colours** are `#RRGGBB` in sRGB. The four corners blend in sRGB, as on the PS2.
 - **Lights** are in view space, so they stay put while the grid scrolls. Any direction but zero is valid. Lights you don't define are off.
 - **Per-system looks:** a system's `background`, `ambient` or `lights` block replaces the theme's block of that name whole. Blocks it leaves out come from the theme's look. Entering a system cross-fades to its look, and leaving cross-fades back.
+- **Wallpapers:** a background's `wallpaper` is drawn over its four corners, behind everything else. Transparent parts of a PNG or WebP show the corners, so a wallpaper can be a pattern over the gradient. The theme's wallpaper shows on the systems screen, Favourites, Recently played and All games; a system's own `[systems.<id>.look.background]` shows its games over its own wallpaper, or over its corners alone if it has none (the block replaces the theme's whole, so repeat the theme's `wallpaper` there to keep it). Wallpapers cross-fade with the look. The launcher loads each one off the main thread, scaled to fit 2560×1080 (the 3D is drawn at up to 1080p, and the background goes through it, so a bigger image adds no detail), and shows the corners until it has loaded, a fraction of a second at most. A system's wallpaper starts loading while its card is focused, so it's usually there when the system opens. 1920×1080 is the size to make: about 8 MB of video memory once loaded, and the launcher keeps at most three. Keep the area behind the grid's middle calm, or the boxes are hard to read. On the development PC a full-screen wallpaper added 0.03 ms of GPU time a frame at 1280×800 and changed nothing else in the frame times; its cost is the memory ([perf/wallpapers.md](perf/wallpapers.md)).
 - **Menus** (`[ui.menu]`) are the settings, the options and details screens, the power menu, dialogs, the on-screen keyboard, the pickers and the job cards. The text over the grids takes the same colours: the glow round the focused system's or game's name (top left) and the line under it, the hints (bottom right), the centre message's glow, and the list layout's titles and their highlight; the name itself stays white. The status indicators keep the launcher's look, and so do the titles printed on cards. Setting any of `background`, `text` and `accent` gives the menus and the text over the grids a palette mixed from the three (the launcher's own for those you leave out); setting none keeps the launcher's own blue exactly. Keep the text light on a dark background, or dark on a light one: dim and faint text are mixed between the two. Green, amber and red (done, a warning, a failure) are the same in every theme. The theme's menus apply at once when the theme is switched, even with the settings open.
 - **Motion** (`[motion]`) scales the motion the grid adds to models (section 8): `focus_sway` the focused item's sway from side to side, which shows its spine, and `idle_bob` the gentle up and down of every other item. Both are multiples of the launcher's own, so 1 changes nothing, 0.5 is half, 2 is twice, and 0 stops it (a focused item then faces you). They apply to both grids and to a system's details, and cost nothing: a calmer or livelier theme is as fast as any other. A clip still replaces the motion it stands for, whatever the values.
 - **A menu font** is read off the main thread once the theme is chosen; the menus keep the font they have until it has loaded, a fraction of a second. Only its printable ASCII is drawn ahead at the menus' main sizes, so other characters are drawn the first time they show, as with the default font. The menus are laid out at 1280×800 for the default font: a font that's much wider at the same size can cut titles short (with "…") or wrap details onto more lines, so check your theme's menus with `--open=settings` (section 10). Characters your font lacks are drawn in a system font.
@@ -462,6 +466,7 @@ Then, to offer it in the launcher's theme downloader, see section 12.
 | Art is stretched or cut off badly | The face's aspect ratio is wrong | Set the material's `aspect` custom property, and export Custom Properties |
 | Art is upside down or mirrored | The slot's UVs aren't upright from outside | Flip the UV island vertically or horizontally |
 | A slot shows the plain colour, never art | The material isn't named after a slot, or the chain names kinds the library has no art for | Check the name (a `.001` suffix is fine), then the chain |
+| A system's games show no wallpaper, or the gradient alone for a moment | Its `[systems.<id>.look.background]` replaces the theme's whole, wallpaper and all; or the image was still loading (it fades in) | Repeat `wallpaper` in the system's block; check the console for `Wallpaper:` warnings |
 | A card shows no logo | The chain doesn't name `logo` (`[defaults.system_slots]`), the image isn't named after the system's id (`logos/<id>.png`: the id, not its name, e.g. `megadrive`), the card's model comes from another theme (its chains are that theme's), or it's still being baked (the first time, the console says when they're done) | Check the chain, the id (systems.toml) and the console |
 | The model is tiny, or huge and warned about units | It's modelled in centimetres or millimetres | Scale it to about 1 m, and apply the scale |
 | A clip doesn't play | It isn't named idle, focused or launch, or it wasn't exported | Rename the action, and push it onto the NLA stack |
