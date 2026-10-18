@@ -302,7 +302,6 @@ energy = 0.25
 
 [systems.mastersystem]             # Master System
 colour = "#B83A3A"
-game_template = "clamshell"
 
 [systems.mastersystem.look.background]
 top_left     = "#4C2020"
@@ -737,14 +736,12 @@ game_template = "dvd_case"
 
 [systems.multivision]                       # Multivision
 colour = "#9E5C7C"
-game_template = "clamshell"
 
 [systems.n3ds]                       # Nintendo 3DS
 colour = "#9E725C"
 
 [systems.n64dd]                       # 64DD
 colour = "#9E6A5C"
-game_template = "clamshell"
 
 [systems.naomi]                       # NAOMI
 colour = "#5C729E"
@@ -770,7 +767,6 @@ game_template = "jewel_case"
 
 [systems.ngage]                       # N-Gage
 colour = "#5C809E"
-game_template = "umd_case"
 
 [systems.ngp]                       # Neo Geo Pocket
 colour = "#9E935C"
