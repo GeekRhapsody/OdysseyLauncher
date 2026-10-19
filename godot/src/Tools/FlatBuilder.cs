@@ -5,7 +5,7 @@ namespace Launcher.App.Tools;
 /// <summary>
 /// A flat card (A7): one media slot on its front and plain dark <c>case</c> on its back, both in the plane z = 0, so it
 /// has no thickness. Base theme templates <c>flat_cover</c> and <c>flat_screenshot</c> use it, each shaped by its own
-/// art. With no thickness, the depth a <c>shape = "media"</c> template takes from a game's spine moves nothing (the item
+/// art, and so does the Classic View theme's system card (a <c>label</c> on a dark grey panel). With no thickness, the depth a <c>shape = "media"</c> template takes from a game's spine moves nothing (the item
 /// shader moves a vertex by the sign of its z), so a flat card stays flat. Every vertex is a corner, off the centre
 /// planes x = 0 and half the height, as the reshaping needs.
 /// </summary>
@@ -48,10 +48,13 @@ public static class FlatBuilder
     }
 
     /// <summary>A plain near-black 4:3 texture, for a card with no screenshot.</summary>
-    public static Image DarkPanel()
+    public static Image DarkPanel() => Panel(new Color("#0B0B0E"), 16, 12);
+
+    /// <summary>A plain texture of one colour, <paramref name="width"/> by <paramref name="height"/> (the face's proportions).</summary>
+    public static Image Panel(Color colour, int width, int height)
     {
-        var image = Image.CreateEmpty(16, 12, false, Image.Format.Rgb8);
-        image.Fill(new Color("#0B0B0E"));
+        var image = Image.CreateEmpty(width, height, false, Image.Format.Rgb8);
+        image.Fill(colour);
         image.GenerateMipmaps();
         return image;
     }

@@ -93,6 +93,20 @@ public sealed class BuiltInModelTests
     }
 
     [Fact]
+    public void The_classic_view_system_model_is_a_flat_16_by_9_grey_label()
+    {
+        // A flat card, as Memory Card's flat_cover is: its label is the panel's grey, not white, so a logo is drawn on
+        // the grey and a system with no logo shows its printed name.
+        var card = Load(ThemeFixtures.ClassicViewFolder, ThemeFixtures.Load(ThemeFixtures.ClassicViewFolder).Defaults.SystemModel!, whiteSlots: false);
+
+        Assert.Equal(["label", "case"], card.Materials);
+        Assert.Equal(4, card.Triangles);
+        AssertShape("classic", card);
+        Assert.InRange(card.Max[2] - card.Min[2], 0, 0.001f);
+        Assert.Equal(16 / 9f, card.Aspects["label"], 0.001f);
+    }
+
+    [Fact]
     public void The_Mega_Drive_clamshells_faces_have_the_scraped_arts_proportions()
     {
         // Sized by ScreenScraper's scans (a 484 x 680 front and back, an 81 x 680 spine), so none of the art is cropped.

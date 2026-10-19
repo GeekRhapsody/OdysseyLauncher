@@ -945,6 +945,53 @@ public sealed class ThemeLoaderTests
         Assert.All(Directory.GetFiles(slab.PathOf(Theme.LogosFolder)), file => Assert.Contains(Path.GetFileNameWithoutExtension(file), known));
     }
 
+    [Fact]
+    public void The_classic_view_theme_loads_cleanly_with_flat_covers_logo_cards_a_wallpaper_and_no_motion()
+    {
+        var result = ThemeFixtures.LoadResult(ThemeFixtures.ClassicViewFolder);
+
+        Assert.Empty(result.Diagnostics);
+        var classic = result.Theme!;
+        Assert.Equal(("classic-view", "Classic View", ThemeOrigin.BuiltIn), (classic.Id, classic.Name, classic.Origin));
+        Assert.Equal(("models/systems/classic.glb", false), (classic.Defaults.SystemModel, classic.Defaults.TintSystemModel));
+        Assert.True(File.Exists(classic.PathOf(classic.Defaults.SystemModel!)));
+        Assert.Equal(new ThemeMotion(0, 0), classic.Motion);
+        Assert.True(File.Exists(classic.Look.Background.Wallpaper));
+
+        var config = new ConfigLoader().Load(new ConfigSources { HomeDir = "C:/home", ConfigDir = "C:/config", FileExists = null }).Config;
+        var resolver = new ModelResolver(classic, ThemeFixtures.Base, UserModels.None("C:/config"), config, "C:/data");
+        foreach (var id in config.Systems.Select(s => s.Id))
+        {
+            // Every system's games are flat covers, whatever Memory Card gives the system.
+            var template = resolver.GameTemplates(id)[0];
+            Assert.Equal(("flat_cover", ThemeFixtures.Base.PathOf("models/templates/flat_cover.glb")), (template.Template?.Id, template.Path));
+
+            // Every system shows the theme's wallpaper behind its games.
+            Assert.Equal(classic.Look.Background.Wallpaper, resolver.LookFor(id).Background.Wallpaper);
+        }
+
+        // Every card shows its logo on the panel's grey; a built-in system without a logo shows its name, printed.
+        foreach (var id in config.Systems.Select(s => s.Id).Append(null))
+        {
+            var card = resolver.SystemModels(id)[0];
+            Assert.Equal((classic.PathOf("models/systems/classic.glb"), false), (card.Path, card.Tint));
+            var chain = card.ChainFor(MediaSlots.Label, systemCard: true).Sources;
+            if (id is null || resolver.LogoOf(id) is not null)
+            {
+                Assert.Equal([SlotSource.Media(MediaSlots.Logo), SlotSource.Authored], chain);
+            }
+            else
+            {
+                Assert.Equal(SlotSource.Generated, chain[0]);
+            }
+        }
+
+        // The virtual cards have logos, and every image in its logos folder is some built-in system's or a virtual card's.
+        Assert.All((string[])["favourites", "recently_played", "all_games"], id => Assert.NotNull(resolver.LogoOf(id)));
+        var known = config.Systems.Select(s => s.Id).Concat(["favourites", "recently_played", "all_games"]).ToHashSet(StringComparer.Ordinal);
+        Assert.All(Directory.GetFiles(classic.PathOf(Theme.LogosFolder)), file => Assert.Contains(Path.GetFileNameWithoutExtension(file), known));
+    }
+
     // ---- Menus (A6 Menus) -------------------------------------------------------------------------
 
     [Fact]
@@ -1176,7 +1223,7 @@ public sealed class ThemeLoaderTests
     }
 
     [Fact]
-    public void The_committed_themes_have_no_wallpaper_but_the_slot_showcases()
+    public void The_committed_themes_have_no_wallpaper_but_classic_views_and_the_slot_showcases()
     {
         foreach (var folder in new[] { ThemeFixtures.BaseFolder, ThemeFixtures.ConsoleFolder, ThemeFixtures.SlabFolder, ThemeFixtures.RetroTvFolder })
         {

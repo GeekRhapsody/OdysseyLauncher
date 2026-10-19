@@ -11,7 +11,7 @@ namespace Launcher.Core.Tests.Theming.Downloads;
 /// </summary>
 public sealed class ThemeDownloadsTests : IDisposable
 {
-    private static readonly string[] Reserved = ["memory-card", "console", "slab"];
+    private static readonly string[] Reserved = ["memory-card", "classic-view", "console", "slab"];
     private static readonly Theme Base = ThemeFixtures.Base;
 
     private readonly TempDir _dir = new();

@@ -1,0 +1,74 @@
+# Classic View: the look and feel of a 2D launcher. Every system's card is the same flat dark grey 16:9 panel with the
+# system's logo on it (logos/<system id>.webp, from Batocera's Carbon theme, prepared by tools/classic-view-logos.py),
+# every game is just its cover (Memory Card's flat_cover), nothing sways or bobs, and the light falls straight on, so
+# covers and logos show as they are. Its wallpaper (from tools/wallpaper/) is behind everything: the systems screen and
+# every system's games, since no system has a look of its own. The systems' colours are Memory Card's.
+
+format = 1
+name = "Classic View"
+author = "Odyssey Launcher"
+
+# The systems grid's look, and every system's: Classic View gives no system a look of its own.
+[look.background]
+top_left     = "#202020"                   # the wallpaper's own greys, shown until it has loaded
+top_right    = "#202020"
+bottom_left  = "#080808"
+bottom_right = "#080808"
+wallpaper    = "wallpapers/main.webp"      # black gaming icons on dark grey, 1920 x 1080
+
+[look.ambient]
+colour = "#FFFFFF"
+energy = 0.5
+
+[[look.lights]]                            # one light, straight on: a flat card facing you is lit evenly, as in 2D
+direction = [0.0, 0.0, -1.0]
+colour = "#FFFFFF"
+energy = 0.5
+
+[ui.menu]                                  # Slab's dark grey menus with near-white text and a light grey focus
+background = "#141414"
+text = "#ECECEC"
+accent = "#C8C8C8"
+
+[defaults]
+system_model = "models/systems/classic.glb"   # a flat 16:9 dark grey panel whose whole front is a label slot
+tint_system_model = false                     # every card stays grey: the logo is what tells them apart
+game_template = "flat_cover"                  # every system's games: just the cover, shaped by it (Memory Card's)
+
+[defaults.system_slots]
+label = ["logo", "authored"]               # the system's logo on the panel's own grey; just the grey without one
+
+# The built-in systems Carbon has no logo for (tools/classic-view-logos.py lists them): their name, printed on a label.
+[systems.chailove.slots]
+label = ["generated"]
+
+[systems.consolearcade.slots]
+label = ["generated"]
+
+[systems.cps.slots]
+label = ["generated"]
+
+[systems.dos.slots]
+label = ["generated"]
+
+[systems.pcarcade.slots]
+label = ["generated"]
+
+[systems.symbian.slots]
+label = ["generated"]
+
+[systems.tanodragon.slots]
+label = ["generated"]
+
+[systems.windows3x.slots]
+label = ["generated"]
+
+[systems.windows9x.slots]
+label = ["generated"]
+
+[systems.zxnext.slots]
+label = ["generated"]
+
+[motion]                                   # nothing sways or bobs: a focused item faces you, the others hold still
+focus_sway = 0
+idle_bob = 0

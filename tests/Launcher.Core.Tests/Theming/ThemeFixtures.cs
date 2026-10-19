@@ -20,6 +20,9 @@ internal static class ThemeFixtures
     /// <summary>The default theme, built in, whose cards show each system's logo: <c>godot/themes/slab</c>.</summary>
     public static string SlabFolder => Path.Combine(BuiltInThemesFolder, ThemeCatalog.DefaultId);
 
+    /// <summary>The built-in theme that looks like a 2D launcher (flat logo cards, flat covers, a wallpaper): <c>godot/themes/classic-view</c>.</summary>
+    public static string ClassicViewFolder => Path.Combine(BuiltInThemesFolder, "classic-view");
+
     /// <summary>The M6 test theme: <c>tests/themes/slot-showcase</c>.</summary>
     public static string SlotShowcaseFolder => Path.Combine(RepoRoot, "tests", "themes", "slot-showcase");
 

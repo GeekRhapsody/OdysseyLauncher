@@ -8,6 +8,7 @@ namespace Launcher.App.Tools;
 /// box templates, its arcade cabinet (<see cref="ArcadeCabinetBuilder"/>) and its television (<see cref="CrtTvBuilder"/>) in
 /// <c>godot/themes/memory-card/models/templates/</c> and its generic system model in
 /// <c>godot/themes/memory-card/models/systems/</c>, the Slab theme's card in <c>godot/themes/slab/models/systems/</c>,
+/// the Classic View theme's flat card (<see cref="FlatBuilder"/>) in <c>godot/themes/classic-view/models/systems/</c>,
 /// and the M6 test theme's models in <c>tests/themes/slot-showcase/models/</c>, and the sample theme's in
 /// <c>samples/themes/retro-tv/models/</c> (<see cref="RetroTvBuilder"/>). None is imported by Godot (<c>godot/themes/</c> has a <c>.gdignore</c>): every theme's
 /// models are loaded from the <c>.glb</c> files at run time (A6 Locations).
@@ -24,6 +25,15 @@ public partial class BoxTemplateGenerator : Node
 
     /// <summary>The Slab theme's card.</summary>
     public const string SlabSystemsDir = "res://themes/slab/models/systems";
+
+    /// <summary>The Classic View theme's card.</summary>
+    public const string ClassicSystemsDir = "res://themes/classic-view/models/systems";
+
+    /// <summary>
+    /// The Classic View theme's card's colour: a dark grey panel, its whole front a <c>label</c> slot whose own texture
+    /// is this grey, so each system's logo shows on it (A6 logos/), as on a 2D launcher's tile.
+    /// </summary>
+    public static readonly Color ClassicPanel = new("#1E1F23");
 
     /// <summary>The test theme, relative to the project folder.</summary>
     public const string TestThemeDir = "../tests/themes/slot-showcase/models";
@@ -172,6 +182,11 @@ public partial class BoxTemplateGenerator : Node
         ok &= Export(GenericSystem, $"{SystemsDir}/{GenericSystem.Id}.glb");
         DirAccess.MakeDirRecursiveAbsolute(ProjectSettings.GlobalizePath(SlabSystemsDir));
         ok &= Export(SlabSystem, $"{SlabSystemsDir}/{SlabSystem.Id}.glb");
+
+        // Classic View's card: a flat 16:9 panel (the logos are wide wordmarks), the logo on its whole front.
+        DirAccess.MakeDirRecursiveAbsolute(ProjectSettings.GlobalizePath(ClassicSystemsDir));
+        ok &= ExportMesh(FlatBuilder.Build("label", 16 / 9f, ImageTexture.CreateFromImage(FlatBuilder.Panel(ClassicPanel, 16, 9)), out var classicTriangles),
+            "classic", classicTriangles, $"{ClassicSystemsDir}/classic.glb");
 
         var testTheme = System.IO.Path.GetFullPath(System.IO.Path.Combine(ProjectSettings.GlobalizePath("res://"), TestThemeDir));
         DirAccess.MakeDirRecursiveAbsolute(System.IO.Path.Combine(testTheme, "templates"));

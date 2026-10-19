@@ -6,7 +6,7 @@ namespace Launcher.Core.Tests.Theming.Downloads;
 public sealed class ThemeIndexReaderTests
 {
     private static readonly string ListFolder = Path.Combine(Path.GetTempPath(), "list");
-    private static readonly string[] Reserved = ["memory-card", "console", "slab"];
+    private static readonly string[] Reserved = ["memory-card", "classic-view", "console", "slab"];
 
     private static ThemeIndex Read(string json) => ThemeIndexReader.Read(json, "themes.json", ListFolder, Reserved);
 

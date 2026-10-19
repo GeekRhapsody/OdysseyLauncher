@@ -85,7 +85,7 @@ Odyssey Launcher is built with Godot 4 and C# for Windows. **Performance is the 
 
 ### Themes
 
-The **Slab** theme (the default) shows each system as a dark slab with its logo. **Console** shows each system as its console (still a work in progress: four consoles and a PC so far). Switch themes from the settings or with <kbd>T</kbd>, without a restart, and get more from **Download themes** in the settings: themes from a tested list, kept up to date from there, as ES-DE's theme downloader does.
+The **Slab** theme (the default) shows each system as a dark slab with its logo. **Console** shows each system as its console (still a work in progress: four consoles and a PC so far). **Classic View** looks like a 2D launcher: flat logo cards and flat covers over a wallpaper, with nothing swaying. Switch themes from the settings or with <kbd>T</kbd>, without a restart, and get more from **Download themes** in the settings: themes from a tested list, kept up to date from there, as ES-DE's theme downloader does.
 
 ![Switching from the Console theme to Slab](docs/readme/themes.webp)
 
@@ -175,6 +175,12 @@ The guide for theme authors is [docs/THEMING.md](docs/THEMING.md). It covers the
 The system logos in the **Slab** theme (`godot/themes/slab/logos/`) come from [**canvas-es-de**](https://github.com/Siddy212/canvas-es-de) by [Siddy212](https://github.com/Siddy212), a theme for ES-DE. canvas-es-de credits its original artwork and layouts to fagnerpc.
 
 They're used under the [Creative Commons Attribution-NonCommercial-ShareAlike 2.0](https://creativecommons.org/licenses/by-nc-sa/2.0/) licence (CC BY-NC-SA 2.0). **Changes:** each image was cropped to its content, scaled to at most 512 pixels on its longer side and converted to WebP, and a few were renamed to match Odyssey Launcher's system ids. The adapted logos are shared under the same licence.
+
+### Classic View theme logos: es-theme-carbon
+
+The system logos in the **Classic View** theme (`godot/themes/classic-view/logos/`) come from [**es-theme-carbon**](https://github.com/fabricecaruso/es-theme-carbon), Batocera's default theme, by Rookervik (based on simple by Nils Bonenberger). Its readme names the licence as Creative Commons Attribution-NonCommercial-ShareAlike (CC BY-NC-SA); its heading says version 2.0 and the licence text below it 4.0. The logos and trademarks themselves are their owners'.
+
+**Changes:** each SVG was rendered to an image, each image cropped to its content, scaled to at most 512 pixels on its longer side and converted to WebP, and a few were renamed to match Odyssey Launcher's system ids. The adapted logos are shared under the same licence.
 
 ### Also
 
