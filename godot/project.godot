@@ -17,6 +17,7 @@ config/features=PackedStringArray("4.7", "C#", "Mobile")
 boot_splash/bg_color=Color(0.015686275, 0.015686275, 0.047058824, 1)
 boot_splash/show_image=false
 config/icon="res://icon.svg"
+config/windows_native_icon="res://icon.ico"
 
 [autoload]
 

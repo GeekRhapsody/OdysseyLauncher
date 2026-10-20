@@ -22,6 +22,8 @@
     <OptimizationPreference>Size</OptimizationPreference>
     <!-- The tests run the plain build on the newest installed runtime, like the fake emulator. -->
     <RollForward>Major</RollForward>
+    <!-- The launcher's icon (tools/app-icon/make_icon.py). -->
+    <ApplicationIcon>..\..\godot\icon.ico</ApplicationIcon>
   </PropertyGroup>
 
 </Project>

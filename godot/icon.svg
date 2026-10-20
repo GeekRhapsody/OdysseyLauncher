@@ -1,12 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
-  <defs>
-    <linearGradient id="background" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#1B1F4A"/>
-      <stop offset="1" stop-color="#04040C"/>
-    </linearGradient>
-  </defs>
-  <rect width="128" height="128" rx="20" fill="url(#background)"/>
-  <ellipse cx="64" cy="106" rx="24" ry="5" fill="#000000" opacity="0.4"/>
-  <rect x="42" y="20" width="44" height="64" rx="3" fill="#D8D8E0"/>
-  <rect x="46" y="24" width="36" height="56" rx="2" fill="#8090FF"/>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256"><defs><linearGradient id="tile" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#15152B"/><stop offset="1" stop-color="#04040C"/></linearGradient></defs><rect x="8.00" y="8.00" width="240.00" height="240.00" rx="48" fill="url(#tile)"/><g transform="translate(128 118) rotate(-16)" fill="none" stroke-linecap="round"><path d="M -104 0 A 104 30 0 0 1 104 0" stroke="#2A86A8" stroke-width="14.00"/></g><polygon points="128.00,76.00 178.23,105.00 128.00,134.00 77.77,105.00" fill="#E8E8F0"/><polygon points="77.77,105.00 128.00,134.00 128.00,192.00 77.77,163.00" fill="#9A9AB0"/><polygon points="128.00,134.00 178.23,105.00 178.23,163.00 128.00,192.00" fill="#5C5C78"/><g transform="translate(128 118) rotate(-16)" fill="none" stroke-linecap="butt"><path d="M 104 0 A 104 30 0 0 1 -104 0" stroke="#04040C" stroke-width="24.00"/><path d="M 104 0 A 104 30 0 0 1 -104 0" stroke="#4CC9F0" stroke-width="14.00" stroke-linecap="round"/></g></svg>
