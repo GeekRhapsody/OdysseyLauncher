@@ -123,20 +123,24 @@ def rounded(cx, cz, w, h, r, segments=5):
     return points
 
 
-def curved(name, w, h, bulge, uv, mat, nu=16, nv=12):
+def curved(name, w, h, bulge, uv, mat, nu=16, nv=12, keep=None):
     """A screen facing the viewer (-y), w x h about its origin, its middle bulging bulge towards the viewer; uv(a, b)
-    gives the UV of the point a across from its left and b down from its top (both 0 to 1)."""
+    gives the UV of the point a across from its left and b down from its top (both 0 to 1). keep(i, j), if given,
+    says which of its nu x nv cells to make (a part of the screen)."""
     bm = bmesh.new()
     layer = bm.loops.layers.uv.new("UVMap")
     grid = [[bm.verts.new((w * (i / nu - 0.5), -bulge * (1 - (2 * i / nu - 1) ** 2) * (1 - (2 * j / nv - 1) ** 2),
                            h * (0.5 - j / nv))) for i in range(nu + 1)] for j in range(nv + 1)]
     for j in range(nv):
         for i in range(nu):
+            if keep is not None and not keep(i, j):
+                continue
             corners = ((i, j), (i, j + 1), (i + 1, j + 1), (i + 1, j))       # wound to face -y
             face = bm.faces.new([grid[b][a] for a, b in corners])
             face.smooth = True
             for loop, (a, b) in zip(face.loops, corners):
                 loop[layer].uv = uv(a / nu, b / nv)
+    bmesh.ops.delete(bm, geom=[v for v in bm.verts if not v.link_faces], context="VERTS")
     return new_object(name, bm, mat)
 
 
@@ -386,4 +390,5 @@ def main():
     export([root] + meshes, out, animations=True)
 
 
-main()
+if __name__ == "__main__":
+    main()
