@@ -1,4 +1,5 @@
-"""The console theme's Super Nintendo system model (godot/themes/console/models/systems/snes.glb).
+"""The console theme's Super Nintendo and Satellaview system models (godot/themes/console/models/systems/snes.glb and
+satellaview.glb).
 
 Built in Blender from the PAL console's proportions (snes_layout.py has the measurements, taken from photographs): the
 light grey body, its corners rounded seen from above and its top's edges rounded over, the shells' seam round its
@@ -6,7 +7,8 @@ sides; the darker panel standing on its top, with the cartridge slot across it (
 POWER's slide in its well, EJECT, and RESET in its well; the power light's slot in front of the panel; and the long
 rounded recess in its front with the controller ports. The printing (the panel, the legends, the coloured dots, the
 name, the ports, the cartridge's label) is one texture, drawn by snes_print.py and projected onto the faces facing up
-and the ports' recess.
+and the ports' recess. The Satellaview's Super Famicom stands on the receiver (BASE in snes_layout.py), its front panel
+sunk into its front with the name and the lights, and its cartridge carries the memory pack in its top.
 
 A node tree: a root (the turn to a three-quarter view, TILT_YAW and TILT_PITCH: its right end towards the viewer, its
 top tipped up, as the Mega Drive's; then the model spec's fit: standing on y = 0, centred, the largest side 1 m) holding
@@ -16,12 +18,15 @@ is shrunk to nothing, so at rest the card is the console with its slot shut.
 
 The `focused` clip (8 s, looping) plays a game: the cartridge pops up above the slot, turns once to show its label and
 drops in, the flaps swinging down out of its way; POWER slides on and the light comes on. Later POWER goes off, EJECT
-goes down, the cartridge jumps up and goes, and the flaps swing shut.
+goes down, the cartridge jumps up and goes, and the flaps swing shut. On the Satellaview the receiver's ACCESS light
+flickers while it's on, as it does taking a broadcast.
 
 Four materials (case, print, dark, cart) and one texture, within the system model budget. Run from the repo root:
 
     python tools/console-models/snes_print.py snes artifacts/snes
     blender -b --factory-startup --python tools/console-models/snes.py -- artifacts/snes snes godot/themes/console/models/systems/snes.glb
+
+and the same with satellaview.
 """
 
 import math
@@ -181,8 +186,29 @@ def light(m):
     return lit, Vector((x, y, L.TOP - 0.3))
 
 
-def cartridge(m):
-    """The cartridge, standing on its connector's edge with its middle at its origin, its label facing the front."""
+def receiver(k, m):
+    """The Satellaview under the console: a box of its footprint, its front panel sunk into its front and printed."""
+    b = k["base"]
+    shell = prism("receiver", rounded(0.0, L.DEPTH / 2, L.WIDTH - 2.0, L.DEPTH - 4.0, b["corner"], 6), 0.0,
+                  b["height"] + 1.0, m["case"])
+    bevel(shell, 3.0, segments=3, angle=50)
+    pw, ph, r = b["panel"]
+    z0, sunk = (b["height"] - ph) / 2, 2.0 + b["depth"]   # the panel's bottom; its face, behind the box's front at y = 2
+    boolean(shell, solid("panel", [[(x, y, z) for x, z in rounded(0.0, z0 + ph / 2, pw, ph, r, 4)]
+                                   for y in (-5.0, sunk)], m["case"]))
+    front = atlas_uv(L.REGIONS["base"], pw, ph)
+    paint(shell, m["print"], lambda co: front(co.x + pw / 2, z0 + ph - co.z),
+          lambda c, n, name: n.y < -0.9 and abs(c.y - sunk) < 0.2)
+    lw = 2.0
+    x, _ = b["lights"]["access"]
+    lit = box("access_light", -lw / 2, lw / 2, -0.3, 0.0, -3.5, 3.5, m["print"])
+    paint(lit, m["print"], swatch("access"), lambda c, n, name: True)
+    return shell, lit, Vector((x, sunk - 0.05, z0 + ph / 2 + 0.5))
+
+
+def cartridge(m, pack=False):
+    """The cartridge, standing on its connector's edge with its middle at its origin, its label facing the front; the
+    Satellaview's carries the memory pack standing in its top."""
     c = L.CART
     w, h, t = c["width"], c["height"], c["thickness"]
     outline = [(w / 2, 0.0)] + [(w / 2 - 6.0 + 6.0 * math.cos(math.radians(a)), h - 6.0 + 6.0 * math.sin(math.radians(a)))
@@ -202,7 +228,18 @@ def cartridge(m):
     for loop, (x, z) in zip(face.loops, corners):
         loop[layer].uv = uv(x + lw / 2, z1 - z)
     label = new_object("label", bm, m["print"])
-    cart = join([shell, label], "cartridge")
+    parts = [shell, label]
+    if pack:
+        p = L.MEMORY_PACK
+        top = h + c["arch"]
+        stick = box("pack", -p["width"] / 2, p["width"] / 2, -p["thickness"] / 2, p["thickness"] / 2, top - 8.0,
+                    top - 8.0 + p["height"], m["cart"])
+        bevel(stick, 1.0, segments=1)
+        face = atlas_uv(L.REGIONS["pack"], p["width"], p["height"])
+        paint(stick, m["print"], lambda co: face(co.x + p["width"] / 2, top - 8.0 + p["height"] - co.z),
+              lambda c_, n, name: n.y < -0.9)
+        parts.append(stick)
+    cart = join(parts, "cartridge")
     cart.data.transform(Matrix.Translation((0.0, 0.0, -h / 2)))
     return cart
 
@@ -240,6 +277,8 @@ def timeline(f):
     poses["power"] = Pose(y=L.POWER["travel"] * on)
     poses["power_light"] = Pose() if 64 <= f < 170 else Pose(scale=HIDDEN)
     poses["eject"] = Pose(z=-2.2 * tap(f, 176))
+    taking = 72 <= f < 160 and (f // 4) % 3 != 2                # the receiver's ACCESS light, taking a broadcast
+    poses["access_light"] = Pose() if taking else Pose(scale=HIDDEN)
     return poses
 
 
@@ -258,24 +297,35 @@ def main():
 
     console = body(m)
     lit, lit_at = light(m)
-    slide, button, cart = knob(m), eject(m), cartridge(m)
+    slide, button, cart = knob(m), eject(m), cartridge(m, pack="base" in k)
+    lift = Vector((0.0, 0.0, k["base"]["height"] if "base" in k else 0.0))
+    extra = {}
+    if "base" in k:                                    # the Super Famicom stands on the receiver
+        console.data.transform(Matrix.Translation(lift))
+        under, access, access_at = receiver(k, m)
+        console = join([console, under], "satellaview")
+        extra["access_light"] = (access, access_at)
     for obj in (console, slide, button, cart):
         for p in obj.data.polygons:
             p.use_smooth = True
         obj.data.set_sharp_from_angle(angle=math.radians(35))
 
-    root = bpy.data.objects.new("snes_root", None)
+    root = bpy.data.objects.new(kind + "_root", None)
     scene.collection.objects.link(root)
     console.parent = root
     seat = Vector((0.0, sum(L.SLOT["y"]) / 2, L.TOP + L.PANEL["height"] - L.CART["inserted"] + L.CART["height"] / 2))
     nodes = {"power": slide, "eject": button, "power_light": lit, "cartridge": cart}
     for part, where in ((lit, lit_at), (cart, seat), (slide, Vector()), (button, Vector())):
         part.parent = console
-        part.location = where
+        part.location = where + lift
     for name, (flap, hinge) in flaps(m).items():
         flap.parent = console
-        flap.location = hinge
+        flap.location = hinge + lift
         nodes[name] = flap
+    for name, (part, where) in extra.items():
+        part.parent = console
+        part.location = where
+        nodes[name] = part
 
     # The three-quarter view, then the spec's fit of the console at rest, as the root's transform.
     tilt = Matrix.Rotation(math.radians(TILT_PITCH), 4, "X") @ Matrix.Rotation(math.radians(TILT_YAW), 4, "Z")

@@ -1,10 +1,13 @@
 """The Super Nintendo's measurements, shared by snes_print.py (which draws its printing) and snes.py (which builds it).
 Plain Python: Blender's Python imports it too.
 
-The PAL Super Nintendo, which is the Super Famicom's shape (200 x 242 x 72 mm) with its own name on it. Millimetres: x
-from its middle (left to right), y back from its front edge, z up from the table. The rest was measured from
-photographs on Wikimedia Commons (Evan-Amos's Super Famicom from the front left and right, a PAL console), scaled by
-its width.
+`snes`: the PAL Super Nintendo, which is the Super Famicom's shape (200 x 242 x 72 mm) with its own name on it.
+`satellaview`: a Super Famicom standing on the Satellaview, the satellite receiver that fits under it (BASE: a box of
+its footprint, Nintendo Satellaview on its front panel with its ACCESS and POWER lights), the BS-X cartridge in its
+slot with the memory pack plugged into the cartridge's top (MEMORY_PACK). Millimetres: x from its middle (left to
+right), y back from its front edge, z up from the table. The rest was measured from
+photographs on Wikimedia Commons (Evan-Amos's Super Famicom from the front left and right, a PAL console, a Super Famicom
+on its Satellaview), scaled by its width.
 
 The body's corners are rounded seen from above, and its top's edges rounded over; a crease runs round its sides where
 the shells meet. On the top stands a darker panel: the cartridge slot across it, POWER (a slide switch in a well),
@@ -13,9 +16,9 @@ its right end. In front of the panel the name and the power light; in the front 
 two controller ports.
 
 One texture (ATLAS square, REGIONS): `top` (the top seen from above, planar-mapped onto every face facing up: the panel,
-the buttons' legends, the slot's flaps, the dots, the name), `front` (the ports' recess, seen from in front) and `label`
-(the cartridge's label: a made-up game, Odyssey), and swatches for small parts. A region is (x, y, width, height) in
-pixels.
+the buttons' legends, the slot's flaps, the dots, the name), `front` (the ports' recess, seen from in front), `label`
+(the cartridge's label: a made-up game, Odyssey), `base` (the Satellaview's front panel) and `pack` (the memory pack's
+face), and swatches for small parts. A region is (x, y, width, height) in pixels.
 """
 
 ATLAS = 1024
@@ -39,12 +42,17 @@ CART = dict(width=135.0, height=90.0, arch=6.0, thickness=20.0,   # the cartridg
 
 KINDS = {
     "snes": dict(name="PAL", case="#D4D4D6", panel="#A9A9AD"),
+    "satellaview": dict(name="SFC", case="#D2D2D4", panel="#A8A8AC",
+                        base=dict(height=46.0, corner=16.0, panel=(176.0, 30.0, 4.0), depth=2.0,
+                                  lights=dict(access=(40.0, 13.0), power=(64.0, 13.0)))),
 }
+MEMORY_PACK = dict(width=56.0, height=24.0, thickness=13.0)   # on the BS-X cartridge's top, standing in its slot
 
 COLOURS = dict(cart="#8E8E93", dark="#2A2A2E", flap="#5C5C61")
 
-REGIONS = dict(top=(0, 0, 700, 847), front=(712, 0, 312, 62), label=(712, 72, 312, 214))
-SWATCHES = dict(led=(728, 312), dark=(760, 312), flap=(792, 312))  # each a 24 x 24 block's middle
+REGIONS = dict(top=(0, 0, 700, 847), front=(712, 0, 312, 62), label=(712, 72, 312, 214), base=(712, 400, 312, 54),
+               pack=(712, 464, 312, 134))
+SWATCHES = dict(led=(728, 312), dark=(760, 312), flap=(792, 312), access=(824, 312))  # each a 24 x 24 block's middle
 
 FPS = 30
 LENGTH = 240                 # 8 s

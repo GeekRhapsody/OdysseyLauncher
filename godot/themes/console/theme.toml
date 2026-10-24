@@ -112,6 +112,9 @@ model = "models/systems/snes.glb"               # built by tools/console-models/
 [systems.ps2]
 model = "models/systems/ps2.glb"                # built by tools/console-models/ps2.py: the black launch model, turned to a three-quarter view; its focused clip slides the tray out, drops a DVD on it, and later ejects it
 
+[systems.satellaview]
+model = "models/systems/satellaview.glb"       # built by tools/console-models/snes.py: a Super Famicom on its Satellaview; its focused clip drops the BS-X cartridge in, switches on, and the receiver takes a broadcast
+
 [systems.saturn]
 model = "models/systems/saturn.glb"
 

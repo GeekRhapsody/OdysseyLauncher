@@ -8,7 +8,7 @@ swatches small parts take their colour from. Run it with the system Python (Pill
 
     python tools/console-models/snes_print.py <kind> <out folder>
 
-It writes <kind>_print.png there (snes).
+It writes <kind>_print.png there (snes, satellaview).
 """
 
 import os
@@ -86,7 +86,8 @@ def top(k):
 
     # In front of the panel: the name, and the power light's slot under POWER.
     x, y = top_point(-80.0, 46.0)
-    nintendo(reg, k, x, y, 5.0, INK)
+    if k["boxed"]:
+        nintendo(reg, k, x, y, 5.0, INK)
     for line, size, dy in k["name"]:
         reg.text(line, "arialbi.ttf", size, x, y + dy, INK, anchor="lm")
     lx, ly = top_point(L.LED[0], L.LED[1])
@@ -130,14 +131,41 @@ def label(k):
     return reg
 
 
+def base(k):
+    """The Satellaview's front panel, seen from in front: its name and the four dots on the left, ACCESS and POWER on
+    the right, POWER lit."""
+    pw, ph, _ = k["base"]["panel"]
+    reg = Region(L.REGIONS["base"], pw, ph, shade(rgb(k["case"]), 0.06))
+    dots(reg, k, 11.0, ph / 2, 4.6)
+    reg.text("Nintendo", "arialbd.ttf", 4.2, 19.0, ph / 2 - 3.4, INK, anchor="lm")
+    reg.text("Satellaview", "arial.ttf", 6.4, 19.0, ph / 2 + 3.6, INK, anchor="lm")
+    for name, (x, _) in k["base"]["lights"].items():
+        lx = pw / 2 + x
+        reg.text(name.upper(), "arial.ttf", 1.8, lx, ph / 2 - 6.0, shade(rgb(k["case"]), -0.35))
+        lit = name == "power"
+        reg.rect_(lx - 1.0, ph / 2 - 3.0, lx + 1.0, ph / 2 + 4.0, (255, 90, 50) if lit else (70, 60, 56), r=1.0)
+    return reg
+
+
+def memory_pack(k):
+    """The memory pack's face: its grey shell and its small label."""
+    w, h = L.MEMORY_PACK["width"], L.MEMORY_PACK["height"]
+    reg = Region(L.REGIONS["pack"], w, h, (120, 120, 126))
+    reg.rect_(8.0, 3.0, w - 8.0, h - 7.0, (236, 236, 238), r=1.0)
+    dots(reg, k, 13.0, (h - 4.0) / 2, 2.4)
+    reg.text("8M MEMORY PACK", "arialbd.ttf", 2.6, w / 2 + 3.0, (h - 4.0) / 2, INK)
+    return reg
+
+
 def main(kind, out):
     k = dict(L.KINDS[kind], **TEXTS[kind])
     os.makedirs(out, exist_ok=True)
     image = Image.new("RGB", (L.ATLAS, L.ATLAS), rgb(k["case"]))
-    for reg in (top(k), front(k), label(k)):
+    for reg in (top(k), front(k), label(k)) + ((base(k), memory_pack(k)) if "base" in k else ()):
         reg.paste(image)
     d = ImageDraw.Draw(image)
-    for name, colour in (("led", (255, 52, 40)), ("dark", rgb(L.COLOURS["dark"])), ("flap", rgb(L.COLOURS["flap"]))):
+    for name, colour in (("led", (255, 52, 40)), ("dark", rgb(L.COLOURS["dark"])), ("flap", rgb(L.COLOURS["flap"])),
+                         ("access", (90, 255, 110))):
         x, y = L.SWATCHES[name]
         d.rectangle([x - 12, y - 12, x + 11, y + 11], fill=colour)
     path = os.path.join(out, f"{kind}_print.png")
@@ -148,7 +176,9 @@ def main(kind, out):
 # Each kind's words: the name in front of the panel (line, size, offset), the slot's reminder, the label's band.
 TEXTS = {
     "snes": dict(name=[("SUPER NINTENDO", 7.0, 7.5), ("ENTERTAINMENT SYSTEM", 3.2, 13.0)], slot_text="PAL VERSION",
-                 label="SUPER NINTENDO"),
+                 label="SUPER NINTENDO", boxed=True),
+    "satellaview": dict(name=[("Nintendo", 7.0, 0.0), ("SUPER Famicom", 6.0, 7.5)],
+                        slot_text="USE CASSETTE WITH SUPER Famicom MARK ONLY", label="SUPER Famicom", boxed=False),
 }
 
 if __name__ == "__main__":
