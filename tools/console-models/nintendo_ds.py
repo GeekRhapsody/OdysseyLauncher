@@ -1,9 +1,11 @@
-"""The console theme's Nintendo DS system model (godot/themes/console/models/systems/nds.glb).
+"""The console theme's Nintendo DS and Nintendo 3DS system models (godot/themes/console/models/systems/nds.glb and
+n3ds.glb).
 
-Built in Blender from the DS Lite's proportions (nintendo_ds_layout.py has the measurements, taken from photographs), open
-on the table: the lower half, its plan's outline lofted up through the rounding of its edges, with the D-pad, A, B, X
-and Y, START and SELECT standing out of its face, slot-1 and the stylus's silo in its back face, and the hinge along its
-back; the upper half, built the same way and tipped up about the hinge. The printing (the faces: the screens' bezels,
+Built in Blender from the DS Lite's and the first 3DS's proportions (nintendo_ds_layout.py has the measurements, taken
+from photographs), open on the table: the lower half, its plan's outline lofted up through the rounding of its edges,
+with the D-pad, A, B, X and Y and the small buttons (START and SELECT; the 3DS's POWER) standing out of its face (the
+3DS's touch screen on a raised panel, its Circle Pad in a well over its D-pad), slot-1 and the stylus's silo in its back
+face, and the hinge along its back; the upper half, built the same way and tipped up about the hinge. The printing (the faces: the screens' bezels,
 the switched-off screens, the buttons' tops and legends, the speakers) is one texture, drawn by nintendo_ds_print.py
 and projected onto each half's face; the screens and the game card's label are a second.
 
@@ -24,6 +26,8 @@ root:
 
     python tools/console-models/nintendo_ds_print.py nds artifacts/nds
     blender -b --factory-startup --python tools/console-models/nintendo_ds.py -- artifacts/nds nds godot/themes/console/models/systems/nds.glb
+
+and the same with n3ds.
 """
 
 import math
@@ -112,8 +116,22 @@ def lower_half(k, m):
         parts.append(button(x, y, f["r"], h, f["height"], m))
     for _, x, y, r in k["small"]:
         parts.append(button(x, y, r, h, 0.8, m))
+    if "panel" in k:                                   # the 3DS's raised panel under its touch screen
+        pw, ph, r = k["panel"]["size"]
+        panel = solid("panel", [[(x, y, z) for x, y in rounded(k["screen"]["x"], k["panel"]["y"], pw, ph, r, 3)]
+                                for z in (h - 0.5, h + k["panel"]["height"])], m["case"])
+        bevel(panel, 0.4, segments=1)
+        parts.append(panel)
+    if "circle_pad" in k:                              # the Circle Pad: a nub standing in its well
+        c = k["circle_pad"]
+        boolean(shell, solid("pad_well", [[(c["x"] + c["well"] * math.cos(2 * math.pi * j / 32),
+                                            c["y"] + c["well"] * math.sin(2 * math.pi * j / 32), z) for j in range(32)]
+                                          for z in (h - 1.2, h + 2.0)], m["dark"]))
+        parts.append(button(c["x"], c["y"], c["r"], h - 1.2, 3.0, m))
     for part in parts[1:]:
         paint(part, m["print"], lambda co: face(co.x + w / 2, d - co.y), lambda c, n, name: n.z > 0.9)
+    if "circle_pad" in k:
+        paint(parts[-1], m["print"], swatch("pad"), lambda c, n, name: n.z <= 0.9)
 
     # The hinge along the back edge.
     hg = k["hinge"]
@@ -148,28 +166,29 @@ def screens(k, m):
     out = {}
     s = k["screen"]
     sw, sh = s["size"]
+    face = k["lower"] + (k["panel"]["height"] if "panel" in k else 0.0)
     for name in ("boot_lower", "game_lower", "game_pressed"):
-        uv = atlas_uv(L.MEDIA_REGIONS[name], 1.0, 1.0)
+        uv = atlas_uv(k["media"][name], 1.0, 1.0)
         out[name] = (quad("screen_" + name, -sw / 2, sw / 2, -sh / 2, sh / 2, 0.0, uv, m["media"]),
-                     Matrix.Translation((s["x"], s["y"], k["lower"] + 0.06)))
+                     Matrix.Translation((s["x"], s["y"], face + 0.06)))
     u = k["upper_screen"]
     uw, uh = u["size"]
     hg = k["hinge"]
     place = (Matrix.Translation((0.0, hg["y"] - hg["r"] * 0.2, hg["z"] + hg["r"] * 0.6))
              @ Matrix.Rotation(math.radians(k["open"]), 4, "X") @ Matrix.Translation((0.0, -1.0 + u["y"], 0.06)))
     for name in ("boot_upper", "game_upper"):
-        uv = atlas_uv(L.MEDIA_REGIONS[name], 1.0, 1.0)
+        uv = atlas_uv(k["media"][name], 1.0, 1.0)
         out[name] = (quad("screen_" + name, -uw / 2, uw / 2, -uh / 2, uh / 2, 0.0, uv, m["media"]), place)
     return out
 
 
-def card(m):
+def card(k, m):
     """The game card, its middle at its origin, lying flat with its label up and its contacts' edge towards -y."""
     c = L.CARD
     w, l, t = c["width"], c["length"], c["thickness"]
     shell = box("card", -w / 2, w / 2, -l / 2, l / 2, -t / 2, t / 2, m["media"])
     bevel(shell, 0.6, segments=1)
-    label = atlas_uv(L.MEDIA_REGIONS["card"], w, l)
+    label = atlas_uv(k["media"]["card"], w, l)
     paint(shell, m["media"], lambda co: label(co.x + w / 2, l / 2 - co.y), lambda c_, n, name: n.z > 0.9)
     paint(shell, m["print"], swatch("card"), lambda c_, n, name: n.z <= 0.9)
     return shell
@@ -275,7 +294,7 @@ def main():
         part.matrix_basis = place
         nodes["screen_" + name] = part
     d = k["depth"]
-    playing = card(m)
+    playing = card(k, m)
     playing.parent = console
     playing.location = (0.0, d - L.CARD["length"] / 2 - 1.0, sum(k["slot"]["z"]) / 2)
     pen = stylus(k, m)
