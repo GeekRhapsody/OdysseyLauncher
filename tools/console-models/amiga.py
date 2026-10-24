@@ -82,7 +82,11 @@ def paint(obj, mat, uv_of, keep):
         mesh.materials.append(mat)
         names.append(mat.name)
     index = names.index(mat.name)
-    uv = mesh.uv_layers.active or mesh.uv_layers.new(name="UVMap")
+    # One layer, the one exported as TEXCOORD_0: a boolean's cutter can bring a second, and joins match them by name.
+    while len(mesh.uv_layers) > 1:
+        mesh.uv_layers.remove(mesh.uv_layers[1])
+    uv = mesh.uv_layers[0] if mesh.uv_layers else mesh.uv_layers.new(name="UVMap")
+    uv.name = "UVMap"
     for p in mesh.polygons:
         if keep(p.center, p.normal, names[p.material_index]):
             p.material_index = index
