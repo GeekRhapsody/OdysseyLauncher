@@ -220,7 +220,7 @@ def monitor(m):
     bm = bmesh.new()
     layer = bm.loops.layers.uv.new("UVMap")
     (x0, x1), (z0, z1) = M["badge"]["x"], M["badge"]["z"]
-    corners = [(x0, z0), (x0, z1), (x1, z1), (x1, z0)]                  # wound to face -y
+    corners = [(x0, z0), (x1, z0), (x1, z1), (x0, z1)]                  # wound to face -y
     face = bm.faces.new([bm.verts.new((x, b["depth"] - 0.15, z)) for x, z in corners])
     badge_uv = atlas_uv(L.PRINT_REGIONS["badge"], x1 - x0, z1 - z0)
     for loop, (x, z) in zip(face.loops, corners):
