@@ -85,6 +85,9 @@ model = "models/systems/c64.glb"              # built by tools/console-models/co
 model = "models/systems/amstradcpc.glb"       # built by tools/console-models/amstrad_cpc.py: a CPC 464 and its CTM644 monitor; its focused clip loads a game from tape
 video = "videos/amstradcpc.mp4"               # drawn by tools/console-models/amstrad_cpc_video.py: the screen through the clip, played on the glass's video material
 
+[systems.amiga]
+model = "models/systems/amiga.glb"            # built by tools/console-models/amiga.py: an Amiga 500 and its 1084S monitor, Kickstart 1.3 asking for a disk; its focused clip loads a game from a floppy, then resets with Ctrl and both Amiga keys
+
 [systems.nes]
 model = "models/systems/nes.glb"
 
