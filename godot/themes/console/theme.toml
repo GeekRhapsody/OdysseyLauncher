@@ -94,6 +94,9 @@ model = "models/systems/zxspectrum.glb"       # built by tools/console-models/zx
 [systems.nes]
 model = "models/systems/nes.glb"
 
+[systems.psx]
+model = "models/systems/psx.glb"                # built by tools/console-models/psx.py, turned to a three-quarter view; its focused clip opens the lid, drops a disc in, and later ejects it
+
 [systems.saturn]
 model = "models/systems/saturn.glb"
 
