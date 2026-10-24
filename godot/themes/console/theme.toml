@@ -97,6 +97,9 @@ model = "models/systems/nes.glb"
 [systems.psx]
 model = "models/systems/psx.glb"                # built by tools/console-models/psx.py, turned to a three-quarter view; its focused clip opens the lid, drops a disc in, and later ejects it
 
+[systems.snes]
+model = "models/systems/snes.glb"               # built by tools/console-models/snes.py: the PAL console, turned to a three-quarter view; its focused clip drops a cartridge through the dust flaps, switches on, and later ejects it
+
 [systems.saturn]
 model = "models/systems/saturn.glb"
 
