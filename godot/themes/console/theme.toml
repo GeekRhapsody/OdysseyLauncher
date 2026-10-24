@@ -91,6 +91,9 @@ model = "models/systems/amiga.glb"            # built by tools/console-models/am
 [systems.zxspectrum]
 model = "models/systems/zxspectrum.glb"       # built by tools/console-models/zx_spectrum.py: a ZX Spectrum 48K and a portable television; its focused clip types LOAD "" and loads a game from tape, stripes and all
 
+[systems.zx81]
+model = "models/systems/zx81.glb"              # built by tools/console-models/zx81.py: a ZX81 and the ZX Spectrum's portable television; its focused clip types LOAD "" and loads a game through its flickering bands
+
 [systems.nes]
 model = "models/systems/nes.glb"
 
