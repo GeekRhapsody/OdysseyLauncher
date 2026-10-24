@@ -57,6 +57,9 @@ model = "models/systems/wonderswan.glb"       # built by tools/console-models/wo
 [systems.wonderswancolor]
 model = "models/systems/wonderswancolor.glb"  # built by tools/console-models/wonderswan.py, turned to a three-quarter view; its focused clip swoops a cartridge in, then leaps onto its end in a full twirl
 
+[systems.nds]
+model = "models/systems/nds.glb"                # built by tools/console-models/nintendo_ds.py: a DS Lite open, turned to a three-quarter view; its focused clip slides a game card into slot-1, lights both screens, and the stylus taps TOUCH TO START
+
 [systems.psp]
 model = "models/systems/psp.glb"              # built by tools/console-models/psp.py, turned to a three-quarter view; its focused clip turns it round, rolls a UMD into its door, and turns back to the XMB and the game
 
