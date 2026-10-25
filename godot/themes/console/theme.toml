@@ -143,6 +143,9 @@ model = "models/systems/amigacd32.glb"         # built by tools/console-models/c
 [systems.apple2]
 model = "models/systems/apple2.glb"            # built by tools/console-models/apple2.py: an Apple IIe, two Disk II drives and a Monitor II; its focused clip boots a game from a floppy, its title screen arriving in hi-res's line order, then resets
 
+[systems.apple2gs]
+model = "models/systems/apple2gs.glb"          # built by tools/console-models/apple2gs.py: an Apple IIGS, its AppleColor RGB monitor, 3.5 drive, keyboard and mouse; its focused clip slides a disk in, boots GS/OS to a game's title, presses RETURN and plays, then ejects the disk
+
 [systems.fds]
 model = "models/systems/fds.glb"               # built by tools/console-models/fds.py: a Famicom with its RAM adapter on its Disk System drive; its focused clip slides a disk card in, ejects it, turns it over to side B and puts it back
 
