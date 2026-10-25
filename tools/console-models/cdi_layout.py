@@ -1,9 +1,9 @@
 """The Philips CD-i 220's measurements, shared by cdi_print.py (which draws its printing and its display) and cdi.py
 (which builds it). Plain Python: Blender's Python imports it too.
 
-The CD-i 220, one of Philips's consumer 200 series of CD-i players, a grey hi-fi box: 420 x 286 x 90 mm (HiFi Engine's figures, its feet
-included), and its gamepad in front of it. Millimetres: x from its middle (left to right), y back from its front face,
-z up from the table. The rest was measured from photographs on Wikimedia Commons (Evan-Amos's views of it from the
+The CD-i 220, one of Philips's consumer 200 series of CD-i players, a grey hi-fi box: 420 x 286 x 90 mm (HiFi
+Engine's figures, its feet included), and its gamepad in front of it. Millimetres: x from its middle (left to right), y
+back from its front face, z up from the table. The rest was measured from photographs on Wikimedia Commons (Evan-Amos's views of it from the
 front left and right and with its gamepad, a view of it from in front, the gamepad from above), scaled by its width.
 
 The body: a box on four feet, the vents in its top at the back right. Its front, left to right: the disc tray's door
