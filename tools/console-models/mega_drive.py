@@ -260,4 +260,5 @@ def main():
     cartridge.export([console, cart], out, animations=True)
 
 
-main()
+if __name__ == "__main__":
+    main()

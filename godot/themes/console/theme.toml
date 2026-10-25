@@ -72,6 +72,9 @@ model = "models/systems/psp.glb"              # built by tools/console-models/ps
 [systems.mastersystem]
 model = "models/systems/mastersystem.glb"      # built by tools/console-models/master_system.py: the first Master System and its Control Pad; its focused clip drops a cartridge in through the dust flap, presses POWER, plays the pad and PAUSE, and later takes the cartridge out
 
+[systems.segacd]
+model = "models/systems/segacd.glb"            # built by tools/console-models/mega_cd.py: the first Mega-CD with the Mega Drive (mega_drive.py's) on it; its focused clip slides the tray out, drops a CD in, takes it in while ACCESS flickers, and later ejects it
+
 [systems.megadrive]
 model = "models/systems/megadrive.glb"        # built by tools/console-models/mega_drive.py, turned to a three-quarter view; its focused clip inserts a cartridge
 
