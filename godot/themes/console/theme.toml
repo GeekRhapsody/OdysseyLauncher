@@ -179,6 +179,9 @@ model = "models/systems/nes.glb"
 [systems.pcengine]
 model = "models/systems/pcengine.glb"          # built by tools/console-models/pc_engine.py: the white PC Engine, a HuCard and its pad; its focused clip slides the HuCard in along its channel, slides POWER on and plays the pad, and later takes the HuCard out
 
+[systems.pcenginecd]
+model = "models/systems/pcenginecd.glb"        # built by tools/console-models/pcenginecd.py: a PC Engine Duo (the PC Engine with the Super CD-ROM² built in) and its pad; its focused clip opens the lid, drops a CD in, switches on and plays, then takes the CD out
+
 [systems.psx]
 model = "models/systems/psx.glb"                # built by tools/console-models/psx.py, turned to a three-quarter view; its focused clip opens the lid, drops a disc in, and later ejects it
 
