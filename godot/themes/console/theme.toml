@@ -134,6 +134,9 @@ model = "models/systems/psx.glb"                # built by tools/console-models/
 [systems.snes]
 model = "models/systems/snes.glb"               # built by tools/console-models/snes.py: the PAL console, turned to a three-quarter view; its focused clip drops a cartridge through the dust flaps, switches on, and later ejects it
 
+[systems.n64]
+model = "models/systems/n64.glb"               # built by tools/console-models/n64.py: the console and its controller; its focused clip drops a cartridge in through the dust flaps, slides POWER on, swings the stick and presses the buttons, and later takes the cartridge out
+
 [systems.ps2]
 model = "models/systems/ps2.glb"                # built by tools/console-models/ps2.py: the black launch model, turned to a three-quarter view; its focused clip slides the tray out, drops a DVD on it, and later ejects it
 
