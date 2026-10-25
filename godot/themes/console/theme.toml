@@ -199,6 +199,9 @@ model = "models/systems/archimedes.glb"        # built by tools/console-models/a
 [systems.dragon32]
 model = "models/systems/dragon32.glb"          # built by tools/console-models/dragon32.py: a Dragon 32 in front of the ZX Spectrum's television; its focused clip slides a cartridge into the slot in its right side, Odyssey starts and is played on the arrow keys, then the cartridge comes out and the Dragon starts again
 
+[systems.oric]
+model = "models/systems/oric.glb"              # built by tools/console-models/oric.py: an Oric Atmos and a cassette recorder in front of the ZX Spectrum's television; its focused clip puts a cassette in the recorder, types CLOAD"" and presses PLAY, loads the game and plays it on the arrow keys, then takes the cassette out
+
 [systems.zxspectrum]
 model = "models/systems/zxspectrum.glb"       # built by tools/console-models/zx_spectrum.py: a ZX Spectrum 48K and a portable television; its focused clip types LOAD "" and loads a game from tape, stripes and all
 
