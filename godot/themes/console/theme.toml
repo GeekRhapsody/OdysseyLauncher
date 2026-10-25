@@ -166,6 +166,9 @@ model = "models/systems/xbox.glb"              # built by tools/console-models/x
 [systems.xbox360]
 model = "models/systems/xbox360.glb"           # built by tools/console-models/xbox360.py: the first Xbox 360 in white, lying flat, its controller on its top; its focused clip lights the Ring of Light, slides the tray out, drops a disc on it and plays on the controller, then takes the disc out
 
+[systems.bbcmicro]
+model = "models/systems/bbcmicro.glb"          # built by tools/console-models/bbcmicro.py: the BBC Micro Model B, a twin disk drive on it and a Microvitec Cub on the drive; its focused clip slides a floppy into drive 0, boots it with SHIFT and BREAK to a teletext title, and plays
+
 [systems.zxspectrum]
 model = "models/systems/zxspectrum.glb"       # built by tools/console-models/zx_spectrum.py: a ZX Spectrum 48K and a portable television; its focused clip types LOAD "" and loads a game from tape, stripes and all
 
