@@ -90,6 +90,9 @@ model = "models/systems/sega32x.glb"           # built by tools/console-models/s
 [systems.windows]
 model = "models/systems/windows.glb"          # built by tools/console-models/windows_pc.py: a gaming PC with a glass side and RGB fans, and its monitor
 
+[systems.desktop]
+model = "models/systems/desktop.glb"           # built by tools/console-models/desktop.py: Desktop Apps has no hardware, so an unbranded laptop showing a made-up desktop of shortcuts; its focused clip double-clicks the game's shortcut, plays it in its window, then closes it
+
 [systems.dos]
 model = "models/systems/dos.glb"              # built by tools/console-models/retro_pc.py: a late-80s 386 desktop with a 14-inch VGA monitor on it
 
