@@ -63,6 +63,9 @@ model = "models/systems/nds.glb"                # built by tools/console-models/
 [systems.n3ds]
 model = "models/systems/n3ds.glb"               # built by tools/console-models/nintendo_ds.py: the first 3DS in Aqua Blue, open, turned to a three-quarter view; its focused clip slides a game card in, lights the HOME Menu, and the stylus taps TOUCH TO START
 
+[systems.virtualboy]
+model = "models/systems/virtualboy.glb"        # built by tools/console-models/virtualboy.py: the Virtual Boy on its stand, its controller standing on its grips beside it; its focused clip turns the unit round on its stand to show its eyes, where a made-up game plays in red, then turns it back
+
 [systems.wii]
 model = "models/systems/wii.glb"                # built by tools/console-models/wii.py: the Wii on its stand, its remote leaning on it; its focused clip slides a disc in, the slot glows, the remote rumbles
 
