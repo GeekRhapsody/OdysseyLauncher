@@ -102,6 +102,9 @@ model = "models/systems/switch.glb"           # built by tools/console-models/sw
 [systems.3do]
 model = "models/systems/3do.glb"               # built by tools/console-models/threedo.py: a Panasonic FZ-1 and its controller; its focused clip slides the tray out, drops a CD in, takes it in while ACCESS flickers, plays the pad, and later ejects the CD
 
+[systems.vectrex]
+model = "models/systems/vectrex.glb"           # built by tools/console-models/vectrex.py: MB's Vectrex with its controller in front of it, the power-on screen drawn in lines; its focused clip slides a cartridge into its side, settles an overlay over the tube and plays a made-up vector game while the joystick rocks, then takes them out again
+
 [systems.atarist]
 model = "models/systems/atarist.glb"           # built by tools/console-models/atari_st.py: a 520STFM, its SC1224 showing GEM's desktop, and its mouse; its focused clip slides a floppy in, double-clicks its way to the game, and ejects it
 
