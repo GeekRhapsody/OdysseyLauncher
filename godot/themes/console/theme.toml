@@ -90,6 +90,9 @@ model = "models/systems/windows3x.glb"        # built by tools/console-models/re
 [systems.windows9x]
 model = "models/systems/windows9x.glb"        # built by tools/console-models/retro_pc.py: a late-90s mini tower with a 15-inch monitor beside it
 
+[systems.wiiu]
+model = "models/systems/wiiu.glb"              # built by tools/console-models/wiiu.py: the Wii U in black and its GamePad in its cradle, the Wii U Menu on its screen; its focused clip slides a disc in, starts it from the menu and plays on the GamePad, then ejects it
+
 [systems.switch]
 model = "models/systems/switch.glb"           # built by tools/console-models/switch.py, turned to a three-quarter view; its focused clip slides the right Joy-Con up its rail and back
 
