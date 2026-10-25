@@ -82,7 +82,7 @@ model = "models/systems/mastersystem.glb"      # built by tools/console-models/m
 model = "models/systems/segacd.glb"            # built by tools/console-models/mega_cd.py: the first Mega-CD with the Mega Drive (mega_drive.py's) on it; its focused clip slides the tray out, drops a CD in, takes it in while ACCESS flickers, and later ejects it
 
 [systems.megadrive]
-model = "models/systems/megadrive.glb"        # built by tools/console-models/mega_drive.py, turned to a three-quarter view; its focused clip inserts a cartridge
+model = "models/systems/megadrive.glb"        # built by tools/console-models/mega_drive.py: the first Mega Drive and its control pad; its focused clip drops a cartridge into the slot, slides POWER on and lights the POWER light, plays on the pad, presses RESET, then switches off and takes the cartridge out
 
 [systems.sega32x]
 model = "models/systems/sega32x.glb"           # built by tools/console-models/sega32x.py: the Mega Drive 32X plugged into the first Mega Drive (mega_drive.py's); its focused clip hops it off and back on with a turn in the air, then drops a cartridge into its slot through the dust flaps, and later takes it out
