@@ -178,6 +178,9 @@ model = "models/systems/bbcmicro.glb"          # built by tools/console-models/b
 [systems.electron]
 model = "models/systems/electron.glb"          # built by tools/console-models/electron.py: an Acorn Electron with a Plus 1 on its back, in front of the ZX Spectrum's television; its focused clip drops a ROM cartridge into the Plus 1, starts it with CTRL and BREAK and plays
 
+[systems.ti99]
+model = "models/systems/ti99.glb"              # built by tools/console-models/ti99.py: the silver and black TI-99/4A and its two joysticks; its focused clip slides a command module into the slot, the power light comes on, presses 2 and plays on the joystick, then slides the module out
+
 [systems.zxspectrum]
 model = "models/systems/zxspectrum.glb"       # built by tools/console-models/zx_spectrum.py: a ZX Spectrum 48K and a portable television; its focused clip types LOAD "" and loads a game from tape, stripes and all
 
