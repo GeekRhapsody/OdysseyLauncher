@@ -116,6 +116,9 @@ model = "models/systems/msx1.glb"
 [systems.msx1]
 model = "models/systems/msx1.glb"              # built by tools/console-models/msx.py: a Philips VG-8020; its focused clip flips the lid back, drops a cartridge in, switches on, and plays the cursor keys
 
+[systems.pico8]
+model = "models/systems/pico8.glb"             # built by tools/console-models/pico8.py: PICO-8 has no hardware, so its cartridge made solid, its label a screen; its focused clip hops it round once and boots its label into a game
+
 [systems.apple2]
 model = "models/systems/apple2.glb"            # built by tools/console-models/apple2.py: an Apple IIe, two Disk II drives and a Monitor II; its focused clip boots a game from a floppy, its title screen arriving in hi-res's line order, then resets
 
