@@ -128,6 +128,9 @@ model = "models/systems/pico8.glb"             # built by tools/console-models/p
 [systems.apple2]
 model = "models/systems/apple2.glb"            # built by tools/console-models/apple2.py: an Apple IIe, two Disk II drives and a Monitor II; its focused clip boots a game from a floppy, its title screen arriving in hi-res's line order, then resets
 
+[systems.fds]
+model = "models/systems/fds.glb"               # built by tools/console-models/fds.py: a Famicom with its RAM adapter on its Disk System drive; its focused clip slides a disk card in, ejects it, turns it over to side B and puts it back
+
 [systems.nes]
 model = "models/systems/nes.glb"
 
