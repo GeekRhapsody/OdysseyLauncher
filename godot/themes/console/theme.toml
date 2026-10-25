@@ -134,6 +134,9 @@ model = "models/systems/apple2.glb"            # built by tools/console-models/a
 [systems.fds]
 model = "models/systems/fds.glb"               # built by tools/console-models/fds.py: a Famicom with its RAM adapter on its Disk System drive; its focused clip slides a disk card in, ejects it, turns it over to side B and puts it back
 
+[systems.neogeo]
+model = "models/systems/neogeo.glb"            # built by tools/console-models/neogeo.py: a Neo Geo AES and its arcade stick; its focused clip drops a cartridge in, switches on, throws two fireballs and a combo on the stick, and later takes the cartridge out
+
 [systems.nes]
 model = "models/systems/nes.glb"
 
