@@ -1,7 +1,8 @@
 """Commissions the made-up games' paintings from Codex (its built-in image tool), from games.toml's prompts, into
 artifacts/made-up-games/paintings/<game>/: each game's key art (keyart.png), and its screens (screen-<look>.png),
-painted four at a time as a 2 x 2 grid of four games' screens and cut apart (the grids are kept in _grids/). Each
-painting's prompt is saved beside it. Only missing paintings are made, so delete one to have it painted again.
+painted four to a painting (a 2 x 2 grid), two (vertical screens side by side) or one (an HD screen, the whole painting)
+and cut apart (the paintings are kept in _grids/). Each painting's prompt is saved beside it. Only missing paintings
+are made, so delete one to have it painted again.
 
     python tools/made-up-games/codex_art.py [--games=<id>,...] [--jobs=4] [--model=gpt-6.1-sol] [--dry-run]
     python tools/made-up-games/codex_art.py --resplit
@@ -43,7 +44,23 @@ LOOKS = {   # how a look's screens are painted: the grid, the panels' shape, and
     "arcade_v": ("1x2", "Landscape, 3:2", "each a screenshot from a different fictional vertical-screen arcade game of the early "
                  "1990s, exactly as the arcade board drew it: about 224 x 300 pixels shown enlarged (taller than wide), every pixel "
                  "crisp and square, no blur"),
+    "arcade8": ("2x2", "Landscape, 3:2", "each a screenshot from a different fictional early-1980s 8-bit arcade game, exactly as "
+                "the arcade board drew it: about 256 x 224 pixels shown enlarged, every pixel crisp and square, a black background, "
+                "a handful of bright flat colours (no more than sixteen on screen), small simple sprites, no gradients and no blur"),
+    "arcade8_v": ("1x2", "Landscape, 3:2", "each a screenshot from a different fictional early-1980s 8-bit vertical-screen arcade "
+                  "game, exactly as the arcade board drew it: about 224 x 288 pixels shown enlarged (taller than wide), every pixel "
+                  "crisp and square, a black background, a handful of bright flat colours (no more than sixteen on screen), small "
+                  "simple sprites, no gradients and no blur"),
+    "arcade3d": ("1x1", "Landscape, 3:2, the action in the middle 4:3 of the picture", "A screenshot from a fictional "
+                 "late-1990s 3D arcade fighting game, exactly as the arcade board drew it at 640 x 480: smooth-shaded low-polygon "
+                 "characters with simple textures, bright colours, a simple 3D arena, and no interface at all (no health bars, "
+                 "no timer, no names: they will be drawn over it later)"),
+    "arcade_hd": ("1x1", "Landscape, 3:2, the action in the middle 16:9 band of the picture", "A screenshot from a fictional "
+                  "2010s high-definition 3D arcade fighting game, exactly as it ran at 1280 x 720: detailed modern 3D characters, "
+                  "dynamic lighting, particle effects, and no interface at all (no health bars, no timer, no names: they will be "
+                  "drawn over it later)"),
 }
+PANELS = {"2x2": 4, "1x2": 2, "1x1": 1}
 REFUSED = re.compile(r"usage limit|rate limit|quota|too many requests|\b429\b|limit reached|try again later", re.I)
 
 PREAMBLE = """Use your built-in image generation tool to create exactly one image, and save it as a PNG file named \
@@ -80,7 +97,7 @@ def needs(games, only):
 
 
 def plan(needed):
-    """Runs: a key art each, and the screens four (or two) to a grid, grouped by look, in priority order."""
+    """Runs: a key art each, and the screens four, two or one to a painting, grouped by look, in priority order."""
     runs, by_look = [], {}
     for prio, kind, game, look in needed:
         if kind == "keyart":
@@ -88,7 +105,7 @@ def plan(needed):
         else:
             by_look.setdefault(look, []).append((prio, game))
     for look, items in by_look.items():
-        size = 4 if LOOKS[look][0] == "2x2" else 2
+        size = PANELS[LOOKS[look][0]]
         for k in range(0, len(items), size):
             chunk = items[k:k + size]
             runs.append((min(p for p, _ in chunk), "grid", [(g, look) for _, g in chunk]))
@@ -98,6 +115,8 @@ def plan(needed):
 def grid_prompt(cells):
     look = cells[0][1]
     layout, shape, what = LOOKS[look]
+    if layout == "1x1":                                       # one screen, the whole painting
+        return f"{shape}. {what}.\n\n{cells[0][0]['screens'][look]}"
     places = ["Top left", "Top right", "Bottom left", "Bottom right"] if layout == "2x2" else ["Left", "Right"]
     n = len(cells)
     if layout == "2x2":
@@ -132,6 +151,8 @@ def split(image, layout):
     the grid's boundaries should be; a thin one at an edge is a border. A wide plain band is a panel's own (a prompt
     asks for one for the HUD), even where it runs across two panels. With no divider found, the boundary is cut where
     it should be."""
+    if layout == "1x1":
+        return [image.copy()]
     a = np.asarray(image.convert("L"), dtype=np.float32)
     h, w = a.shape
     cols, rows = (2, 2) if layout == "2x2" else (2, 1)

@@ -9,8 +9,9 @@ scripts from the paintings, the same on every run: the logos, each system's pack
 
 ## What there is
 
-39 game concepts and 59 releases: 20 Mega Drive, 15 SNES, 12 N64 and 12 arcade. A concept can come out on several
-systems (Stormfist is on all four), each release with its own box. To list them:
+44 game concepts and 64 releases: 20 Mega Drive, 15 SNES, 12 N64 and 17 arcade. A concept can come out on several
+systems (Stormfist is on all four), each release with its own box. The arcade spans its eras: three early-1980s 8-bit
+games, twelve of the 1990s, a late-1990s 3D fighter and a 2010s HD one. To list them:
 
 ```powershell
 python -c "import tomllib; [print(g['id'], g['genre'], [v['system'] for v in g['versions']]) for g in tomllib.load(open('tools/made-up-games/games.toml','rb'))['games']]"
@@ -21,7 +22,7 @@ python -c "import tomllib; [print(g['id'], g['genre'], [v['system'] for v in g['
 | Mega Drive | 968 × 1360 | 962 × 1360 | 162 × 1360 | 1036 × 700 | 320 × 224 | `megadrive_clamshell` |
 | SNES | 1360 × 994 | 1360 × 994 | 1360 × 194 (top) | 1120 × 700 | 256 × 224 | `snes_box_horizontal` |
 | N64 | 1360 × 994 | 1360 × 994 | 1360 × 194 (top) | 1085 × 700 | 320 × 240 | `generic_box_top_spine` |
-| Arcade | | | | | 320 × 224, or 224 × 288 for a vertical game | `arcade_cabinet` (the logo on the marquee) |
+| Arcade | | | | | 320 × 224 (224 × 288 vertical); 8-bit 256 × 224 (224 × 288); 3D 640 × 480; HD 1280 × 720 | `arcade_cabinet` (the logo on the marquee) |
 
 Every release also has a logo (a transparent PNG). The box sizes are twice ScreenScraper's scans, so the art fits the
 templates' faces without cropping. Covers, backs, spines and labels are JPEGs; logos and screenshots PNGs. Not made:
@@ -97,7 +98,7 @@ A concept's keys:
 | `dialogue` | The dialogue window's text, for `hud = "dialogue"`. |
 | `versions` | The releases (below). |
 | `keyart` | The key art's prompt: every release's cover and label are cut from it. It says its shape: "Landscape, 3:2", with the subject in the middle third, so a Mega Drive cover can be cut from it too; or "Portrait, 2:3" for a game only on portrait boxes. Arcade-only games have none. |
-| `[games.screens]` | A screen prompt per look: `16bit` (Mega Drive, SNES, an arcade game ported from them), `n64`, `arcade` (an arcade-only game), `arcade_v` (a vertical one). |
+| `[games.screens]` | A screen prompt per look: `16bit` (Mega Drive, SNES, an arcade game ported from them), `n64`, `arcade` (an arcade-only game), `arcade_v` (a vertical one), `arcade8` and `arcade8_v` (an early-1980s 8-bit game, horizontal or vertical: 3-3-2 colour, 16 on screen, the painting cut to the 4:3 or 3:4 the monitor showed and squeezed into the board's pixels), `arcade3d` (a late-1990s 3D game at 640 × 480) and `arcade_hd` (a 2010s one at 1280 × 720). A release on the arcade picks its look with `screen`. |
 
 A release's keys: `system` (`megadrive`, `snes`, `n64`, `arcade`), `released` (YYYY-MM-DD), `hud` and `hud_items`, and
 what it changes: `title`, `logo`, `players`, `file` (an arcade game's ROM: a MAME-style name, `redlnriv.zip`), `screen`
@@ -106,17 +107,19 @@ what it changes: `title`, `logo`, `players`, `file` (an arcade game's ROM: a MAM
 of the spare width and height), `dress` (the Mega Drive's `classic` or `sidebar`) and `logo_place` (`top` or `bottom`).
 
 **HUDs** (drawn at native resolution in a bitmap font; painted text comes out garbled): `text` draws `hud_items`, each
-`[text, place]`, `[text, place, colour]` or `[text, place, colour, scale]`, the place `tl tc tr bl bc br` (`tl2 tr2 bl2
-br2` a row further in), `"BAR 0.7"` a health bar 70% full. The rest are drawn by `screens.py` for the screens they fit:
-`dialogue` (a role-playing game's window), `racer`, `shooter`, `puzzle` (Kaleidrop's), `flower` (Budling's), `hearts`
-(Wyrmspire's); `none` draws nothing. A screen prompt leaves a plain band where its HUD will go.
+`[text, place]`, `[text, place, colour]` or `[text, place, colour, scale]`, the place `tl tc tr bl bc br` (`tl2 tc2
+tr2 bl2 bc2 br2` a row further in), `"BAR 0.7"` a health bar 70% full; on a screen of 480 lines or more, everything is
+drawn bigger. `versus` draws a 3D fighting game's HUD from the release's `versus = { names, health, timer, rounds,
+combo, meters }`: chunky and bitmapped under 600 lines, slanted and smooth in a typeface on an HD screen. The rest are
+drawn by `screens.py` for the screens they fit: `dialogue` (a role-playing game's window), `racer`, `shooter`, `puzzle`
+(Kaleidrop's), `flower` (Budling's), `hearts` (Wyrmspire's); `none` draws nothing. A screen prompt leaves a plain band where its HUD will go.
 
 **Logos** (`logos.py`; every style takes `subtitle` and `badge`, a "64" or "'94" in red italics):
 
 | Style | For | Options |
 |---|---|---|
 | `chrome_neon` | Racers, pinball | `font`, `script`, `outline`, `neon` (colours) |
-| `gold_serif` | Fantasy, strategy, golf, westerns | `font`, `metal` (`gold`, `silver`, `bronze`, `jade`), `emblem` (`crown`, `wave`, `moon`, `sword`, `star`, `cog`, `none`) |
+| `gold_serif` | Fantasy, strategy, golf, westerns | `font`, `metal` (`gold`, `silver`, `bronze`, `jade`, `steel`), `emblem` (`crown`, `wave`, `moon`, `sword`, `star`, `cog`, `lotus`, `none`) |
 | `steel_flare` | Science fiction | `font`, `steel` (`blue`, `teal`, `red`, `gold`) |
 | `candy_gems` | Puzzles | `font`, `gem` (an O as a cut gem) |
 | `cartoon_arch` | Mascots, karts | `font`, `face` (`green`, `orange`, `red`, `purple`, `blue`, `ice`), `ribbon` (`red`, `blue`, `purple`), `arch` |
@@ -125,6 +128,8 @@ br2` a row further in), `"BAR 0.7"` a health bar 70% full. The rest are drawn by
 | `stencil_plate` | Military, rally | `plate` (`olive`, `sand`, `mud`, `steel`) |
 | `fire_brush` | Action, fighting | `font`, `colours` (`fire`, `storm`, `graffiti`) |
 | `arcade_pixel` | Early arcade games | `colours` (three) |
+| `retro_flat` | Early-1980s marquees | `font`, `face`, `edge`, `depth` (colours: flat, no gradients) |
+| `modern_edge` | 2010s fighting games | `font`, `accent` |
 
 Fonts are file names in `C:\Windows\Fonts` (Windows' and Office's). Publishers with a mark (`boxes.publisher_mark`):
 Moonquill (role-playing and adventure), Arcwave (racing and arcade), Velvet Comet (puzzles), Quayside (sports),
@@ -152,8 +157,8 @@ words, an invented publisher, a made-up age badge, and a barcode whose digits do
   publisher's marks. Every word on a piece is drawn by the scripts; the prompts forbid painted text.
 - **Look at every painting.** Codex drifts towards famous designs, and a painting that resembles one is painted again
   with a prompt that describes something specific and different. So far: Redline Riviera's first car (a Testarossa),
-  Stormfist's first fighters (Chun-Li and Zangief), Wyrmspire's first hero (Link) and Bubble Barrage's first dragons
-  (Puzzle Bobble's). To repaint, move the painting to `paintings/rejected/` (named for why), delete a key art's
+  Stormfist's first fighters (Chun-Li and Zangief), Wyrmspire's first hero (Link), Bubble Barrage's first dragons
+  (Puzzle Bobble's) and Steel Lotus's first fighter (Chun-Li's dress again: name what a fighter wears, and what not). To repaint, move the painting to `paintings/rejected/` (named for why), delete a key art's
   `keyart.prompt.txt` or a screen's `screen-<look>.source.txt`, change the prompt in games.toml, and paint again: only
   what's missing is painted.
 - **Check every title** with a web search ("<title>" video game). None of the 39 is a game; two are near: Hoop Heroes
@@ -166,12 +171,13 @@ words, an invented publisher, a made-up age badge, and a barcode whose digits do
   the prompt on stdin, and moves the image the built-in tool saves into place. The owner's Codex config defaults to
   `gpt-5.5`, which a ChatGPT login refuses; `codex debug models` lists the models it offers. A prompt is the preamble
   (save one PNG, no text, original designs only) and the game's prompt.
-- **Grids:** screens are painted four to a 1536 × 1024 painting (two for vertical arcade screens) and cut apart,
-  which is why 59 releases took 45 runs. `split()` cuts at the thin plain lines near the middle and keeps wide plain
+- **Grids:** screens are painted four to a 1536 × 1024 painting (two for vertical arcade screens, one for a 3D
+  fighter's, which needs the whole painting for 640 × 480 or 1280 × 720) and cut apart, so most screens cost a
+  quarter of a run. `split()` cuts at the thin plain lines near the middle and keeps wide plain
   bands (the HUDs' space) with their panels. The grids stay in `paintings/_grids/`; each screen names its grid in
   `screen-<look>.source.txt`, and `codex_art.py --resplit` cuts them all again after a change to `split()`.
 - **Time and limits:** a run takes about two minutes, four at once: 34 runs took about 13 minutes. On 2026-10-25,
-  56 runs on the owner's ChatGPT Pro account were all accepted. If Codex refuses (a usage limit), the script stops
+  61 runs on the owner's ChatGPT Pro account were all accepted. If Codex refuses (a usage limit), the script stops
   starting runs, lets the running ones finish and reports; run it again later. Mega Drive games are painted first.
 - **Keep the paintings.** They can't be made again the same, and `artifacts/` is gitignored, so they exist only in
   `artifacts/made-up-games/paintings/` (about 160 MB). Back that folder up before cleaning `artifacts/`.

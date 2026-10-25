@@ -1144,3 +1144,121 @@ title will be printed there later."""
 16bit = """A side-on point-and-click adventure scene in a clockwork castle's library: tall bookcases, brass cogs and \
 pipes in the walls, a grandfather clock, a ladder on rails, a young inventor with goggles talking to a round clockwork \
 butler, a desk with a lamp. Leave the bottom quarter as plain floor: a dialogue window will be drawn over it later."""
+
+# The arcade's early years: 8-bit boards ----------------------------------------------------------------------------
+
+[[games]]
+id = "spellbrick"
+title = "Spellbrick"
+genre = "Brick breaker"
+developer = "Copperkite"
+publisher = "Arcwave"
+players = "1-2"
+rating = 0.7
+age = 3
+description = """A wizard's tower has walled itself in with enchanted bricks. Bounce your glowing orb off the wizard's \
+floating stone, break the walls a brick at a time and catch the potions that fall from them: one splits the orb in \
+three, another makes the stone twice as wide. Two players take turns."""
+features = ["Thirty-two walls to break", "Potions that split the orb or widen the stone", "Two players take turns"]
+logo = { style = "retro_flat", title = "Spellbrick", font = "SHOWG.TTF", face = "#c040ff", edge = "#40f0ff", depth = "#20084a" }
+versions = [{ system = "arcade", released = "1980-10-03", file = "spellbrk.zip", screen = "arcade8_v", hud = "text", hud_items = [["1UP", "tl", "#ff4040"], ["000870", "tl2"], ["HIGH SCORE", "tc", "#ff4040"], ["050000", "tc2"], ["ROUND 3", "br", "#40e0ff"]] }]
+
+[games.screens]
+arcade8_v = """A brick-breaking game: rows of brightly coloured bricks built into the shape of a castle with two towers \
+in the upper half of the screen, a few bricks already broken away; a little wizard in a pointed hat standing on a \
+floating grey stone slab at the bottom, which is the bat; a glowing white orb bouncing between them; a potion bottle \
+falling; plain stone walls down both sides; a black background. Leave the top eighth plain black: the score will be \
+drawn over it later."""
+
+[[games]]
+id = "hive-hustle"
+title = "Hive Hustle"
+genre = "Maze"
+developer = "Copperkite"
+publisher = "Arcwave"
+players = "1-2"
+rating = 0.74
+age = 3
+description = """Buzz the bee has a hive to fill before the wasps catch her. Fly the honeycomb's six-sided passages, \
+gather every drop of nectar, and seal the cells behind you to trap a wasp or two. Each hive is a little faster than the \
+last; two players take turns."""
+features = ["Fifty hives, each faster than the last", "Seal the cells to trap the wasps", "Two players take turns"]
+logo = { style = "arcade_pixel", title = "Hive Hustle", colours = ["#fff060", "#ffb000", "#a05000"] }
+versions = [{ system = "arcade", released = "1981-07-17", file = "hivehstl.zip", screen = "arcade8_v", hud = "text", hud_items = [["1UP", "tl", "#ff4040"], ["002350", "tl2"], ["HIGH SCORE", "tc", "#ff4040"], ["010000", "tc2"], ["CREDIT 1", "br"]] }]
+
+[games.screens]
+arcade8_v = """A maze game seen from above: a maze of six-sided honeycomb cells drawn in thin amber lines on black, filling \
+the screen; small round drops of nectar along every passage; a little yellow-and-black bee in the lower middle; three \
+red wasps coming after it from different corners; one cell sealed and filled in with solid amber; a small flower in \
+each corner. Leave the top eighth and the bottom sixteenth plain black: the score will be drawn over them later."""
+
+[[games]]
+id = "museum-mayhem"
+title = "Museum Mayhem"
+genre = "Platform"
+developer = "Ninebolt"
+publisher = "Arcwave"
+players = "1-2"
+rating = 0.72
+age = 3
+description = """It's after hours at the city museum, and the burglars are in. Climb the ladders and ride the lift \
+between four floors of dinosaurs, mummies and old masters, pick up the jewels they drop, and catch every last one of \
+them before dawn."""
+features = ["Four floors and twelve nights", "Ladders, a lift and a trapdoor or two", "Two players take turns"]
+logo = { style = "retro_flat", title = "Museum Mayhem", font = "BROADW.TTF", face = "#ff3a2a", edge = "#ffe040", depth = "#5a1408" }
+versions = [{ system = "arcade", released = "1982-04-23", file = "musemyhm.zip", screen = "arcade8", crop = { screen = [0.75, 0.5] }, hud = "text", hud_items = [["1UP", "tl", "#ff4040"], ["004100", "tl2"], ["BONUS", "tc", "#40e0ff"], ["3000", "tc2"], ["LEVEL 2", "tr", "#ffe040"]] }]
+
+[games.screens]
+arcade8 = """A single-screen platform game inside a museum at night: four flat floors joined by ladders, and a lift going \
+up and down at one side; a night watchman in a blue uniform with a torch climbing a ladder; two masked burglars with \
+sacks running along the floors; small sparkling jewels dropped on the floors; a dinosaur skeleton, a mummy's case and \
+two framed paintings of plain colours on the floors; a black background. Leave the top eighth plain black: the score \
+will be drawn over it later."""
+
+# The arcade's 3D fighters ------------------------------------------------------------------------------------------
+
+[[games]]
+id = "steel-lotus"
+title = "Steel Lotus"
+genre = "Fighting"
+developer = "Hollowbrook"
+publisher = "Zephyrix"
+players = "1-2"
+rating = 0.82
+age = 11
+description = """Every hundred years the masters of ten fighting schools meet on the Steel Lotus, a ring of stone \
+floating over a mountain lake, and the last one standing takes the others' banners home. Throw, counter and ring your \
+rival out in full 3D."""
+features = ["Ten fighters from ten fighting schools", "Throws, counters and ring-outs in full 3D", "Two players head to head"]
+logo = { style = "gold_serif", title = "Steel Lotus", metal = "steel", emblem = "lotus", font = "PERTIBD.TTF" }
+versions = [{ system = "arcade", released = "1999-02-12", file = "stllotus.zip", screen = "arcade3d", hud = "versus", versus = { names = ["Rin", "Korvac"], health = [0.82, 0.41], timer = "38", rounds = [1, 0], combo = "3 HITS" } }]
+
+[games.screens]
+arcade3d = """A 3D one-on-one fighting game seen from the side at eye level: a young woman with short black hair tied \
+up in a high ponytail, in a belted moss-green judo jacket with its sleeves torn off over black leggings, barefoot (not \
+a qipao or a dress), throws a straight punch at a towering man in an iron half-mask and a crimson coat, who blocks it \
+with his forearm; they fight on a round grey stone ring shaped like an open lotus flower, floating over a misty \
+mountain lake, with pine-covered peaks and a pale sky behind."""
+
+[[games]]
+id = "voltcrown"
+title = "Voltcrown"
+genre = "Fighting"
+developer = "Ninebolt"
+publisher = "Arcwave"
+players = "1-2"
+rating = 0.86
+age = 11
+description = """Sixteen fighters, one crown and a city that never sleeps. Climb the Voltcrown ladder on the rooftops \
+of a neon megacity, charge your volt meter with every blow and spend it on a finisher the whole arcade will turn round \
+to see. Your fighter's progress is saved on a card between visits."""
+features = ["Sixteen fighters, each with a volt finisher", "Save your progress on a card", "Rankings across arcades"]
+logo = { style = "modern_edge", title = "Voltcrown", accent = "#ff2a6a" }
+versions = [{ system = "arcade", released = "2014-03-20", file = "voltcrwn.zip", screen = "arcade_hd", hud = "versus", versus = { names = ["Juno", "Sable"], health = [0.64, 0.33], timer = "47", rounds = [1, 1], combo = "4 HITS", meters = [2, 1] } }]
+
+[games.screens]
+arcade_hd = """A 3D one-on-one fighting game seen from the side: a lanky young man with a shaved head, glowing cyan \
+circuit tattoos down his arms, a cropped black jacket and cargo trousers, lands a spinning kick on a tall woman in \
+white armour plating with a red visor and short energy blades on her forearms; sparks and a shockwave where the kick \
+lands; a rain-soaked rooftop arena in a neon megacity at night, holographic billboards of abstract shapes with no \
+lettering, puddles reflecting the lights."""

@@ -9,7 +9,14 @@ from PIL import Image
 
 import paint as P
 
-NATIVE = {"megadrive": (320, 224), "snes": (256, 224), "n64": (320, 240), "arcade": (320, 224), "arcade_v": (224, 288)}
+NATIVE = {"megadrive": (320, 224), "snes": (256, 224), "n64": (320, 240), "arcade": (320, 224), "arcade_v": (224, 288),
+          "arcade8": (256, 224), "arcade8_v": (224, 288), "arcade3d": (640, 480), "arcade_hd": (1280, 720)}
+
+# The shape a look's screen was shown at, where its pixels weren't square.
+DISPLAY = {"arcade8": (4, 3), "arcade8_v": (3, 4)}
+
+# An early-1980s board's 3-3-2 colour: eight levels of red and of green, four of blue.
+LEVELS_332 = [np.array([0, 36, 73, 109, 146, 182, 219, 255], np.float32)] * 2 + [np.array([0, 85, 170, 255], np.float32)]
 
 # The Mega Drive's DAC levels, per 3-bit channel; the SNES has 5 bits a channel, linear.
 MD_LEVELS = np.array([0, 52, 87, 116, 144, 172, 206, 255], np.float32)
@@ -113,12 +120,25 @@ def _shape(img, w, h, fit, focus):
 
 
 def native(painting, system, look, fit="crop", focus=(0.5, 0.5)):
-    """A painting of a game's screen at its system's resolution and in its palette, as a uint8 RGB array."""
-    w, h = NATIVE["arcade_v" if look == "arcade_v" else system]
+    """A painting of a game's screen at its look's (or its system's) resolution and in its palette, as a uint8 RGB
+    array."""
+    w, h = NATIVE.get(look) or NATIVE[system]
     img = painting.convert("RGB")
     if img.size != (w, h):
-        img = _shape(img, w, h, fit, focus).resize((w, h), Image.BOX)
+        # An 8-bit board's pixels weren't square: its picture was shown 4:3 (3:4 on its side), so the painting, which
+        # is what the monitor showed, is cut to that and squeezed into the board's pixels.
+        sw, sh = DISPLAY.get(look, (w, h))
+        img = _shape(img, sw, sh, fit, focus).resize((w, h), Image.BOX)
     a = np.asarray(img, dtype=np.float32)
+    if look.startswith("arcade8"):
+        # 3-3-2 colour, then at most 16 colours on screen, snapped back to the 3-3-2 levels.
+        def snap(x):
+            return np.stack([LEVELS_332[c][np.abs(x[..., c, None] - LEVELS_332[c]).argmin(axis=-1)] for c in range(3)], -1)
+
+        img = Image.fromarray(snap(a).astype(np.uint8)).quantize(16, Image.Quantize.MEDIANCUT, dither=Image.Dither.NONE)
+        return snap(np.asarray(img.convert("RGB"), dtype=np.float32)).astype(np.uint8)
+    if look in ("arcade3d", "arcade_hd"):
+        return np.asarray(img).copy()                            # 3D boards of the late 1990s on: 24-bit colour
     if system == "megadrive":
         # Each channel to the nearest of the console's eight levels, then at most 61 colours on screen.
         a = MD_LEVELS[np.abs(a[..., None] - MD_LEVELS).argmin(axis=-1)]
@@ -150,35 +170,144 @@ def _window(img, x0, y0, x1, y1):
         img[cy, cx] = 0
 
 
-def _bar(img, x, y, w, fill):
+def _unit(img):
+    """The HUD's pixel size: 1 on a screen of up to 359 lines, 2 at 480, 3 at 720."""
+    return max(1, round(img.shape[0] / 240))
+
+
+def _bar(img, x, y, w, fill, height=7):
     """A health bar: a dark frame, filled yellow to red from the left."""
-    img[y:y + 7, x:x + w] = (16, 16, 24)
-    inner = int((w - 2) * fill)
+    k = max(1, height // 7)
+    img[y:y + height, x:x + w] = (16, 16, 24)
+    inner = int((w - 2 * k) * fill)
     ramp = P.ramp(np.linspace(0, 1, max(inner, 1))[None, :], [(0, "#ff3a20"), (1, "#ffe040")])[0] * 255
-    img[y + 1:y + 6, x + 1:x + 1 + inner] = ramp.astype(np.uint8)
-    img[y + 1, x + 1:x + 1 + inner] = np.minimum(ramp.astype(np.int32) + 60, 255).astype(np.uint8)
+    img[y + k:y + height - k, x + k:x + k + inner] = ramp.astype(np.uint8)
+    img[y + k:y + 2 * k, x + k:x + k + inner] = np.minimum(ramp.astype(np.int32) + 60, 255).astype(np.uint8)
 
 
 def _items(img, items):
     """HUD items from games.toml: [text, place, colour, scale]; "BAR n" draws a bar n full. Places tl tc tr bl bc br
-    are the screen's corners and edges; tl2 tr2 bl2 br2 a row further in."""
+    are the screen's corners and edges; tl2 tc2 tr2 bl2 bc2 br2 a row further in. Sizes grow with the screen."""
     h, w = img.shape[:2]
+    u = _unit(img)
     for item in items:
         s, place = item[0], item[1]
         colour = item[2] if len(item) > 2 else "#ffffff"
-        scale = item[3] if len(item) > 3 else 1
+        scale = (item[3] if len(item) > 3 else 1) * u
         row2 = place.endswith("2")
         edge = place[0]
         across = place[1]
         bar = s.startswith("BAR ")
         width = int(w * 0.3) if bar else text_width(s, scale)
-        height = 7 if bar else 7 * scale
-        x = {"l": 8, "c": (w - width) // 2, "r": w - 8 - width}[across]
-        y = (5 + (11 if row2 else 0)) if edge == "t" else (h - 6 - height - (11 if row2 else 0))
+        height = 7 * u if bar else 7 * scale
+        x = {"l": 8 * u, "c": (w - width) // 2, "r": w - 8 * u - width}[across]
+        y = (5 + (11 if row2 else 0)) * u if edge == "t" else (h - (6 + (11 if row2 else 0)) * u - height)
         if bar:
-            _bar(img, x, y, width, float(s[4:]))
+            _bar(img, x, y, width, float(s[4:]), height)
         else:
-            text(img, x, y, s, colour, outline=scale > 1, shadow="#000000")
+            text(img, x, y, s, colour, outline=scale > u, shadow="#000000")
+
+
+def _versus(img, spec):
+    """A 3D fighting game's HUD: the two health bars along the top, their remaining health towards the timer between
+    them, the fighters' names and their rounds won, and a combo's hits. Chunky and bitmapped on a screen under 600
+    lines (the late 1990s); slanted, smooth and in a typeface on an HD one (the 2010s)."""
+    h, w = img.shape[:2]
+    names = spec.get("names", ["P1", "P2"])
+    health = spec.get("health", [1.0, 1.0])
+    timer = str(spec.get("timer", "99"))
+    rounds = spec.get("rounds", [0, 0])
+    combo = spec.get("combo")
+    if h < 600:
+        u = _unit(img)
+        y0, bh = int(h * 0.05), 8 * u
+        for side in (0, 1):
+            x0, x1 = (int(w * 0.05), int(w * 0.43)) if side == 0 else (int(w * 0.57), int(w * 0.95))
+            img[y0 - u:y0 + bh + u, x0 - u:x1 + u] = (230, 230, 240)
+            img[y0:y0 + bh, x0:x1] = (24, 8, 40)
+            length = int((x1 - x0) * health[side])
+            lost = int((x1 - x0) * 0.08)
+            if side == 0:                                       # the left bar's health runs from the timer outwards
+                img[y0:y0 + bh, max(x0, x1 - length - lost):x1 - length] = (200, 20, 20)
+                img[y0:y0 + bh, x1 - length:x1] = (255, 208, 0)
+                img[y0:y0 + 2 * u, x1 - length:x1] = (255, 244, 160)
+            else:
+                img[y0:y0 + bh, x0 + length:min(x1, x0 + length + lost)] = (200, 20, 20)
+                img[y0:y0 + bh, x0:x0 + length] = (255, 208, 0)
+                img[y0:y0 + 2 * u, x0:x0 + length] = (255, 244, 160)
+            name = names[side].upper()
+            nx = x0 if side == 0 else x1 - text_width(name, u)
+            text(img, nx, y0 + bh + 4 * u, name, "#ffffff", scale=u)
+            for k in range(2):                                  # rounds won, by the timer
+                cx = (x1 - 6 * u - k * 9 * u) if side == 0 else (x0 + 6 * u + k * 9 * u)
+                cy = y0 + bh + 8 * u
+                colour = (255, 208, 0) if k < rounds[side] else (70, 60, 90)
+                img[cy - 3 * u:cy + 3 * u, cx - 3 * u:cx + 3 * u] = colour
+        ts = 2 * u                                              # the timer's digits
+        text(img, (w - text_width(timer, ts)) // 2, y0 - 2 * u, timer, "#ffe040", "#400000", scale=ts, outline=True)
+        if combo:
+            text(img, int(w * 0.06), int(h * 0.36), combo, "#ffe040", "#a01010", scale=u + 1, outline=True)
+        return img
+    # An HD screen: drawn smooth on a float canvas.
+    canvas = img.astype(np.float32) / 255
+    y0, bh, slant = h * 0.05, h * 0.032, h * 0.018
+    xx, _ = P.coords(w, h)
+    for side in (0, 1):
+        x0, x1 = (w * 0.04, w * 0.445) if side == 0 else (w * 0.555, w * 0.96)
+        if side == 0:
+            poly = [(x0 + slant, y0), (x1, y0), (x1 - slant, y0 + bh), (x0, y0 + bh)]
+        else:
+            poly = [(x0, y0), (x1 - slant, y0), (x1, y0 + bh), (x0 + slant, y0 + bh)]
+        frame = P.mask(w, h, [[(px + (-1 if px < (x0 + x1) / 2 else 1) * h * 0.006, py + (-1 if py == y0 else 1) * h * 0.006)
+                                for px, py in poly]])
+        P.over(canvas, "#05060c", frame, 0.75)
+        bar = P.mask(w, h, [poly])
+        P.over(canvas, "#1a1430", bar)
+        length = (x1 - x0) * health[side]
+        lost = (x1 - x0) * 0.09
+        if side == 0:
+            keep = np.clip(xx - (x1 - length), 0, 1)
+            gone = np.clip(xx - (x1 - length - lost), 0, 1) - keep
+        else:
+            keep = np.clip(x0 + length - xx, 0, 1)
+            gone = np.clip(x0 + length + lost - xx, 0, 1) - keep
+        P.over(canvas, "#ff4a3a", bar * gone)
+        P.over(canvas, P.vertical(w, h, [(0, "#fff2a0"), (0.5, "#ffc21a"), (1, "#ff7a10")], top=y0, bottom=y0 + bh), bar * keep)
+        P.over(canvas, "#ffffff", bar * np.clip((y0 + bh * 0.3 - P.coords(w, h)[1]) / 2 + 0.5, 0, 1), 0.3)
+        P.over(canvas, "#ffffff", np.clip(P.dilate(bar, 1.5) - bar, 0, 1), 0.7)
+        name = names[side].upper()
+        nx, anchor = (x0 + slant, "la") if side == 0 else (x1 - slant, "ra")
+        P.draw_text(canvas, name, "TCCEB.TTF", h * 0.042, (nx, y0 + bh + h * 0.012), "#ffffff", anchor=anchor,
+                    shadow=("#000000", 2, 2))
+        for k in range(2):                                      # rounds won: diamonds by the timer
+            cx = (x1 - h * 0.03 - k * h * 0.036) if side == 0 else (x0 + h * 0.03 + k * h * 0.036)
+            cy = y0 + bh + h * 0.03
+            r = h * 0.012
+            gem = P.mask(w, h, [[(cx, cy - r), (cx + r, cy), (cx, cy + r), (cx - r, cy)]])
+            P.over(canvas, "#05060c", P.dilate(gem, 1.5))
+            P.over(canvas, "#ffcc33" if k < rounds[side] else "#3a3450", gem)
+    cx, cy, r = w / 2, y0 + bh * 0.6, h * 0.058
+    hexagon = [(cx + r * np.cos(np.pi / 3 * k + np.pi / 6), cy + r * np.sin(np.pi / 3 * k + np.pi / 6)) for k in range(6)]
+    P.over(canvas, "#05060c", P.mask(w, h, [hexagon]), 0.85)
+    P.over(canvas, "#ffcc33", np.clip(P.dilate(P.mask(w, h, [hexagon]), 2) - P.mask(w, h, [hexagon]), 0, 1))
+    P.draw_text(canvas, timer, "TCCEB.TTF", h * 0.07, (cx, cy), "#ffffff", anchor="mm")
+    if combo:
+        P.draw_text(canvas, combo, "FRAHVIT.TTF", h * 0.08, (w * 0.05, h * 0.3), "#ffd23a", anchor="la", stroke=4,
+                    stroke_colour="#5a0a08", shadow=("#000000", 4, 4))
+    for side in (0, 1):                                         # super meters, bottom corners
+        x0 = w * 0.04 if side == 0 else w * 0.96 - w * 0.2
+        y = h * 0.92
+        for k in range(3):
+            seg = P.mask(w, h, [[(x0 + k * w * 0.068 + h * 0.01, y), (x0 + (k + 1) * w * 0.068 - h * 0.004, y),
+                                 (x0 + (k + 1) * w * 0.068 - h * 0.014, y + h * 0.02), (x0 + k * w * 0.068, y + h * 0.02)]])
+            full = k < spec.get("meters", [2, 1])[side]
+            P.over(canvas, "#05060c", P.dilate(seg, 1.5), 0.8)
+            P.over(canvas, "#30e0ff" if full else "#1a2a3a", seg)
+        label = f"LV {spec.get('meters', [2, 1])[side]}"
+        lx, anchor = (x0, "lb") if side == 0 else (x0 + w * 0.2, "rb")
+        P.draw_text(canvas, label, "TCCEB.TTF", h * 0.032, (lx, y - h * 0.006), "#9ff4ff", anchor=anchor, shadow=("#000000", 2, 2))
+    img[:] = (np.clip(canvas, 0, 1) * 255 + 0.5).astype(np.uint8)
+    return img
 
 
 def _hearts(img, full, total):
@@ -199,6 +328,8 @@ def hud(img, kind, game):
     h, w = img.shape[:2]
     if kind == "text":
         _items(img, game.get("hud_items", []))
+    elif kind == "versus":
+        _versus(img, game.get("versus", {}))
     elif kind == "hearts":
         _hearts(img, 3, 5)
         text(img, w - 8 - text_width("X028"), 7, "X028", "#80ff90", outline=True)

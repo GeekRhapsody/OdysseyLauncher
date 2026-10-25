@@ -141,8 +141,9 @@ METALS = {
     "silver": [(0, "#ffffff"), (0.25, "#e4e8f0"), (0.5, "#98a2b4"), (0.66, "#4e5666"), (0.8, "#a8b0c0"), (1, "#f0f4fa")],
     "bronze": [(0, "#ffe8c8"), (0.22, "#f0b070"), (0.5, "#b06a2a"), (0.66, "#6a3410"), (0.8, "#b87a40"), (1, "#ffd8a8")],
     "jade": [(0, "#f0fff4"), (0.22, "#a8f0c0"), (0.5, "#2a9a5a"), (0.66, "#0e5a30"), (0.8, "#4ab478"), (1, "#d8ffe4")],
+    "steel": [(0, "#f4f8ff"), (0.25, "#c8d4e4"), (0.5, "#6a7a90"), (0.62, "#2e3a4a"), (0.8, "#8a9ab0"), (1, "#e8f0fa")],
 }
-EDGES = {"gold": "#241004", "silver": "#141820", "bronze": "#1c0a02", "jade": "#04180c"}
+EDGES = {"gold": "#241004", "silver": "#141820", "bronze": "#1c0a02", "jade": "#04180c", "steel": "#2a0608"}
 
 
 # Logo styles -------------------------------------------------------------------------------------------------------
@@ -236,6 +237,16 @@ def _emblem(kind, W, H, cx, base, size):
                           (c[0] + (r * 0.9) * ca + r * 0.14 * sa, c[1] + (r * 0.9) * sa - r * 0.14 * ca)])
         ring = np.clip(np.maximum(P.disc(W, H, c, r), P.mask(W, H, teeth)) - P.disc(W, H, c, r * 0.45), 0, 1)
         return ring
+    if kind == "lotus":                                         # five pointed petals fanned over a shallow bowl
+        petal = "M 0 0 Q 0.22 -0.4 0 -0.78 Q -0.22 -0.4 0 0 Z"
+        polys = []
+        for angle, length in ((-64, 0.74), (64, 0.74), (-32, 0.9), (32, 0.9), (0, 1.0)):
+            polys += P.xform(P.path(petal), (size * length, size * length), (cx, base - size * 0.02), rotate=angle)
+        petals = P.mask(W, H, polys)
+        bowl = P.mask(W, H, P.path(f"M {cx - size * 0.42} {base - size * 0.1} Q {cx} {base + size * 0.12} "
+                                   f"{cx + size * 0.42} {base - size * 0.1} L {cx + size * 0.36} {base - size * 0.02} "
+                                   f"Q {cx} {base + size * 0.17} {cx - size * 0.36} {base - size * 0.02} Z"))
+        return np.clip(petals + bowl, 0, 1)
     return np.zeros((H, W), np.float32)
 
 
@@ -701,7 +712,6 @@ def arcade_pixel(title, subtitle=None, colours=("#ffe040", "#ff4020", "#a01070")
     P.paint(lay, "#000000", P.shift(P.dilate(tiles, px * 0.5), px * 0.4, px * 0.5), 0.6)
     P.paint(lay, "#ffffff", P.dilate(tiles, px * 0.35))
     P.paint(lay, "#1a0420", P.dilate(tiles, px * 0.15))
-    t0, t1 = _span(tiles)
     P.paint(lay, _fill(tiles, [(0, colours[0]), (0.5, colours[1]), (1, colours[2])]), tiles)
     hi, lo = _bevel(tiles, px * 0.18)
     P.paint(lay, "#ffffff", hi, 0.6)
@@ -709,9 +719,66 @@ def arcade_pixel(title, subtitle=None, colours=("#ffe040", "#ff4020", "#a01070")
     return lay
 
 
+def retro_flat(title, subtitle=None, font="SHOWG.TTF", face="#ff3a2a", edge="#ffe040", depth="#5a1408"):
+    """An early-1980s marquee's: flat letters in one bright colour, no gradient, a thick outline in another, a black
+    one round that, and a solid extrusion down and to the right."""
+    face_m = _word(_lines(title.upper(), 9), font, S, tracking=0.04, leading=0.95)
+    face_m = _mask_into(face_m, face_m.shape[1] + int(S * 0.4), face_m.shape[0] + int(S * 0.4), 0, 0)
+    H, W = face_m.shape
+    rim = P.dilate(face_m, S * 0.06)
+    ext = np.zeros_like(rim)
+    for k in range(1, 12):
+        ext = np.maximum(ext, P.shift(rim, S * 0.008 * k, S * 0.011 * k))
+    lay = P.layer(W, H)
+    P.paint(lay, "#000000", P.dilate(np.clip(rim + ext, 0, 1), S * 0.035))
+    P.paint(lay, depth, ext)
+    P.paint(lay, edge, rim)
+    P.paint(lay, "#000000", P.dilate(face_m, S * 0.012))
+    P.paint(lay, face, face_m)
+    shine = np.clip(face_m - P.shift(face_m, S * 0.02, S * 0.025), 0, 1)     # a thin white line along the top left
+    P.paint(lay, "#ffffff", shine, 0.85)
+    return lay
+
+
+def modern_edge(title, subtitle=None, font="seguibl.ttf", accent="#ff2a6a"):
+    """A 2010s fighting game's: heavy italics in brushed steel, split by a thin cut, their lower part in the accent
+    colour, over a slash of it, with a glow and an angular crown over the middle."""
+    face = _word([title.upper()], font, S, tracking=0.02, italic=0.18)
+    h, w = face.shape
+    W, H = w + int(S * 0.8), h + int(S * 0.9)
+    face = _mask_into(face, W, H, int(S * 0.4), int(S * 0.5))
+    t0, t1 = _span(face)
+    left, right = _cols(face)
+    rows = np.arange(H, dtype=np.float32)[:, None]
+    split = t0 + (t1 - t0) * 0.6
+    cut = np.clip(np.abs(rows - split) - S * 0.01, 0, 1)
+    face = face * cut
+    lay = P.layer(W, H)
+    slash = P.mask(W, H, [[(left - S * 0.2, t1 + S * 0.08), (right + S * 0.4, t0 + S * 0.2), (right + S * 0.5, t0 + S * 0.32),
+                           (left - S * 0.1, t1 + S * 0.2)]])
+    P.paint(lay, accent, P.blur(slash, S * 0.03), 0.9)
+    P.paint(lay, accent, P.blur(P.dilate(face, S * 0.05), S * 0.12), 0.8)
+    P.paint(lay, "#06060a", P.dilate(face, S * 0.035))
+    steel = _fill(face, [(0, "#ffffff"), (0.3, "#d8dce4"), (0.55, "#8a909c"), (0.6, "#ffffff"), (1, "#b8bcc8")])
+    lower = np.clip((rows - split) / 2, 0, 1)
+    P.paint(lay, steel, face * (1 - lower))
+    P.paint(lay, _fill(face, [(0, P.shade(accent, 1.5)), (0.6, accent), (1, P.shade(accent, 0.55))]), face * lower)
+    hi, lo = _bevel(face, S * 0.015)
+    P.paint(lay, "#ffffff", hi, 0.6)
+    P.paint(lay, "#000000", lo, 0.3)
+    mid, cs = (left + right) / 2, S * 0.5                       # the crown: three sharp spikes on a band
+    crown = P.mask(W, H, [[(mid - cs * 0.6, t0 - S * 0.08), (mid - cs * 0.7, t0 - cs * 0.62), (mid - cs * 0.3, t0 - cs * 0.3),
+                           (mid, t0 - cs * 0.85), (mid + cs * 0.3, t0 - cs * 0.3), (mid + cs * 0.7, t0 - cs * 0.62),
+                           (mid + cs * 0.6, t0 - S * 0.08)]])
+    P.paint(lay, "#06060a", P.dilate(crown, S * 0.03))
+    P.paint(lay, _fill(crown, [(0, P.shade(accent, 1.6)), (1, accent)]), crown)
+    _sparkle(lay, right - S * 0.4, t0 + S * 0.05, S * 0.35)
+    return lay
+
+
 STYLES = dict(chrome_neon=chrome_neon, gold_serif=gold_serif, steel_flare=steel_flare, candy_gems=candy_gems,
               cartoon_arch=cartoon_arch, sports_block=sports_block, horror_drip=horror_drip, stencil_plate=stencil_plate,
-              fire_brush=fire_brush, arcade_pixel=arcade_pixel)
+              fire_brush=fire_brush, arcade_pixel=arcade_pixel, retro_flat=retro_flat, modern_edge=modern_edge)
 
 
 def logo(spec):
