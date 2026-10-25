@@ -206,6 +206,9 @@ model = "models/systems/naomi.glb"             # built by tools/console-models/n
 [systems.n64]
 model = "models/systems/n64.glb"               # built by tools/console-models/n64.py: the console and its controller; its focused clip drops a cartridge in through the dust flaps, slides POWER on, swings the stick and presses the buttons, and later takes the cartridge out
 
+[systems.supervision]
+model = "models/systems/supervision.glb"       # built by tools/console-models/supervision.py: the original two-piece Watara Supervision; its focused clip drops a cartridge into its screen unit, boots and plays, and tilts the screen back on its bellows neck and up again
+
 [systems.ps2]
 model = "models/systems/ps2.glb"                # built by tools/console-models/ps2.py: the black launch model, turned to a three-quarter view; its focused clip slides the tray out, drops a DVD on it, and later ejects it
 
