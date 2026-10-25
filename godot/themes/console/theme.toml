@@ -66,6 +66,9 @@ model = "models/systems/n3ds.glb"               # built by tools/console-models/
 [systems.wii]
 model = "models/systems/wii.glb"                # built by tools/console-models/wii.py: the Wii on its stand, its remote leaning on it; its focused clip slides a disc in, the slot glows, the remote rumbles
 
+[systems.pokemini]
+model = "models/systems/pokemini.glb"          # built by tools/console-models/pokemini.py: the Pokémon mini in Wooper Blue, its clock on the LCD; its focused clip drops a cartridge into the top of its back and plays a made-up game on the D-pad and A, shakes it and rumbles, then takes the cartridge out
+
 [systems.psp]
 model = "models/systems/psp.glb"              # built by tools/console-models/psp.py, turned to a three-quarter view; its focused clip turns it round, rolls a UMD into its door, and turns back to the XMB and the game
 
