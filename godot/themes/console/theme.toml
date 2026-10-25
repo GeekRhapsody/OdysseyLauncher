@@ -126,6 +126,9 @@ model = "models/systems/atari5200.glb"         # built by tools/console-models/a
 [systems.atari7800]
 model = "models/systems/atari7800.glb"         # built by tools/console-models/atari7800.py: an Atari 7800 ProSystem and its ProLine joystick; its focused clip drops a cartridge in, switches on, presses RESET and plays on the joystick, then takes the cartridge out
 
+[systems.atari800]
+model = "models/systems/atari800.glb"          # built by tools/console-models/atari800.py: an Atari 800 and its CX40 joystick; its focused clip lifts the lid, drops a cartridge into the left slot and shuts the lid, presses OPTION and START and plays on the joystick, then takes the cartridge out
+
 [systems.atarijaguar]
 model = "models/systems/atarijaguar.glb"       # built by tools/console-models/jaguar.py: an Atari Jaguar and its controller; its focused clip drops a cartridge in, presses the power button and plays on the pad, then takes the cartridge out
 
