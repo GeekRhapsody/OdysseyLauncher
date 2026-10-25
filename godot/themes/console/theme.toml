@@ -117,6 +117,9 @@ model = "models/systems/vectrex.glb"           # built by tools/console-models/v
 [systems.atarist]
 model = "models/systems/atarist.glb"           # built by tools/console-models/atari_st.py: a 520STFM, its SC1224 showing GEM's desktop, and its mouse; its focused clip slides a floppy in, double-clicks its way to the game, and ejects it
 
+[systems.channelf]
+model = "models/systems/channelf.glb"          # built by tools/console-models/channelf.py: the first Fairchild Channel F, walnut and black, and its two controllers; its focused clip slides a Videocart into the slot past its door, presses RESET and 1 and plays on a controller's knob, then ejects the Videocart
+
 [systems.atari2600]
 model = "models/systems/atari2600.glb"         # built by tools/console-models/atari_2600.py: the four-switch woody and its CX40 joystick; its focused clip drops a cartridge in, flips POWER, flicks SELECT and RESET, and waggles the joystick
 
