@@ -312,7 +312,7 @@ model = "models/systems/satellaview.glb"       # built by tools/console-models/s
 model = "models/systems/saturn.glb"            # built by tools/console-models/saturn.py: the black Model 1 Saturn and its control pad; its focused clip opens the lid, drops a CD onto the spindle and shuts it, presses POWER while ACCESS flickers and plays on the pad, then takes the CD out
 
 [systems.dreamcast]
-model = "models/systems/dreamcast.glb"
+model = "models/systems/dreamcast.glb"         # built by tools/console-models/dreamcast.py: the European Dreamcast and its controller with a VMU; its focused clip opens the lid, drops a GD-ROM onto the spindle and shuts it, presses POWER (the light and the VMU come on) and plays on the controller, then takes the GD-ROM out
 
 # Favourites and Recently played have no console: a Power Star and an alarm clock.
 [systems.favourites]
