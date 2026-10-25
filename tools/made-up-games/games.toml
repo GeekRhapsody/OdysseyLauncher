@@ -1,0 +1,1146 @@
+# The made-up games for the README's captures (docs/readme/): none of them is a real game, and every name, company and
+# picture here is invented. README.md in this folder describes the whole process.
+#
+# Each [[games]] entry is one game's concept: its details (for the details screen, through a gamelist.xml), its box's
+# copy and logo, and the prompts Codex paints from (codex_art.py): `keyart`, which every version's cover and label are
+# cut from, and [games.screens], one screen per look ("16bit" for the Mega Drive, SNES and arcade ports, "n64",
+# "arcade" for an arcade-only game, "arcade_v" for a vertical one), which make_games.py brings to each system's native
+# resolution and palette before drawing the HUD. A key art's prompt says its shape: "Landscape, 3:2", its subject in
+# the middle third so a Mega Drive cover can cut a portrait from it, or "Portrait, 2:3" for a game on portrait boxes only.
+#
+# `versions` lists the systems the game came out on, each a release: `system`, `released`, `hud`, and anything it
+# changes for that version: title and logo (a "64" version's), players, file (an arcade game's, a MAME-style name),
+# screen (its look), screen_fit, crop, dress, logo_place.
+#
+# hud: "text" draws hud_items, each [text, place] or [text, place, colour] or [text, place, colour, scale], place one of
+# tl tc tr bl bc br (tl2 tr2 bl2 br2 a row further in), and "BAR n" a bar n full; "dialogue" (the game's `dialogue`),
+# "racer", "shooter", "puzzle" (Kaleidrop's), "flower" (Budling's) and "hearts" are drawn by screens.py; "none" draws
+# nothing. crop gives a focus (fractions of the spare width and height) for cutting a painting to a piece's shape:
+# cover, label, screen. screen_fit = "pad" widens a screen painting by mirroring its edges instead of cutting it. dress
+# picks a system's box design: the Mega Drive's "classic" (bands top and bottom, the default) or "sidebar" (a band down
+# the left). logo_place puts the cover's logo at the "top" (the default) or the "bottom".
+
+# Role-playing ------------------------------------------------------------------------------------------------------
+
+[[games]]
+id = "starhallow"
+title = "Starhallow: The Sundered Crown"
+genre = "Role-playing"
+developer = "Moonquill"
+publisher = "Moonquill"
+players = "1"
+rating = 0.9
+age = 7
+description = """When a star falls on the night of the coronation, the Crown of Aldmoor splits in two and its halves \
+vanish into the wilds. Ren, an apprentice swordsman from the border village of Thornwick, sets out with a reluctant court \
+mage and a ranger who knows the mountain passes, to bring the pieces home before the kingdom tears itself apart."""
+features = ["Turn-based battles with combined attacks for the whole party", "Cross twelve regions on foot, by ship and by airship",
+            "Battery back-up saves three games"]
+logo = { style = "gold_serif", title = "Starhallow", subtitle = "The Sundered Crown", emblem = "crown" }
+dialogue = "ELDER: The star fell beyond the northern pass. Bring the crown home, Ren."
+versions = [{ system = "snes", released = "1995-11-17", hud = "dialogue", crop = { screen = [0.5, 0.0] } }]
+keyart = """Painted key art for a fictional 1995 16-bit fantasy role-playing game, in the style of a mid-1990s European \
+video game box illustration (airbrush and gouache, rich saturated colour, dramatic light). Landscape, 3:2.
+
+A dawn sky over a vast range of mountains; a castle with tall spires stands on a high crag on the right; a bright \
+falling star streaks down the sky towards the castle, trailing light; a great pale moon on the upper left. In the left \
+foreground a young swordsman in a long cloak blown back by the wind stands on a rocky ledge, seen from behind at \
+three-quarters, holding a sword raised high, its blade catching the star's light. Keep the top quarter of the picture \
+open sky: a title will be printed there later."""
+
+[games.screens]
+16bit = """A top-down three-quarter view of a village square at dawn: cobbled paths, a round stone fountain in the \
+middle, timbered cottages with red tiled roofs, flower beds, fences, a few round trees and a well. A young swordsman in \
+a red cloak and two companions (a mage in a blue robe and a girl with a bow) stand by the fountain, facing an old \
+villager with a white beard and a walking stick. Leave the bottom quarter as plain ground: a dialogue window will be \
+drawn over it later."""
+
+[[games]]
+id = "tidecaller"
+title = "Tidecaller Saga"
+genre = "Role-playing"
+developer = "Hollowbrook"
+publisher = "Moonquill"
+players = "1"
+rating = 0.85
+age = 7
+description = """The sea has stopped answering the island of Merrow, and the fishing boats come home empty. Isla, the \
+youngest of the tidecallers, must sail to the four drowned temples and wake the leviathans who keep the currents turning. \
+A seafaring role-playing game with a ship of your own and a crew who join you port by port."""
+features = ["Sail your own ship between thirty islands", "Battles at sea and on land", "A crew of eight to recruit"]
+logo = { style = "gold_serif", title = "Tidecaller", subtitle = "Saga", metal = "silver", emblem = "wave", font = "CASTELAR.TTF" }
+dialogue = "ISLA: The tide turns at moonrise. If the leviathan sleeps, we sail past the reef."
+versions = [{ system = "megadrive", released = "1993-07-16", hud = "dialogue", dress = "sidebar" }]
+keyart = """Painted key art for a fictional 1993 16-bit seafaring role-playing game, in the style of an early-1990s \
+European video game box illustration (airbrush and gouache, deep blues and teals, moonlight). Portrait, 2:3.
+
+A young woman in a sea-green cloak stands at the prow of a small sailing ship, one arm raised, as a vast gentle \
+leviathan with glowing markings rises from the waves before her; a full moon and stars above, a ruined temple on a rocky \
+island in the distance, spray and foam catching the light. Keep the top third of the picture open night sky: a title \
+will be printed there later."""
+
+[games.screens]
+16bit = """A top-down view of a harbour town on a small island: wooden piers, moored sailing ships, stacked crates and \
+barrels, cottages with blue slate roofs, palm trees and sand; a young woman in a green cloak with two companions on \
+the pier, talking to a sailor. Leave the bottom quarter as plain wooden pier: a dialogue window will be drawn over it \
+later."""
+
+[[games]]
+id = "mooncrest"
+title = "Mooncrest Chronicle"
+genre = "Action RPG"
+developer = "Pebbleglass"
+publisher = "Moonquill"
+players = "1-2"
+rating = 0.88
+age = 7
+description = """Every hundred years the moon comes close enough to touch the towers of Mooncrest, and every hundred \
+years someone tries to steal it. Wield sword, bow and seven spells in real-time battles through forests, ice caves and \
+sky gardens, with a friend joining in at any time on the second controller."""
+features = ["Real-time battles with sword, bow and spells", "A second player can join at any time", "Over 30 hours of adventure"]
+logo = { style = "gold_serif", title = "Mooncrest", subtitle = "Chronicle", metal = "silver", emblem = "moon", font = "FELIXTI.TTF" }
+dialogue = "ARIN: The moon is closer every night. The thieves must be in the old observatory."
+versions = [{ system = "snes", released = "1996-03-22", hud = "dialogue" }]
+keyart = """Painted key art for a fictional 1996 16-bit action role-playing game, in the style of a mid-1990s European \
+video game box illustration (airbrush, luminous blues and silvers, magical light). Landscape, 3:2.
+
+An enormous silver moon hangs low over a city of slender white towers on a cliff; a young hero with a glowing sword and \
+a girl casting a spell of blue light leap together from a tower's balcony towards the viewer, cloaks flying; moths and \
+sparks of light swirl round them. Keep the main subject in the middle third of the picture and the top quarter open \
+sky: a title will be printed there later."""
+
+[games.screens]
+16bit = """A top-down action role-playing scene in a moonlit forest clearing: tall dark pines, glowing blue \
+mushrooms, a stone shrine with a crescent symbol, a stream with a wooden bridge; a young hero with a sword slashing at \
+two shadowy wolves, a girl casting a blue spell beside him, coins and a heart dropped on the grass. Leave the top \
+eighth as plain dark treetops: hearts and gems will be drawn over it later."""
+
+# Racing ------------------------------------------------------------------------------------------------------------
+
+[[games]]
+id = "redline-riviera"
+title = "Redline Riviera"
+genre = "Racing"
+developer = "Ninebolt"
+publisher = "Arcwave"
+players = "1-2"
+rating = 0.8
+age = 3
+description = """Twelve stages of coast road, from the clifftop bends above the bay to the harbour lights of the old \
+port, against the clock and seven rival drivers. Choose your car and your soundtrack, take the fork at every \
+checkpoint and keep your foot down through the tunnels."""
+features = ["Twelve stages and a fork at every checkpoint", "Four cars, three soundtracks", "Two-player split screen"]
+logo = { style = "chrome_neon", title = "Redline", subtitle = "Riviera" }
+versions = [
+  { system = "megadrive", released = "1992-06-26", hud = "racer", crop = { label = [0.5, 0.8] } },
+  { system = "arcade", released = "1991-11-08", hud = "racer", players = "1", file = "redlnriv.zip" },
+]
+keyart = """Painted key art for a fictional 1992 16-bit arcade racing game, in the style of an early-1990s European \
+video game box illustration (airbrush, chrome and neon highlights, dramatic sunset light). Portrait, 2:3.
+
+A low, wide red sports coupe of an original design (a sharp wedge with a ducktail spoiler, smooth unbroken flanks and \
+a single slim tail-light bar right across its back), with no badges, seen from behind at three-quarters, speeding along \
+a coast road on a clifftop towards a huge setting sun over the sea. It must not resemble any real car model: no intake \
+strakes along its sides and no slats over its lights. Palm trees along the road and a white coastal town on the \
+headland beyond; streaks of motion on the road; its tail lights glowing. Keep the top third of the picture open \
+sunset sky: a title will be printed there later."""
+
+[games.screens]
+16bit = """A view from just behind the player's car: a red sports car sprite seen from behind in the lower middle of the \
+screen, on a pseudo-3D road with red-and-white kerbs and white lane stripes that curves away to a horizon over the sea; \
+palm trees and blank roadside signs along the verge; a big setting sun in a sky of horizontal colour bands; cliffs in \
+the distance; a blue rival car further up the road. Leave the top eighth as plain sky: the score and timer will be \
+drawn over it later."""
+
+[[games]]
+id = "gravel-kings"
+title = "Gravel Kings"
+genre = "Racing"
+developer = "Ninebolt"
+publisher = "Arcwave"
+players = "1-2"
+rating = 0.78
+age = 3
+description = """Forest stages in the rain, desert stages in the dust and snow stages after dark: twenty-four rally \
+stages across six countries, each one against the clock with only your co-driver's calls for company. Tune your car \
+between rallies and keep it in one piece to the end of the season."""
+features = ["24 stages in six countries", "Tune your gearbox, tyres and suspension", "Championship and time-trial modes"]
+logo = { style = "stencil_plate", title = "Gravel Kings", plate = "mud" }
+versions = [
+  { system = "megadrive", released = "1995-04-21", hud = "text", hud_items = [["STAGE 3", "tl"], ["1:42.36", "tc", "#ffd040", 2], ["SS 4/6", "tr"]] },
+  { system = "snes", released = "1995-06-09", hud = "text", hud_items = [["STAGE 3", "tl"], ["1:42.36", "tc", "#ffd040", 2], ["SS 4/6", "tr"]] },
+]
+keyart = """Painted key art for a fictional 1995 16-bit rally racing game, in the style of a mid-1990s European video \
+game box illustration (airbrush, gritty and dynamic, late-afternoon light). Landscape, 3:2.
+
+A boxy white-and-blue rally car of an original design, with no badges, slides sideways round a muddy forest bend \
+towards the viewer, throwing up a great spray of gravel and mud, its headlights on; pine trees, spectators behind a \
+tape, dust lit gold by the low sun. Keep the main subject in the middle third of the picture and the top quarter open \
+sky and treetops: a title will be printed there later."""
+
+[games.screens]
+16bit = """A rally racing screen from behind the car: a white-and-blue rally car sprite sliding on a narrow gravel \
+road through a pine forest, dust trailing behind it, the road winding uphill into the trees, a wooden fence, a tree \
+stump and a stage marker post by the road, mountains in the distance. Leave the top eighth as plain sky: the timer will \
+be drawn over it later."""
+
+[[games]]
+id = "apex-circuit"
+title = "Apex Circuit"
+genre = "Racing"
+developer = "Ninebolt"
+publisher = "Arcwave"
+players = "1-2"
+rating = 0.82
+age = 3
+description = """Sixteen circuits, sixteen races, one championship. Set your wings and your tyres in the pits, follow \
+the racing line through the chicanes and fight for every place in a full season of open-wheel racing."""
+features = ["A full season on 16 circuits", "Pit stops, tyre wear and changing weather", "Two players head to head"]
+logo = { style = "sports_block", title = "Apex Circuit", colours = ["#e8202a", "#ffffff"], font = "FRAHVIT.TTF" }
+versions = [
+  { system = "snes", released = "1993-09-17", hud = "racer" },
+  { system = "n64", released = "1998-05-29", title = "Apex Circuit 64", logo = { style = "sports_block", title = "Apex Circuit", badge = "64", colours = ["#e8202a", "#ffffff"], font = "FRAHVIT.TTF" }, hud = "text", hud_items = [["POS 3/22", "tl", "#ffffff", 2], ["LAP 12/16", "tr"], ["284 KM/H", "br", "#ffd040"]] },
+]
+keyart = """Key art for a fictional 1990s open-wheel racing game, in the style of a 1990s video game box (airbrushed \
+realism, bright sunshine, motion blur). Landscape, 3:2.
+
+A red-and-white open-wheel racing car of an original design, with no sponsors' names or badges, rounds a kerb at full \
+speed towards the viewer, its front wing low, sparks under its floor, a second car close behind; a grandstand blurred \
+by speed and a blue sky. Keep the main subject in the middle third of the picture and the top quarter open sky: a title \
+will be printed there later."""
+
+[games.screens]
+16bit = """A racing screen from just behind and above the player's red-and-white open-wheel car on a flat grey track \
+drawn in rotating perspective: red-and-white kerbs, grass, a grandstand and advertising hoardings with no lettering, \
+two rival cars ahead, a blue sky. Leave the top eighth as plain sky: the position and lap will be drawn over it later."""
+n64 = """A 3D open-wheel racing game seen from behind the player's red-and-white car: a grey track with kerbs curving \
+through a seaside town circuit, barriers and grandstands, rival cars ahead, palm trees, haze in the distance, a blue \
+sky. Leave the top eighth as plain sky: the position and lap will be drawn over it later."""
+
+[[games]]
+id = "whirligig-karts"
+title = "Whirligig Karts"
+genre = "Racing"
+developer = "Pebbleglass"
+publisher = "Brightmoor"
+players = "1-4"
+rating = 0.8
+age = 3
+description = """Eight drivers, sixteen tracks and a sky full of balloons: race karts through toy shops, sweet \
+factories and funfairs, grab the spinning whirligigs for a boost, and sling custard pies at whoever is in front. Up to \
+four players on one screen."""
+features = ["Sixteen tracks and four cups", "Four players on a split screen", "Battle mode in five arenas"]
+logo = { style = "cartoon_arch", title = "Whirligig", subtitle = "Karts", face = "red", ribbon = "blue" }
+versions = [{ system = "n64", released = "1998-12-04", hud = "text", hud_items = [["2ND", "tl", "#ffd040", 3], ["LAP 2/3", "tr", "#ffffff", 2]] }]
+keyart = """Key art for a fictional 1998 kart racing game, in the style of late-1990s CG box art (glossy pre-rendered \
+3D, bright saturated colour). Landscape, 3:2.
+
+Three cheerful original cartoon characters (a round orange tabby cat, a lanky purple frog and a little robot with a \
+propeller hat) race tiny colourful karts straight towards the viewer down a track made of giant toy building blocks, \
+balloons and confetti flying, a spinning top and a funfair helter-skelter behind. Keep the main subject in the middle \
+third of the picture and the top quarter open sky: a title will be printed there later."""
+
+[games.screens]
+n64 = """A 3D kart racing game seen from behind the player's little orange kart, driven by a cartoon cat: a bright \
+track of red and yellow blocks curving through a giant toy shop, toy soldiers and building blocks beside the track, \
+two rival karts ahead, a floating spinning item box, colourful balloons. Leave the top eighth plain: the position and \
+lap will be drawn over it later."""
+
+[[games]]
+id = "turbo-tarmac"
+title = "Turbo Tarmac"
+genre = "Racing"
+developer = "Ninebolt"
+publisher = "Arcwave"
+players = "1"
+rating = 0.72
+age = 3
+description = """Six cities, one night, no speed limits: weave through traffic from the docks to the motorway before \
+the clock runs out, and pick your route at every junction."""
+features = ["Six cities at night", "Choose your route at every junction", "A sit-down cabinet with a gear stick"]
+logo = { style = "chrome_neon", title = "Turbo", subtitle = "Tarmac", outline = "#2a9fff", neon = "#3affd2" }
+versions = [{ system = "arcade", released = "1994-08-12", file = "turbotar.zip", hud = "racer" }]
+
+[games.screens]
+arcade = """A night-time city racing screen from behind the player's yellow sports car: a wet multi-lane motorway \
+lit by orange street lamps, neon-lit skyscrapers, slower traffic of vans and saloons ahead, light trails, an overhead \
+gantry with blank signs. Leave the top eighth as plain night sky: the timer will be drawn over it later."""
+
+# Shoot 'em ups -----------------------------------------------------------------------------------------------------
+
+[[games]]
+id = "halcyon-strike"
+title = "Halcyon Strike"
+genre = "Shoot 'em up"
+developer = "Copperkite"
+publisher = "Arcwave"
+players = "1"
+rating = 0.85
+age = 7
+description = """The Halcyon colony's last fighter launches as the Veil armada blots out its sun. Fly eight stages of \
+asteroid fields, ice caverns and the armada's own flagship, collect the pods that turn your twin lasers into a wall of \
+fire, and face the guardians of every sector."""
+features = ["Eight stages, from the asteroid belt to the flagship", "Five weapons, each powered up three times",
+            "Three difficulty levels"]
+logo = { style = "steel_flare", title = "Halcyon", subtitle = "Strike" }
+versions = [
+  { system = "megadrive", released = "1991-09-13", hud = "shooter" },
+  { system = "arcade", released = "1990-12-14", hud = "shooter", players = "1-2", file = "halcystk.zip" },
+]
+keyart = """Painted key art for a fictional 1991 16-bit space shoot 'em up, in the style of an early-1990s video game \
+box illustration (airbrush, hard-edged science fiction, vivid colour). Portrait, 2:3.
+
+A sleek white-and-blue starfighter banks hard across the picture, firing twin cyan lasers at a swarm of angular dark \
+enemy craft, over the curve of a blue ocean planet; a vast alien battleship looms in the upper right; a nebula of \
+magenta and teal behind; an explosion blooms on the left. Keep the top third of the picture mostly open space and \
+nebula: a title will be printed there later."""
+
+[games.screens]
+16bit = """The player's small white-and-blue starfighter on the left fires cyan lasers to the right; waves of small \
+enemy ships and round pink enemy bullets; a large mechanical enemy on the right; layered scrolling backgrounds of a \
+planet's surface far below and a nebula; an explosion. Leave the top eighth as plain dark space: the score will be \
+drawn over it later."""
+
+[[games]]
+id = "deep-fathom"
+title = "Deep Fathom"
+genre = "Shoot 'em up"
+developer = "Copperkite"
+publisher = "Brightmoor"
+players = "1"
+rating = 0.74
+age = 7
+description = """Something has woken in the trench. Pilot the research submarine Nautilette down through coral reefs, \
+sunken cities and volcanic vents, torpedo the mechanical sea monsters that guard each depth, and rescue the divers \
+trapped below."""
+features = ["Six depths, from the reef to the trench", "Torpedoes, depth charges and a sonar pulse", "Rescue the trapped divers"]
+logo = { style = "steel_flare", title = "Deep Fathom", steel = "teal" }
+versions = [{ system = "megadrive", released = "1992-10-23", hud = "shooter", dress = "sidebar" }]
+keyart = """Painted key art for a fictional 1992 16-bit underwater shoot 'em up, in the style of an early-1990s video \
+game box illustration (airbrush, deep blues and glowing greens). Portrait, 2:3.
+
+A small round yellow research submarine with bright headlamps fires a torpedo at a giant mechanical anglerfish with a \
+glowing lure, deep in an ocean trench; ruined columns of a sunken city, coral, shoals of fish and rising bubbles; \
+sunbeams slant down from far above. Keep the top third of the picture open water lit by sunbeams: a title will be \
+printed there later."""
+
+[games.screens]
+16bit = """A horizontally scrolling underwater shoot 'em up: a small yellow submarine on the left firing torpedoes to \
+the right at mechanical fish and a giant robotic crab; coral, seaweed and the ruins of a sunken city on the sea bed; \
+layers of blue water, rising bubbles and sunbeams. Leave the top eighth as plain dark water: the score will be drawn \
+over it later."""
+
+[[games]]
+id = "sandstorm-lancer"
+title = "Sandstorm Lancer"
+genre = "Shoot 'em up"
+developer = "Copperkite"
+publisher = "Zephyrix"
+players = "1-2"
+rating = 0.76
+age = 7
+description = """A lone hover-tank against a desert empire. Blast through canyons, oases and sand-buried fortresses in \
+this top-down shoot 'em up, turning your turret one way while you drive the other, and call in a friend's tank when \
+the going gets hot."""
+features = ["Seven desert stages", "Turn your turret as you drive", "Two players at once"]
+logo = { style = "stencil_plate", title = "Sandstorm Lancer", plate = "sand" }
+versions = [
+  { system = "megadrive", released = "1991-05-24", hud = "shooter" },
+  { system = "arcade", released = "1990-07-20", hud = "shooter", file = "sandlanc.zip" },
+]
+keyart = """Painted key art for a fictional 1991 16-bit desert action game, in the style of an early-1990s video game \
+box illustration (airbrush, hot oranges and ochres, dramatic dust). Portrait, 2:3.
+
+A sleek angular hover-tank of an original design skims across desert dunes towards the viewer, its turret firing, \
+sand streaming behind it; enemy walkers and gun towers of a fortress emerge from a sandstorm; a blazing sun. Keep the \
+top third of the picture open sky and dust: a title will be printed there later."""
+
+[games.screens]
+16bit = """A top-down shoot 'em up in the desert: the player's small grey hover-tank in the lower middle firing at \
+enemy gun turrets and walkers; sand dunes, rocky ridges, a palm oasis with water, the walls of a sandstone fortress at \
+the top, explosions and orange bullets. Leave the top eighth as plain sand: the score will be drawn over it later."""
+
+[[games]]
+id = "rotorstorm"
+title = "Rotorstorm"
+genre = "Shoot 'em up"
+developer = "Ninebolt"
+publisher = "Arcwave"
+players = "1"
+rating = 0.77
+age = 11
+description = """Fly a gunship through jungle valleys, oil rigs and island fortresses, rescue the hostages from every \
+mission and bring them home before your fuel runs dry. Thirty missions across four campaigns."""
+features = ["Thirty missions in four campaigns", "Rescue hostages and fly them home", "Watch your fuel and ammunition"]
+logo = { style = "stencil_plate", title = "Rotorstorm", plate = "olive" }
+versions = [{ system = "megadrive", released = "1992-03-20", hud = "text", hud_items = [["SCORE 004800", "tl"], ["FUEL", "tr"], ["BAR 0.62", "tr2"]] }]
+keyart = """Painted key art for a fictional 1992 16-bit helicopter action game, in the style of an early-1990s video \
+game box illustration (airbrush, stormy sky, lightning, dramatic). Landscape, 3:2.
+
+A grey attack helicopter of an original design banks towards the viewer through a thunderstorm over a jungle river, \
+its rotor a blur, rockets streaking from its pods; an island fortress with searchlights behind, lightning splitting the \
+sky. Keep the main subject in the middle third of the picture and the top quarter open storm clouds: a title will be \
+printed there later."""
+
+[games.screens]
+16bit = """An isometric three-quarter view of a helicopter action game: a small grey attack helicopter over a jungle \
+river firing rockets at an enemy jeep and a gun emplacement; palm trees, a wooden bridge, huts, a fuel drum and a \
+hostage waving from a clearing. Leave the top eighth as plain jungle canopy: the score and fuel will be drawn over it \
+later."""
+
+[[games]]
+id = "skylance"
+title = "Skylance"
+genre = "Shoot 'em up"
+developer = "Copperkite"
+publisher = "Arcwave"
+players = "1-4"
+rating = 0.84
+age = 7
+description = """Pilot the Skylance squadron's interceptors through twelve missions over oceans, cloud cities and an \
+asteroid belt, barrel-rolling through enemy fire with your wingmates calling out targets. Up to four pilots battle in \
+the arena."""
+features = ["Twelve missions in full 3D", "Wingmates who call for help", "Four-player dogfights"]
+logo = { style = "steel_flare", title = "Skylance", steel = "gold" }
+versions = [{ system = "n64", released = "1997-10-31", hud = "text", hud_items = [["SCORE 0340", "tl"], ["SHIELD", "tr"], ["BAR 0.8", "tr2"]] }]
+keyart = """Key art for a fictional 1997 3D space combat game, in the style of late-1990s CG box art (glossy pre-rendered \
+3D, dramatic lighting). Landscape, 3:2.
+
+Three sleek silver-and-orange interceptors of an original design dive in formation towards the viewer over a sea of \
+clouds above a planet, firing green lasers at a looming alien mothership; a ringed planet and stars above. Keep the \
+main subject in the middle third of the picture and the top quarter open sky: a title will be printed there later."""
+
+[games.screens]
+n64 = """A 3D space combat game seen from behind the player's silver-and-orange interceptor: flying over a sea of \
+clouds towards floating sky platforms, green laser bolts, enemy fighters ahead with a target reticle, an explosion, a \
+blue sky fading to space. Leave the top eighth as plain sky: the score and shield will be drawn over it later."""
+
+[[games]]
+id = "vermilion-squadron"
+title = "Vermilion Squadron"
+genre = "Shoot 'em up"
+developer = "Copperkite"
+publisher = "Zephyrix"
+players = "1-2"
+rating = 0.83
+age = 7
+description = """Five biplanes in vermilion against an airship armada, in the skies over a steam-powered empire. Charge \
+your shot, call down your squadron and blow the dreadnoughts out of the clouds."""
+features = ["Five planes, each with its own bomb", "Charge your shot", "Two players at once"]
+logo = { style = "fire_brush", title = "Vermilion", subtitle = "Squadron" }
+versions = [{ system = "arcade", released = "1994-03-04", file = "vermsqdn.zip", screen = "arcade_v", hud = "text", hud_items = [["1P 0187600", "tl"], ["HI 1000000", "tr", "#ffd040"]] }]
+
+[games.screens]
+arcade_v = """A vertically scrolling shoot 'em up: the player's small red biplane at the bottom firing yellow bullets \
+upwards at a huge steam-powered airship with propellers and cannons at the top, smaller enemy planes, orange enemy \
+bullets, clouds and a patchwork of fields and rivers far below. Leave the top eighth as plain sky: the score will be \
+drawn over it later."""
+
+[[games]]
+id = "nebula-swarm"
+title = "Nebula Swarm"
+genre = "Shoot 'em up"
+developer = "Ninebolt"
+publisher = "Arcwave"
+players = "1-2"
+rating = 0.7
+age = 3
+description = """They come in waves, they swoop and they dive: hold your ground at the bottom of the screen and clear \
+the swarm before it clears you. Catch the falling capsules to double your ship."""
+features = ["Fifty waves", "Double your ship", "Bonus stages every fifth wave"]
+logo = { style = "arcade_pixel", title = "Nebula Swarm" }
+versions = [{ system = "arcade", released = "1990-02-16", file = "nebswarm.zip", screen = "arcade_v", hud = "text", hud_items = [["1UP 004320", "tl", "#ff4040"], ["HI 020000", "tr"]] }]
+
+[games.screens]
+arcade_v = """A fixed-screen space shooter: the player's little white starfighter at the bottom firing upwards; rows \
+of colourful insect-like alien ships in formation at the top, some swooping down in curves; a few enemy bullets; a \
+black starfield with a faint purple nebula. Leave the top eighth plain black: the score will be drawn over it \
+later."""
+
+# Action ------------------------------------------------------------------------------------------------------------
+
+[[games]]
+id = "concrete-knuckles"
+title = "Concrete Knuckles"
+genre = "Beat 'em up"
+developer = "Ninebolt"
+publisher = "Zephyrix"
+players = "1-2"
+rating = 0.8
+age = 11
+description = """The Viper gang has taken over Harbour City, and three friends from the boxing gym have had enough. \
+Fight through eight stages of streets, subway trains and rooftops, pick up anything that isn't nailed down and take \
+the city back, one block at a time."""
+features = ["Three fighters, each with special moves", "Two players at once", "Eight stages of street fighting"]
+logo = { style = "fire_brush", title = "Concrete", subtitle = "Knuckles", font = "HATTEN.TTF" }
+versions = [
+  { system = "megadrive", released = "1993-02-19", hud = "text", hud_items = [["CASS", "tl", "#ffd040"], ["BAR 0.8", "tl2"], ["DREW", "tr", "#40e0ff"], ["BAR 0.55", "tr2"]] },
+  { system = "snes", released = "1993-05-14", hud = "text", hud_items = [["CASS", "tl", "#ffd040"], ["BAR 0.8", "tl2"], ["DREW", "tr", "#40e0ff"], ["BAR 0.55", "tr2"]] },
+  { system = "arcade", released = "1992-09-25", file = "conknuck.zip", hud = "text", hud_items = [["CASS", "tl", "#ffd040"], ["BAR 0.8", "tl2"], ["DREW", "tr", "#40e0ff"], ["BAR 0.55", "tr2"]] },
+]
+keyart = """Painted key art for a fictional early-1990s side-scrolling beat 'em up, in the style of an early-1990s \
+video game box illustration (airbrush, bold comic-book energy, neon night). Landscape, 3:2.
+
+Three original street fighters, a woman in a red jacket mid-kick, a big man with taped fists and a wiry young man in a \
+denim vest, charge towards the viewer down a rain-slick city street at night, a gang of thugs in purple scattering \
+before them; neon signs with no lettering, a subway entrance, steam from the drains. Keep the main subject in the \
+middle third of the picture and the top quarter dark sky and buildings: a title will be printed there later."""
+
+[games.screens]
+16bit = """A side-scrolling beat 'em up on a city street at night: a woman in a red jacket kicking a thug in purple, a \
+big man with taped fists punching another, two more thugs approaching; shop fronts with shutters, a telephone box, \
+puddles reflecting neon, a dropped lead pipe on the pavement. Leave the top eighth as a plain dark band: the health \
+bars will be drawn over it later."""
+
+[[games]]
+id = "crimson-kunai"
+title = "Crimson Kunai"
+genre = "Action"
+developer = "Ninebolt"
+publisher = "Zephyrix"
+players = "1"
+rating = 0.82
+age = 11
+description = """The clan of the Crimson Kunai was destroyed in a single night. Its last ninja runs, climbs and leaps \
+through burning villages, bamboo forests and a fortress in the clouds, with throwing knives, a blade and five secret \
+arts, to settle the score."""
+features = ["Six stages and their guardians", "Five secret arts", "Run along walls and ceilings"]
+logo = { style = "fire_brush", title = "Crimson", subtitle = "Kunai" }
+versions = [
+  { system = "megadrive", released = "1991-12-06", hud = "text", hud_items = [["SCORE 012600", "tl"], ["X04", "tr"]], dress = "sidebar" },
+  { system = "arcade", released = "1990-10-12", file = "crimkuna.zip", hud = "text", hud_items = [["SCORE 012600", "tl"], ["X04", "tr"]] },
+]
+keyart = """Painted key art for a fictional early-1990s ninja action game, in the style of an early-1990s video game \
+box illustration (airbrush, deep reds and blacks, a huge moon). Portrait, 2:3.
+
+A ninja in black with a long crimson scarf leaps across the face of an enormous red moon, throwing three kunai towards \
+the viewer, a blade on their back; a burning pagoda and a bamboo forest below, cherry petals and embers in the wind. \
+Keep the top third of the picture open sky round the moon: a title will be printed there later."""
+
+[games.screens]
+16bit = """A side-scrolling ninja action screen in a bamboo forest at night: a ninja in black with a red scarf \
+leaping and throwing knives at two enemy ninjas in grey, a stone lantern, a wooden rope bridge, a huge red moon behind \
+the bamboo, falling leaves. Leave the top eighth as plain night sky: the score will be drawn over it later."""
+
+[[games]]
+id = "titan-frame"
+title = "Titan Frame"
+genre = "Action"
+developer = "Copperkite"
+publisher = "Arcwave"
+players = "1"
+rating = 0.79
+age = 11
+description = """Strap into a forty-tonne walking tank and hold the line on the Martian frontier. Fit your frame with \
+cannons, missiles and a jump jet, march through fourteen missions and decide whether to fight for the colony or the \
+corporation."""
+features = ["Fourteen missions on Mars", "Build your own frame from 60 parts", "Two endings"]
+logo = { style = "steel_flare", title = "Titan Frame", steel = "red", font = "AGENCYB.TTF" }
+versions = [{ system = "megadrive", released = "1993-11-12", hud = "text", hud_items = [["ARMOR", "tl"], ["BAR 0.7", "tl2"], ["MSL 24", "tr", "#ffd040"]] }]
+keyart = """Painted key art for a fictional 1993 16-bit giant robot action game, in the style of an early-1990s \
+Japanese-influenced video game box illustration (airbrush, hard-edged mechanical detail, red Martian dust). \
+Portrait, 2:3.
+
+A towering grey-and-orange walking mech of an original design strides towards the viewer across a red Martian canyon, \
+its arm cannon firing, missiles launching from its shoulder pods, dust and fire around its feet; a domed colony and two \
+small moons in a salmon sky. Keep the top third of the picture open sky: a title will be printed there later."""
+
+[games.screens]
+16bit = """A side-scrolling giant robot action screen on Mars: the player's grey-and-orange walking mech on the left \
+firing its arm cannon at enemy tanks and a crab-like walker; red rocky ground, a pipeline, a colony dome and a salmon \
+sky with two moons, explosions and missile trails. Leave the top eighth as plain sky: the armour gauge will be drawn \
+over it later."""
+
+[[games]]
+id = "wyrmspire"
+title = "Wyrmspire"
+genre = "Action adventure"
+developer = "Pebbleglass"
+publisher = "Moonquill"
+players = "1"
+rating = 0.9
+age = 11
+description = """A dragon sleeps coiled round the tallest tower in the world, and the kingdom below has forgotten why. \
+Explore a vast valley in full 3D, solve the puzzles of five temples, tame a griffin of your own and climb the spire to \
+learn the dragon's secret."""
+features = ["A vast valley to explore in 3D", "Five temples full of puzzles", "Ride your own griffin"]
+logo = { style = "gold_serif", title = "Wyrmspire", metal = "bronze", emblem = "star", font = "ALGER.TTF" }
+versions = [{ system = "n64", released = "1999-02-26", hud = "hearts" }]
+keyart = """Key art for a fictional 1999 3D fantasy action adventure, in the style of late-1990s CG box art blended with \
+painting (glossy, epic, golden light). Landscape, 3:2.
+
+A young woman in a dark blue travelling cloak, with a spear and a satchel, stands on a cliff edge seen from behind, \
+looking at an impossibly tall stone spire round which a huge sleeping emerald dragon is coiled; a valley of forests and waterfalls \
+below, a griffin flying past, sunset clouds. Keep the main subject in the middle third of the picture and the top \
+quarter open sky: a title will be printed there later."""
+
+[games.screens]
+n64 = """A 3D action adventure seen from behind a young woman in a dark blue travelling cloak with a spear: a grassy \
+valley with low-polygon trees, a stone bridge over a river, a ruined temple ahead and an impossibly tall stone spire in the \
+fog, a small wooden signpost with no lettering. Leave the top eighth as plain sky: the hearts will be drawn over it \
+later."""
+
+[[games]]
+id = "blackwater-manor"
+title = "Blackwater Manor"
+genre = "Survival horror"
+developer = "Hollowbrook"
+publisher = "Zephyrix"
+players = "1"
+rating = 0.81
+age = 15
+description = """Your sister went to Blackwater Manor to catalogue its library and never came back. Search the house \
+room by room with a torch and a handful of matches, solve the puzzles its owner left behind and find out what lives \
+in the flooded cellar."""
+features = ["A whole manor house to search", "Puzzles, keys and secret passages", "Three endings"]
+logo = { style = "horror_drip", title = "Blackwater", subtitle = "Manor" }
+versions = [{ system = "n64", released = "1999-10-29", hud = "none" }]
+keyart = """Key art for a fictional 1999 survival horror game, in the style of late-1990s horror game box art (dark, \
+painterly, cold moonlight and one warm light). Landscape, 3:2.
+
+A gothic manor house on a hill above a black lake at night, one window lit; a young woman with a torch stands at the \
+gate seen from behind; dead trees, mist on the water, a pale shape in an upper window, a full moon behind clouds. No \
+gore. Keep the main subject in the middle third of the picture and the top quarter open night sky: a title will be \
+printed there later."""
+
+[games.screens]
+n64 = """A 3D survival horror game with a fixed camera high in the corner of a dark wood-panelled library: a young \
+woman with a torch whose beam lights the floor, tall bookcases, a fireplace with dying embers, a portrait on the wall, \
+a grandfather clock, dust in the torchlight. No blood."""
+
+# Platform ----------------------------------------------------------------------------------------------------------
+
+[[games]]
+id = "budling"
+title = "Budling: Sky Garden"
+genre = "Platform"
+developer = "Pebbleglass"
+publisher = "Moonquill"
+players = "1"
+rating = 0.85
+age = 3
+description = """A storm has scattered the seeds of the Sky Garden across the floating islands, and the garden is \
+wilting. Budling, its smallest gardener, sets out to bring every one of them home. Run, hop and glide on your leaf \
+across eight open islands and grow new paths wherever you plant a seed."""
+features = ["Eight open islands to explore in 3D", "Plant seeds to grow new paths", "Glide on your leaf"]
+logo = { style = "cartoon_arch", title = "Budling", subtitle = "Sky Garden" }
+versions = [{ system = "n64", released = "1997-11-28", hud = "flower" }]
+keyart = """Key art for a fictional 1997 3D platform game, in the style of late-1990s CG box art (glossy pre-rendered \
+3D, bright saturated colour, soft studio lighting). Landscape, 3:2.
+
+Budling, an original little round green sprout creature with big friendly eyes, a two-leaf sprout on its head, \
+stubby arms and orange shoes, leaps joyfully towards the viewer in the foreground; behind it, floating grassy islands \
+with waterfalls pouring off their edges, giant flowers, a winding trail of stepping-stone platforms, golden seeds \
+floating in the air, and puffy white clouds in a blue sky. Keep the top quarter of the picture mostly sky: a title \
+will be printed there later."""
+
+[games.screens]
+n64 = """A third-person view from behind and above Budling, a little round green sprout creature with a two-leaf \
+sprout on its head and orange shoes, running along a grassy floating island; stepping-stone platforms over a drop, \
+golden seeds floating above them, a waterfall and more floating islands in the hazy distance, a blue sky. Leave the \
+top eighth as plain sky: counters will be drawn over it later."""
+
+[[games]]
+id = "springheel-sam"
+title = "Springheel Sam"
+genre = "Platform"
+developer = "Fernhill"
+publisher = "Brightmoor"
+players = "1"
+rating = 0.79
+age = 3
+description = """Sam's pogo stick has a spring in it like no other, and the Toy King has stolen it for his collection. \
+Bounce through the attic, the garden, the clock tower and the toy box itself, boing on your enemies' heads and collect \
+the golden screws to rebuild the stick of your dreams."""
+features = ["Six worlds and thirty levels", "Super bounces and spring-loaded secrets", "Password and battery save"]
+logo = { style = "cartoon_arch", title = "Springheel", subtitle = "Sam", face = "orange", ribbon = "blue" }
+versions = [
+  { system = "megadrive", released = "1993-10-08", hud = "text", hud_items = [["SCORE 004520", "tl"], ["X17", "tc", "#ffd040"], ["SAM X3", "tr"]] },
+  { system = "snes", released = "1993-12-03", hud = "text", hud_items = [["SCORE 004520", "tl"], ["X17", "tc", "#ffd040"], ["SAM X3", "tr"]] },
+]
+keyart = """Painted key art for a fictional 1993 16-bit platform game, in the style of an early-1990s video game box \
+illustration (airbrush, bright cartoon colours, bouncy energy). Landscape, 3:2.
+
+Sam, an original cheerful freckled boy with a red cap and big trainers, bounces high on a shiny spring-loaded pogo \
+stick towards the viewer, grinning; below him a world of giant toys: building blocks, a clockwork tin soldier army, a \
+spinning top and a toy castle, golden screws flying through the air. Keep the main subject in the middle third of the \
+picture and the top quarter open blue sky: a title will be printed there later."""
+
+[games.screens]
+16bit = """A side-scrolling platform screen in a world of giant toys: a boy with a red cap bouncing on a pogo stick \
+over a gap, platforms made of building blocks and dominoes, clockwork tin soldiers marching, golden screws to collect, \
+a toy castle and puffy clouds behind. Leave the top eighth as plain sky: the score will be drawn over it later."""
+
+[[games]]
+id = "ghoulish-gus"
+title = "Ghoulish Gus"
+genre = "Platform"
+developer = "Fernhill"
+publisher = "Velvet Comet"
+players = "1"
+rating = 0.76
+age = 3
+description = """Gus is the least frightening ghost in Gloomsbury, and the other ghosts never let him forget it. Float \
+through a haunted funfair, a library of flying books and a castle full of suits of armour, learn to say boo properly, \
+and save Halloween from the Pumpkin Baron."""
+features = ["Float, possess and say boo", "Five spooky worlds", "Not too scary for anyone"]
+logo = { style = "cartoon_arch", title = "Ghoulish Gus", face = "purple", font = "CHILLER.TTF", arch = 0.6 }
+versions = [
+  { system = "megadrive", released = "1994-10-21", hud = "text", hud_items = [["BOO 07", "tl", "#b0ff80"], ["SCORE 002300", "tr"]], dress = "sidebar" },
+  { system = "snes", released = "1994-10-28", hud = "text", hud_items = [["BOO 07", "tl", "#b0ff80"], ["SCORE 002300", "tr"]] },
+]
+keyart = """Painted key art for a fictional 1994 16-bit platform game, in the style of a mid-1990s video game box \
+illustration (airbrush, cartoon spooky, purple and green moonlight, friendly rather than frightening). Landscape, 3:2.
+
+Gus, an original small round white ghost with a stripy scarf and a nervous smile, floats towards the viewer through a \
+moonlit haunted funfair: a crooked Ferris wheel, jack-o'-lanterns, bats, a grinning pumpkin-headed villain in a top hat \
+watching from a carousel. Keep the main subject in the middle third of the picture and the top quarter open moonlit \
+sky: a title will be printed there later."""
+
+[games.screens]
+16bit = """A side-scrolling platform screen in a haunted funfair at night: a small white ghost with a stripy scarf \
+floating over a carousel, jack-o'-lanterns, bats, floating candles to collect, a crooked Ferris wheel and a purple \
+night sky with a big moon. Leave the top eighth as plain night sky: the score will be drawn over it later."""
+
+# Fighting ----------------------------------------------------------------------------------------------------------
+
+[[games]]
+id = "stormfist"
+title = "Stormfist"
+genre = "Fighting"
+developer = "Copperkite"
+publisher = "Zephyrix"
+players = "1-2"
+rating = 0.83
+age = 11
+description = """Twelve fighters from twelve countries answer the invitation to the Stormfist tournament on a storm-wrapped \
+island. Learn their special moves, chain your combos and find out who is really behind the tournament."""
+features = ["Twelve fighters, each with special moves", "Combos, counters and super moves", "Tournament and two-player modes"]
+logo = { style = "fire_brush", title = "Stormfist", colours = "storm" }
+versions = [
+  { system = "arcade", released = "1993-06-18", file = "stormfst.zip", hud = "text", hud_items = [["BAR 0.9", "tl"], ["99", "tc", "#ffd040", 2], ["BAR 0.6", "tr"], ["KIRA", "bl", "#ffffff"], ["OSHO", "br", "#ffffff"]] },
+  { system = "megadrive", released = "1994-03-25", hud = "text", hud_items = [["BAR 0.9", "tl"], ["99", "tc", "#ffd040", 2], ["BAR 0.6", "tr"], ["KIRA", "bl", "#ffffff"], ["OSHO", "br", "#ffffff"]] },
+  { system = "snes", released = "1994-04-29", hud = "text", hud_items = [["BAR 0.9", "tl"], ["99", "tc", "#ffd040", 2], ["BAR 0.6", "tr"], ["KIRA", "bl", "#ffffff"], ["OSHO", "br", "#ffffff"]] },
+  { system = "n64", released = "1998-09-18", title = "Stormfist 64", logo = { style = "fire_brush", title = "Stormfist", badge = "64", colours = "storm" }, hud = "text", hud_items = [["BAR 0.9", "tl"], ["BAR 0.6", "tr"], ["45", "tc", "#ffd040", 2]] },
+]
+keyart = """Painted key art for a fictional mid-1990s one-on-one fighting game, in the style of a mid-1990s video game box illustration (airbrush, explosive energy, storm and lightning). Landscape, 3:2.
+
+Two original fighters clash in mid-air in the centre of the picture: a young woman with short silver hair in a white-and-gold jacket, lightning crackling round her fists, and a stocky old monk in saffron robes with a long white beard and prayer beads, his palm strike meeting her punch in a burst of light; a storm-wrapped island temple behind, other fighters' silhouettes in the clouds. Keep the main subject in the middle third of the picture and the top quarter open stormy sky: a title will be printed there later."""
+
+[games.screens]
+16bit = """A one-on-one fighting game screen: a young woman with short silver hair in a white-and-gold jacket throwing a lightning-charged punch on the left, facing a stocky old monk in saffron robes with a long white beard on the right, on a stone temple courtyard on a stormy island, lanterns, a gong and spectators behind, rain. Leave the top eighth as a plain dark band: the health bars will be drawn over it later."""
+n64 = """A 3D one-on-one fighting game: a young woman with short silver hair in a white-and-gold jacket and a stocky old monk in saffron robes facing each other on a round stone arena on a cliff by a stormy sea, low-polygon models with smooth shading, lightning in the clouds. Leave the top eighth as plain sky: the health bars will be drawn over it later."""
+
+[[games]]
+id = "ring-royale"
+title = "Ring Royale"
+genre = "Wrestling"
+developer = "Hollowbrook"
+publisher = "Zephyrix"
+players = "1-4"
+rating = 0.78
+age = 11
+description = """Forty wrestlers, eight belts and a ladder to the top. Create your own wrestler, build a rivalry week by \
+week and climb from the village hall to the Royale itself, with up to four players in the ring at once."""
+features = ["Forty wrestlers and your own creations", "Four players in the ring", "A season mode with rivalries"]
+logo = { style = "sports_block", title = "Ring Royale", colours = ["#ffd23a", "#c01020"], font = "impact.ttf", badge = "" }
+versions = [{ system = "n64", released = "1999-11-19", hud = "text", hud_items = [["BAR 0.7", "bl"], ["BAR 0.35", "br"]] }]
+keyart = """Key art for a fictional 1999 wrestling game, in the style of late-1990s video game box art (glossy, bold, \
+spotlit arena). Landscape, 3:2.
+
+Two original muscular wrestlers in bright costumes (one in gold with a mask, one in red with a mohawk) grapple in the \
+middle of a ring under blazing spotlights, the crowd a blur of camera flashes behind, ropes and turnbuckles in the \
+foreground. Keep the main subject in the middle third of the picture and the top quarter dark arena roof and lights: a \
+title will be printed there later."""
+
+[games.screens]
+n64 = """A 3D wrestling game: two wrestlers (one in gold with a mask, one in red) grappling in the middle of a ring, \
+the camera high and to the side, low-polygon crowd in the stands, spotlights, ropes and turnbuckles. Leave the bottom \
+eighth plain: the health bars will be drawn over it later."""
+
+# Sports ------------------------------------------------------------------------------------------------------------
+
+[[games]]
+id = "top-corner"
+title = "Top Corner '94"
+genre = "Football"
+developer = "Hollowbrook"
+publisher = "Quayside"
+players = "1-4"
+rating = 0.8
+age = 3
+description = """Forty-eight national sides, a cup with a draw of its own and every rule from the offside trap to the \
+golden goal. Bend it into the top corner from twenty-five yards, and take it all the way to the final with up to four \
+friends on one screen."""
+features = ["48 national teams", "Cup, league and friendly modes", "Up to four players with an adaptor"]
+logo = { style = "sports_block", title = "Top Corner", badge = "'94", colours = ["#ffffff", "#1d6cd8"] }
+versions = [
+  { system = "megadrive", released = "1994-05-13", hud = "text", hud_items = [["ENG 2-1 FRA", "tl"], ["67:12", "tr", "#ffd040"]] },
+  { system = "snes", released = "1994-05-27", hud = "text", hud_items = [["ENG 2-1 FRA", "tl"], ["67:12", "tr", "#ffd040"]] },
+]
+keyart = """Painted key art for a fictional 1994 football (soccer) game, in the style of a mid-1990s European video \
+game box illustration (airbrush, floodlit stadium, energy). Landscape, 3:2.
+
+An original footballer in a white kit with blue trim strikes the ball towards the viewer with a spectacular volley, \
+the ball arcing towards the top corner of the goal, the goalkeeper diving in vain; floodlights, a packed stadium \
+blurred behind, rain catching the light. Keep the main subject in the middle third of the picture and the top quarter \
+dark night sky and floodlights: a title will be printed there later."""
+
+[games.screens]
+16bit = """A football (soccer) game seen from above at an angle: a green striped pitch with white lines, small player \
+sprites in white and in blue, the ball by the penalty area, the goal and goalkeeper at the top, the crowd in the stands \
+along the side. Leave the top eighth as plain stands: the score and clock will be drawn over it later."""
+
+[[games]]
+id = "puck-rush"
+title = "Puck Rush"
+genre = "Ice hockey"
+developer = "Hollowbrook"
+publisher = "Quayside"
+players = "1-4"
+rating = 0.79
+age = 3
+description = """Twenty-six teams, full-contact checking and a puck that never stops moving. Play a full season, the \
+play-offs or a quick match, line up your shooters, and settle it in a penalty shoot-out when the clock runs out."""
+features = ["26 teams and a full season", "Body checks, slap shots and shoot-outs", "Up to four players"]
+logo = { style = "sports_block", title = "Puck Rush", colours = ["#e0f4ff", "#c01020"], font = "impact.ttf" }
+versions = [
+  { system = "megadrive", released = "1993-10-29", hud = "text", hud_items = [["TOR 3-2 MTL", "tl"], ["P2 12:40", "tr", "#ffd040"]] },
+  { system = "snes", released = "1993-12-10", hud = "text", hud_items = [["TOR 3-2 MTL", "tl"], ["P2 12:40", "tr", "#ffd040"]] },
+]
+keyart = """Painted key art for a fictional 1993 ice hockey game, in the style of an early-1990s video game box \
+illustration (airbrush, icy blues and hard light). Landscape, 3:2.
+
+An original ice hockey player in a red-and-white kit and helmet unleashes a slap shot towards the viewer, ice spraying \
+from his skates, the puck flying at us, a defender in blue lunging; arena lights and a blurred crowd behind. Keep the \
+main subject in the middle third of the picture and the top quarter dark arena roof: a title will be printed there \
+later."""
+
+[games.screens]
+16bit = """An ice hockey game seen from above at an angle: a white rink with red and blue lines, small player \
+sprites in red and in blue, the puck near the net, a goaltender, the boards with blank advertising, the crowd at the \
+top. Leave the top eighth as plain crowd: the score and clock will be drawn over it later."""
+
+[[games]]
+id = "baseline-heroes"
+title = "Baseline Heroes"
+genre = "Tennis"
+developer = "Fernhill"
+publisher = "Quayside"
+players = "1-4"
+rating = 0.77
+age = 3
+description = """Grass, clay and hard courts across a sixteen-tournament tour: serve and volley, slice and lob your way \
+from the qualifiers to the final, with doubles for four players."""
+features = ["Sixteen tournaments on three surfaces", "Singles and doubles", "Thirty-two players to beat"]
+logo = { style = "sports_block", title = "Baseline Heroes", colours = ["#ffffff", "#2a9a3a"], font = "FRAHVIT.TTF" }
+versions = [
+  { system = "megadrive", released = "1993-06-25", hud = "text", hud_items = [["SET 2  4-3", "tl"], ["30-15", "tr", "#ffd040"]] },
+  { system = "snes", released = "1993-07-09", hud = "text", hud_items = [["SET 2  4-3", "tl"], ["30-15", "tr", "#ffd040"]] },
+]
+keyart = """Painted key art for a fictional 1993 tennis game, in the style of an early-1990s video game box illustration \
+(airbrush, bright summer sunlight). Landscape, 3:2.
+
+An original tennis player in white leaps for a powerful overhead smash in the centre of the picture, racket high, the \
+ball a streak of light; a grass court, a packed stand and a scoreboard with no lettering behind, a blue sky. Keep the \
+main subject in the middle third of the picture and the top quarter open sky: a title will be printed there later."""
+
+[games.screens]
+16bit = """A tennis game seen from behind the baseline, high up: a green grass court with white lines, a player in \
+white at the bottom about to hit a forehand, the opponent at the far baseline, the net in the middle, an umpire's chair \
+and a crowd in the stands. Leave the top eighth as plain crowd: the score will be drawn over it later."""
+
+[[games]]
+id = "fairway-legends"
+title = "Fairway Legends"
+genre = "Golf"
+developer = "Fernhill"
+publisher = "Quayside"
+players = "1-4"
+rating = 0.78
+age = 3
+description = """Three championship courses, from links by the sea to a mountain resort. Read the wind, pick your club \
+and judge the swing meter to the pixel, in stroke play, match play or a skins game for four."""
+features = ["Three courses, 54 holes", "Stroke, match and skins games", "Up to four players"]
+logo = { style = "gold_serif", title = "Fairway Legends", metal = "jade", emblem = "none", font = "COPRGTB.TTF" }
+versions = [
+  { system = "snes", released = "1994-08-19", hud = "text", hud_items = [["HOLE 7 PAR 4", "tl"], ["WIND 3M", "tr", "#40e0ff"], ["BAR 0.66", "bc"]] },
+  { system = "n64", released = "1998-07-10", title = "Fairway Legends 64", logo = { style = "gold_serif", title = "Fairway Legends", badge = "64", metal = "jade", emblem = "none", font = "COPRGTB.TTF" }, hud = "text", hud_items = [["HOLE 12 PAR 3", "tl"], ["WIND 2M", "tr", "#40e0ff"]] },
+]
+keyart = """Painted key art for a fictional 1990s golf game, in the style of a 1990s video game box illustration \
+(airbrush, golden morning light). Landscape, 3:2.
+
+An original golfer in a navy jumper at the top of a full swing in the centre of the picture, the ball flying towards a \
+green on the edge of a sea cliff; a links course, a lighthouse and a calm sea, morning mist. Keep the main subject in \
+the middle third of the picture and the top quarter open sky: a title will be printed there later."""
+
+[games.screens]
+16bit = """A golf game seen from behind a golfer at the tee: a fairway stretching away in perspective drawn with \
+rotating flat graphics, bunkers, trees, a flag on a distant green, the sea on the right. Leave the top eighth as plain \
+sky and the bottom eighth plain grass: the hole number, wind and swing meter will be drawn over them later."""
+n64 = """A 3D golf game seen from behind a golfer at the tee: a rolling green fairway with low-polygon trees, a lake, \
+bunkers and a flag far away, hills and a blue sky. Leave the top eighth as plain sky: the hole and wind will be drawn \
+over it later."""
+
+[[games]]
+id = "kickflip-city"
+title = "Kickflip City"
+genre = "Sports"
+developer = "Fernhill"
+publisher = "Brightmoor"
+players = "1-2"
+rating = 0.74
+age = 3
+description = """Skate the city from the docks to the rooftops: grind rails, ollie the steps, string your tricks into \
+combos and win over the crowd at the three big contests. Unlock new boards and new spots as your score climbs."""
+features = ["Six spots across the city", "Over 40 tricks to combine", "Contests and a free skate"]
+logo = { style = "fire_brush", title = "Kickflip", subtitle = "City", colours = "graffiti", font = "HATTEN.TTF" }
+versions = [{ system = "megadrive", released = "1995-08-11", hud = "text", hud_items = [["SCORE 012400", "tl"], ["KICKFLIP + GRIND", "bc", "#ffd040"]] }]
+keyart = """Painted key art for a fictional 1995 16-bit skateboarding game, in the style of a mid-1990s video game box \
+illustration (airbrush, urban, bright graffiti colour). Portrait, 2:3.
+
+An original skateboarder in a baggy orange T-shirt and a backwards cap flies high above a concrete ramp towards the \
+viewer, the board flipping under their feet; a city skyline, a graffiti-covered wall with no readable lettering and a \
+sunset. Keep the top third of the picture open sky: a title will be printed there later."""
+
+[games.screens]
+16bit = """A side-on skateboarding game screen in a city: a skater in an orange T-shirt grinding down a handrail by \
+some concrete steps, ramps and a half-pipe, graffiti walls without readable lettering, a skyline at sunset. Leave the \
+top eighth as plain sky: the score will be drawn over it later."""
+
+[[games]]
+id = "powder-peak"
+title = "Powder Peak"
+genre = "Snowboarding"
+developer = "Pebbleglass"
+publisher = "Arcwave"
+players = "1-2"
+rating = 0.84
+age = 3
+description = """Six mountains, one board and nothing between you and the bottom but fresh powder. Race the clock down \
+glaciers and forests, pull off grabs and spins in the half-pipe, and find the hidden shortcuts that make a champion."""
+features = ["Six mountains to ride", "Races, half-pipe and big air", "Two-player split screen"]
+logo = { style = "cartoon_arch", title = "Powder Peak", face = "ice", font = "BAUHS93.TTF", arch = 0.4 }
+versions = [{ system = "n64", released = "1998-02-13", hud = "text", hud_items = [["1:24.37", "tl", "#ffffff", 2], ["74 KM/H", "tr"]] }]
+keyart = """Key art for a fictional 1998 snowboarding game, in the style of late-1990s video game box art (crisp, \
+bright, glossy CG and painting). Landscape, 3:2.
+
+An original snowboarder in a bright orange jacket and goggles soars high over a snowy jump towards the viewer, grabbing \
+the board, a spray of powder behind; jagged white peaks, a deep blue sky and pine forest far below. Keep the main \
+subject in the middle third of the picture and the top quarter open blue sky: a title will be printed there later."""
+
+[games.screens]
+n64 = """A 3D snowboarding game seen from behind a snowboarder in an orange jacket racing down a wide snowy slope: \
+low-polygon pine trees, flags marking the course, a jump ahead, mountains in the hazy distance, a blue sky. Leave the \
+top eighth as plain sky: the time and speed will be drawn over it later."""
+
+[[games]]
+id = "orbital-striker"
+title = "Orbital Striker"
+genre = "Sports"
+developer = "Hollowbrook"
+publisher = "Quayside"
+players = "1-4"
+rating = 0.76
+age = 3
+description = """Football in zero gravity: two teams of five, a glowing ball and a pitch that wraps round a space \
+station. Boost, tackle and bend shots round the curve of the station in the year's most unlikely league."""
+features = ["Twelve teams from twelve stations", "Boost, tackle and curve your shots", "Four players at once"]
+logo = { style = "steel_flare", title = "Orbital", subtitle = "Striker", steel = "blue" }
+versions = [{ system = "n64", released = "1998-11-13", hud = "text", hud_items = [["LUNA 2-2 MARS", "tl"], ["2:31", "tr", "#ffd040", 2]] }]
+keyart = """Key art for a fictional 1998 futuristic sports game, in the style of late-1990s CG box art (glossy \
+pre-rendered 3D, neon blues and oranges). Landscape, 3:2.
+
+Two original athletes in armoured suits, one in orange and one in blue, leap for a glowing ball in zero gravity inside \
+a ring-shaped space station arena, the Earth turning beyond the windows, neon lines on the curved pitch. Keep the main \
+subject in the middle third of the picture and the top quarter open: a title will be printed there later."""
+
+[games.screens]
+n64 = """A 3D futuristic football game: players in orange and blue armour chasing a glowing ball across a curved neon \
+pitch inside a space station, the pitch curving up into the distance, Earth through the windows. Leave the top eighth \
+plain: the score and clock will be drawn over it later."""
+
+[[games]]
+id = "hoop-heroes"
+title = "Hoop Heroes"
+genre = "Basketball"
+developer = "Hollowbrook"
+publisher = "Quayside"
+players = "1-4"
+rating = 0.75
+age = 3
+description = """Two on two, no rules, no referee: dunk from the free-throw line and set the net on fire in the \
+loudest basketball game in the arcade."""
+features = ["Two-on-two street basketball", "Fire up for flaming dunks", "Four players at once"]
+logo = { style = "sports_block", title = "Hoop Heroes", colours = ["#ff8a20", "#ffffff"], font = "impact.ttf" }
+versions = [{ system = "arcade", released = "1995-04-07", file = "hoophero.zip", hud = "text", hud_items = [["HOME 48", "tl"], ["Q4 0:12", "tc", "#ffd040"], ["52 AWAY", "tr"]] }]
+
+[games.screens]
+arcade = """A basketball game seen from the side: an indoor court with a polished wooden floor, a player in orange \
+flying through the air for a slam dunk, the hoop and backboard on the right, three other players, a crowd and \
+spotlights. Leave the top eighth plain: the score will be drawn over it later."""
+
+[[games]]
+id = "dusty-gulch"
+title = "Dusty Gulch"
+genre = "Light gun"
+developer = "Ninebolt"
+publisher = "Zephyrix"
+players = "1-2"
+rating = 0.72
+age = 11
+description = """Strap on your holster and clean up Dusty Gulch: outlaws pop up from saloon windows, water towers and \
+runaway mine carts, and you have six shots before you reload."""
+features = ["Five stages of the Wild West", "Two guns on the cabinet", "Shoot the bottles for bonuses"]
+logo = { style = "gold_serif", title = "Dusty Gulch", metal = "bronze", emblem = "star", font = "ROCKEB.TTF" }
+versions = [{ system = "arcade", released = "1996-06-21", file = "dustygul.zip", hud = "text", hud_items = [["1P 006200", "tl"], ["2P 004100", "tr"]] }]
+
+[games.screens]
+arcade = """A first-person view down the main street of a Wild West town at sunset: a saloon, a general store and a \
+water tower, cartoonish outlaws in black hats popping out of windows and behind barrels, a tumbleweed, bottles on a \
+fence. Leave the top eighth as plain sky: the score will be drawn over it later."""
+
+# Puzzle and pinball ------------------------------------------------------------------------------------------------
+
+[[games]]
+id = "kaleidrop"
+title = "Kaleidrop"
+genre = "Puzzle"
+developer = "Velvet Comet"
+publisher = "Velvet Comet"
+players = "1-2"
+rating = 0.75
+age = 3
+description = """Jewels fall in pairs: line up three of a colour to shatter them, and set off chains that rain stones \
+on your rival's side. Kaleidrop has a story mode across seven gem kingdoms, an endless mode that speeds up every \
+minute, and a head-to-head mode for two players."""
+features = ["Story, endless and two-player modes", "Chains of up to nine", "Seven gem kingdoms to win back"]
+logo = { style = "candy_gems", title = "Kaleidrop" }
+versions = [
+  { system = "snes", released = "1994-03-11", hud = "puzzle", screen_fit = "pad" },
+  { system = "megadrive", released = "1994-05-20", hud = "puzzle", screen_fit = "pad" },
+  { system = "n64", released = "1997-06-27", title = "Kaleidrop 64", logo = { style = "candy_gems", title = "Kaleidrop", badge = "64" }, hud = "puzzle", screen_fit = "pad" },
+]
+keyart = """Bright, playful key art for a fictional 1994 16-bit puzzle game, in the style of a mid-1990s European \
+video game box illustration (glossy airbrush, saturated candy colours). Landscape, 3:2.
+
+A cascade of glossy faceted jewels and rounded coloured blocks tumbling out of a giant brass kaleidoscope, in ruby, \
+amber, lemon, emerald, sapphire and violet, against a swirling kaleidoscopic background of purple and pink rays of \
+light; sparkles everywhere. Keep the top quarter of the picture calm, rays of light only: a title will be printed \
+there later."""
+
+[games.screens]
+16bit = """Two tall wells side by side, each six columns wide, framed in gold, partly filled with glossy jewels of six \
+colours and shapes (red circles, orange squares, yellow triangles, green diamonds, blue hexagons, violet octagons); a \
+pair of jewels falling near the top of each well; in the left well a chain of jewels shattering in a burst of white \
+sparkles; grey stone blocks raining onto the right well; between the wells, two small frames each showing the next \
+pair of jewels; a swirling purple and pink kaleidoscope pattern behind everything. Leave the top eighth as a plain \
+dark band: the scores will be drawn over it later."""
+
+[[games]]
+id = "flipside-pinball"
+title = "Flipside Pinball"
+genre = "Pinball"
+developer = "Velvet Comet"
+publisher = "Velvet Comet"
+players = "1-4"
+rating = 0.73
+age = 3
+description = """Three tables, three themes: a pirate cove, a haunted fairground and a rocket launch. Light the lanes, \
+lock the balls and start the multiball, then flip the table over to play its secret side."""
+features = ["Three tables, each with a secret side", "Multiball, tilt and ball save", "Up to four players taking turns"]
+logo = { style = "chrome_neon", title = "Flipside", subtitle = "Pinball", outline = "#ffb000", neon = "#ff5a1a", font = "GILSANUB.TTF" }
+versions = [
+  { system = "megadrive", released = "1994-02-18", hud = "text", hud_items = [["1,250,400", "tl", "#ffd040"], ["BALL 2", "tr"]], dress = "sidebar" },
+  { system = "snes", released = "1994-04-15", hud = "text", hud_items = [["1,250,400", "tl", "#ffd040"], ["BALL 2", "tr"]] },
+]
+keyart = """Painted key art for a fictional 1994 pinball game, in the style of a mid-1990s video game box illustration \
+(airbrush, bright pinball-machine colours and chrome). Landscape, 3:2.
+
+A gleaming silver pinball bursts towards the viewer from the playfield of a pinball table themed with pirates: a \
+pirate ship, a treasure chest, bumpers like barrels, flippers and ramps, flashing lights and sparks round the ball. \
+Keep the main subject in the middle third of the picture and the top quarter open: a title will be printed there \
+later."""
+
+[games.screens]
+16bit = """A pinball game seen from above, the table filling the screen: a pirate-themed playfield with a ship's ramp, \
+barrel bumpers, a treasure chest target, coloured lanes and lights, two flippers at the bottom and a silver ball in \
+play. Leave the top eighth as a plain dark band: the score will be drawn over it later."""
+
+[[games]]
+id = "bubble-barrage"
+title = "Bubble Barrage"
+genre = "Puzzle"
+developer = "Velvet Comet"
+publisher = "Velvet Comet"
+players = "1-2"
+rating = 0.74
+age = 3
+description = """Two little robots, a sky full of bubbles: aim, fire and burst three of a colour before the bubbles \
+reach the ground. A hundred rounds and a two-player race."""
+features = ["A hundred rounds", "Two-player race", "Bonus fruit everywhere"]
+logo = { style = "candy_gems", title = "Bubble Barrage", font = "SHOWG.TTF", gem = false }
+versions = [{ system = "arcade", released = "1993-11-19", file = "bubbarr.zip", hud = "text", hud_items = [["1P 012300", "tl"], ["ROUND 14", "tc", "#ffd040"], ["2P 009800", "tr"]] }]
+
+[games.screens]
+arcade = """A bubble-shooting puzzle game: a playfield of coloured bubbles packed at the top, two cheerful little round \
+robots at the bottom, one orange and one teal, each turning a bubble cannon with an aiming arrow, a few bubbles bursting with sparkles, a bright cartoon background of candy-coloured \
+hills. Leave the top eighth plain: the scores will be drawn over it later."""
+
+# Strategy and adventure --------------------------------------------------------------------------------------------
+
+[[games]]
+id = "banners-of-valour"
+title = "Banners of Valour"
+genre = "Strategy"
+developer = "Hollowbrook"
+publisher = "Moonquill"
+players = "1-2"
+rating = 0.8
+age = 7
+description = """Five kingdoms, one throne. Raise armies of knights, archers and siege engines, march them across a \
+map of hexes, and win the war with clever tactics and cleverer alliances, in a campaign of twenty battles."""
+features = ["A campaign of twenty battles", "Knights, archers, wizards and siege engines", "Two players on one map"]
+logo = { style = "gold_serif", title = "Banners of Valour", metal = "silver", emblem = "sword", font = "ENGR.TTF" }
+versions = [{ system = "megadrive", released = "1994-01-28", hud = "text", hud_items = [["TURN 12", "tl"], ["GOLD 340", "tr", "#ffd040"]] }]
+keyart = """Painted key art for a fictional 1994 16-bit fantasy strategy game, in the style of an early-1990s European \
+video game box illustration (airbrush and gouache, heroic, banners and steel). Portrait, 2:3.
+
+A knight in silver armour on a rearing white horse holds a blue banner high in the centre of the picture, ranks of \
+knights and archers behind under fluttering banners of five colours, a castle on a hill and a stormy sky with a break of \
+sunlight. Keep the top third of the picture open sky: a title will be printed there later."""
+
+[games.screens]
+16bit = """A fantasy strategy game's map seen from above: a landscape of hexagonal tiles (grassland, forest, hills, a \
+river with a bridge, a castle), small units of knights, archers and a catapult in blue and red standing on the hexes, \
+one hex highlighted with a cursor. Leave the top eighth as a plain dark band: the turn and gold will be drawn over it \
+later."""
+
+[[games]]
+id = "cogwork-castle"
+title = "Cogwork Castle"
+genre = "Adventure"
+developer = "Fernhill"
+publisher = "Velvet Comet"
+players = "1"
+rating = 0.82
+age = 7
+description = """Professor Tilly Gearwhistle's castle runs on clockwork, and someone has stolen its mainspring. Point, \
+click and tinker your way through its ticking halls, talk to its mechanical servants and solve the puzzles of a house \
+that rearranges itself every hour."""
+features = ["Over forty puzzles", "Talk to a castle full of clockwork servants", "Use the SNES mouse or the pad"]
+logo = { style = "gold_serif", title = "Cogwork Castle", metal = "bronze", emblem = "cog", font = "BOD_PSTC.TTF" }
+dialogue = "BUTLER: The mainspring was here at midnight, madam. At one, the library had moved."
+versions = [{ system = "snes", released = "1995-10-20", hud = "dialogue" }]
+keyart = """Painted key art for a fictional 1995 16-bit point-and-click adventure, in the style of a mid-1990s European \
+video game box illustration (airbrush, warm brass and copper, whimsical). Landscape, 3:2.
+
+A towering castle built of brass clockwork and turning cogs on a hill at dusk, its windows glowing; in the foreground an \
+original young inventor with goggles and a spanner and a small round clockwork butler robot look up at it, a moon and \
+clock faces in the clouds. Keep the main subject in the middle third of the picture and the top quarter open sky: a \
+title will be printed there later."""
+
+[games.screens]
+16bit = """A side-on point-and-click adventure scene in a clockwork castle's library: tall bookcases, brass cogs and \
+pipes in the walls, a grandfather clock, a ladder on rails, a young inventor with goggles talking to a round clockwork \
+butler, a desk with a lamp. Leave the bottom quarter as plain floor: a dialogue window will be drawn over it later."""
