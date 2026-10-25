@@ -137,6 +137,9 @@ model = "models/systems/flash.glb"             # built by tools/console-models/f
 [systems.pico8]
 model = "models/systems/pico8.glb"             # built by tools/console-models/pico8.py: PICO-8 has no hardware, so its cartridge made solid, its label a screen; its focused clip hops it round once and boots its label into a game
 
+[systems.amigacd32]
+model = "models/systems/amigacd32.glb"         # built by tools/console-models/cd32.py: the Amiga CD32 and its pad; its focused clip swings the lid up, drops a CD in, plays the pad's coloured buttons, and later takes the CD out
+
 [systems.apple2]
 model = "models/systems/apple2.glb"            # built by tools/console-models/apple2.py: an Apple IIe, two Disk II drives and a Monitor II; its focused clip boots a game from a floppy, its title screen arriving in hi-res's line order, then resets
 
