@@ -69,6 +69,9 @@ model = "models/systems/wii.glb"                # built by tools/console-models/
 [systems.psp]
 model = "models/systems/psp.glb"              # built by tools/console-models/psp.py, turned to a three-quarter view; its focused clip turns it round, rolls a UMD into its door, and turns back to the XMB and the game
 
+[systems.mastersystem]
+model = "models/systems/mastersystem.glb"      # built by tools/console-models/master_system.py: the first Master System and its Control Pad; its focused clip drops a cartridge in through the dust flap, presses POWER, plays the pad and PAUSE, and later takes the cartridge out
+
 [systems.megadrive]
 model = "models/systems/megadrive.glb"        # built by tools/console-models/mega_drive.py, turned to a three-quarter view; its focused clip inserts a cartridge
 
