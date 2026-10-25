@@ -7,10 +7,11 @@ plug and where its cable leaves it, (0, length, 0). place() then stands it on a 
 +y along the face's outward normal. The cable is the card's own, starting there and leaving along the normal.
 
 The shapes, from photographs: `dreamcast` (the controller's light grey block, a seam a third of the way along, the
-ribbed strain relief in the cable's lilac), `saturn` (the black controller plug, wide and flat), `dsub` (the 9-pin D
-plug of Atari's joysticks and the Archimedes's mouse: its housing a D in section, tapering to the cable), `din` (the
-round DIN plug of cassette leads), `modular` (the Macintosh keyboard's clear modular plug and its boot), `grommet` (a
-strain relief where a cable leaves a controller or a hard-wired cable a console).
+ribbed strain relief in the cable's lilac), `saturn` (the black controller plug, wide and flat), `nes` (the NES
+controller's upright block), `dsub` (the 9-pin D plug of Atari's joysticks and the Archimedes's mouse: its housing a D
+in section, tapering to the cable), `din` (the round DIN plug of cassette leads), `modular` (the Macintosh keyboard's
+clear modular plug and its boot), `grommet` (a strain relief where a cable leaves a controller or a hard-wired cable a
+console).
 """
 
 import math
@@ -60,6 +61,15 @@ def saturn(body, cable):
     shell = along("plug", [(0.0, rect(30.0, 12.0, 3.0)), (20.0, rect(30.0, 12.0, 3.0)), (28.0, rect(20.0, 10.0, 3.5))],
                   None)
     relief, end = ribbed("relief", 27.0, [(4.0, 4.2), (4.0, 3.8), (4.0, 3.2), (0.0, 2.6)], None)
+    return [(body, nose), (body, shell), (cable, relief)], end
+
+
+def nes(body, cable):
+    """The NES controller's plug: an upright block, its end narrowing to the cable."""
+    nose = along("nose", [(-8.0, rect(9.6, 17.0, 2.0)), (0.0, rect(9.6, 17.0, 2.0))], None)
+    shell = along("plug", [(0.0, rect(14.0, 22.0, 2.4)), (24.0, rect(14.0, 22.0, 2.4)), (32.0, rect(10.0, 14.0, 3.0))],
+                  None)
+    relief, end = ribbed("relief", 31.0, [(4.0, 3.8), (4.0, 3.2), (0.0, 2.6)], None)
     return [(body, nose), (body, shell), (cable, relief)], end
 
 

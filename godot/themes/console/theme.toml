@@ -252,7 +252,7 @@ model = "models/systems/ngp.glb"               # built by tools/console-models/n
 model = "models/systems/ngpc.glb"              # built by tools/console-models/neogeo_pocket.py: a Neo Geo Pocket Color in Platinum Blue; its focused clip drops a cartridge into its back, boots, plays on the clicky stick, does a special move and hops, then takes the cartridge out
 
 [systems.nes]
-model = "models/systems/nes.glb"
+model = "models/systems/nes.glb"               # built by tools/console-models/nes.py: the front-loading NES and its controller; its focused clip opens the door, slides a cartridge in and presses it down, shuts the door, switches on and plays on the controller, then takes the cartridge out
 
 [systems.pc98]
 model = "models/systems/pc98.glb"              # built by tools/console-models/pc98.py: an NEC PC-9801VM, its colour monitor and its keyboard; its focused clip slides a floppy into drive 1, shuts its lever, boots to a game's title, presses RETURN and plays, then takes the floppy out
