@@ -196,6 +196,9 @@ model = "models/systems/macintosh.glb"         # built by tools/console-models/m
 [systems.archimedes]
 model = "models/systems/archimedes.glb"        # built by tools/console-models/archimedes.py: a BBC A3000, its three-button mouse and an Acorn colour monitor; its focused clip slides a floppy into the drive, opens its filer window and !Odyssey with the mouse and plays the game on the cursor keys, then ejects the floppy
 
+[systems.dragon32]
+model = "models/systems/dragon32.glb"          # built by tools/console-models/dragon32.py: a Dragon 32 in front of the ZX Spectrum's television; its focused clip slides a cartridge into the slot in its right side, Odyssey starts and is played on the arrow keys, then the cartridge comes out and the Dragon starts again
+
 [systems.zxspectrum]
 model = "models/systems/zxspectrum.glb"       # built by tools/console-models/zx_spectrum.py: a ZX Spectrum 48K and a portable television; its focused clip types LOAD "" and loads a game from tape, stripes and all
 
