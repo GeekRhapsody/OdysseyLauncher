@@ -221,6 +221,9 @@ model = "models/systems/pcengine.glb"          # built by tools/console-models/p
 [systems.pcenginecd]
 model = "models/systems/pcenginecd.glb"        # built by tools/console-models/pcenginecd.py: a PC Engine Duo (the PC Engine with the Super CD-ROM² built in) and its pad; its focused clip opens the lid, drops a CD in, switches on and plays, then takes the CD out
 
+[systems.pcfx]
+model = "models/systems/pcfx.glb"              # built by tools/console-models/pcfx.py: NEC's PC-FX, the tower, and its pad; its focused clip swings the CD lid up, drops a disc onto the spindle and shuts it, lights POWER and BUSY and plays on the pad, then takes the disc out
+
 [systems.psx]
 model = "models/systems/psx.glb"                # built by tools/console-models/psx.py, turned to a three-quarter view; its focused clip opens the lid, drops a disc in, and later ejects it
 
