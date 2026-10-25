@@ -170,6 +170,9 @@ model = "models/systems/fds.glb"               # built by tools/console-models/f
 [systems.neogeo]
 model = "models/systems/neogeo.glb"            # built by tools/console-models/neogeo.py: a Neo Geo AES and its arcade stick; its focused clip drops a cartridge in, switches on, throws two fireballs and a combo on the stick, and later takes the cartridge out
 
+[systems.neogeocd]
+model = "models/systems/neogeocd.glb"          # built by tools/console-models/neogeocd.py: a Neo Geo CD top-loader and its controller; its focused clip lifts the lid, drops a CD in, flickers the access light through the long load, plays on the pad, then takes the CD out
+
 [systems.nes]
 model = "models/systems/nes.glb"
 
