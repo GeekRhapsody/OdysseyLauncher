@@ -78,6 +78,9 @@ model = "models/systems/segacd.glb"            # built by tools/console-models/m
 [systems.megadrive]
 model = "models/systems/megadrive.glb"        # built by tools/console-models/mega_drive.py, turned to a three-quarter view; its focused clip inserts a cartridge
 
+[systems.sega32x]
+model = "models/systems/sega32x.glb"           # built by tools/console-models/sega32x.py: the Mega Drive 32X plugged into the first Mega Drive (mega_drive.py's); its focused clip hops it off and back on with a turn in the air, then drops a cartridge into its slot through the dust flaps, and later takes it out
+
 [systems.windows]
 model = "models/systems/windows.glb"          # built by tools/console-models/windows_pc.py: a gaming PC with a glass side and RGB fans, and its monitor
 
