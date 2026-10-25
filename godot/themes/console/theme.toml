@@ -193,6 +193,9 @@ model = "models/systems/ti99.glb"              # built by tools/console-models/t
 [systems.macintosh]
 model = "models/systems/macintosh.glb"         # built by tools/console-models/macintosh.py: the original Macintosh, its keyboard and its mouse; its focused clip slides a floppy into the drive, boots from the question mark through the happy Mac and Welcome to Macintosh. to the game, plays with the mouse, then ejects the floppy
 
+[systems.archimedes]
+model = "models/systems/archimedes.glb"        # built by tools/console-models/archimedes.py: a BBC A3000, its three-button mouse and an Acorn colour monitor; its focused clip slides a floppy into the drive, opens its filer window and !Odyssey with the mouse and plays the game on the cursor keys, then ejects the floppy
+
 [systems.zxspectrum]
 model = "models/systems/zxspectrum.glb"       # built by tools/console-models/zx_spectrum.py: a ZX Spectrum 48K and a portable television; its focused clip types LOAD "" and loads a game from tape, stripes and all
 
