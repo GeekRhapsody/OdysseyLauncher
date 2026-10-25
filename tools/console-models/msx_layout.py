@@ -119,7 +119,10 @@ def cursor_middle():
 
 
 def inset(outline, d):
-    """An anticlockwise outline moved in by d: each edge moved in along its normal, the corners where they meet."""
+    """A closed outline moved in by d, whichever way round it runs: each edge moved in along its normal, the corners
+    where they meet."""
+    if sum(x0 * y1 - x1 * y0 for (x0, y0), (x1, y1) in zip(outline, list(outline[1:]) + [outline[0]])) < 0:
+        d = -d                                           # clockwise: its left, where the normals point, is outside
     n = len(outline)
     lines = []
     for i in range(n):

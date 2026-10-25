@@ -89,7 +89,10 @@ def smooth_outline(points, per=5):
 
 
 def inset(outline, d):
-    """An outline moved d inwards (its corners mitred), for a closed anticlockwise outline."""
+    """A closed outline moved d inwards (its corners mitred), whichever way round it runs."""
+    area = sum(x0 * y1 - x1 * y0 for (x0, y0), (x1, y1) in zip(outline, outline[1:] + outline[:1]))
+    if area < 0:                                           # clockwise: its left, where the normals point, is outside
+        d = -d
     out, n = [], len(outline)
     for i in range(n):
         p0, p1, p2 = (Vector(outline[(i + k) % n]) for k in (-1, 0, 1))
