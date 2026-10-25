@@ -164,6 +164,9 @@ model = "models/systems/snes.glb"               # built by tools/console-models/
 [systems.gc]
 model = "models/systems/gc.glb"                # built by tools/console-models/gamecube.py: an indigo GameCube, its handle and its controller; its focused clip springs the lid open, drops a mini disc in, switches on and plays the controller, and later takes the disc out
 
+[systems.naomi]
+model = "models/systems/naomi.glb"             # built by tools/console-models/naomi.py: NAOMI is an arcade board, so a Sega candy cabinet with NAOMI on its marquee; its focused clip drops a coin in, presses START and plays, then shows NAOMI's logo again
+
 [systems.n64]
 model = "models/systems/n64.glb"               # built by tools/console-models/n64.py: the console and its controller; its focused clip drops a cartridge in through the dust flaps, slides POWER on, swings the stick and presses the buttons, and later takes the cartridge out
 
