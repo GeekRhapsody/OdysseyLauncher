@@ -1,17 +1,18 @@
 """The Philips CD-i 220's measurements, shared by cdi_print.py (which draws its printing and its display) and cdi.py
 (which builds it). Plain Python: Blender's Python imports it too.
 
-The CD-i 220, one of Philips's consumer 200 series of CD-i players, a grey hi-fi box: 420 x 286 x 90 mm (HiFi
-Engine's figures, its feet included), and its gamepad in front of it. Millimetres: x from its middle (left to right), y
-back from its front face, z up from the table. The rest was measured from photographs on Wikimedia Commons (Evan-Amos's views of it from the
-front left and right and with its gamepad, a view of it from in front, the gamepad from above), scaled by its width.
+The CD-i 220, one of Philips's consumer 200 series of CD-i players, a grey hi-fi box: 420 x 286 x 90 mm (HiFi Engine's
+figures, its feet included), and its gamepad in front of it. Millimetres: x from its middle (left to right), y back from
+its front face, z up from the table. The rest was measured from photographs on Wikimedia Commons (Evan-Amos's views of
+it from the front left and right and with its gamepad, a view of it from in front, the gamepad from above), scaled by
+its width.
 
 The body: a box on four feet, the vents in its top at the back right. Its front, left to right: the disc tray's door
 (the dots and the Compact Disc Interactive logo on it, PHILIPS on the strip under it), the panel with PREVIOUS, PLAY,
 NEXT and OPEN, the display's smoked window (it pulls down: the gamepad's socket is behind it), and the panel with
 ON/OFF, PAUSE and STOP. The tray: its door, and behind it the platform the disc lies in, sliding out of the body's
-opening. The gamepad (in front of the display, clear of the tray's way): the CD-i's own, its outline (PAD_OUTLINE) a wide arch, a raised plate on it, the thumbpad in its
-ring at the left, three buttons in a slanted recess at the right.
+opening. The gamepad (in front of the display, clear of the tray's way): the CD-i's own, its outline (PAD_OUTLINE) a
+wide arch, a raised plate on it, the thumbpad in its ring at the left, three buttons in a slanted recess at the right.
 
 One texture (ATLAS square, REGIONS): `front` (the front seen from in front: the door's dots and logo, PHILIPS, the
 buttons' names, the lines between the panels), `display` (the window: smoked red, the display's segments unlit, the
