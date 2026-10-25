@@ -209,6 +209,9 @@ model = "models/systems/psx.glb"                # built by tools/console-models/
 [systems.snes]
 model = "models/systems/snes.glb"               # built by tools/console-models/snes.py: the PAL console, turned to a three-quarter view; its focused clip drops a cartridge through the dust flaps, switches on, and later ejects it
 
+[systems.gameandwatch]
+model = "models/systems/gameandwatch.glb"      # built by tools/console-models/gameandwatch.py: a Game & Watch Multi Screen in Donkey Kong II's colours, open, a made-up game on its screens; its focused clip plays the game, then shuts with a snap and springs open again
+
 [systems.gc]
 model = "models/systems/gc.glb"                # built by tools/console-models/gamecube.py: an indigo GameCube, its handle and its controller; its focused clip springs the lid open, drops a mini disc in, switches on and plays the controller, and later takes the disc out
 
