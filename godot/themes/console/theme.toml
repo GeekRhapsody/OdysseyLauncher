@@ -102,6 +102,9 @@ model = "models/systems/atarist.glb"           # built by tools/console-models/a
 [systems.atari2600]
 model = "models/systems/atari2600.glb"         # built by tools/console-models/atari_2600.py: the four-switch woody and its CX40 joystick; its focused clip drops a cartridge in, flips POWER, flicks SELECT and RESET, and waggles the joystick
 
+[systems.cdimono1]
+model = "models/systems/cdimono1.glb"          # built by tools/console-models/cdi.py: a Philips CD-i 220 and its gamepad; its focused clip opens the tray, drops a disc in, reads it and plays on the gamepad, then takes the disc out
+
 [systems.colecovision]
 model = "models/systems/colecovision.glb"      # built by tools/console-models/colecovision.py: the ColecoVision, one controller in its bay and one in front; its focused clip drops a cartridge in, switches on, picks skill 1 on the keypad and plays the knob and fire button, and later takes the cartridge out
 
