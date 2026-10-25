@@ -105,6 +105,9 @@ model = "models/systems/atarist.glb"           # built by tools/console-models/a
 [systems.atari2600]
 model = "models/systems/atari2600.glb"         # built by tools/console-models/atari_2600.py: the four-switch woody and its CX40 joystick; its focused clip drops a cartridge in, flips POWER, flicks SELECT and RESET, and waggles the joystick
 
+[systems.atari5200]
+model = "models/systems/atari5200.glb"         # built by tools/console-models/atari5200.py: an Atari 5200 (four ports) and its controller; its focused clip drops a cartridge in, switches on, presses START and plays on the stick and fire button, then takes the cartridge out
+
 [systems.cdimono1]
 model = "models/systems/cdimono1.glb"          # built by tools/console-models/cdi.py: a Philips CD-i 220 and its gamepad; its focused clip opens the tray, drops a disc in, reads it and plays on the gamepad, then takes the disc out
 
