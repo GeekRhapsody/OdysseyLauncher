@@ -11,9 +11,10 @@ face, the bay's back wall, the cartridge's label and the lid's strip.
 
 A node tree: a root (the turn to a three-quarter view, TILT_YAW and TILT_PITCH: the right side towards the viewer, the
 top tipped up; then the model spec's fit: standing on y = 0, centred, the largest side 1 m) holding the console and
-the controller; the console holding the tube's faces (the power-on screen and the game's three frames, all but one
-shrunk to nothing), the overlay and the cartridge (both waiting shrunk to nothing), the controller its joystick (its
-origin at its pivot) and its four buttons.
+the controller; the console holding the tube's faces (the power-on screen and the game's three frames; those not lit
+wait behind the bezel, so a swap never shows one shrinking: at worst the dark tube in front of them blinks), the
+overlay and the cartridge (both waiting shrunk to nothing), the controller its joystick (its origin at its pivot) and
+its four buttons.
 
 The `focused` clip (8 s, looping): a cartridge slides into the side, the overlay comes in and settles over the tube,
 the screen flickers on and the game plays (the score climbing, the ship moving and firing, a rock bursting) while the
@@ -198,6 +199,15 @@ def screen(m, name, region):
     return part, front(0.0, L.TUBE["v"] + th / 2, w)
 
 
+def dark_tube(m):
+    """The tube's face dark, standing just behind the lit faces, in front of those waiting behind the bezel."""
+    tw, th = L.TUBE["size"]
+    part = curved("tube", tw, th, L.TUBE["bulge"], lambda a, b: swatch("dark")(None), m["screen"], 16, 14)
+    part.data.transform(FACE)
+    part.data.transform(Matrix.Translation(front(0.0, L.TUBE["v"] + th / 2, L.HOOD["depth"] - 0.15)))
+    return part
+
+
 # ---- The controller --------------------------------------------------------------------------------------------------
 
 def pad_frame():
@@ -310,6 +320,7 @@ def cartridge(m):
 
 # ---- The focused clip ------------------------------------------------------------------------------------------------
 
+BEHIND = 6.0                 # how far back the tube's faces that aren't lit wait: behind the bezel
 GAME = [(64, "game_1"), (67, "game_1"), (80, "game_2"), (93, "game_3"), (106, "game_1"), (119, "game_2"),
         (132, "game_3"), (145, "game_1"), (158, "game_2")]
 
@@ -330,7 +341,9 @@ def showing(f):
 
 def timeline(f):
     lit = showing(f)
-    poses = {name: Pose() if name == lit else Pose(scale=HIDDEN) for name in ("logo", "game_1", "game_2", "game_3")}
+    back = EW * BEHIND
+    poses = {name: Pose() if name == lit else Pose(x=back.x, y=back.y, z=back.z)
+             for name in ("logo", "game_1", "game_2", "game_3")}
 
     # The cartridge: appears out to the right, slides in, a nudge; later out again and gone.
     travel = L.CART["travel"]
@@ -396,11 +409,13 @@ def main():
 
     body = console(m)
     pad, pad_nodes = controller(m)
-    fixed = join([body, pad, cord(m)], "vectrex")
+    fixed = join([body, pad, cord(m), dark_tube(m)], "vectrex")
     (fw, fh, fv), depth = L.HOOD["front"], L.HOOD["depth"]
+    glass = [mat.name for mat in fixed.data.materials].index("screen")
     for p in fixed.data.polygons:
         u, v, w = on_face(p.center)
-        p.use_smooth = not (0.3 < w < depth + 0.5 and abs(u) < fw / 2 + 1.0 and fv - 1.0 < v < fv + fh + 1.0)
+        hood = 0.3 < w < depth + 0.5 and abs(u) < fw / 2 + 1.0 and fv - 1.0 < v < fv + fh + 1.0
+        p.use_smooth = p.material_index == glass or not hood
     fixed.data.set_sharp_from_angle(angle=math.radians(35))
 
     root = bpy.data.objects.new("vectrex_root", None)
