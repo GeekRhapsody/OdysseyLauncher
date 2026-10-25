@@ -148,6 +148,9 @@ model = "models/systems/odyssey2.glb"          # built by tools/console-models/o
 model = "models/systems/amstradcpc.glb"       # built by tools/console-models/amstrad_cpc.py: a CPC 464 and its CTM644 monitor; its focused clip loads a game from tape
 video = "videos/amstradcpc.mp4"               # drawn by tools/console-models/amstrad_cpc_video.py: the screen through the clip, played on the glass's video material
 
+[systems.gx4000]
+model = "models/systems/gx4000.glb"            # built by tools/console-models/gx4000.py: the Amstrad GX4000 and its controller; its focused clip drops a cartridge into the slot through its flaps, switches on and plays on the controller, presses PAUSE, then switches off and takes the cartridge out
+
 [systems.amiga]
 model = "models/systems/amiga.glb"            # built by tools/console-models/amiga.py: an Amiga 500 and its 1084S monitor, Kickstart 1.3 asking for a disk; its focused clip loads a game from a floppy, then resets with Ctrl and both Amiga keys
 
