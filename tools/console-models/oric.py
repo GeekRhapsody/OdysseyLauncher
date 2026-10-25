@@ -5,10 +5,10 @@ Built in Blender (oric_layout.py has the measurements, taken from photographs an
 under the black shell, the shell its side outline extruded across its width; the keyboard's well is cut into the deck in
 the deck's frame and the grille's plateau stands on the back block's left; its keys stand in the well, each tapering to
 its printed top. The recorder is a box round its plan's corners, the cassette's well cut into its top under the lid; the
-lid is a frame round its window, hinged at its back; its six piano keys stand at its front, its cable runs to the
-Atmos's back. Behind them stands zx_spectrum.py's television. The printing is two textures (oric_print.py's): `print`,
-projected from above onto the Atmos, the recorder, the lid and the cassette's label (with the television's front where
-its layout puts it); and `media`, the screens.
+lid is a frame round its window, hinged at its back; its six piano keys stand at its front, its cable runs to its DIN
+plug in the Atmos's back (plugs.py's). Behind them stands zx_spectrum.py's television. The printing is two textures
+(oric_print.py's): `print`, projected from above onto the Atmos, the recorder, the lid and the cassette's label (with
+the television's front where its layout puts it); and `media`, the screens.
 
 A node tree: a root (the turn to a three-quarter view, TILT_YAW and TILT_PITCH: the right end towards the viewer, the
 top tipped up; then the model spec's fit: standing on y = 0, centred, the largest side 1 m) holding the set; the set
@@ -35,6 +35,7 @@ from mathutils import Matrix, Vector
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import oric_layout as L  # noqa: E402
+import plugs  # noqa: E402
 import zx_spectrum_layout as SL  # noqa: E402
 from amiga import curved, paint, rounded, solid  # noqa: E402
 from clip import HIDDEN, Pose, back_out, ease_in, ease_out, key, phase, smooth  # noqa: E402
@@ -292,9 +293,12 @@ def main():
     for part in tv:
         part.data.transform(shift)
     w, d, _ = L.RECORDER["size"]
-    lead = cable(m, [(rx + 30.0, ry + d - 1.0, 20.0), (rx + 30.0, ry + d + 30.0, 2.2), (27.0, L.DEPTH + 30.0, 2.2),
-                     (27.0, L.DEPTH - 1.0, 20.0)])
-    whole = join([atmos(m), fixed_keys, deck, lead] + tv, "oric")
+    black = (lambda o: colour(o, m["case"], "black"))
+    relief, start, leaving = plugs.place(*plugs.grommet(black, 4.0), m["case"], (rx + 30.0, ry + d, 20.0),
+                                         (0.0, 1.0, 0.0))
+    plug, end, back = plugs.place(*plugs.din(black, black), m["case"], (27.0, L.DEPTH, 20.0), (0.0, 1.0, 0.0))
+    lead = cable(m, [start, start + leaving * 30.0 + Vector((0.0, 0.0, -16.0)), end + back * 30.0, end])
+    whole = join([atmos(m), fixed_keys, deck, lead] + relief + plug + tv, "oric")
     for p in whole.data.polygons:
         p.use_smooth = True
     whole.data.set_sharp_from_angle(angle=math.radians(35))

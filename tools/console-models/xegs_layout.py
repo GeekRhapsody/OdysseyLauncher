@@ -45,7 +45,7 @@ BUTTONS = dict(x=[23.0, 57.0, 91.0, 125.0], y=25.0, r=13.5, height=3.0,
 # the slot in its floor, down to SLOT["floor"].
 FUNNEL = dict(t=(122.0, 208.0), depth=14.0, ramp=(30.0, 62.0))
 SLOT = dict(t=(130.0, 206.0), s=(6.0, 28.0), floor=6.0)
-PORTS = dict(y=[115.0, 155.0], width=30.0, depth=10.0, z=(4.0, 22.0))    # notches in the base's right side
+PORTS = dict(y=[115.0, 155.0], width=36.0, depth=10.0, z=(4.0, 22.0))    # notches in the base's right side
 
 KEYBOARD = dict(size=(333.0, 146.0, 18.0), y0=-164.0)        # w, d, h; where its front edge is (y)
 WELL = dict(x=(-135.0, 154.75), v=(14.0, 113.5), depth=6.0)  # the keys' well, in the keyboard's frame

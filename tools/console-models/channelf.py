@@ -5,9 +5,10 @@ Built in Blender (channelf_layout.py has the measurements, taken from photograph
 extruded across its width and cut to its sides sloping in to the foot: walnut on the sides and the front's plinth, black
 on top; the slot is cut into the lid's front face and runs back under the lid, its door hinged along its top. The keys,
 the INSERT CARTRIDGE plate and the eject bar stand on the front panel, the chrome strip on the lid. The controllers are
-each a rounded grip, a neck and a knob, lying on their sides, their cables running to the console's left side. The
-printing is one texture (channelf_print.py's), projected from above onto the panel, its keys, the plate, the bar, the
-strip and the Videocart, from in front onto the door, and along the walnut and the grips.
+each a rounded grip, a neck and a knob, lying on their sides, their cables wired into the console's left side, each
+through a strain relief at both ends (plugs.py's). The printing is one texture (channelf_print.py's), projected from
+above onto the panel, its keys, the plate, the bar, the strip and the Videocart, from in front onto the door, and along
+the walnut and the grips.
 
 A node tree: a root (the turn to a three-quarter view, TILT_YAW and TILT_PITCH: the right end towards the viewer, the
 top tipped up; then the model spec's fit: standing on y = 0, centred, the largest side 1 m) holding the set; the set
@@ -34,6 +35,7 @@ from mathutils import Matrix, Vector
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import channelf_layout as L  # noqa: E402
+import plugs  # noqa: E402
 from amiga import paint, solid  # noqa: E402
 from clip import HIDDEN, Pose, back_out, ease_in, ease_out, key, phase, smooth  # noqa: E402
 from mega_drive import prism_y  # noqa: E402
@@ -259,14 +261,19 @@ def main():
 
     parts, moving = fittings(m)
     parts.append(console(m))
-    port = Vector((-L.WIDTH / 2 + L.SIDE["foot"] * (1 - L.PORT["z"] / L.HEIGHT) + 1.0, L.PORT["y"], L.PORT["z"]))
+    black = (lambda o: colour(o, m["plastic"], "black"))
+    side = Vector((-L.HEIGHT, 0.0, -L.SIDE["foot"])).normalized()          # out of the left side, leaning in
     for k, place in enumerate(L.CONTROLLER["at"]):
         grip, live, exit_ = controller(m, place, k == 0)
         moving.update(live)
         turn = math.radians(place[2])
-        lead = exit_ - Vector((50.0 * math.cos(turn), 50.0 * math.sin(turn), 0.0))
-        parts += [grip, cable("cable", m, [exit_, (lead.x, lead.y, 2.2), (port.x - 60.0, port.y - 30.0 * k, 2.2),
-                                           port])]
+        relief, start, leaving = plugs.place(*plugs.grommet(black, 4.2), m["plastic"], exit_,
+                                             (-math.cos(turn), -math.sin(turn), 0.0))
+        z, y = L.PORT["z"], L.PORT["y"] - 26.0 * k                         # the controllers are wired in
+        entry = Vector((-L.WIDTH / 2 + L.SIDE["foot"] * (1 - z / L.HEIGHT), y, z))
+        sleeve, end, back = plugs.place(*plugs.grommet(black, 4.6), m["plastic"], entry, side)
+        parts += [grip, cable("cable", m, [start, start + leaving * 50.0 + Vector((0.0, 0.0, -10.0)),
+                                           end + back * 60.0 + Vector((0.0, 0.0, -20.0)), end])] + relief + sleeve
     whole = join(parts, "channelf")
     for p in whole.data.polygons:
         p.use_smooth = True

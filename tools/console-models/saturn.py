@@ -6,8 +6,9 @@ its side outline extruded across its width and cut round its plan's corners; the
 the ports into it, the CD's well and the slot into its top and the vents into its right side. POWER, OPEN and RESET
 stand on the top's front band, the ACCESS light between them; the lid is a dome over the well, hinged at its back, the
 spindle standing in the well. The pad is its smoothed outline raised and rounded, the D-pad's disc and the buttons
-standing on it, L and R on its top edge, its cable running to the first port. The printing is one texture
-(saturn_print.py's), projected from above onto the top, the lid, the pad and the CD, and from in front onto the front.
+standing on it, L and R on its top edge, its cable running to its plug in the first port (plugs.py's). The printing is
+one texture (saturn_print.py's), projected from above onto the top, the lid, the pad and the CD, and from in front onto
+the front.
 
 A node tree: a root (the turn to a three-quarter view, TILT_YAW and TILT_PITCH: the right end towards the viewer, the
 top tipped up; then the model spec's fit: standing on y = 0, centred, the largest side 1 m) holding the set; the set
@@ -33,6 +34,7 @@ import bpy
 from mathutils import Matrix, Vector
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import plugs  # noqa: E402
 import saturn_layout as L  # noqa: E402
 from amiga import paint, rounded, solid  # noqa: E402
 from clip import HIDDEN, Pose, back_out, ease_in, ease_out, key, phase, smooth  # noqa: E402
@@ -325,10 +327,12 @@ def main():
     atlas = bpy.data.images.load(os.path.join(images, "saturn_print.png"))
     m = {name: material(name, L.COLOURS["print"], r, atlas) for name, r in ROUGHNESS.items()}
 
-    body, moving, plug = pad(m)
-    port = Vector((L.PORTS["x"][0], L.BAND["y"][1] + 1.0, L.PORTS["z"]))
-    lead = cable(m, [plug, plug + Vector((0.0, 40.0, -6.0)), (port.x - 20.0, -50.0, 2.4), port])
-    whole = join([console(m), body, lead], "saturn")
+    body, moving, sleeve = pad(m)
+    black = (lambda o: colour(o, m["case"], "cable"))
+    port = Vector((L.PORTS["x"][0], L.BAND["y"][1], L.PORTS["z"]))
+    plug, end, back = plugs.place(*plugs.saturn(black, black), m["case"], port, (0.0, -1.0, 0.0))
+    lead = cable(m, [sleeve, sleeve + Vector((0.0, 40.0, -6.0)), end + back * 45.0, end])
+    whole = join([console(m), body, lead] + plug, "saturn")
     for p in whole.data.polygons:
         p.use_smooth = p.area < 400.0                     # the big flat faces flat
     whole.data.set_sharp_from_angle(angle=math.radians(35))

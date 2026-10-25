@@ -4,10 +4,11 @@ its three-button mouse and an Acorn colour monitor.
 Built in Blender (archimedes_layout.py has the measurements, taken from photographs). The A3000 is its side outline
 extruded across its width, the drive's slot cut into its right side; its 103 keys stand on the deck in the deck's frame,
 each tapering to its printed top; the Acorn badge sits on the back block's front face. The mouse is a rounded box, its
-select button apart. The monitor is a box, its housing tapering behind, the screen's opening cut into its front, on its
-base; the tube's faces are curved screens sitting in the opening. The printing is two textures (archimedes_print.py's):
-`print`, projected from above onto the A3000, its keys, the mouse and the floppy, and from in front onto the badge and
-the monitor; and `media`, the screens.
+select button apart, its cable running from its strain relief to its 9-pin plug in the A3000's back (plugs.py's). The
+monitor is a box, its housing tapering behind, the screen's opening cut into its front, on its base; the tube's faces
+are curved screens sitting in the opening. The printing is two textures (archimedes_print.py's): `print`, projected from
+above onto the A3000, its keys, the mouse and the floppy, and from in front onto the badge and the monitor; and `media`,
+the screens.
 
 A node tree: a root (the turn to a three-quarter view, TILT_YAW and TILT_PITCH: the right end towards the viewer, the
 top tipped up; then the model spec's fit: standing on y = 0, centred, the largest side 1 m) holding the set; the set
@@ -34,6 +35,7 @@ from mathutils import Matrix, Vector
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import archimedes_layout as L  # noqa: E402
+import plugs  # noqa: E402
 from amiga import curved, paint, rounded, solid  # noqa: E402
 from clip import HIDDEN, Pose, back_out, ease_in, key, phase, smooth  # noqa: E402
 from mega_drive_cartridge import (bevel, boolean, box, export, join, material, new_object, prism_x,  # noqa: E402
@@ -298,10 +300,15 @@ def main():
     body, button, at = mouse(m)
     moving.update({"mouse": (body, at), "select": (button, at)})
     turn = math.radians(L.MOUSE["at"][2])
-    front = at + Vector((-math.sin(turn), math.cos(turn), 0.0)) * (L.MOUSE["size"][1] / 2 - 2.0)
-    lead = cable(m, [(front.x, front.y, 10.0), (front.x, front.y + 50.0, 1.8), (L.WIDTH / 2 + 20.0, L.DEPTH, 1.8),
-                     (L.WIDTH / 2 - 30.0, L.DEPTH + 1.0, 30.0)])
-    whole = join([a3000(m), fixed_keys, lead] + monitor(m), "archimedes")
+    ahead = Vector((-math.sin(turn), math.cos(turn), 0.0))
+    front = at + ahead * (L.MOUSE["size"][1] / 2 - 1.0) + Vector((0.0, 0.0, 10.0))
+    beige = (lambda o: colour(o, m["case"], "cord"))
+    relief, start, leaving = plugs.place(*plugs.grommet(beige, 3.0), m["case"], front, ahead)
+    plug, end, back = plugs.place(*plugs.dsub(beige, beige, 13.0), m["case"], (L.WIDTH / 2 - 30.0, L.DEPTH, 30.0),
+                                  (0.0, 1.0, 0.0))
+    lead = cable(m, [start, start + leaving * 50.0 + Vector((0.0, 0.0, -8.0)),
+                     (L.WIDTH / 2 + 30.0, L.DEPTH + 50.0, 1.8), end])
+    whole = join([a3000(m), fixed_keys, lead] + relief + plug + monitor(m), "archimedes")
     for p in whole.data.polygons:
         p.use_smooth = p.area < 400.0                     # the big flat faces flat
     whole.data.set_sharp_from_angle(angle=math.radians(35))

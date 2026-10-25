@@ -6,8 +6,9 @@ extruded across its width; the keyboard surround and the module bay are sunk int
 corners round, and the slot is the module's path diving under the back section, cut through the bay's floor and back
 wall. It stands on the black base, the joystick port cut into the base's left side. The keys stand in the surround in
 the deck's frame, each tapering to its printed top. The joysticks are each a tapering box, the stick near one end and
-the orange fire bar at the other, their cables running to the port. The printing is one texture (ti99_print.py's),
-projected from above onto the aluminium, the surround, the bay and the keys, and onto the module's top along it.
+the orange fire bar at the other, their cables running from their strain reliefs to the one 9-pin plug in the port
+(plugs.py's). The printing is one texture (ti99_print.py's), projected from above onto the aluminium, the surround, the
+bay and the keys, and onto the module's top along it.
 
 A node tree: a root (the turn to a three-quarter view, TILT_YAW and TILT_PITCH: the right end towards the viewer, the
 top tipped up; then the model spec's fit: standing on y = 0, centred, the largest side 1 m) holding the set; the set
@@ -33,6 +34,7 @@ import bpy
 from mathutils import Matrix, Vector
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import plugs  # noqa: E402
 import ti99_layout as L  # noqa: E402
 from amiga import paint, rounded, solid  # noqa: E402
 from clip import HIDDEN, Pose, back_out, ease_in, ease_out, key, phase, smooth  # noqa: E402
@@ -300,14 +302,19 @@ def main():
 
     fixed_keys, moving = keys(m)
     parts = [aluminium(m), base(m), fixed_keys]
-    port = Vector((-L.WIDTH / 2 + 2.0, L.PORT["y"], L.PORT["z"]))
+    black = (lambda o: colour(o, m["plastic"], "black"))
+    port = Vector((-L.WIDTH / 2 + 3.0, L.PORT["y"], L.PORT["z"]))
+    plug, end, back = plugs.place(*plugs.dsub(black, black, 13.0), m["plastic"], port, (-1.0, 0.0, 0.0))
+    parts += plug                                             # one plug for both joysticks, as TI's lead has
     for k, place in enumerate(L.JOYSTICK["at"]):
         stick, live, exit_ = joystick(m, place, k == 0)
         moving.update(live)
         turn = math.radians(place[2])
-        lead = exit_ + Vector((-40.0 * math.cos(turn), -40.0 * math.sin(turn), 0.0))
-        parts += [stick, cord("cable", m, [exit_, (lead.x, lead.y, 2.2), (port.x - 45.0, port.y - 20.0 * k, 2.2),
-                                           port])]
+        relief, start, leaving = plugs.place(*plugs.grommet(black, 3.6), m["plastic"], exit_,
+                                             (-math.cos(turn), -math.sin(turn), 0.0))
+        tail = end + Vector((0.0, 3.0 - 6.0 * k, 0.0))
+        parts += [stick, cord("cable", m, [start, start + leaving * 40.0 + Vector((0.0, 0.0, -6.0)),
+                                           tail + back * (40.0 + 20.0 * k), tail])] + relief
     whole = join(parts, "ti99")
     for p in whole.data.polygons:
         p.use_smooth = True

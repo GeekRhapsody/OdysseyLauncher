@@ -36,6 +36,7 @@ from mathutils import Matrix, Vector
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import dreamcast_layout as L  # noqa: E402
+import plugs  # noqa: E402
 from amiga import paint, rounded, solid  # noqa: E402
 from clip import HIDDEN, Pose, back_out, ease_in, ease_out, key, phase, smooth  # noqa: E402
 from mega_drive import prism_z  # noqa: E402
@@ -232,7 +233,8 @@ def controller(m):
     moving["stick"] = (stick, place @ Vector((stx, sty, h + 1.0)))
     for part, _ in moving.values():
         part.data.transform(spin)
-    return join([whole, socket], "controller"), moving, place @ Vector((0.0, -38.0, h * 0.4))
+    exit_ = (place @ Vector((0.0, -34.5, h * 0.42)), spin @ Vector((0.0, -1.0, 0.0)))   # between the grips
+    return join([whole, socket], "controller"), moving, exit_
 
 
 def cable(m, points):
@@ -308,10 +310,13 @@ def main():
     atlas = bpy.data.images.load(os.path.join(images, "dreamcast_print.png"))
     m = {name: material(name, L.COLOURS["print"], r, atlas) for name, r in ROUGHNESS.items()}
 
-    body, moving, exit_ = controller(m)
-    port = Vector((L.PORTS["x"][0], L.PANEL["depth"] + 1.0, L.PORTS["z"]))
-    lead = cable(m, [exit_, exit_ + Vector((0.0, -40.0, -6.0)), (port.x - 30.0, -60.0, 2.4), port])
-    whole = join([console(m), body, lead], "dreamcast")
+    body, moving, (exit_at, exit_dir) = controller(m)
+    grey, lilac = (lambda o: colour(o, m["case"], "grey")), (lambda o: colour(o, m["case"], "cable"))
+    relief, start, leaving = plugs.place(*plugs.grommet(lilac, 4.4), m["case"], exit_at, exit_dir)
+    port = Vector((L.PORTS["x"][0], L.PANEL["depth"], L.PORTS["z"]))
+    plug, end, back = plugs.place(*plugs.dreamcast(grey, lilac), m["case"], port, (0.0, -1.0, 0.0))
+    lead = cable(m, [start, start + leaving * 40.0 + Vector((0.0, 0.0, -8.0)), end + back * 50.0, end])
+    whole = join([console(m), body, lead] + relief + plug, "dreamcast")
     for p in whole.data.polygons:
         p.use_smooth = p.area < 400.0                     # the big flat faces flat
     whole.data.set_sharp_from_angle(angle=math.radians(35))

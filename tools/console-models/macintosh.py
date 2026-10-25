@@ -5,10 +5,11 @@ Built in Blender (macintosh_layout.py has the measurements, taken from its housi
 case is its side outline extruded across its width; the screen's sunk frame, the floppy slot and its finger recess are
 cut into the front face in the face's frame, the handle into the back of the top, the vents into the sides' foot. The
 tube's faces are curved screens sitting in the frame; the rainbow Apple a badge on the face. The keyboard is a slab, its
-keys standing on its sloping top, its coiled cord sagging to the chin's front; the mouse a rounded box, its button a
-plate across the front of its top, its cable running round the case's right to the back. The printing and the screens
-are one texture (macintosh_print.py's), projected from above onto the keys, the mouse and the floppy, and onto the badge
-and the screens along the face.
+keys standing on its sloping top, its coiled cord sagging between the modular plugs in its back and the chin's front;
+the mouse a rounded box, its button a plate across the front of its top, its cable running from its strain relief round
+the case's right to its 9-pin plug in the back (the plugs are plugs.py's). The printing and the screens are one texture
+(macintosh_print.py's), projected from above onto the keys, the mouse and the floppy, and onto the badge and the screens
+along the face.
 
 A node tree: a root (the turn to a three-quarter view, TILT_YAW and TILT_PITCH: the right end towards the viewer, the
 top tipped up; then the model spec's fit: standing on y = 0, centred, the largest side 1 m) holding the set; the set
@@ -36,6 +37,7 @@ from mathutils import Matrix, Vector
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import macintosh_layout as L  # noqa: E402
+import plugs  # noqa: E402
 from amiga import curved, paint, rounded, solid  # noqa: E402
 from clip import HIDDEN, Pose, back_out, ease_in, key, phase, smooth  # noqa: E402
 from mega_drive_cartridge import (bevel, boolean, box, export, join, material, new_object, prism_x,  # noqa: E402
@@ -292,14 +294,21 @@ def main():
     kx, ky = L.KEYBOARD["at"]
     jx, jz = L.JACK
     chin = L.PROFILE[2][0]
-    cord = tube("keyboard_cord", m, coiled([(kx + 80.0, ky - 2.0, 20.0), (kx + 85.0, ky + 20.0, 6.0),
-                                            (jx, chin - 30.0, 6.0), (jx, chin + 1.0, jz)], 9, 3.2), 1.2, "cord")
+    beige = (lambda o: colour(o, m["case"], "cord"))
+    k_plug, k_end, k_back = plugs.place(*plugs.modular(beige, beige), m["case"], (kx + 80.0, ky, 20.0), (0.0, 1.0, 0.0))
+    j_plug, j_end, j_back = plugs.place(*plugs.modular(beige, beige), m["case"], (jx, chin, jz), (0.0, -1.0, 0.0))
+    cord = tube("keyboard_cord", m, coiled([k_end, k_end + k_back * 20.0 + Vector((0.0, 0.0, -12.0)),
+                                            j_end + j_back * 30.0 + Vector((0.0, 0.0, -14.0)), j_end], 9, 3.2), 1.2,
+                "cord")
     turn = math.radians(L.MOUSE["at"][2])
-    front = at + Vector((-math.sin(turn), math.cos(turn), 0.0)) * (L.MOUSE["size"][1] / 2 - 2.0)
-    cable = tube("mouse_cable", m, bezier([(front.x, front.y, 12.0), (front.x, front.y + 40.0, 2.4),
-                                           (L.WIDTH / 2 + 30.0, 150.0, 2.4), (L.WIDTH / 2 - 20.0, L.DEPTH + 1.0, 30.0)],
-                                          30), 1.6, "cord")
-    whole = join([case(m), keyboard(m), cord, cable], "macintosh")
+    ahead = Vector((-math.sin(turn), math.cos(turn), 0.0))
+    front = at + ahead * (L.MOUSE["size"][1] / 2 - 1.0) + Vector((0.0, 0.0, 12.0))
+    relief, start, leaving = plugs.place(*plugs.grommet(beige, 3.2), m["case"], front, ahead)
+    port = Vector((L.WIDTH / 2 - 30.0, L.DEPTH, 20.0))
+    m_plug, m_end, m_back = plugs.place(*plugs.dsub(beige, beige, 13.0), m["case"], port, (0.0, 1.0, 0.0))
+    cable = tube("mouse_cable", m, bezier([start, start + leaving * 40.0 + Vector((0.0, 0.0, -9.0)),
+                                           (L.WIDTH / 2 + 40.0, L.DEPTH + 60.0, 2.4), m_end], 30), 1.6, "cord")
+    whole = join([case(m), keyboard(m), cord, cable] + k_plug + j_plug + relief + m_plug, "macintosh")
     for p in whole.data.polygons:
         p.use_smooth = p.area < 400.0                     # the big flat faces flat: no streaks across the sides
     whole.data.set_sharp_from_angle(angle=math.radians(35))

@@ -5,10 +5,11 @@ Built in Blender (xegs_layout.py has the measurements, taken from photographs). 
 overhangs it, the shell's front a strip apart from the rest by a groove; the ribs are ridges along the long side of the
 triangle at the back left, clipped to it; the funnel and the slot are cut along that side into the shell, the slot on
 down into the base; the power button stands on its raised triangle, the four buttons in the strip. The keyboard is a
-slab, its keys standing in the well cut into it, each tapering to its printed top, its cable running to the console's
-left side. The CX40 is atari_2600.py's, in the XE Game System's beige, its cord running into the first port's notch in
-the console's right side. The printing is one texture (xegs_print.py's), projected from above onto the strip, the
-buttons and the keys, and from in front onto the cartridge.
+slab, its keys standing in the well cut into it, each tapering to its printed top, its cable running to its modular plug
+in the console's left side. The CX40 is atari_2600.py's, in the XE Game System's beige, its cord running to its 9-pin
+plug in the first port's notch in the console's right side (the plugs and strain reliefs are plugs.py's). The printing
+is one texture (xegs_print.py's), projected from above onto the strip, the buttons and the keys, and from in front onto
+the cartridge.
 
 A node tree: a root (the turn to a three-quarter view, TILT_YAW and TILT_PITCH: the right end towards the viewer, the
 top tipped up; then the model spec's fit: standing on y = 0, centred, the largest side 1 m) holding the set; the set
@@ -35,6 +36,7 @@ from mathutils import Matrix, Vector
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import atari_2600  # noqa: E402
 import atari_2600_layout as AL  # noqa: E402
+import plugs  # noqa: E402
 import xegs_layout as L  # noqa: E402
 from amiga import paint, solid  # noqa: E402
 from clip import HIDDEN, Pose, back_out, ease_in, ease_out, key, phase, smooth  # noqa: E402
@@ -314,18 +316,24 @@ def main():
     base.data.transform(move)
     shaft_at, button_at = move @ shaft_at, move @ button_at
     w, d, h = AL.STICK["base"]
-    side = L.WIDTH / 2 - L.BASE["inset"] - L.PORTS["depth"] + 0.5
-    port = (side, L.PORTS["y"][0], sum(L.PORTS["z"]) / 2)
-    stick_cord = cord("joystick_cord", m, "joy", [(jx, jy + d / 2 - 4.0, h * 0.4), (jx, jy + d / 2 + 30.0, 2.4),
-                                                  (side + 30.0, port[1], 4.0), port])
+    joy, grey = (lambda o: colour(o, m["case"], "joy")), (lambda o: colour(o, m["case"], "case"))
+    relief, start, leaving = plugs.place(*plugs.grommet(joy, 4.0), m["case"], (jx, jy + d / 2 - 1.0, h * 0.4),
+                                         (0.0, 1.0, 0.0))
+    side = L.WIDTH / 2 - L.BASE["inset"] - L.PORTS["depth"]
+    port = Vector((side, L.PORTS["y"][0], sum(L.PORTS["z"]) / 2))
+    plug, end, back = plugs.place(*plugs.dsub(joy, joy, 14.0), m["case"], port, (1.0, 0.0, 0.0))
+    stick_cord = cord("joystick_cord", m, "joy", [start, start + leaving * 30.0 + Vector((0.0, 0.0, -10.0)),
+                                                  end + back * 30.0, end])
     kw, kd, kh = L.KEYBOARD["size"]
-    back = L.KEYBOARD["y0"] + kd
-    left = -L.WIDTH / 2 + L.BASE["inset"] - 0.5
-    keyboard_cord = cord("keyboard_cord", m, "case", [(-kw / 2 + 16.0, back - 2.0, kh / 2),
-                                                      (-kw / 2 - 6.0, back + 16.0, 2.6), (left - 30.0, 60.0, 2.6),
-                                                      (left, 60.0, L.BASE["height"] / 2)],
-                         radius=2.6)
-    whole = join([body, keyboard(m), base, stick_cord, keyboard_cord], "atarixe")
+    rear = L.KEYBOARD["y0"] + kd
+    left = -L.WIDTH / 2 + L.BASE["inset"]
+    k_relief, k_start, k_leaving = plugs.place(*plugs.grommet(grey, 4.0), m["case"],
+                                               (-kw / 2 + 16.0, rear - 1.0, kh / 2), (0.0, 1.0, 0.0))
+    jack, k_end, k_back = plugs.place(*plugs.modular(grey, grey), m["case"], (left, 60.0, L.BASE["height"] / 2),
+                                      (-1.0, 0.0, 0.0))
+    keyboard_cord = cord("keyboard_cord", m, "case", [k_start, k_start + k_leaving * 20.0, k_end + k_back * 30.0,
+                                                      k_end], radius=2.4)
+    whole = join([body, keyboard(m), base, stick_cord, keyboard_cord] + relief + plug + k_relief + jack, "atarixe")
     for p in whole.data.polygons:
         p.use_smooth = True
     whole.data.set_sharp_from_angle(angle=math.radians(35))

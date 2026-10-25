@@ -6,9 +6,9 @@ extruded across its width, its top's ends chamfered down to the sides; the lid i
 hollowed, a hair smaller than the hole it leaves; the bay is cut under it, the slots into the bay's floor, and the
 vents' recess into the top behind it, its fins standing in it. The shell stands on the ports' block and two feet. The
 keys stand on the deck in its frame, each tapering to its printed top, the function keys in their column at the right,
-the power light under them. The CX40 is atari_2600.py's, its cord running to port 1. The printing is one texture
-(atari800_print.py's), projected from above onto the deck and the keys, and from in front onto the lid's face, the ports
-and the bay's back wall.
+the power light under them. The CX40 is atari_2600.py's, its cord running from its strain relief to its 9-pin plug in
+port 1 (plugs.py's). The printing is one texture (atari800_print.py's), projected from above onto the deck and the keys,
+and from in front onto the lid's face, the ports and the bay's back wall.
 
 A node tree: a root (the turn to a three-quarter view, TILT_YAW and TILT_PITCH: the right end towards the viewer, the
 top tipped up; then the model spec's fit: standing on y = 0, centred, the largest side 1 m) holding the set; the set
@@ -36,6 +36,7 @@ from mathutils import Matrix, Vector
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import atari800_layout as L  # noqa: E402
+import plugs  # noqa: E402
 import atari_2600  # noqa: E402
 import atari_2600_layout as AL  # noqa: E402
 from amiga import paint, solid  # noqa: E402
@@ -321,11 +322,14 @@ def main():
     base.data.transform(move)
     shaft_at, button_at = move @ shaft_at, move @ button_at
     w, d, h = AL.STICK["base"]
-    (py0, py1), z = L.PORTS["y"], L.PORTS["z"]
-    port = (L.PORTS["x"][0], py1 - z * (py1 - py0) / L.BASE - 0.4, z)
-    wire = cord(m, [(jx, jy + d / 2 - 4.0, h * 0.4), (jx, jy + d / 2 + 36.0, 2.4), (port[0], port[1] - 36.0, 2.4),
-                    port])
-    whole = join([body, fixed_keys, base, wire], "atari800")
+    black = (lambda o: colour(o, m["keys"], "black"))
+    relief, start, leaving = plugs.place(*plugs.grommet(black, 4.0), m["keys"], (jx, jy + d / 2 - 1.0, h * 0.4),
+                                         (0.0, 1.0, 0.0))
+    (py0, py1), z = L.PORTS["y"], 6.5                           # the plug's middle: it rests on the table
+    port = Vector((L.PORTS["x"][0], py1 - z * (py1 - py0) / L.BASE, z))
+    plug, end, back = plugs.place(*plugs.dsub(black, black, 13.0), m["keys"], port, (0.0, -1.0, 0.0))
+    wire = cord(m, [start, start + leaving * 30.0 + Vector((0.0, 0.0, -10.0)), end + back * 30.0, end])
+    whole = join([body, fixed_keys, base, wire] + relief + plug, "atari800")
     for p in whole.data.polygons:
         p.use_smooth = True
     whole.data.set_sharp_from_angle(angle=math.radians(35))
