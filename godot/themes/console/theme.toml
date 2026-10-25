@@ -257,6 +257,9 @@ model = "models/systems/ps3.glb"               # built by tools/console-models/p
 [systems.ps4]
 model = "models/systems/ps4.glb"               # built by tools/console-models/ps4.py: the first PlayStation 4 and its DualShock 4; its focused clip slides a disc into the slit, lights the light bar blue and plays on the controller, then ejects the disc
 
+[systems.ps5]
+model = "models/systems/ps5.glb"               # built by tools/console-models/ps5.py: the first PlayStation 5, standing on its stand, and its DualSense; its focused clip slides a disc into the slot upright, lights the light strips and plays on the controller, then ejects the disc
+
 [systems.satellaview]
 model = "models/systems/satellaview.glb"       # built by tools/console-models/snes.py: a Super Famicom on its Satellaview; its focused clip drops the BS-X cartridge in, switches on, and the receiver takes a broadcast
 
