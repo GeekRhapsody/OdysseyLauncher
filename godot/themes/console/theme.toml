@@ -153,6 +153,9 @@ model = "models/systems/colecovision.glb"      # built by tools/console-models/c
 [systems.intellivision]
 model = "models/systems/intellivision.glb"     # built by tools/console-models/intellivision.py: Mattel's Intellivision, its controllers docked in its top; its focused clip slides a cartridge into its right end, switches on and lifts the right controller out to play, then puts it back
 
+[systems.plus4]
+model = "models/systems/plus4.glb"             # built by tools/console-models/plus4.py: a Commodore Plus/4 and its 1531 Datassette in front of the ZX Spectrum's television; its focused clip puts a cassette in the Datassette, types LOAD, presses PLAY, finds and loads the game and plays it on the cursor keys, then takes the cassette out
+
 [systems.c64]
 model = "models/systems/c64.glb"              # built by tools/console-models/commodore_64.py
 
