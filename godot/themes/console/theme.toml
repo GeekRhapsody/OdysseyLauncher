@@ -191,6 +191,9 @@ model = "models/systems/ngpc.glb"              # built by tools/console-models/n
 [systems.nes]
 model = "models/systems/nes.glb"
 
+[systems.pc98]
+model = "models/systems/pc98.glb"              # built by tools/console-models/pc98.py: an NEC PC-9801VM, its colour monitor and its keyboard; its focused clip slides a floppy into drive 1, shuts its lever, boots to a game's title, presses RETURN and plays, then takes the floppy out
+
 [systems.pcengine]
 model = "models/systems/pcengine.glb"          # built by tools/console-models/pc_engine.py: the white PC Engine, a HuCard and its pad; its focused clip slides the HuCard in along its channel, slides POWER on and plays the pad, and later takes the HuCard out
 
