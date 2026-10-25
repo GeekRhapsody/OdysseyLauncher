@@ -1,23 +1,30 @@
-"""The console theme's Sega Mega Drive system model (godot/themes/console/models/systems/megadrive.glb).
+"""The console theme's Sega Mega Drive system model (godot/themes/console/models/systems/megadrive.glb): the first Mega
+Drive and its control pad. build(), the console alone, is the 32X's and Mega-CD's cards' too (sega32x.py, mega_cd.py).
 
 Built in Blender from the first model's proportions (280 x 212 mm): the body, flat behind and sloping down to its front,
-its top side edges chamfered; the vents at the back left, wrapping round the side; the control panel sunk into the
-slope at the front left, with the volume slider, the power switch and RESET; the raised round platform with its glossy
-black ring, the disc and the slot's lip; the 16-BIT plate running over the ring; and the controller ports and the
-headphone socket in the front. The printing (the ring's legend, the plate, the panel's legends, MEGA DRIVE SEGA) is
-one texture, drawn by mega_drive_print.py and projected onto the top.
+its top side edges chamfered; the vents at the back left, wrapping round the side; the control panel sunk into the slope
+at the front left, with the volume slider, the power switch and RESET; the raised round platform with its glossy black
+ring, the disc and the slot's lip; the 16-BIT plate running over the ring; and the controller ports and the headphone
+socket in the front. The printing (the ring's legend, the plate, the panel's legends, MEGA DRIVE SEGA) is one texture,
+drawn by mega_drive_print.py and projected onto the top.
 
-A cartridge (mega_drive_cartridge.py's, with the whole label from mega_drive_label.png) is its own node. At rest it's
-shrunk to nothing inside the slot, so the console stands empty and the rest pose's bounds are the console's. The
-`focused` clip (6 s, looping) has it appear above the slot, slide in and seat with a push, stay a while, then come
-back out and vanish, and the next one appear.
+The card (main(); mega_drive_layout.py has its measurements) adds the three-button control pad in front of it at its
+left: its smoothed outline raised with a rounded profile, the D-pad, A, B and C, START, its printing its own texture;
+its cable runs from its strain relief to its 9-pin plug in CONTROL 1 (plugs.py's). The power switch and RESET are
+build()'s, left apart; the POWER light sits on the plate's white strip. The cartridge is mega_drive_cartridge.py's, a
+made-up game, Odyssey, on its label (mega_drive_print.py's megadrive_odyssey.png).
 
-The model is turned to a three-quarter view (TILT_YAW, TILT_PITCH: its right end towards the viewer and its top tipped
-up, as the console looks on a table in front of you), then fitted to the model spec (A7): standing on y = 0, centred,
-the largest side 1 m. The cartridge's mesh and its clip are turned and scaled the same way.
+A node tree: a root (the turn to a three-quarter view, TILT_YAW and TILT_PITCH: the right end towards the viewer, the
+top tipped up; then the model spec's fit: standing on y = 0, centred, the largest side 1 m) holding the set; the set
+holding the cartridge (waiting over the slot, shrunk to nothing), the power switch, RESET, the POWER light (lit and
+unlit, swapped by depth), and the pad's D-pad, A, B and C.
 
-Seven materials (print, gloss, dark, reset; cart, cart_label, pcb) and two textures, within the system model budget.
-Run from the repo root:
+The `focused` clip (8 s, looping): the cartridge drops into the slot and seats with a push; the power switch slides to
+ON and the light comes on; the D-pad rocks while A, B and C fire; RESET; the switch slides back to OFF, the light goes
+out, and the cartridge rises out and goes.
+
+Eight materials (print, gloss, dark, reset, pad; cart, cart_label, pcb) and three textures, within the system model
+budget. Run from the repo root:
 
     python tools/console-models/mega_drive_print.py artifacts/megadrive
     blender -b --factory-startup --python tools/console-models/mega_drive.py -- artifacts/megadrive godot/themes/console/models/systems/megadrive.glb
@@ -33,6 +40,10 @@ from mathutils import Matrix, Vector
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import mega_drive_cartridge as cartridge  # noqa: E402
+import mega_drive_layout as ML  # noqa: E402
+import plugs  # noqa: E402
+from amiga import paint, solid  # noqa: E402
+from clip import HIDDEN, Pose, back_out, ease_in, ease_out, key, phase, smooth  # noqa: E402
 from mega_drive_cartridge import bevel, boolean, box, join, material, new_object, prism_x  # noqa: E402
 
 TILT_YAW = -25.0   # degrees about the vertical: the right end (the slot side) comes towards the viewer
@@ -43,12 +54,6 @@ TOP = 50.0                                   # the flat top, behind the slope
 CENTRE = (34.0, 17.4)                        # the platform's centre (as in mega_drive_print.py)
 LIP = (34.0, 38.0, 134.0, 23.0, 57.5)        # the slot's lip: centre, length, width, top
 OPENING = (34.0, 37.0, 114.0, 15.0)          # the slot's opening: centre, length, width
-INSERTED = 14.0                              # how far the cartridge goes in
-ABOVE = 39.0                                 # how far above its seat the cartridge appears
-FPS = 30
-# The focused clip's keys: (frame, height above the seat in mm, scale).
-KEYS = [(0, 0.0, 0.001), (1, ABOVE, 0.001), (8, ABOVE, 1.06), (11, ABOVE, 1.0), (16, ABOVE, 1.0), (38, 0.0, 1.0),
-        (41, -2.0, 1.0), (45, 0.0, 1.0), (150, 0.0, 1.0), (164, ABOVE, 1.0), (172, ABOVE, 0.001), (180, ABOVE, 0.001)]
 
 
 def prism_z(name, outline, z0, z1, mat):
@@ -125,7 +130,22 @@ def lathe(name, profile, centre, mats, segments=96):
     return obj
 
 
-def build(m):
+def top_uvs(obj):
+    """Prints an object's top: the planar projection from above (as mega_drive_print.py draws it); smooth, its sharp
+    edges kept."""
+    mesh = obj.data
+    uv = mesh.uv_layers[0] if mesh.uv_layers else mesh.uv_layers.new(name="UVMap")
+    for loop in mesh.loops:
+        co = mesh.vertices[loop.vertex_index].co
+        uv.data[loop.index].uv = ((co.x + WIDTH / 2) / WIDTH, (co.y + DEPTH / 2) / DEPTH)
+    for p in mesh.polygons:
+        p.use_smooth = True
+    mesh.set_sharp_from_angle(angle=math.radians(35))
+
+
+def build(m, apart=False):
+    """The console, its top printed. With apart, the power switch and RESET are left out of it and returned too, each
+    its foot's middle at its origin, with where it goes: (console, {"power": (part, place), "reset": ...})."""
     # The body: the side outline (flat top, then the slope down to the front) cut by the plan's corners and the top
     # side chamfers.
     body = prism_x("megadrive", [(-106, 0), (106, 0), (106, TOP), (-38, TOP), (-104, 25), (-106, 23)], -141, 141, m["print"])
@@ -191,73 +211,215 @@ def build(m):
     jack = [(-112 + 2.6 * math.cos(math.radians(a)), 12 + 2.6 * math.sin(math.radians(a))) for a in range(0, 360, 30)]
     boolean(body, prism_y("jack", jack, -110, -101, m["dark"]))
 
-    console = join([body] + slats + parts, "megadrive")
+    moving = dict(zip(("power", "reset"), parts[1:])) if apart else {}
+    console = join([body] + slats + [p for p in parts if p not in moving.values()], "megadrive")
 
     # Everything's top is printed: the planar projection from above (as mega_drive_print.py draws it).
-    mesh = console.data
-    uv = mesh.uv_layers[0] if mesh.uv_layers else mesh.uv_layers.new(name="UVMap")
-    for loop in mesh.loops:
-        co = mesh.vertices[loop.vertex_index].co
-        uv.data[loop.index].uv = ((co.x + WIDTH / 2) / WIDTH, (co.y + DEPTH / 2) / DEPTH)
-    for p in mesh.polygons:
-        p.use_smooth = True
-    mesh.set_sharp_from_angle(angle=math.radians(35))
-    return console
+    top_uvs(console)
+    if not apart:
+        return console
+    out = {}
+    for name, part in moving.items():
+        top_uvs(part)
+        xs, ys, zs = ([v.co[i] for v in part.data.vertices] for i in range(3))
+        foot = Vector(((min(xs) + max(xs)) / 2, (min(ys) + max(ys)) / 2, min(zs)))
+        part.data.transform(Matrix.Translation(-foot))
+        out[name] = (part, foot)
+    return console, out
 
 
-def animate(cart, place):
-    """The focused clip: place(height above the seat) is where the cartridge's node goes."""
-    cart.animation_data_create()
-    for frame, height, scale in KEYS:
-        cart.location = place(height)
-        cart.scale = (scale, scale, scale)
-        cart.keyframe_insert("location", frame=frame)
-        cart.keyframe_insert("scale", frame=frame)
-    cart.animation_data.action.name = "focused"
+# ---- The card --------------------------------------------------------------------------------------------------------
 
+def atlas_uv(region, w, h):
+    rx, ry, rw, rh = region
+    return lambda a, b: ((rx + a / w * rw) / ML.PAD_ATLAS, 1 - (ry + b / h * rh) / ML.PAD_ATLAS)
+
+
+def swatch(name):
+    x, y = ML.SWATCHES[name]
+    return lambda co: (x / ML.PAD_ATLAS, 1 - y / ML.PAD_ATLAS)
+
+
+def colour(obj, mat, name):
+    paint(obj, mat, swatch(name), lambda c, n, kind: True)
+    return obj
+
+
+def pad(m):
+    """The control pad at its place: its body and START; the D-pad, A, B and C apart (each with where it goes). Returns
+    them, and where its cable leaves it and which way."""
+    from saturn import inset, smooth_outline     # here, not at the top: saturn.py imports this module
+    P = ML.PAD
+    x, y, turn = P["at"]
+    spin = Matrix.Rotation(math.radians(turn), 4, "Z")
+    place = Matrix.Translation((x, y, 0.0)) @ spin
+    outline = smooth_outline(P["points"])
+    h = P["height"]
+    profile = ((0.0, 6.0), (0.12, 2.2), (0.3, 0.0), (0.55, 0.4), (0.78, 2.0), (0.9, 3.4), (0.96, 4.8), (0.99, 6.0),
+               (1.0, 7.4))
+    body = solid("pad", [[(px, py, h * z) for px, py in (inset(outline, d) if d else outline)] for z, d in profile],
+                 m["pad"])
+    colour(body, m["pad"], "pad")
+    face = atlas_uv(ML.PAD_REGIONS["pad"], 168.0, 100.0)
+    paint(body, m["pad"], lambda co: face(co.x + 84.0, 50.0 - co.y), lambda c, n, kind: n.z > 0.8)
+    (sx, sy), (sw, sh) = P["start"]
+    ring = [(sx + sw / 2 * math.cos(2 * math.pi * k / 20), sy + sh / 2 * math.sin(2 * math.pi * k / 20))
+            for k in range(20)]
+    start = colour(solid("start", [[(px, py, z) for px, py in ring] for z in (h - 1.5, h + 1.2)], m["pad"]),
+                   m["pad"], "start")
+    whole = join([body, start], "pad")
+    whole.data.transform(place)
+
+    moving = {}
+    (dx, dy), _ = P["disc"]
+    arm, width = P["dpad"]
+    cross = join([box("arm", -arm, arm, -width / 2, width / 2, -1.0, 3.0, m["pad"]),
+                  box("arm", -width / 2, width / 2, -arm, arm, -1.0, 3.0, m["pad"])], "dpad")
+    bevel(cross, 1.2, segments=2, angle=30)
+    colour(cross, m["pad"], "button")
+    moving["dpad"] = (cross, place @ Vector((dx, dy, h)))
+    r = P["abc_r"]
+    for name, (bx, by) in zip(("a", "b", "c"), P["abc"]):
+        button = solid(name, [[(rr * math.cos(2 * math.pi * k / 24), rr * math.sin(2 * math.pi * k / 24), z)
+                               for k in range(24)] for rr, z in ((r, -1.0), (r, 2.6), (r * 0.8, 4.0))], m["pad"])
+        moving[name] = (colour(button, m["pad"], "button"), place @ Vector((bx, by, h)))
+    for part, _ in moving.values():
+        part.data.transform(spin)
+    cx, cy = P["cable"]
+    return whole, moving, (place @ Vector((cx, cy, h * 0.5)), spin @ Vector((0.0, 1.0, 0.0)))
+
+
+def light(m):
+    """The POWER light on the plate's strip, lit and unlit (swapped by depth)."""
+    (x, y), z, r = ML.LIGHT["at"], ML.LIGHT["z"], ML.LIGHT["r"]
+    ring = [(r * math.cos(2 * math.pi * k / 12), r * math.sin(2 * math.pi * k / 12)) for k in range(12)]
+    return {name: (colour(solid(name, [[(px, py, h) for px, py in ring] for h in (-0.6, 0.35)], m["pad"]), m["pad"],
+                          tone), Vector((x, y, z)))
+            for name, tone in (("light", "lit"), ("light_off", "off"))}
+
+
+def cable(m, points):
+    """The pad's cable: a tube along the Bézier curve through four control points."""
+    p0, p1, p2, p3 = (Vector(p) for p in points)
+    path = [p0 * (1 - t) ** 3 + p1 * 3 * t * (1 - t) ** 2 + p2 * 3 * t * t * (1 - t) + p3 * t ** 3
+            for t in [k / 24 for k in range(25)]]
+    bm = bmesh.new()
+    rings, normal = [], Vector((0.0, 0.0, 1.0))
+    for k, p in enumerate(path):
+        tangent = (path[min(k + 1, 24)] - path[max(k - 1, 0)]).normalized()
+        normal = (normal - tangent * normal.dot(tangent)).normalized()
+        binormal = tangent.cross(normal)
+        rings.append([bm.verts.new(p + (normal * math.cos(a) + binormal * math.sin(a)) * 2.2)
+                      for a in [2 * math.pi * j / 8 for j in range(8)]])
+    for a, b in zip(rings, rings[1:]):
+        for j in range(8):
+            bm.faces.new([a[j], a[(j + 1) % 8], b[(j + 1) % 8], b[j]])
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    return colour(new_object("cable", bm, m["pad"]), m["pad"], "black")
+
+
+# ---- The focused clip ------------------------------------------------------------------------------------------------
+
+def tap(f, f0, hold=2):
+    return smooth(phase(f, f0, f0 + 3)) * (1 - smooth(phase(f, f0 + 3 + hold, f0 + 7 + hold)))
+
+
+def timeline(f):
+    above = ML.CART["above"]
+    if f < 8 or f >= 200:
+        cart = Pose(z=above, scale=HIDDEN)
+    elif f < 15:
+        cart = Pose(z=above, scale=max(HIDDEN, back_out(phase(f, 8, 15))))
+    elif f < 30:
+        cart = Pose(z=above * (1 - ease_in(phase(f, 15, 30))))
+    elif f < 186:
+        cart = Pose(z=-2.0 * math.sin(math.pi * phase(f, 30, 36)))
+    else:
+        cart = Pose(z=above * ease_out(phase(f, 186, 196)), scale=max(HIDDEN, 1 - ease_in(phase(f, 194, 200))))
+    on = smooth(phase(f, 40, 46)) * (1 - smooth(phase(f, 172, 178)))
+    lit = 44 <= f < 176
+    t = phase(f, 66, 162)
+    k = math.sin(math.pi * t)
+    sink = Pose(z=-1.2)
+    return {"cartridge": cart, "power": Pose(x=ML.SWITCH["on"] * on), "reset": Pose(z=-1.6 * tap(f, 164)),
+            "light": Pose() if lit else sink, "light_off": sink if lit else Pose(),
+            "dpad": Pose(pitch=8.0 * k * math.sin(2 * math.pi * 3.0 * t),
+                         roll=8.0 * k * math.cos(2 * math.pi * 2.0 * t)),
+            "a": Pose(z=-2.0 * max(tap(f, f0) for f0 in (74, 98, 122, 146))),
+            "b": Pose(z=-2.0 * max(tap(f, f0) for f0 in (84, 110, 134))),
+            "c": Pose(z=-2.0 * max(tap(f, f0) for f0 in (92, 118, 140, 156)))}
+
+
+# ---- Main ------------------------------------------------------------------------------------------------------------
 
 def main():
     args = sys.argv[sys.argv.index("--") + 1:]
     images, out = os.path.abspath(args[0]), os.path.abspath(args[1])
     bpy.ops.wm.read_factory_settings(use_empty=True)
     scene = bpy.context.scene
-    scene.render.fps = FPS
+    scene.render.fps = ML.FPS
     print_image = bpy.data.images.load(os.path.join(images, "megadrive_print.png"))
-    label_image = bpy.data.images.load(os.path.join(images, "megadrive_label.png"))
-
+    label_image = bpy.data.images.load(os.path.join(images, "megadrive_odyssey.png"))
+    pad_image = bpy.data.images.load(os.path.join(images, "megadrive_pad.png"))
     m = {
         "print": material("print", "#FFFFFF", 0.55, print_image),
         "gloss": material("gloss", "#FFFFFF", 0.18, print_image),
         "dark": material("dark", "#060607", 0.9),
         "reset": material("reset", "#C4C5BC", 0.5),
+        "pad": material("pad", "#FFFFFF", 0.4, pad_image),
     }
-    console = build(m)
+    console, moving = build(m, apart=True)
+    body, pad_parts, (exit_at, exit_dir) = pad(m)
+    moving.update(pad_parts)
+    black = (lambda o: colour(o, m["pad"], "black"))
+    relief, start, leaving = plugs.place(*plugs.grommet(black, 3.6), m["pad"], exit_at, exit_dir)
+    port = Vector((ML.PORT["x"], ML.PORT["front"], ML.PORT["z"]))
+    plug, end, back = plugs.place(*plugs.dsub(black, black, 12.0), m["pad"], port, (0.0, -1.0, 0.0), (0.0, 0.0, -1.0))
+    lead = cable(m, [start, start + leaving * 40.0 + Vector((0.0, 0.0, -8.0)), end + back * 50.0, end])
+    # The power switch's slot, dark: its print shows the knob's stripe where the knob rests, which the slid knob would
+    # leave behind.
+    slot = colour(box("switch_slot", -85.5, -58.5, -57.2, -46.1, 25.5, 25.6, m["pad"]), m["pad"], "black")
+    extras = [body, lead, slot] + relief + plug
+    for part in extras:
+        for p in part.data.polygons:
+            p.use_smooth = True
+    whole = join([console] + extras, "megadrive")
+    whole.data.set_sharp_from_angle(angle=math.radians(35))
+
+    root = bpy.data.objects.new("megadrive_root", None)
+    scene.collection.objects.link(root)
+    whole.parent = root
+    moving.update(light(m))
     cart = cartridge.build({"case": material("cart", "#141416", 0.45),
                             "label": material("cart_label", "#FFFFFF", 0.4, label_image),
                             "pcb": material("pcb", "#B8924A", 0.35)}, whole_label=True)
+    moving["cartridge"] = (cart, Vector((OPENING[0], OPENING[1], LIP[4] - ML.CART["inserted"])))
+    nodes = {}
+    for name, (part, where) in moving.items():
+        if name != "cartridge":
+            for p in part.data.polygons:
+                p.use_smooth = True
+            part.data.set_sharp_from_angle(angle=math.radians(35))
+        part.parent = whole
+        part.location = where
+        nodes[name] = part
 
-    # The three-quarter view, then the spec's fit: on y = 0 (Blender's z), centred, the largest side 1 m.
     tilt = Matrix.Rotation(math.radians(TILT_PITCH), 4, "X") @ Matrix.Rotation(math.radians(TILT_YAW), 4, "Z")
-    mesh = console.data
-    mesh.transform(tilt)
-    lo = Vector([min(v.co[i] for v in mesh.vertices) for i in range(3)])
-    hi = Vector([max(v.co[i] for v in mesh.vertices) for i in range(3)])
+    points = [tilt @ v.co for v in whole.data.vertices]
+    lo = Vector([min(p[i] for p in points) for i in range(3)])
+    hi = Vector([max(p[i] for p in points) for i in range(3)])
     size = hi - lo
-    fit = Matrix.Scale(1 / max(size), 4) @ Matrix.Translation((-(lo.x + hi.x) / 2, -(lo.y + hi.y) / 2, -lo.z))
-    mesh.transform(fit)
-    whole = fit @ tilt
+    root.matrix_world = Matrix.Scale(1 / max(size), 4) @ Matrix.Translation((-(lo.x + hi.x) / 2, -(lo.y + hi.y) / 2,
+                                                                             -lo.z)) @ tilt
 
-    # The cartridge: its mesh turned and scaled like the console's, its node moving along the console's up.
-    cart.data.transform(Matrix.Scale(1 / max(size), 4) @ tilt)
-    seat = Vector((OPENING[0], OPENING[1], LIP[4] - INSERTED))
-    animate(cart, lambda height: whole @ (seat + Vector((0, 0, height))))
-    scene.frame_start, scene.frame_end = KEYS[0][0], KEYS[-1][0]
-    scene.frame_set(0)
-
-    tris = cartridge.triangles(mesh) + cartridge.triangles(cart.data)
-    print(f"Mega Drive: {tris} triangles ({cartridge.triangles(cart.data)} the cartridge), "
-          f"{len(mesh.materials) + len(cart.data.materials)} materials, size {size.x:.1f} x {size.y:.1f} x {size.z:.1f} mm tilted, before the fit")
-    cartridge.export([console, cart], out, animations=True)
+    key("focused", nodes, timeline, ML.LENGTH)
+    meshes = [whole] + list(nodes.values())
+    print(f"Mega Drive: {sum(cartridge.triangles(o.data) for o in meshes)} triangles "
+          f"({cartridge.triangles(whole.data)} the set), "
+          f"{len({mat.name for o in meshes for mat in o.data.materials})} materials, "
+          f"size {size.x:.1f} x {size.y:.1f} x {size.z:.1f} mm tilted, before the fit")
+    cartridge.export([root] + meshes, out, animations=True)
 
 
-main()
+if __name__ == "__main__":
+    main()

@@ -1,14 +1,18 @@
-"""The Mega Drive's printing and its cartridge label, for the console theme's models (mega_drive.py, mega_drive_cartridge.py).
+"""The Mega Drive's printing and its cartridge label, for the console theme's models (mega_drive.py,
+mega_drive_cartridge.py).
 
-Writes three images into a folder:
-- megadrive_print.png: the console's top, as the model's planar UVs map it (x -140..140 left to right, y -106..106 front
-  to back, seen from above): the body colour, the black ring with HIGH DEFINITION GRAPHICS - STEREO SOUND round its
-  back, the slot's black lip, the 16-BIT plate and its white POWER strip, the volume, power and reset legends in the
-  control panel, and MEGA DRIVE SEGA on the front slope.
-- megadrive_label.png: mega_drive_label.png (the cartridge label) as plain RGB, for the inserted cartridge.
-- megadrive_band.png: the label's bottom band (the grid and the MEGA DRIVE logo under the grey border), for the
-  cartridge template, whose art shows above it. What's above the border's curve is painted the border's grey, so
-  filtering never brings the label's art in at the edge.
+Writes five images into a folder: - megadrive_print.png: the console's top, as the model's planar UVs map it (x
+-140..140 left to right, y -106..106 front to back, seen from above): the body colour, the black ring with HIGH
+DEFINITION GRAPHICS - STEREO SOUND round its back, the slot's black lip, the 16-BIT plate and its white POWER strip, the
+volume, power and reset legends in the control panel, and MEGA DRIVE SEGA on the front slope. - megadrive_label.png:
+mega_drive_label.png (the cartridge label) as plain RGB, for the inserted cartridge. - megadrive_band.png: the label's
+bottom band (the grid and the MEGA DRIVE logo under the grey border), for the cartridge template, whose art shows above
+it. What's above the border's curve is painted the border's grey, so filtering never brings the label's art in at the
+edge. - megadrive_odyssey.png: a label in the same layout for the console's card, with a made-up game, Odyssey (space,
+the ship, the ringed planet, its title) over a band of its own (the grid, the grey border with its bump, SEGA and MEGA
+DRIVE in plain lettering), for the cartridge its focused clip puts in. - megadrive_pad.png: the control pad's printing
+and the swatches its small parts take their colour from, laid out as mega_drive_layout.py's PAD_REGIONS and SWATCHES
+say.
 
 Run it with the system Python (Pillow):
 
@@ -208,8 +212,76 @@ def label_images(label_out, band_out):
     band.save(band_out, optimize=True)
 
 
+def odyssey_label(out):
+    """The card's cartridge label, in the label's layout (600 x 500 pixels): Odyssey's art and title above, a band of
+    its own below the grey border's curve."""
+    sys.path.insert(0, HERE)
+    from psp_print import ship, space
+    w, h = LABEL_SIZE
+    label = space((w, h)).convert("RGB")
+    d = ImageDraw.Draw(label)
+    ship(d, 160, 210, 6.0, "#FFFFFF", "#FFB23C")
+    d.text((w / 2, 52), "ODYSSEY", font=ImageFont.truetype(FONTS + "ariblk.ttf", 62), fill=(255, 214, 70),
+           anchor="mm")
+    grey = (142, 135, 133)
+    for x in range(w):                                     # the grey border, its curve the model's
+        d.line([(x, border_top(x + 0.5)), (x, h)], fill=grey)
+    d.rectangle([0, 404, w, h], fill=(14, 14, 16))
+    for x in range(0, w, 24):                              # the band's grid
+        d.line([(x, 404), (x, h)], fill=(70, 70, 76), width=2)
+    for y in range(404, h, 24):
+        d.line([(0, y), (w, y)], fill=(70, 70, 76), width=2)
+    d.ellipse([254, 376, 346, 412], fill=(40, 60, 170), outline=(220, 220, 228), width=3)
+    d.text((300, 394), "SEGA", font=ImageFont.truetype(FONTS + "ariblk.ttf", 22), fill=(240, 240, 244), anchor="mm")
+    d.rounded_rectangle([86, 422, 514, 478], 26, fill=(180, 184, 192), outline=(240, 240, 244), width=3)
+    d.text((300, 450), "MEGA DRIVE", font=ImageFont.truetype(FONTS + "ariblk.ttf", 44), fill=(30, 34, 60),
+           anchor="mm")
+    label.save(out, optimize=True)
+
+
+def pad_print(out):
+    """The control pad from above (x across, -80 at the left; y down from its top, 50) and the swatches."""
+    sys.path.insert(0, HERE)
+    import mega_drive_layout as L
+    from windows_pc_print import Region
+    body = (26, 26, 30)
+    reg = Region(L.PAD_REGIONS["pad"], 168.0, 100.0, body)
+
+    def at(x, y):
+        return x + 84.0, 50.0 - y
+
+    (dx, dy), dr = L.PAD["disc"]
+    reg.circle(*at(dx, dy), dr + 1.4, (16, 16, 18))
+    reg.circle(*at(dx, dy), dr, (34, 34, 38))
+    for k, ang in enumerate((90, 0, 270, 180)):             # the D-pad's arrows round its disc
+        import math
+        a = math.radians(ang)
+        cx, cy = dx + math.cos(a) * (dr - 3.0), dy + math.sin(a) * (dr - 3.0)
+        side = (-math.sin(a) * 1.6, math.cos(a) * 1.6)
+        tip = (cx + math.cos(a) * 1.8, cy + math.sin(a) * 1.8)
+        reg.poly([at(*tip), at(cx + side[0], cy + side[1]), at(cx - side[0], cy - side[1])], (200, 200, 204))
+    reg.text("MEGA DRIVE CONTROL PAD", "arial.ttf", 2.8, *at(-26.0, 33.0), (190, 190, 196))
+    reg.text("SEGA", "ariblk.ttf", 7.0, *at(-6.0, 14.0), (226, 226, 230))
+    (sx, sy), (sw, sh) = L.PAD["start"]
+    reg.text("START", "arialbd.ttf", 2.6, *at(sx, sy + sh / 2 + 3.0), (190, 190, 196))
+    for c, (x, y) in zip("ABC", L.PAD["abc"]):
+        reg.circle(*at(x, y), L.PAD["abc_r"] + 1.2, (16, 16, 18))
+        reg.text(c, "arialbd.ttf", 3.2, *at(x - L.PAD["abc_r"] - 3.0, y + 2.0), (190, 190, 196))
+    reg.text("TRIGGER", "arialbd.ttf", 2.8, *at(48.0, -20.0), (190, 190, 196))
+    image = Image.new("RGB", (L.PAD_ATLAS, L.PAD_ATLAS), body)
+    reg.paste(image)
+    d = ImageDraw.Draw(image)
+    colours = dict(pad=body, button=(30, 30, 34), black=(14, 14, 16), lit=(255, 50, 36), off=(70, 20, 20),
+                   start=(150, 150, 156))
+    for name, (x, y) in L.SWATCHES.items():
+        d.rectangle([x - 12, y - 12, x + 11, y + 11], fill=colours[name])
+    image.save(out, optimize=True)
+
+
 if __name__ == "__main__":
     folder = os.path.abspath(sys.argv[1])
     os.makedirs(folder, exist_ok=True)
     top_print(os.path.join(folder, "megadrive_print.png"))
     label_images(os.path.join(folder, "megadrive_label.png"), os.path.join(folder, "megadrive_band.png"))
+    odyssey_label(os.path.join(folder, "megadrive_odyssey.png"))
+    pad_print(os.path.join(folder, "megadrive_pad.png"))

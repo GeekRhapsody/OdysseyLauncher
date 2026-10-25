@@ -57,14 +57,41 @@ model = "models/systems/wonderswan.glb"       # built by tools/console-models/wo
 [systems.wonderswancolor]
 model = "models/systems/wonderswancolor.glb"  # built by tools/console-models/wonderswan.py, turned to a three-quarter view; its focused clip swoops a cartridge in, then leaps onto its end in a full twirl
 
+[systems.nds]
+model = "models/systems/nds.glb"                # built by tools/console-models/nintendo_ds.py: a DS Lite open, turned to a three-quarter view; its focused clip slides a game card into slot-1, lights both screens, and the stylus taps TOUCH TO START
+
+[systems.n3ds]
+model = "models/systems/n3ds.glb"               # built by tools/console-models/nintendo_ds.py: the first 3DS in Aqua Blue, open, turned to a three-quarter view; its focused clip slides a game card in, lights the HOME Menu, and the stylus taps TOUCH TO START
+
+[systems.virtualboy]
+model = "models/systems/virtualboy.glb"        # built by tools/console-models/virtualboy.py: the Virtual Boy on its stand, its controller standing on its grips beside it; its focused clip turns the unit round on its stand to show its eyes, where a made-up game plays in red, then turns it back
+
+[systems.wii]
+model = "models/systems/wii.glb"                # built by tools/console-models/wii.py: the Wii on its stand, its remote leaning on it; its focused clip slides a disc in, the slot glows, the remote rumbles
+
+[systems.pokemini]
+model = "models/systems/pokemini.glb"          # built by tools/console-models/pokemini.py: the Pokémon mini in Wooper Blue, its clock on the LCD; its focused clip drops a cartridge into the top of its back and plays a made-up game on the D-pad and A, shakes it and rumbles, then takes the cartridge out
+
 [systems.psp]
 model = "models/systems/psp.glb"              # built by tools/console-models/psp.py, turned to a three-quarter view; its focused clip turns it round, rolls a UMD into its door, and turns back to the XMB and the game
 
+[systems.mastersystem]
+model = "models/systems/mastersystem.glb"      # built by tools/console-models/master_system.py: the first Master System and its Control Pad; its focused clip drops a cartridge in through the dust flap, presses POWER, plays the pad and PAUSE, and later takes the cartridge out
+
+[systems.segacd]
+model = "models/systems/segacd.glb"            # built by tools/console-models/mega_cd.py: the first Mega-CD with the Mega Drive (mega_drive.py's) on it; its focused clip slides the tray out, drops a CD in, takes it in while ACCESS flickers, and later ejects it
+
 [systems.megadrive]
-model = "models/systems/megadrive.glb"        # built by tools/console-models/mega_drive.py, turned to a three-quarter view; its focused clip inserts a cartridge
+model = "models/systems/megadrive.glb"        # built by tools/console-models/mega_drive.py: the first Mega Drive and its control pad; its focused clip drops a cartridge into the slot, slides POWER on and lights the POWER light, plays on the pad, presses RESET, then switches off and takes the cartridge out
+
+[systems.sega32x]
+model = "models/systems/sega32x.glb"           # built by tools/console-models/sega32x.py: the Mega Drive 32X plugged into the first Mega Drive (mega_drive.py's); its focused clip hops it off and back on with a turn in the air, then drops a cartridge into its slot through the dust flaps, and later takes it out
 
 [systems.windows]
 model = "models/systems/windows.glb"          # built by tools/console-models/windows_pc.py: a gaming PC with a glass side and RGB fans, and its monitor
+
+[systems.desktop]
+model = "models/systems/desktop.glb"           # built by tools/console-models/desktop.py: Desktop Apps has no hardware, so an unbranded laptop showing a made-up desktop of shortcuts; its focused clip double-clicks the game's shortcut, plays it in its window, then closes it
 
 [systems.dos]
 model = "models/systems/dos.glb"              # built by tools/console-models/retro_pc.py: a late-80s 386 desktop with a 14-inch VGA monitor on it
@@ -75,24 +102,217 @@ model = "models/systems/windows3x.glb"        # built by tools/console-models/re
 [systems.windows9x]
 model = "models/systems/windows9x.glb"        # built by tools/console-models/retro_pc.py: a late-90s mini tower with a 15-inch monitor beside it
 
+[systems.wiiu]
+model = "models/systems/wiiu.glb"              # built by tools/console-models/wiiu.py: the Wii U in black and its GamePad in its cradle, the Wii U Menu on its screen; its focused clip slides a disc in, starts it from the menu and plays on the GamePad, then ejects it
+
 [systems.switch]
 model = "models/systems/switch.glb"           # built by tools/console-models/switch.py, turned to a three-quarter view; its focused clip slides the right Joy-Con up its rail and back
 
+[systems.3do]
+model = "models/systems/3do.glb"               # built by tools/console-models/threedo.py: a Panasonic FZ-1 and its controller; its focused clip slides the tray out, drops a CD in, takes it in while ACCESS flickers, plays the pad, and later ejects the CD
+
+[systems.vectrex]
+model = "models/systems/vectrex.glb"           # built by tools/console-models/vectrex.py: MB's Vectrex with its controller in front of it, the power-on screen drawn in lines; its focused clip slides a cartridge into its side, settles an overlay over the tube and plays a made-up vector game while the joystick rocks, then takes them out again
+
+[systems.atarist]
+model = "models/systems/atarist.glb"           # built by tools/console-models/atari_st.py: a 520STFM, its SC1224 showing GEM's desktop, and its mouse; its focused clip slides a floppy in, double-clicks its way to the game, and ejects it
+
+[systems.channelf]
+model = "models/systems/channelf.glb"          # built by tools/console-models/channelf.py: the first Fairchild Channel F, walnut and black, and its two controllers; its focused clip slides a Videocart into the slot past its door, presses RESET and 1 and plays on a controller's knob, then ejects the Videocart
+
+[systems.atari2600]
+model = "models/systems/atari2600.glb"         # built by tools/console-models/atari_2600.py: the four-switch woody and its CX40 joystick; its focused clip drops a cartridge in, flips POWER, flicks SELECT and RESET, and waggles the joystick
+
+[systems.atari5200]
+model = "models/systems/atari5200.glb"         # built by tools/console-models/atari5200.py: an Atari 5200 (four ports) and its controller; its focused clip drops a cartridge in, switches on, presses START and plays on the stick and fire button, then takes the cartridge out
+
+[systems.atari7800]
+model = "models/systems/atari7800.glb"         # built by tools/console-models/atari7800.py: an Atari 7800 ProSystem and its ProLine joystick; its focused clip drops a cartridge in, switches on, presses RESET and plays on the joystick, then takes the cartridge out
+
+[systems.atari800]
+model = "models/systems/atari800.glb"          # built by tools/console-models/atari800.py: an Atari 800 and its CX40 joystick; its focused clip lifts the lid, drops a cartridge into the left slot and shuts the lid, presses OPTION and START and plays on the joystick, then takes the cartridge out
+
+[systems.atarixe]
+model = "models/systems/atarixe.glb"           # built by tools/console-models/xegs.py: the XE Game System, its keyboard and its CX40 joystick; its focused clip drops a cartridge into the slot, presses POWER (its LED lights) and START and plays on the joystick, then switches off and takes the cartridge out
+
+[systems.atarijaguar]
+model = "models/systems/atarijaguar.glb"       # built by tools/console-models/jaguar.py: an Atari Jaguar and its controller; its focused clip drops a cartridge in, presses the power button and plays on the pad, then takes the cartridge out
+
+[systems.atarijaguarcd]
+model = "models/systems/atarijaguarcd.glb"     # built by tools/console-models/jaguar.py: the Jaguar with the Jaguar CD on it, and its controller; its focused clip opens the lid, drops a CD in, presses the power button and plays, then takes the CD out
+
+[systems.atarilynx]
+model = "models/systems/atarilynx.glb"         # built by tools/console-models/lynx.py: an Atari Lynx II; its focused clip drops a game card into its back, plays, then FLIPs the picture and turns over to play the other way up, and back, and takes the card out
+
+[systems.cdimono1]
+model = "models/systems/cdimono1.glb"          # built by tools/console-models/cdi.py: a Philips CD-i 220 and its gamepad; its focused clip opens the tray, drops a disc in, reads it and plays on the gamepad, then takes the disc out
+
+[systems.colecovision]
+model = "models/systems/colecovision.glb"      # built by tools/console-models/colecovision.py: the ColecoVision, one controller in its bay and one in front; its focused clip drops a cartridge in, switches on, picks skill 1 on the keypad and plays the knob and fire button, and later takes the cartridge out
+
+[systems.intellivision]
+model = "models/systems/intellivision.glb"     # built by tools/console-models/intellivision.py: Mattel's Intellivision, its controllers docked in its top; its focused clip slides a cartridge into its right end, switches on and lifts the right controller out to play, then puts it back
+
+[systems.plus4]
+model = "models/systems/plus4.glb"             # built by tools/console-models/plus4.py: a Commodore Plus/4 and its 1531 Datassette in front of the ZX Spectrum's television; its focused clip puts a cassette in the Datassette, types LOAD, presses PLAY, finds and loads the game and plays it on the cursor keys, then takes the cassette out
+
 [systems.c64]
 model = "models/systems/c64.glb"              # built by tools/console-models/commodore_64.py
+
+[systems.odyssey2]
+model = "models/systems/odyssey2.glb"          # built by tools/console-models/odyssey2.py: a Magnavox Odyssey² and its two joysticks; its focused clip drops a cartridge in, presses POWER and plays on the joystick, then takes the cartridge out
 
 [systems.amstradcpc]
 model = "models/systems/amstradcpc.glb"       # built by tools/console-models/amstrad_cpc.py: a CPC 464 and its CTM644 monitor; its focused clip loads a game from tape
 video = "videos/amstradcpc.mp4"               # drawn by tools/console-models/amstrad_cpc_video.py: the screen through the clip, played on the glass's video material
 
+[systems.gx4000]
+model = "models/systems/gx4000.glb"            # built by tools/console-models/gx4000.py: the Amstrad GX4000 and its controller; its focused clip drops a cartridge into the slot through its flaps, switches on and plays on the controller, presses PAUSE, then switches off and takes the cartridge out
+
+[systems.cdtv]
+model = "models/systems/cdtv.glb"              # built by tools/console-models/cdtv.py: the Commodore CDTV and its remote controller; its focused clip slides a caddy into the slot, lights the LEDs, counts the track's time on the display and plays on the remote, then ejects the caddy
+
+[systems.amiga]
+model = "models/systems/amiga.glb"            # built by tools/console-models/amiga.py: an Amiga 500 and its 1084S monitor, Kickstart 1.3 asking for a disk; its focused clip loads a game from a floppy, then resets with Ctrl and both Amiga keys
+
+[systems.xbox]
+model = "models/systems/xbox.glb"              # built by tools/console-models/xbox.py: the original Xbox and its Controller S; its focused clip switches on, slides the tray out, drops a DVD on it and plays on the pad, then takes the DVD out
+
+[systems.xbox360]
+model = "models/systems/xbox360.glb"           # built by tools/console-models/xbox360.py: the first Xbox 360 in white, lying flat, its controller on its top; its focused clip lights the Ring of Light, slides the tray out, drops a disc on it and plays on the controller, then takes the disc out
+
+[systems.bbcmicro]
+model = "models/systems/bbcmicro.glb"          # built by tools/console-models/bbcmicro.py: the BBC Micro Model B, a twin disk drive on it and a Microvitec Cub on the drive; its focused clip slides a floppy into drive 0, boots it with SHIFT and BREAK to a teletext title, and plays
+
+[systems.electron]
+model = "models/systems/electron.glb"          # built by tools/console-models/electron.py: an Acorn Electron with a Plus 1 on its back, in front of the ZX Spectrum's television; its focused clip drops a ROM cartridge into the Plus 1, starts it with CTRL and BREAK and plays
+
+[systems.ti99]
+model = "models/systems/ti99.glb"              # built by tools/console-models/ti99.py: the silver and black TI-99/4A and its two joysticks; its focused clip slides a command module into the slot, the power light comes on, presses 2 and plays on the joystick, then slides the module out
+
+[systems.macintosh]
+model = "models/systems/macintosh.glb"         # built by tools/console-models/macintosh.py: the original Macintosh, its keyboard and its mouse; its focused clip slides a floppy into the drive, boots from the question mark through the happy Mac and Welcome to Macintosh. to the game, plays with the mouse, then ejects the floppy
+
+[systems.archimedes]
+model = "models/systems/archimedes.glb"        # built by tools/console-models/archimedes.py: a BBC A3000, its three-button mouse and an Acorn colour monitor; its focused clip slides a floppy into the drive, opens its filer window and !Odyssey with the mouse and plays the game on the cursor keys, then ejects the floppy
+
+[systems.dragon32]
+model = "models/systems/dragon32.glb"          # built by tools/console-models/dragon32.py: a Dragon 32 in front of the ZX Spectrum's television; its focused clip slides a cartridge into the slot in its right side, Odyssey starts and is played on the arrow keys, then the cartridge comes out and the Dragon starts again
+
+[systems.oric]
+model = "models/systems/oric.glb"              # built by tools/console-models/oric.py: an Oric Atmos and a cassette recorder in front of the ZX Spectrum's television; its focused clip puts a cassette in the recorder, types CLOAD"" and presses PLAY, loads the game and plays it on the arrow keys, then takes the cassette out
+
+[systems.zxspectrum]
+model = "models/systems/zxspectrum.glb"       # built by tools/console-models/zx_spectrum.py: a ZX Spectrum 48K and a portable television; its focused clip types LOAD "" and loads a game from tape, stripes and all
+
+[systems.vic20]
+model = "models/systems/vic20.glb"             # built by tools/console-models/vic20.py: a Commodore VIC-20 and the ZX Spectrum's portable television, READY. on the screen; its focused clip switches off, plugs a cartridge into the expansion port, switches on to the game and plays it, then takes it out
+
+[systems.zx81]
+model = "models/systems/zx81.glb"              # built by tools/console-models/zx81.py: a ZX81 and the ZX Spectrum's portable television; its focused clip types LOAD "" and loads a game through its flickering bands
+
+# The generic MSX shares MSX1's card.
+[systems.msx]
+model = "models/systems/msx1.glb"
+
+[systems.msx1]
+model = "models/systems/msx1.glb"              # built by tools/console-models/msx.py: a Philips VG-8020; its focused clip flips the lid back, drops a cartridge in, switches on, and plays the cursor keys
+
+[systems.msx2]
+model = "models/systems/msx2.glb"              # built by tools/console-models/msx2.py: a Philips VG-8235, the MSX2 with its 3.5 drive in its right end; its focused clip slides a disk into the drive, flickers FDD BUSY, plays the cursor keys, the space bar and CAPS, then ejects the disk
+
+[systems.flash]
+model = "models/systems/flash.glb"             # built by tools/console-models/flash.py: Flash has no hardware, so a 2000s LCD monitor playing a Flash game in a browser, and its mouse; its focused clip fills the preloader, clicks PLAY, plays, and right-clicks the Flash Player's menu
+
+[systems.pico8]
+model = "models/systems/pico8.glb"             # built by tools/console-models/pico8.py: PICO-8 has no hardware, so its cartridge made solid, its label a screen; its focused clip hops it round once and boots its label into a game
+
+[systems.amigacd32]
+model = "models/systems/amigacd32.glb"         # built by tools/console-models/cd32.py: the Amiga CD32 and its pad; its focused clip swings the lid up, drops a CD in, plays the pad's coloured buttons, and later takes the CD out
+
+[systems.apple2]
+model = "models/systems/apple2.glb"            # built by tools/console-models/apple2.py: an Apple IIe, two Disk II drives and a Monitor II; its focused clip boots a game from a floppy, its title screen arriving in hi-res's line order, then resets
+
+[systems.apple2gs]
+model = "models/systems/apple2gs.glb"          # built by tools/console-models/apple2gs.py: an Apple IIGS, its AppleColor RGB monitor, 3.5 drive, keyboard and mouse; its focused clip slides a disk in, boots GS/OS to a game's title, presses RETURN and plays, then ejects the disk
+
+[systems.fds]
+model = "models/systems/fds.glb"               # built by tools/console-models/fds.py: a Famicom with its RAM adapter on its Disk System drive; its focused clip slides a disk card in, ejects it, turns it over to side B and puts it back
+
+[systems.neogeo]
+model = "models/systems/neogeo.glb"            # built by tools/console-models/neogeo.py: a Neo Geo AES and its arcade stick; its focused clip drops a cartridge in, switches on, throws two fireballs and a combo on the stick, and later takes the cartridge out
+
+[systems.neogeocd]
+model = "models/systems/neogeocd.glb"          # built by tools/console-models/neogeocd.py: a Neo Geo CD top-loader and its controller; its focused clip lifts the lid, drops a CD in, flickers the access light through the long load, plays on the pad, then takes the CD out
+
+[systems.ngp]
+model = "models/systems/ngp.glb"               # built by tools/console-models/neogeo_pocket.py: a Neo Geo Pocket (the monochrome one) in carbon black; its clip is the Color's, its screens in the Pocket's four greys
+
+[systems.ngpc]
+model = "models/systems/ngpc.glb"              # built by tools/console-models/neogeo_pocket.py: a Neo Geo Pocket Color in Platinum Blue; its focused clip drops a cartridge into its back, boots, plays on the clicky stick, does a special move and hops, then takes the cartridge out
+
 [systems.nes]
-model = "models/systems/nes.glb"
+model = "models/systems/nes.glb"               # built by tools/console-models/nes.py: the front-loading NES and its controller; its focused clip opens the door, slides a cartridge in and presses it down, shuts the door, switches on and plays on the controller, then takes the cartridge out
+
+[systems.pc98]
+model = "models/systems/pc98.glb"              # built by tools/console-models/pc98.py: an NEC PC-9801VM, its colour monitor and its keyboard; its focused clip slides a floppy into drive 1, shuts its lever, boots to a game's title, presses RETURN and plays, then takes the floppy out
+
+[systems.pcengine]
+model = "models/systems/pcengine.glb"          # built by tools/console-models/pc_engine.py: the white PC Engine, a HuCard and its pad; its focused clip slides the HuCard in along its channel, slides POWER on and plays the pad, and later takes the HuCard out
+
+[systems.pcenginecd]
+model = "models/systems/pcenginecd.glb"        # built by tools/console-models/pcenginecd.py: a PC Engine Duo (the PC Engine with the Super CD-ROM² built in) and its pad; its focused clip opens the lid, drops a CD in, switches on and plays, then takes the CD out
+
+[systems.pcfx]
+model = "models/systems/pcfx.glb"              # built by tools/console-models/pcfx.py: NEC's PC-FX, the tower, and its pad; its focused clip swings the CD lid up, drops a disc onto the spindle and shuts it, lights POWER and BUSY and plays on the pad, then takes the disc out
+
+[systems.psx]
+model = "models/systems/psx.glb"                # built by tools/console-models/psx.py, turned to a three-quarter view; its focused clip opens the lid, drops a disc in, and later ejects it
+
+[systems.snes]
+model = "models/systems/snes.glb"               # built by tools/console-models/snes.py: the PAL console, turned to a three-quarter view; its focused clip drops a cartridge through the dust flaps, switches on, and later ejects it
+
+[systems.gameandwatch]
+model = "models/systems/gameandwatch.glb"      # built by tools/console-models/gameandwatch.py: a Game & Watch Multi Screen in Donkey Kong II's colours, open, a made-up game on its screens; its focused clip plays the game, then shuts with a snap and springs open again
+
+[systems.sgb]
+model = "models/systems/sgb.glb"               # built by tools/console-models/sgb.py: the Super Game Boy in the European Super Nintendo's slot (snes.py's); its focused clip drops a Game Boy cartridge into it and switches on, then takes the cartridge out
+
+[systems.gc]
+model = "models/systems/gc.glb"                # built by tools/console-models/gamecube.py: an indigo GameCube, its handle and its controller; its focused clip springs the lid open, drops a mini disc in, switches on and plays the controller, and later takes the disc out
+
+[systems.naomi]
+model = "models/systems/naomi.glb"             # built by tools/console-models/naomi.py: NAOMI is an arcade board, so a Sega candy cabinet with NAOMI on its marquee; its focused clip drops a coin in, presses START and plays, then shows NAOMI's logo again
+
+[systems.n64]
+model = "models/systems/n64.glb"               # built by tools/console-models/n64.py: the console and its controller; its focused clip drops a cartridge in through the dust flaps, slides POWER on, swings the stick and presses the buttons, and later takes the cartridge out
+
+[systems.n64dd]
+model = "models/systems/n64dd.glb"             # built by tools/console-models/n64dd.py: the Nintendo 64 (n64.py's) standing on its 64DD, its controller beside it; its focused clip slides a disk into the drive, switches on and plays, then ejects the disk
+
+[systems.supervision]
+model = "models/systems/supervision.glb"       # built by tools/console-models/supervision.py: the original two-piece Watara Supervision; its focused clip drops a cartridge into its screen unit, boots and plays, and tilts the screen back on its bellows neck and up again
+
+[systems.ps2]
+model = "models/systems/ps2.glb"                # built by tools/console-models/ps2.py: the black launch model, turned to a three-quarter view; its focused clip slides the tray out, drops a DVD on it, and later ejects it
+
+[systems.ps3]
+model = "models/systems/ps3.glb"               # built by tools/console-models/ps3.py: the original PlayStation 3 and its DualShock 3; its focused clip slides a Blu-ray into the slot, plays on the sticks and steers by tilting the pad, then ejects the disc
+
+[systems.ps4]
+model = "models/systems/ps4.glb"               # built by tools/console-models/ps4.py: the first PlayStation 4 and its DualShock 4; its focused clip slides a disc into the slit, lights the light bar blue and plays on the controller, then ejects the disc
+
+[systems.ps5]
+model = "models/systems/ps5.glb"               # built by tools/console-models/ps5.py: the first PlayStation 5, standing on its stand, and its DualSense; its focused clip slides a disc into the slot upright, lights the light strips and plays on the controller, then ejects the disc
+
+[systems.satellaview]
+model = "models/systems/satellaview.glb"       # built by tools/console-models/snes.py: a Super Famicom on its Satellaview; its focused clip drops the BS-X cartridge in, switches on, and the receiver takes a broadcast
 
 [systems.saturn]
-model = "models/systems/saturn.glb"
+model = "models/systems/saturn.glb"            # built by tools/console-models/saturn.py: the black Model 1 Saturn and its control pad; its focused clip opens the lid, drops a CD onto the spindle and shuts it, presses POWER while ACCESS flickers and plays on the pad, then takes the CD out
 
 [systems.dreamcast]
-model = "models/systems/dreamcast.glb"
+model = "models/systems/dreamcast.glb"         # built by tools/console-models/dreamcast.py: the European Dreamcast and its controller with a VMU; its focused clip opens the lid, drops a GD-ROM onto the spindle and shuts it, presses POWER (the light and the VMU come on) and plays on the controller, then takes the GD-ROM out
 
 # Favourites and Recently played have no console: a Power Star and an alarm clock.
 [systems.favourites]
