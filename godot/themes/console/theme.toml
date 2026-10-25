@@ -90,6 +90,9 @@ model = "models/systems/windows9x.glb"        # built by tools/console-models/re
 [systems.switch]
 model = "models/systems/switch.glb"           # built by tools/console-models/switch.py, turned to a three-quarter view; its focused clip slides the right Joy-Con up its rail and back
 
+[systems.atarist]
+model = "models/systems/atarist.glb"           # built by tools/console-models/atari_st.py: a 520STFM, its SC1224 showing GEM's desktop, and its mouse; its focused clip slides a floppy in, double-clicks its way to the game, and ejects it
+
 [systems.atari2600]
 model = "models/systems/atari2600.glb"         # built by tools/console-models/atari_2600.py: the four-switch woody and its CX40 joystick; its focused clip drops a cartridge in, flips POWER, flicks SELECT and RESET, and waggles the joystick
 
