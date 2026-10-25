@@ -128,6 +128,9 @@ model = "models/systems/msx1.glb"
 [systems.msx1]
 model = "models/systems/msx1.glb"              # built by tools/console-models/msx.py: a Philips VG-8020; its focused clip flips the lid back, drops a cartridge in, switches on, and plays the cursor keys
 
+[systems.flash]
+model = "models/systems/flash.glb"             # built by tools/console-models/flash.py: Flash has no hardware, so a 2000s LCD monitor playing a Flash game in a browser, and its mouse; its focused clip fills the preloader, clicks PLAY, plays, and right-clicks the Flash Player's menu
+
 [systems.pico8]
 model = "models/systems/pico8.glb"             # built by tools/console-models/pico8.py: PICO-8 has no hardware, so its cartridge made solid, its label a screen; its focused clip hops it round once and boots its label into a game
 
