@@ -248,6 +248,9 @@ model = "models/systems/naomi.glb"             # built by tools/console-models/n
 [systems.n64]
 model = "models/systems/n64.glb"               # built by tools/console-models/n64.py: the console and its controller; its focused clip drops a cartridge in through the dust flaps, slides POWER on, swings the stick and presses the buttons, and later takes the cartridge out
 
+[systems.n64dd]
+model = "models/systems/n64dd.glb"             # built by tools/console-models/n64dd.py: the Nintendo 64 (n64.py's) standing on its 64DD, its controller beside it; its focused clip slides a disk into the drive, switches on and plays, then ejects the disk
+
 [systems.supervision]
 model = "models/systems/supervision.glb"       # built by tools/console-models/supervision.py: the original two-piece Watara Supervision; its focused clip drops a cartridge into its screen unit, boots and plays, and tilts the screen back on its bellows neck and up again
 
