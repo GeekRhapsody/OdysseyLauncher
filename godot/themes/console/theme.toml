@@ -239,6 +239,9 @@ model = "models/systems/snes.glb"               # built by tools/console-models/
 [systems.gameandwatch]
 model = "models/systems/gameandwatch.glb"      # built by tools/console-models/gameandwatch.py: a Game & Watch Multi Screen in Donkey Kong II's colours, open, a made-up game on its screens; its focused clip plays the game, then shuts with a snap and springs open again
 
+[systems.sgb]
+model = "models/systems/sgb.glb"               # built by tools/console-models/sgb.py: the Super Game Boy in the European Super Nintendo's slot (snes.py's); its focused clip drops a Game Boy cartridge into it and switches on, then takes the cartridge out
+
 [systems.gc]
 model = "models/systems/gc.glb"                # built by tools/console-models/gamecube.py: an indigo GameCube, its handle and its controller; its focused clip springs the lid open, drops a mini disc in, switches on and plays the controller, and later takes the disc out
 
