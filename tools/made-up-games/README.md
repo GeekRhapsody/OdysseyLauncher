@@ -44,7 +44,20 @@ heroes (a 1920 × 620 cut of the key art; dropped as not needed), videos and man
    .\tools\scrape-cli\bin\Debug\net8.0\odyssey-scrape.exe --user-dir=$PWD\artifacts\made-up-games\library import-gamelist megadrive
    ```
    and `import-gamelist` for `snes`, `n64` and `arcade` too. Run `scan` again after making new pieces.
-7. **Capture** (CLAUDE.md, "Debug facilities"), for example:
+7. **Capture** the README's images: `python tools/made-up-games/readme_captures.py` (about fifteen minutes; leave the
+   machine alone while it runs, since a window that loses focus can stop its nav script). It copies the library into
+   `artifacts/made-up-games/readme/library/` with empty ROMs for 24 more systems (named after these games, so the
+   systems screen shows their cards; no capture enters them) and a few favourites and plays (written to `userdata.db`,
+   so the Favourites and Recently played cards show without launching anything), maps that folder to `R:` while it
+   runs (the system details show `R:\ROMs\megadrive`, not a path with your user name), and records each capture in
+   Godot's movie mode (`--write-movie` at `--fixed-fps 60`, driven by `--nav-script`), with `--boot-frames=90` so
+   that boot lasts the same number of frames on every run. Each image is cut from the frame the log gives for the nav
+   script's first step: a still is one frame (a 1280 × 800 JPEG), an animation every fourth frame (a 720 × 450 WebP
+   at 15 fps). The animations hide the clock, which shows the time of the run. It writes `docs/readme/` and a contact sheet
+   (`artifacts/made-up-games/readme/contact-sheet.jpg`, and `contact-sheet.html`, which plays the animations).
+   `--only=<name>,...` makes only those; `--check` records each animation twice and compares the frames; `--setup`
+   builds its library again (after `make_games.py`). What each capture shows is `CAPTURES` in the script. A single
+   capture by hand (CLAUDE.md, "Debug facilities"), for example:
    ```powershell
    $lib = "$PWD\artifacts\made-up-games\library"
    godot --path godot --resolution 1280x800 --fixed-fps 60 -- "--user-dir=$lib" --start-system=megadrive "--capture=$PWD\artifacts\made-up-games\captures\megadrive.png" --capture-frame=240
@@ -193,9 +206,11 @@ words, an invented publisher, a made-up age badge, and a barcode whose digits do
 | `logos.py` | The logo styles. |
 | `screens.py` | Native resolution, palettes and HUDs. |
 | `paint.py` | Drawing helpers: gradients, shapes from SVG-style paths, masks, layers, text. |
+| `readme_captures.py` | The README's images, from the library (`--only`, `--setup`, `--check`, `--keep-frames`). |
 
 Output, in `artifacts/made-up-games/`: `paintings/` (keep), `library/` (a portable user folder: `ROMs/` with empty files
-and a `gamelist.xml` per system, `media/` in the app's layout), `sheets/` and `captures/`.
+and a `gamelist.xml` per system, `media/` in the app's layout), `sheets/`, `captures/`, and `readme/`
+(`readme_captures.py`'s library, each run's movie frames while it lasts, and the contact sheet).
 
 Needs Python 3.11 or later with Pillow, numpy and scipy, Windows' and Office's fonts, the Codex CLI logged in, and a
 built `odyssey-scrape` (`dotnet build`).

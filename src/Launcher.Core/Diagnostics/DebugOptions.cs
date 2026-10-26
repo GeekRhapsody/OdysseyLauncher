@@ -57,6 +57,7 @@ public sealed record DebugOptions
     public const string MemoryLogArg = "--memory-log";
     public const string ThemesListArg = "--themes-list";
     public const string UpdateFeedArg = "--update-feed";
+    public const string BootFramesArg = "--boot-frames";
 
     /// <summary>
     /// What <c>--open</c> can show once the app is interactive (M7), for captures of each settings screen and shared
@@ -87,7 +88,7 @@ public sealed record DebugOptions
         CaptureArg, CaptureFrameArg, BenchArg, BenchFramesArg, BenchScenarioArg, BenchSystemArg, BenchScrollSecondsArg,
         NoTexturesArg, RenderScaleArg, UpscalerArg, UploadCapArg, StartSystemArg, StartIndexArg, NavScriptArg, LaunchArg,
         UserDirArg, QuitAfterLaunchArg, ThemeArg, NoOverlayArg, OpenArg, OpenPathArg,
-        FakeStatusArg, SaveResponsesArg, LayoutArg, MemoryLogArg, ThemesListArg, UpdateFeedArg,
+        FakeStatusArg, SaveResponsesArg, LayoutArg, MemoryLogArg, ThemesListArg, UpdateFeedArg, BootFramesArg,
     ];
 
     /// <summary>
@@ -202,6 +203,13 @@ public sealed record DebugOptions
     public string? UpdateFeed { get; init; }
 
     /// <summary>
+    /// <c>--boot-frames</c>: the scene isn't built before this drawn frame, so that a movie (Godot's <c>--write-movie</c>)
+    /// is the same frame for frame on every run: boot otherwise lasts as many frames as its background work takes time,
+    /// and the items' idle bob (the shader's <c>TIME</c>) counts from the engine's start. 0 builds it as soon as it can.
+    /// </summary>
+    public int BootFrames { get; init; }
+
+    /// <summary>
     /// <c>--fake-status=&lt;battery&gt;/&lt;network&gt;</c>: what the status indicators show instead of the device's own
     /// state, for captures on a PC with no battery or no Wi-Fi; null for the real state. The battery is <c>none</c>,
     /// a percentage, or a percentage and <c>+</c> (plugged in); the network is <c>off</c>, <c>lan</c>, or <c>wifi0</c>
@@ -301,6 +309,7 @@ public sealed record DebugOptions
                 MemoryLogArg => options with { MemoryLogPath = ParsePath(name, value, ".csv", errors) },
                 ThemesListArg => options with { ThemesList = ParsePath(name, value, null, errors) },
                 UpdateFeedArg => options with { UpdateFeed = ParsePath(name, value, null, errors) },
+                BootFramesArg => options with { BootFrames = ParseInt(name, value, 1, MaxFrames, errors) ?? 0 },
                 _ => options,
             };
         }
@@ -569,6 +578,7 @@ public sealed record DebugOptions
         MemoryLogArg => $"{MemoryLogArg}=C:/bench/memory.csv",
         ThemesListArg => $"{ThemesListArg}=C:/odyssey-themes",
         UpdateFeedArg => $"{UpdateFeedArg}=C:/odyssey-update-feed",
+        BootFramesArg => $"{BootFramesArg}=90",
         _ => $"{BenchFramesArg}={DefaultBenchFrames}",
     };
 }

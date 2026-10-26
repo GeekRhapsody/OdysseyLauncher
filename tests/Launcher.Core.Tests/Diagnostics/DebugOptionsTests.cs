@@ -74,6 +74,19 @@ public class DebugOptionsTests
     }
 
     [Fact]
+    public void Boot_frames_hold_the_scene_until_a_drawn_frame()
+    {
+        Assert.Equal(0, DebugOptions.Parse([]).Options.BootFrames);
+        var result = DebugOptions.Parse(["--boot-frames=90"]);
+        Assert.True(result.IsValid, string.Join("; ", result.Errors));
+        Assert.Equal(90, result.Options.BootFrames);
+        foreach (var bad in (string[])["0", "-1", "soon"])
+        {
+            Assert.False(DebugOptions.Parse([$"--boot-frames={bad}"]).IsValid, bad);
+        }
+    }
+
+    [Fact]
     public void Fake_status_shows_a_made_up_battery_and_network()
     {
         Assert.Null(DebugOptions.Parse([]).Options.FakeStatus);

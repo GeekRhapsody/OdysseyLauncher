@@ -336,7 +336,8 @@ public partial class Main : Node3D
             return;
         }
 
-        if (_services is not { } services || _theme is not { Ready: true })
+        // --boot-frames: a movie's boot lasts the same number of frames on every run.
+        if (_services is not { } services || _theme is not { Ready: true } || Engine.GetFramesDrawn() < _options.BootFrames)
         {
             return;
         }
