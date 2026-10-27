@@ -9,6 +9,12 @@ public sealed record FileFilter(string Name, IReadOnlyList<string> Extensions)
     /// <summary>Art the launcher can show (A4: PNG, JPEG or WebP).</summary>
     public static FileFilter Images { get; } = new("Images", [".png", ".jpg", ".jpeg", ".webp"]);
 
+    /// <summary>A game's video (2026-10-27: an MP4, as scraped).</summary>
+    public static FileFilter Videos { get; } = new("Videos", [".mp4"]);
+
+    /// <summary>A game's manual (2026-10-27: a PDF, as scraped).</summary>
+    public static FileFilter Manuals { get; } = new("Manuals", [".pdf"]);
+
     /// <summary>A game's or theme's model (A7: glTF binary only).</summary>
     public static FileFilter Models { get; } = new("3D models", [".glb"]);
 

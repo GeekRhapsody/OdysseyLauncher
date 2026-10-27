@@ -8,9 +8,9 @@ using Launcher.Core.Media;
 namespace Launcher.App.Ui;
 
 /// <summary>
-/// Small previews of image files (M7: the image picker, and each media slot of a game's options) and of videos (the
-/// game details screen), decoded and scaled by the OS decoder off the main thread; the details screen's viewer loads
-/// images full size through it too. Never call it on the main thread.
+/// Small previews of image files (M7: the image picker, and each media slot of a game's options), of videos (the game
+/// details screen) and of manuals (their first page), decoded and scaled by the OS decoder off the main thread; the
+/// details screen's viewer loads images full size through it too. Never call it on the main thread.
 /// </summary>
 public static class Thumbnails
 {
@@ -221,6 +221,74 @@ public static class Thumbnails
             image.Dispose();
             var time = length > TimeSpan.Zero ? length.ToString(length.TotalHours >= 1 ? @"h\:mm\:ss" : @"m\:ss", CultureInfo.InvariantCulture) + ", " : string.Empty;
             info = time + UiStyle.Size(new FileInfo(path).Length);
+            return texture;
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            info = $"It couldn't be read: {e.Message}";
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Worker thread: a manual's first page fitted to a square of <paramref name="side"/> pixels, and its page count and
+    /// file size for a caption; null, with the reason in <paramref name="info"/>, when it can't be rendered.
+    /// </summary>
+    public static ImageTexture? LoadManual(string path, int side, IPdfRenderer? renderer, out string info)
+    {
+        if (!GodotWork.TryEnter())
+        {
+            info = Quitting;
+            return null;
+        }
+
+        try
+        {
+            return LoadManualPage(path, side, renderer, out info);
+        }
+        finally
+        {
+            GodotWork.Exit();
+        }
+    }
+
+    private static ImageTexture? LoadManualPage(string path, int side, IPdfRenderer? renderer, out string info)
+    {
+        if (renderer is null)
+        {
+            info = ManualPages.Unsupported;
+            return null;
+        }
+
+        try
+        {
+            using var reader = renderer.Open(path, out var error);
+            if (reader is null)
+            {
+                info = $"It can't be opened: {error}.";
+                return null;
+            }
+
+            if (!reader.TryGetPageSize(0, out var width, out var height))
+            {
+                info = "Its first page can't be read.";
+                return null;
+            }
+
+            var scale = Math.Min(side / width, side / height);
+            var w = Math.Max(1, (int)Math.Round(width * scale));
+            var h = Math.Max(1, (int)Math.Round(height * scale));
+            var rgba = new byte[w * h * 4];
+            if (!reader.TryRender(0, w, h, rgba, out error))
+            {
+                info = $"It can't be shown: {error}.";
+                return null;
+            }
+
+            var image = Image.CreateFromData(w, h, false, Image.Format.Rgba8, rgba);
+            var texture = ImageTexture.CreateFromImage(image);
+            image.Dispose();
+            info = (reader.PageCount == 1 ? "1 page, " : string.Create(CultureInfo.InvariantCulture, $"{reader.PageCount} pages, ")) + UiStyle.Size(new FileInfo(path).Length);
             return texture;
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)

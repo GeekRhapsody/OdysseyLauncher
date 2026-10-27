@@ -38,4 +38,8 @@ public static class PlatformServices
     /// <summary>Plays a game's videos in its details screen; null where no decoder exists yet (Linux), so videos are listed but not played.</summary>
     public static Media.IVideoDecoder? CreateVideoDecoder() =>
         OperatingSystem.IsWindows() ? new MediaFoundationVideoDecoder() : null;
+
+    /// <summary>Shows a game's manual; null where no renderer exists yet (Linux), so manuals are listed but not shown.</summary>
+    public static Media.IPdfRenderer? CreatePdfRenderer() =>
+        OperatingSystem.IsWindows() ? new WindowsPdfRenderer() : null;
 }

@@ -55,7 +55,7 @@ public sealed partial class GameOptionsPanel : ListPanel
 
         AddSection("Look");
         _model = AddRow("Model", activated: ChooseModel);
-        _media = AddRow("Images", "Reading…", "Open", () => Layer.Push(new GameMediaPanel(_options, _game)));
+        _media = AddRow("Media", "Reading…", "Open", () => Layer.Push(new GameMediaPanel(_options, _game)));
 
         AddSection("Title and metadata");
         _metadata = AddRow("Edit the title and metadata", activated: () => Layer.Push(new GameMetadataPanel(_options, _game.Key, _game.Title)));

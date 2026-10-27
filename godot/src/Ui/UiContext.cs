@@ -14,7 +14,8 @@ public sealed class UiContext
     private readonly PickerHistory _unsaved = PickerHistory.InMemory();
     private PickerHistory? _history;
 
-    public UiContext(UiLayer layer, MainThreadQueue queue, IFileLocations locations, string homeDir, string dataDir, Func<string> romRoot, IImageDecoder? decoder)
+    public UiContext(UiLayer layer, MainThreadQueue queue, IFileLocations locations, string homeDir, string dataDir, Func<string> romRoot, IImageDecoder? decoder,
+        IVideoDecoder? video = null, IPdfRenderer? pdf = null)
     {
         Layer = layer;
         Queue = queue;
@@ -22,6 +23,8 @@ public sealed class UiContext
         HomeDir = homeDir;
         RomRoot = romRoot;
         Decoder = decoder;
+        Video = video;
+        Pdf = pdf;
 
         // The pickers' remembered folders are read off the main thread; until then they start at the top.
         _ = Task.Run(() => Volatile.Write(ref _history, PickerHistory.Load(dataDir)));
@@ -40,6 +43,12 @@ public sealed class UiContext
 
     /// <summary>Decodes and scales the image picker's thumbnails (WIC on Windows); null elsewhere, where Godot decodes them.</summary>
     public IImageDecoder? Decoder { get; }
+
+    /// <summary>Plays and previews a game's video (Media Foundation on Windows); null elsewhere, where videos are listed but not played.</summary>
+    public IVideoDecoder? Video { get; }
+
+    /// <summary>Renders a game's manual (Windows.Data.Pdf on Windows); null elsewhere, where manuals are listed but not shown.</summary>
+    public IPdfRenderer? Pdf { get; }
 
     /// <summary>Each picker use's last folder; saved when a pick is made.</summary>
     public PickerHistory History => Volatile.Read(ref _history) ?? _unsaved;

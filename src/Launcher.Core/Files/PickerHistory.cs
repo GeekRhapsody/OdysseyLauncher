@@ -12,6 +12,8 @@ public static class PickerUses
     public const string Emulator = "emulator";
     public const string EmulatorsFolder = "emulators-folder";
     public const string Image = "image";
+    public const string Video = "video";
+    public const string Manual = "manual";
     public const string Model = "model";
     public const string Gamelist = "gamelist";
     public const string MediaFolder = "media-folder";

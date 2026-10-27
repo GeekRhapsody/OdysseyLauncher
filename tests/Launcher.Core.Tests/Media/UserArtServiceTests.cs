@@ -97,9 +97,9 @@ public sealed class UserArtServiceTests : IAsyncLifetime
         var fake = await _service.SetAsync(Key, MediaKinds.Cover, Download("fake.png", "not a png"u8.ToArray()), Ct);
         var missing = await _service.SetAsync(new GameKey("megadrive", "gone.md"), MediaKinds.Cover, Download("c.png", ScrapeBed.Png("c")), Ct);
 
-        Assert.Equal(UserArtStatus.NotAnImage, text.Status);
+        Assert.Equal(UserArtStatus.Unreadable, text.Status);
         Assert.Contains("isn't a PNG, JPEG or WebP image", text.Message, StringComparison.Ordinal);
-        Assert.Equal(UserArtStatus.NotAnImage, fake.Status);
+        Assert.Equal(UserArtStatus.Unreadable, fake.Status);
         Assert.Equal(UserArtStatus.NotInLibrary, missing.Status);
         Assert.Null(await Media(MediaKinds.Cover));
         Assert.False(Directory.Exists(Path.Combine(_bed.Paths.DataDir, "media")));
@@ -197,7 +197,7 @@ public sealed class UserArtServiceTests : IAsyncLifetime
         Assert.Empty(Directory.GetFiles(Path.Combine(_bed.Paths.DataDir, "media", "megadrive", "covers"), "*.tmp"));
         var cover = (await Media(MediaKinds.Cover))!;
         Assert.Equal((result.Path, 24, 32), (cover.Media.Path, cover.Width, cover.Height));
-        Assert.Equal(UserArtStatus.NotAnImage, junk.Status);
+        Assert.Equal(UserArtStatus.Unreadable, junk.Status);
         Assert.Equal(result.Path, (await Media(MediaKinds.Cover))!.Media.Path);
     }
 
@@ -209,5 +209,71 @@ public sealed class UserArtServiceTests : IAsyncLifetime
         await _bed.Library.RebuildAsync(null, Ct);
 
         Assert.Equal("media/megadrive/spines/Sonic the Hedgehog 3 (Europe).png", (await Media(MediaKinds.Spine))!.Media.Path);
+    }
+
+    [Fact]
+    public async Task A_chosen_manual_or_video_is_copied_to_the_games_name_and_indexed_without_a_derivative()
+    {
+        var manual = await _service.SetAsync(Key, MediaKinds.Manual, Download("Manual.PDF", ScrapeBed.Pdf("mine")), Ct);
+        var video = await _service.SetAsync(Key, MediaKinds.Video, Download("clip.mp4", ScrapeBed.Mp4("mine")), Ct);
+
+        Assert.Equal((UserArtStatus.Set, "media/megadrive/manuals/Sonic the Hedgehog 3 (Europe).pdf"), (manual.Status, manual.Path));
+        Assert.Equal((UserArtStatus.Set, "media/megadrive/videos/Sonic the Hedgehog 3 (Europe).mp4"), (video.Status, video.Path));
+        Assert.Equal(ScrapeBed.Pdf("mine"), File.ReadAllBytes(Path.Combine(_bed.Paths.DataDir, manual.Path!)));
+        Assert.Equal(manual.Path, (await Media(MediaKinds.Manual))!.Media.Path);
+        Assert.Equal(video.Path, (await Media(MediaKinds.Video))!.Media.Path);
+        Assert.Equal(2, _changes.Count);
+
+        // Neither is an image, so neither has a derivative.
+        var derivatives = Path.Combine(_bed.Paths.CacheDir, "textures");
+        Assert.Empty(Directory.Exists(derivatives) ? Directory.GetFiles(derivatives) : []);
+    }
+
+    [Fact]
+    public async Task A_file_that_isnt_a_pdf_or_an_mp4_is_refused_and_a_model_still_isnt_this_services()
+    {
+        var text = await _service.SetAsync(Key, MediaKinds.Manual, Download("notes.txt", ScrapeBed.Pdf("text")), Ct);
+        var fakePdf = await _service.SetAsync(Key, MediaKinds.Manual, Download("fake.pdf", "<html>not a manual</html>"u8.ToArray()), Ct);
+        var fakeMp4 = await _service.SetAsync(Key, MediaKinds.Video, Download("fake.mp4", ScrapeBed.Png("not a video")), Ct);
+        var image = await _service.SetAsync(Key, MediaKinds.Cover, Download("manual.pdf", ScrapeBed.Pdf("not a cover")), Ct);
+
+        Assert.Equal(UserArtStatus.Unreadable, text.Status);
+        Assert.Contains("isn't a PDF", text.Message, StringComparison.Ordinal);
+        Assert.Equal(UserArtStatus.Unreadable, fakePdf.Status);
+        Assert.Contains("isn't a PDF the launcher can read", fakePdf.Message, StringComparison.Ordinal);
+        Assert.Equal(UserArtStatus.Unreadable, fakeMp4.Status);
+        Assert.Contains("isn't an MP4 video the launcher can read", fakeMp4.Message, StringComparison.Ordinal);
+        Assert.Equal(UserArtStatus.Unreadable, image.Status);
+        Assert.Null(await Media(MediaKinds.Manual));
+        Assert.Null(await Media(MediaKinds.Video));
+        Assert.False(Directory.Exists(Path.Combine(_bed.Paths.DataDir, "media")));
+        Assert.Throws<ArgumentException>(() => _service.RemoveAsync(Key, MediaKinds.Model, Ct).GetAwaiter().GetResult());
+    }
+
+    [Fact]
+    public async Task Removing_a_manual_or_a_video_deletes_it_under_either_name_and_says_so()
+    {
+        var shared = _bed.Dir.File("user/media/megadrive/manuals/Sonic the Hedgehog 3 (Europe).pdf");
+        File.WriteAllBytes(shared, ScrapeBed.Pdf("scraped"));
+        var whole = _bed.Dir.File("user/media/megadrive/manuals/Sonic the Hedgehog 3 (Europe).md.pdf");
+        File.WriteAllBytes(whole, ScrapeBed.Pdf("own"));
+        var clip = _bed.Dir.File("user/media/megadrive/videos/Sonic the Hedgehog 3 (Europe).mp4");
+        File.WriteAllBytes(clip, ScrapeBed.Mp4("scraped"));
+        await _bed.ScanAsync();
+        Assert.NotNull(await Media(MediaKinds.Manual));
+        _changes.Clear();
+
+        var manual = await _service.RemoveAsync(Key, MediaKinds.Manual, Ct);
+        var video = await _service.RemoveAsync(Key, MediaKinds.Video, Ct);
+
+        Assert.Equal(UserArtStatus.Removed, manual.Status);
+        Assert.Equal((UserArtStatus.Removed, "media/megadrive/videos/Sonic the Hedgehog 3 (Europe).mp4"), (video.Status, video.Path));
+        Assert.False(File.Exists(shared));
+        Assert.False(File.Exists(whole));
+        Assert.False(File.Exists(clip));
+        Assert.Null(await Media(MediaKinds.Manual));
+        Assert.Null(await Media(MediaKinds.Video));
+        Assert.Contains(_changes, c => c is not null && c.Contains(Key));
+        Assert.Equal(UserArtStatus.None, (await _service.RemoveAsync(Key, MediaKinds.Manual, Ct)).Status);
     }
 }

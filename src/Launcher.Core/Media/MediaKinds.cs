@@ -19,7 +19,7 @@ public static class MediaKinds
     /// <summary>A gameplay video (an MP4): not an image, so not a slot; the game's details screen plays it (<see cref="IVideoDecoder"/>).</summary>
     public const string Video = "video";
 
-    /// <summary>A game's manual (a PDF, 2026-10-06): scraped and indexed; nothing shows it yet.</summary>
+    /// <summary>A game's manual (a PDF, 2026-10-06): not an image, so not a slot; from 2026-10-27 the game's details screen shows it (<see cref="IPdfRenderer"/>).</summary>
     public const string Manual = "manual";
 
     /// <summary>A per-game model: <c>&lt;media folder&gt;/&lt;system&gt;/models/&lt;name&gt;.glb</c> (M6).</summary>

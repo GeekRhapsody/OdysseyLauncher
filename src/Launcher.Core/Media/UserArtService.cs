@@ -4,29 +4,33 @@ namespace Launcher.Core.Media;
 
 public enum UserArtStatus
 {
-    /// <summary>The image is the game's now (<see cref="UserArtResult.Path"/>).</summary>
+    /// <summary>The file is the game's now (<see cref="UserArtResult.Path"/>).</summary>
     Set,
 
-    /// <summary>The game's image went (scraped or the user's own); the slot is empty until a scrape fills it.</summary>
+    /// <summary>The game's file went (scraped or the user's own); the slot is empty until a scrape fills it.</summary>
     Removed,
 
-    /// <summary>The game had no image of that kind.</summary>
+    /// <summary>The game had no file of that kind.</summary>
     None,
 
-    /// <summary>The file isn't a PNG, JPEG or WebP image the launcher can read: nothing changed.</summary>
-    NotAnImage,
+    /// <summary>
+    /// The file isn't one of that kind the launcher can read (a PNG, JPEG or WebP image; for a video an MP4; for a
+    /// manual a PDF): nothing changed.
+    /// </summary>
+    Unreadable,
 
     /// <summary>The game isn't in the library.</summary>
     NotInLibrary,
 }
 
-/// <summary>What setting or removing one of a game's images did.</summary>
-/// <param name="Path">The image's file as stored, '/'-separated (<c>media/ps2/covers/Game.png</c>).</param>
+/// <summary>What setting or removing one of a game's files did.</summary>
+/// <param name="Path">The file as stored, '/'-separated (<c>media/ps2/covers/Game.png</c>).</param>
 /// <param name="Message">Why it was refused, for the user.</param>
 public sealed record UserArtResult(UserArtStatus Status, string? Path, string? Message = null);
 
 /// <summary>
-/// The user's own images for a game (M7's game options panel): one per media kind, chosen with the image picker.
+/// The user's own images for a game (M7's game options panel): one per media kind, chosen with the image picker; from
+/// 2026-10-27 also its video (an MP4) and its manual (a PDF), which have no derivative.
 /// <para>
 /// Setting one copies the file to the game's name in the media folder,
 /// <c>&lt;media folder&gt;/&lt;system&gt;/&lt;folder&gt;/&lt;name&gt;.&lt;ext&gt;</c> (the ROM's name without its extension, as
@@ -55,7 +59,7 @@ public sealed class UserArtService(LibraryService library, DerivativeService? de
     public async Task<UserArtResult> SetAsync(GameKey game, string kind, string sourceFile, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(sourceFile);
-        CheckKind(kind);
+        CheckFileKind(kind);
         var details = await _library.GetGameAsync(game, cancellationToken).ConfigureAwait(false);
         if (details is null)
         {
@@ -65,16 +69,16 @@ public sealed class UserArtService(LibraryService library, DerivativeService? de
         var written = await Task.Run(() =>
         {
             var extension = Path.GetExtension(sourceFile).ToLowerInvariant();
-            if (!MediaKinds.ImageExtensions.Contains(extension))
+            if (!MediaKinds.ExtensionsOf(kind).Contains(extension))
             {
-                return new UserArtResult(UserArtStatus.NotAnImage, null, Message: $"'{Path.GetFileName(sourceFile)}' isn't a PNG, JPEG or WebP image.");
+                return new UserArtResult(UserArtStatus.Unreadable, null, Message: $"'{Path.GetFileName(sourceFile)}' isn't {WhatItMustBe(kind)}.");
             }
 
             try
             {
-                if (!ImageHeaders.TryReadSize(sourceFile, out var width, out var height) || width <= 0 || height <= 0)
+                if (!IsReadable(sourceFile, kind))
                 {
-                    return new UserArtResult(UserArtStatus.NotAnImage, null, Message: $"'{Path.GetFileName(sourceFile)}' isn't an image the launcher can read.");
+                    return new UserArtResult(UserArtStatus.Unreadable, null, Message: $"'{Path.GetFileName(sourceFile)}' isn't {WhatItMustBe(kind)} the launcher can read.");
                 }
 
                 return Replace(game, details.RelPath, kind, extension, target =>
@@ -91,11 +95,11 @@ public sealed class UserArtService(LibraryService library, DerivativeService? de
             }
             catch (Exception e) when (e is IOException or UnauthorizedAccessException)
             {
-                return new UserArtResult(UserArtStatus.NotAnImage, null, Message: $"'{Path.GetFileName(sourceFile)}' couldn't be copied: {e.Message}");
+                return new UserArtResult(UserArtStatus.Unreadable, null, Message: $"'{Path.GetFileName(sourceFile)}' couldn't be copied: {e.Message}");
             }
         }, cancellationToken).ConfigureAwait(false);
 
-        return await IndexAsync(game, written, cancellationToken).ConfigureAwait(false);
+        return await IndexAsync(game, kind, written, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -119,7 +123,7 @@ public sealed class UserArtService(LibraryService library, DerivativeService? de
             {
                 if (ImageFormats.Sniff(image.Span) is not { } extension || !ImageHeaders.TryReadSize(stream, out width, out height) || width <= 0 || height <= 0)
                 {
-                    return new UserArtResult(UserArtStatus.NotAnImage, null, Message: "It isn't a PNG, JPEG or WebP image the launcher can read.");
+                    return new UserArtResult(UserArtStatus.Unreadable, null, Message: "It isn't a PNG, JPEG or WebP image the launcher can read.");
                 }
 
                 try
@@ -132,12 +136,12 @@ public sealed class UserArtService(LibraryService library, DerivativeService? de
                 }
                 catch (Exception e) when (e is IOException or UnauthorizedAccessException)
                 {
-                    return new UserArtResult(UserArtStatus.NotAnImage, null, Message: $"It couldn't be saved: {e.Message}");
+                    return new UserArtResult(UserArtStatus.Unreadable, null, Message: $"It couldn't be saved: {e.Message}");
                 }
             }
         }, cancellationToken).ConfigureAwait(false);
 
-        return await IndexAsync(game, written, cancellationToken).ConfigureAwait(false);
+        return await IndexAsync(game, kind, written, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -155,7 +159,7 @@ public sealed class UserArtService(LibraryService library, DerivativeService? de
             File.Move(target + ".import.tmp", target, overwrite: true);
         }
 
-        // One image per kind: the game's file in another format, or named after its whole ROM name, would be a second one.
+        // One file per kind: the game's file in another format, or named after its whole ROM name, would be a second one.
         foreach (var other in OwnFiles(relPath, game.SystemId, kind))
         {
             if (!string.Equals(other, relative, StringComparison.Ordinal))
@@ -167,8 +171,11 @@ public sealed class UserArtService(LibraryService library, DerivativeService? de
         return new UserArtResult(UserArtStatus.Set, relative);
     }
 
-    /// <summary>A set image's derivative is baked and it's indexed (raising <c>MediaChanged</c>); a refusal is returned as it is.</summary>
-    private async Task<UserArtResult> IndexAsync(GameKey game, UserArtResult written, CancellationToken cancellationToken)
+    /// <summary>
+    /// A set file is indexed (raising <c>MediaChanged</c>), an image's derivative baked first; a refusal is returned as
+    /// it is.
+    /// </summary>
+    private async Task<UserArtResult> IndexAsync(GameKey game, string kind, UserArtResult written, CancellationToken cancellationToken)
     {
         if (written.Status != UserArtStatus.Set)
         {
@@ -177,7 +184,7 @@ public sealed class UserArtService(LibraryService library, DerivativeService? de
 
         // The derivative first, so the grid can show the image as soon as the index says it's there.
         var info = new FileInfo(Full(written.Path!));
-        if (derivatives is not null)
+        if (derivatives is not null && MediaKinds.Images.Contains(kind))
         {
             await derivatives.BakeAsync(written.Path!, info.Length, new DateTimeOffset(info.LastWriteTimeUtc).ToUnixTimeMilliseconds(), cancellationToken).ConfigureAwait(false);
         }
@@ -186,10 +193,10 @@ public sealed class UserArtService(LibraryService library, DerivativeService? de
         return written;
     }
 
-    /// <summary>Removes the game's own image of <paramref name="kind"/>, scraped or the user's.</summary>
+    /// <summary>Removes the game's own file of <paramref name="kind"/> (an image, its video or its manual), scraped or the user's.</summary>
     public async Task<UserArtResult> RemoveAsync(GameKey game, string kind, CancellationToken cancellationToken)
     {
-        CheckKind(kind);
+        CheckFileKind(kind);
         var details = await _library.GetGameAsync(game, cancellationToken).ConfigureAwait(false);
         if (details is null)
         {
@@ -216,7 +223,7 @@ public sealed class UserArtService(LibraryService library, DerivativeService? de
         return new UserArtResult(UserArtStatus.Removed, removed);
     }
 
-    /// <summary>The game's files of a kind (its name with or without the ROM's extension, any image extension), as stored.</summary>
+    /// <summary>The game's files of a kind (its name with or without the ROM's extension, any of the kind's extensions), as stored.</summary>
     private IReadOnlyList<string> OwnFiles(string relPath, string systemId, string kind) =>
         new MediaStore(_library.MediaDir).FilesOf(systemId, relPath, kind);
 
@@ -229,4 +236,40 @@ public sealed class UserArtService(LibraryService library, DerivativeService? de
             throw new ArgumentException($"'{kind}' isn't an image kind.", nameof(kind));
         }
     }
+
+    /// <summary>The kinds a file can be chosen for and removed: the images, the video and the manual (not a model: <c>ModelImportService</c>'s).</summary>
+    private static void CheckFileKind(string kind)
+    {
+        if (!MediaKinds.Images.Contains(kind) && kind is not MediaKinds.Video and not MediaKinds.Manual)
+        {
+            throw new ArgumentException($"'{kind}' isn't an image, video or manual kind.", nameof(kind));
+        }
+    }
+
+    /// <summary>Worker thread: whether the file is what its kind stores, by its header (an image's size, an MP4's or a PDF's first bytes).</summary>
+    private static bool IsReadable(string file, string kind)
+    {
+        if (kind is MediaKinds.Video or MediaKinds.Manual)
+        {
+            var head = new byte[DocumentFormats.HeaderWindow];
+            int read;
+            using (var stream = File.OpenRead(file))
+            {
+                read = stream.ReadAtLeast(head, head.Length, throwOnEndOfStream: false);
+            }
+
+            return kind == MediaKinds.Video
+                ? VideoFormats.Sniff(head.AsSpan(0, read)) is not null
+                : DocumentFormats.Sniff(head.AsSpan(0, read)) is not null;
+        }
+
+        return ImageHeaders.TryReadSize(file, out var width, out var height) && width > 0 && height > 0;
+    }
+
+    private static string WhatItMustBe(string kind) => kind switch
+    {
+        MediaKinds.Video => "an MP4 video",
+        MediaKinds.Manual => "a PDF",
+        _ => "a PNG, JPEG or WebP image",
+    };
 }

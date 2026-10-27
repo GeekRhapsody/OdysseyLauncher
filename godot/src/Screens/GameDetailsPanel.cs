@@ -17,11 +17,11 @@ namespace Launcher.App.Screens;
 
 /// <summary>
 /// A game's details (Y on a game in the grid): its whole description, then every field of its metadata, its file name's
-/// tags, its play history, how it launches and where its data came from; and a card for its video, its front cover, its
-/// screenshot, then each of its other images.
-/// A on a card shows it full size, or plays the video (<see cref="MediaViewer"/>); L3 (or F) adds or removes the
-/// favourite; Y or B goes back. Read off the main thread before it opens; thumbnails are decoded on a worker, one after
-/// another, as the game options' images are.
+/// tags, its play history, how it launches and where its data came from; and a card for its video, its manual, its front
+/// cover, its screenshot, then each of its other images.
+/// A on a card shows it full size, or plays the video (<see cref="MediaViewer"/>), or opens the manual
+/// (<see cref="ManualViewer"/>); L3 (or F) adds or removes the favourite; Y or B goes back. Read off the main thread
+/// before it opens; thumbnails are decoded on a worker, one after another, as the game options' images are.
 /// </summary>
 public sealed partial class GameDetailsPanel : UiPanel
 {
@@ -37,6 +37,7 @@ public sealed partial class GameDetailsPanel : UiPanel
     private readonly VBoxContainer _fields;
     private readonly Label _description;
     private readonly List<MediaCard> _cards = [];
+    private readonly List<MediaViewer.Item> _sources = [];
     private readonly List<MediaViewer.Item> _items = [];
     private GameDetails _game;
     private bool _closed;
@@ -71,8 +72,8 @@ public sealed partial class GameDetailsPanel : UiPanel
         _fields = new VBoxContainer { MouseFilter = MouseFilterEnum.Ignore };
         column.AddChild(_fields);
 
-        // The images and the video: a card each, along the bottom.
-        Body.AddChild(Section("Images and videos"));
+        // The video, the manual and the images: a card each, along the bottom.
+        Body.AddChild(Section("Media"));
         var strip = new ScrollContainer
         {
             VerticalScrollMode = ScrollContainer.ScrollMode.Disabled,
@@ -87,23 +88,34 @@ public sealed partial class GameDetailsPanel : UiPanel
         foreach (var row in Ordered(loaded.Media))
         {
             var file = services.Library.MediaPath(row.Media.Path);
-            var index = _items.Count;
             var name = GameMediaPanel.SlotName(row.Kind);
-            _items.Add(new MediaViewer.Item(row.Kind, file, name));
+            var item = new MediaViewer.Item(row.Kind, file, name);
+            _sources.Add(item);
             var card = new MediaCard(name, row.Kind == MediaKinds.Video);
-            card.Pressed += () => Layer.Push(new MediaViewer(_ui, _video, _items, index));
+            if (row.Kind == MediaKinds.Manual)
+            {
+                // A manual is paged through on its own, not among the pictures left and right of it.
+                card.Pressed += () => Layer.Push(new ManualViewer(_ui, file, name));
+            }
+            else
+            {
+                var index = _items.Count;
+                _items.Add(item);
+                card.Pressed += () => Layer.Push(new MediaViewer(_ui, _video, _items, index));
+            }
+
             cards.AddChild(card);
             _cards.Add(card);
         }
 
         if (_cards.Count == 0)
         {
-            var none = UiStyle.Label("None yet. Scrape the game, or choose your own images: X on the game, then Images.", UiStyle.Detail);
+            var none = UiStyle.Label("None yet. Scrape the game, or choose your own: X on the game, then Media.", UiStyle.Detail);
             none.CustomMinimumSize = new Vector2(0, 40);
             cards.AddChild(none);
         }
 
-        SetHints("A  View full size     Up Down  Scroll the details     L3 / F  Favourite     B / Y  Back");
+        SetHints("A  View     Up Down  Scroll the details     L3 / F  Favourite     B / Y  Back");
         Show(loaded);
         LoadThumbnails();
     }
@@ -252,11 +264,14 @@ public sealed partial class GameDetailsPanel : UiPanel
         return box;
     }
 
-    /// <summary>The video, the front cover and the screenshot first, then the other images in slot order; a per-game model isn't media to look at here.</summary>
+    /// <summary>
+    /// The video, the manual, the front cover and the screenshot first, then the other images in slot order; a per-game
+    /// model isn't media to look at here.
+    /// </summary>
     private static List<GameMediaInfo> Ordered(IReadOnlyList<GameMediaInfo> media)
     {
         var ordered = new List<GameMediaInfo>();
-        foreach (var kind in (ReadOnlySpan<string>)[MediaKinds.Video, MediaKinds.Cover, MediaKinds.Screenshot])
+        foreach (var kind in (ReadOnlySpan<string>)[MediaKinds.Video, MediaKinds.Manual, MediaKinds.Cover, MediaKinds.Screenshot])
         {
             ordered.AddRange(media.Where(m => m.Kind == kind));
         }
@@ -274,9 +289,10 @@ public sealed partial class GameDetailsPanel : UiPanel
 
     private void LoadThumbnails()
     {
-        var items = _items.ToArray();
+        var items = _sources.ToArray();
         var decoder = _ui.Decoder;
         var video = _video;
+        var pdf = _ui.Pdf;
         var queue = _ui.Queue;
         _ = Task.Run(() =>
         {
@@ -284,9 +300,12 @@ public sealed partial class GameDetailsPanel : UiPanel
             {
                 var item = items[i];
                 string info;
-                var texture = item.Kind == MediaKinds.Video
-                    ? Thumbnails.LoadVideo(item.Path, ThumbSide, video, out info)
-                    : Thumbnails.Load(item.Path, ThumbSide, decoder, out info);
+                var texture = item.Kind switch
+                {
+                    MediaKinds.Video => Thumbnails.LoadVideo(item.Path, ThumbSide, video, out info),
+                    MediaKinds.Manual => Thumbnails.LoadManual(item.Path, ThumbSide, pdf, out info),
+                    _ => Thumbnails.Load(item.Path, ThumbSide, decoder, out info),
+                };
                 var card = i;
                 queue.Post(() =>
                 {
@@ -364,7 +383,7 @@ public sealed partial class GameDetailsPanel : UiPanel
     /// <summary>What the panel shows, read and formatted off the main thread.</summary>
     private sealed record Loaded(GameDetails Game, IReadOnlyList<(string Label, string Value)> Fields, IReadOnlyList<GameMediaInfo> Media);
 
-    /// <summary>One image or the video: its thumbnail, its kind, and its size (a video's length).</summary>
+    /// <summary>One image, the video or the manual: its thumbnail, its kind, and its size (a video's length, a manual's pages).</summary>
     private sealed partial class MediaCard : Button
     {
         public const int CardHeight = 214;

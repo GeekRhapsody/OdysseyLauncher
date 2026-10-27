@@ -619,3 +619,17 @@ This checks what the tests and the local feed can't: GitHub's API and download o
 ### Send back
 
 - Anything that differed, how long the download and the restart took, and `C:\OdysseyUpdateTest\userdata\logs\update.log`.
+
+## Game manuals
+
+This checks what the tests and the made-up manual can't: real scraped manuals (large scans, hundreds of pages, some odd PDFs) read with a pad, at your screen's size (docs/ARCHITECTURE.md A1 `Screens`, "ManualViewer"). It uses your own library and the app's AppData folders; step 4 deletes one manual, which a scrape brings back.
+
+1. **Scrape some.** Settings, Scraping, Media: turn Manual on. Scrape a few games ScreenScraper has manuals for (X on a game, Scrape this game), including a big one (a PlayStation or Saturn game's).
+2. **The card.** Y on one of them: a Manual card after the video shows its cover and "<n> pages, <size>".
+3. **Read it.** A on the card. The first page shows within a second, fitted to the screen. Right and left turn the page; LB and RB go ten pages; LT and RT go to the first and the last. A (or R3) zooms to the page's width: the right stick scrolls it smoothly, up and down in steps, and down at the bottom goes to the top of the next page. A again shows the whole page. B goes back to the details.
+4. **Remove it.** X on the game, Media: the Manual card shows the same cover and page count. Y on it, then Remove it: the card says None, and Y on the game no longer shows a Manual card.
+5. **Quit.** Quit the app from the power menu (View): it closes normally (no error dialog, and nothing new in Windows' Event Viewer, Windows Logs, Application, from Godot or .NET).
+
+### Send back
+
+- Anything that differed, the biggest manual's page count and size, how long its first page took to show, and the log lines: `Select-String -Path "$env:APPDATA\Godot\app_userdata\Odyssey Launcher\logs\godot.log" -Pattern '^Manual|error|warning'`.

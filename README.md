@@ -48,16 +48,16 @@ Odyssey Launcher is built with Godot 4 and C# for Windows. **Performance is the 
 
 - **Four providers:** ScreenScraper, IGDB, SteamGridDB and the Steam store. Ask them in the order you choose; each later one fills only what the earlier ones didn't find.
 - **ScreenScraper works out of the box** in releases. Add your own account in the settings for higher limits; IGDB and SteamGridDB need free keys of your own.
-- **Every kind of media:** front and back covers, spines, screenshots, logos, fan art, disc and cartridge labels, videos, and PDF manuals (kept with the game; the app doesn't open them yet). You choose which kinds to download.
+- **Every kind of media:** front and back covers, spines, screenshots, logos, fan art, disc and cartridge labels, videos, and PDF manuals. You choose which kinds to download.
 - **Accurate matching:** ScreenScraper identifies files by name, size and checksum, and a title search only counts a hit when the name really matches. When a match is wrong, "scrape this game" searches every provider at once, shows each result with its cover, and lets you choose. For a SteamGridDB result you can also pick the cover, logo and hero from its alternatives.
 - **Runs in the background** in a queue that survives closing the app, and respects each provider's rate limits and quotas.
-- **Your own art and edits win.** Set any image yourself, edit a title or any metadata field, and a later scrape never overwrites it.
+- **Your own art and edits win.** Set any image, the video or the manual yourself, edit a title or any metadata field, and a later scrape never overwrites it. Remove any of a game's media from its options.
 - **ES-DE's media layout:** media is stored in `covers/`, `screenshots/`, `videos/` and so on, under a folder you can move to any drive.
 
 ### Details and media
 
 - **Game details (Y)** show everything the library knows: the description, release date, genre, developer, publisher, players, rating, region, play history and file.
-- **Images and videos:** every scraped image appears as a card. Open one to view it full screen, or play the game's video with sound.
+- **Images, videos and manuals:** every scraped image appears as a card. Open one to view it full screen, play the game's video with sound, or read its manual a page at a time, zoomed to the page's width and scrolled with the right stick (Windows).
 - **System details** show the system's model large, ready to turn, beside its history, emulators, folders and settings.
 
 ### Launching
@@ -71,7 +71,7 @@ Odyssey Launcher is built with Godot 4 and C# for Windows. **Performance is the 
 ### Everything from the sofa
 
 - **A full settings screen driven by the controller:** ROM folders, the media folder, emulators, themes (and downloading more), layouts and sorting, graphics, the status indicators and sounds, scraping providers, regions and credentials, rescanning and scraping the whole library, problems in your config files, and checking for updates. It includes an on-screen keyboard, file and folder pickers, and a "test connection" button for each provider.
-- **Options for each game (X):** the emulator, the 3D model, images, title and metadata, scraping, clearing metadata and deleting the game.
+- **Options for each game (X):** the emulator, the 3D model, its media (images, video and manual), title and metadata, scraping, clearing metadata and deleting the game.
 - **Options for each system (X):** its ROM folders, emulator, layout and sorting, card and game models, scraping all its games (or only those missing a cover or a screenshot, or not scraped lately), and importing ES-DE's `gamelist.xml`.
 - **Power menu (View):** restart, shut down or sleep the PC, or quit the app.
 - **Status indicators:** the clock, the battery, and the Wi-Fi signal or cable, top right, plus an optional FPS and video memory readout.

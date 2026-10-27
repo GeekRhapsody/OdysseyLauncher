@@ -704,8 +704,9 @@ public partial class Main : Node3D
         navigator.InputSuspended = () => _ui!.IsOpen;
         var hud = new JobsHud(_jobs.Jobs);
         AddChild(hud);
+        _videoDecoder = PlatformServices.CreateVideoDecoder();
         var context = new UiContext(_ui!, _queue, PlatformServices.CreateFileLocations(services.Paths.HomeDir), services.Paths.HomeDir,
-            services.Paths.DataDir, () => services.Config.Settings.RomRoot, PlatformServices.CreateImageDecoder());
+            services.Paths.DataDir, () => services.Config.Settings.RomRoot, PlatformServices.CreateImageDecoder(), _videoDecoder, PlatformServices.CreatePdfRenderer());
         _settings = new SettingsController(services, context, _jobs) { Rescan = navigator.Rescan, ThemesList = _options.ThemesList, UpdateFeed = _options.UpdateFeed };
         _settings.ConfigApplied += config =>
         {
@@ -768,9 +769,9 @@ public partial class Main : Node3D
         _jobs.GamesUpdated += navigator.OnGamesUpdated;
         _jobs.GameDeleted += navigator.OnGameDeleted;
 
-        // Y on a game: its details, with its images and video full size. The focused system card plays its theme's video
-        // (A6 Card videos), and the focused game its own on a template that shows it (A6 Game videos), with the same decoder.
-        _videoDecoder = PlatformServices.CreateVideoDecoder();
+        // Y on a game: its details, with its images and video full size, and its manual. The focused system card plays its
+        // theme's video (A6 Card videos), and the focused game its own on a template that shows it (A6 Game videos), with
+        // the same decoder.
         _systemsGrid!.VideoDecoder = _videoDecoder;
         _gamesGrid!.VideoDecoder = _videoDecoder;
         navigator.GameDetailsRequested += id =>
@@ -999,6 +1000,9 @@ public partial class Main : Node3D
             case "details":
                 OpenDetailsForDebug();
                 break;
+            case "manual":
+                OpenManualForDebug();
+                break;
             case "running":
                 Launch().ShowRunningScreenForDebug("Example Game");
                 break;
@@ -1045,6 +1049,48 @@ public partial class Main : Node3D
                 }
 
                 GameDetailsPanel.Open(context, services, _videoDecoder, id.Value, () => _navigator?.RefreshDetails());
+            });
+        });
+    }
+
+    /// <summary>
+    /// <c>--open=manual</c>: the manual of the game at <c>--start-index</c> of <c>--start-system</c>, as A on its card in
+    /// the details screen opens it (its file read off the main thread).
+    /// </summary>
+    private void OpenManualForDebug()
+    {
+        var services = _services!;
+        var context = _settings!.Ui;
+        var system = _options.StartSystem;
+        var index = _options.StartIndex ?? 0;
+        _ = Task.Run(async () =>
+        {
+            string? file = null;
+            if (system is not null)
+            {
+                var list = await services.Library.GetGamesAsync(system, CancellationToken.None).ConfigureAwait(false);
+                if (list.Games.Count > 0)
+                {
+                    var id = list.Games[Math.Clamp(index, 0, list.Games.Count - 1)].GameId;
+                    foreach (var row in await services.Library.GetGameMediaInfoAsync(id, CancellationToken.None).ConfigureAwait(false))
+                    {
+                        if (row.Kind == Launcher.Core.Media.MediaKinds.Manual)
+                        {
+                            file = services.Library.MediaPath(row.Media.Path);
+                        }
+                    }
+                }
+            }
+
+            context.Queue.Post(() =>
+            {
+                if (file is null)
+                {
+                    GD.PushWarning("--open=manual needs --start-system and --start-index on a game with a manual.");
+                    return;
+                }
+
+                _ui!.Push(new ManualViewer(context, file, "Manual"));
             });
         });
     }

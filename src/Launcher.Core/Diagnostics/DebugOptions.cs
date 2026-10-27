@@ -65,11 +65,12 @@ public sealed record DebugOptions
     /// power menu, the match panel over made-up results, the art chooser over made-up images (2026-10-15), a game's
     /// details screen (the last three for <see cref="StartSystem"/>'s game at <see cref="StartIndex"/>), the screen
     /// shown while a game runs, for a made-up game, and the theme downloader (2026-10-16; with <see cref="ThemesList"/>,
-    /// a local list, nothing is fetched), and "Check for updates" (2026-10-18; with <see cref="UpdateFeed"/>, a local
-    /// feed, nothing is fetched).
+    /// a local list, nothing is fetched), "Check for updates" (2026-10-18; with <see cref="UpdateFeed"/>, a local
+    /// feed, nothing is fetched), and a game's manual (2026-10-27, as A on its card in the details screen opens it, for
+    /// the same game).
     /// </summary>
     public static IReadOnlyList<string> OpenTargets { get; } =
-        ["settings", "keyboard", "folder-picker", "image-picker", "program-picker", "confirm", "progress", "power", "match", "art", "details", "running", "themes", "update"];
+        ["settings", "keyboard", "folder-picker", "image-picker", "program-picker", "confirm", "progress", "power", "match", "art", "details", "running", "themes", "update", "manual"];
 
     public const int DefaultCaptureFrame = 60;
     public const int DefaultBenchFrames = 600;
