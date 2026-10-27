@@ -331,6 +331,26 @@ CABINETS = {
         sticks=dict(p1=(-265.0, 140.0), p2=(105.0, 140.0), shaft=(5.0, 46.0), ball=18.0),
         start=[(-40.0, 230.0), (40.0, 230.0)], button=dict(r=13.0, height=8.0),
     ),
+    # Taito's Egret II (1996), from its manual's drawings: 750 x 903 x 1450 mm, its hood sweeping forward over the
+    # monitor (leaning back 30 degrees) into the marquee's lip, the speakers under the hood, the back stepping in and
+    # leaning out again to the top; the control panel standing 307 mm out in front, its front a convex curve; the POP
+    # sign on the hood.
+    "egret2": dict(
+        kind="candy", width=750.0, height=1764.0, depth=903.0, round=14.0, yaw=-30.0,
+        body=[(307.0, 0.0), (903.0, 0.0), (903.0, 890.0), (820.0, 1015.0), (895.0, 1345.0), (850.0, 1442.0),
+              (632.0, 1442.0), (608.0, 1425.0), (608.0, 1352.0), (662.0, 1336.0), (618.0, 1262.0), (305.0, 680.0),
+              (307.0, 615.0)],
+        marquee=((608.0, 1425.0), (608.0, 1352.0)), speakers=((662.0, 1336.0), (618.0, 1262.0)),
+        bezel=((305.0, 680.0), (618.0, 1262.0)),
+        screen=dict(glass=(590.0, 442.0), middle=332.0, margin=24.0, depth=46.0, bulge=6.0),
+        lower=((307.0, 0.0), (307.0, 615.0)),
+        panel=dict(top=((0.0, 650.0), (307.0, 665.0)), front=612.0, width=750.0, round=120.0, back=305.0),
+        coin=dict(kind="door", x=(180.0, 335.0), z=(380.0, 555.0)),
+        kick=(0.0, 62.0),
+        tops=[dict(x=(-222.0, 222.0), y=(690.0, 712.0), z=(1442.0, 1764.0), face="pop", colour="white", r=4.0)],
+        sticks=dict(p1=(-240.0, 130.0), p2=(115.0, 130.0), shaft=(5.0, 46.0), ball=18.0),
+        start=[(-34.0, 228.0), (34.0, 228.0)], button=dict(r=13.0, height=8.0),
+    ),
     # A sit-down driving cabinet of the mid-1990s: the monitor's housing (its sides curved fins), a long canopy over it
     # carrying the marquee, the dash with the wheel, START, the view buttons and the shifter, the pedals; the seat on
     # its base behind, the player facing the screen from the viewer's side.
@@ -559,6 +579,24 @@ CARDS = {
                            ("band", [(540.0, 1610.0), (600.0, 1000.0), (770.0, 30.0)], 170.0, ("#EEEAE0", "#EEEAE0")),
                            ("band", [(540.0, 1610.0), (600.0, 1000.0), (770.0, 30.0)], 54.0,
                             ("#C81E3A", "#C81E3A"))]),
+    "typex": dict(cabinet="egret2", game="vermsqdn", screen="3:4", marquee="TYPE X", maker="TAITO",
+                  colours=dict(case="#EEEEEA", side="#EEEEEA", lower="#EEEEEA", panel_edge="#E8E8E4", bezel="#45474A",
+                               speakers="#EEEEEA", metal="#B4B6BA", kick="#D8D8D2", marquee="#C0206E",
+                               marquee_glow="#FF7AC0", marquee_text="#5AD06A", marquee_edge="#0E3A18"),
+                  buttons=("#F2F2EE", "#3858A4", "#171415"), balls=("#F2F2EE", "#F2F2EE"),
+                  boot=dict(big="TAITO", small="TYPE X"),
+                  panel_art=dict(ground="#141216", speckle=True, stripes=("#C0206E", "#F2F2EE", "#C0206E"), rings=True),
+                  bezel_art=dict(surround="#45474A", lines=(), logo=False),
+                  front_art=dict(doors="#C8C8C2"),
+                  side=[("fill", "#EEEEEA"),
+                        ("band", [(860.0, 1420.0), (640.0, 620.0), (632.0, 0.0)], 100.0, ("#C0206E", "#C0206E")),
+                        ("band", [(925.0, 1420.0), (705.0, 620.0), (697.0, 0.0)], 12.0, ("#C8C8CC", "#C8C8CC")),
+                        ("poly", [(728.0, 1300.0), (760.0, 1300.0), (790.0, 1400.0), (758.0, 1400.0)], "#C0206E"),
+                        ("poly", [(690.0, 1300.0), (716.0, 1300.0), (746.0, 1400.0), (720.0, 1400.0)], "#C0206E"),
+                        ("poly", [(652.0, 1300.0), (674.0, 1300.0), (704.0, 1400.0), (682.0, 1400.0)], "#C0206E"),
+                        ("text", "EGRET II", "arialbi.ttf", 120.0, (612.0, 980.0), 74.0, "#F4F4F2",
+                         ("#C0206E", 7.0)),
+                        ("text", "TAITO GAME CABINET", "arialbd.ttf", 30.0, (694.0, 960.0), 74.0, "#C0206E", None)]),
     "model2": dict(cabinet="daytona", game="turbotar", screen="4:3", marquee="MODEL 2", maker="SEGA",
                    colours=dict(case="#141416", side="#F0601A", lower="#141416", panel_edge="#1A1A1E",
                                 bezel="#0C0C0E", metal="#2A2A2E", kick="#1A1A1E", marquee="#1A1030",

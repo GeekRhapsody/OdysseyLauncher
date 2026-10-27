@@ -1,5 +1,6 @@
-"""The console theme's Dragon 32 system model (godot/themes/console/models/systems/dragon32.glb): a Dragon 32 in front
-of the portable television the ZX Spectrum's card has.
+"""The console theme's Dragon 32 and Tano Dragon system models (godot/themes/console/models/systems/dragon32.glb and
+tanodragon.glb): a Dragon 32, or the Tano Dragon (the same case in ivory, DRAGON By TANO on its badge), in front of the
+portable television the ZX Spectrum's card has.
 
 Built in Blender (dragon32_layout.py has the measurements, taken from photographs and the museums' figures). The
 computer is its side outline extruded across its width; the keyboard's well is sunk into the slope in the slope's frame,
@@ -13,13 +14,16 @@ top tipped up; then the model spec's fit: standing on y = 0, centred, the larges
 holding the cartridge (waiting outside the slot, shrunk to nothing), the television's four screens (those not shown
 behind the glass), and the keys the clip presses.
 
-The `focused` clip (8 s, looping): the cartridge slides into the slot in the right side and starts: Odyssey's title;
-SPACE, and the game played on the arrow keys; then the cartridge comes out, the Dragon starts again, OK.
+The `focused` clip (8 s, looping): the cartridge slides into the slot in the right side and starts: the game's title
+(the Dragon 32's Odyssey; the Tano Dragon's one of tools/made-up-games's); SPACE, and the game played on the arrow keys;
+then the cartridge comes out, the Dragon starts again, OK.
 
 Four materials (case, tv, dark, glass) and two 1024² textures, within the system model budget. Run from the repo root:
 
-    python tools/console-models/dragon32_print.py artifacts/dragon32
-    blender -b --factory-startup --python tools/console-models/dragon32.py -- artifacts/dragon32 godot/themes/console/models/systems/dragon32.glb
+    python tools/console-models/dragon32_print.py dragon32 artifacts/made-up-games artifacts/dragon32
+    blender -b --factory-startup --python tools/console-models/dragon32.py -- artifacts/dragon32 dragon32 godot/themes/console/models/systems/dragon32.glb
+
+and the same with tanodragon.
 """
 
 import math
@@ -182,16 +186,16 @@ def timeline(f):
 
 def main():
     args = sys.argv[sys.argv.index("--") + 1:]
-    images, out = os.path.abspath(args[0]), os.path.abspath(args[1])
+    images, kind, out = os.path.abspath(args[0]), args[1], os.path.abspath(args[2])
     bpy.ops.wm.read_factory_settings(use_empty=True)
     scene = bpy.context.scene
     scene.render.fps = L.FPS
     m = {"case": material("case", L.COLOURS["print"], ROUGHNESS["case"],
-                          bpy.data.images.load(os.path.join(images, "dragon32_print.png"))),
+                          bpy.data.images.load(os.path.join(images, f"{kind}_print.png"))),
          "tv": material("tv", SL.COLOURS["tv"], ROUGHNESS["tv"]),
          "dark": material("dark", L.COLOURS["dark"], ROUGHNESS["dark"]),
          "glass": material("glass", L.COLOURS["print"], ROUGHNESS["glass"],
-                           bpy.data.images.load(os.path.join(images, "dragon32_media.png")))}
+                           bpy.data.images.load(os.path.join(images, f"{kind}_media.png")))}
     m["print"] = m["case"]                                    # television() prints its front with the set's atlas
 
     fixed_keys, moving = keys(m)
@@ -199,12 +203,12 @@ def main():
     shift = Matrix.Translation((L.TV_AT[0] - SL.TV["at"][0], L.TV_AT[1] - SL.TV["at"][1], 0.0))
     for part in tv:
         part.data.transform(shift)
-    whole = join([dragon(m), fixed_keys] + tv, "dragon32")
+    whole = join([dragon(m), fixed_keys] + tv, kind)
     for p in whole.data.polygons:
         p.use_smooth = True
     whole.data.set_sharp_from_angle(angle=math.radians(35))
 
-    root = bpy.data.objects.new("dragon32_root", None)
+    root = bpy.data.objects.new(kind + "_root", None)
     scene.collection.objects.link(root)
     whole.parent = root
     (sy0, sy1), (sz0, sz1) = L.SLOT["y"], L.SLOT["z"]
@@ -233,7 +237,7 @@ def main():
 
     key("focused", nodes, timeline, L.LENGTH)
     meshes = [whole] + list(nodes.values())
-    print(f"Dragon 32: {sum(triangles(o.data) for o in meshes)} triangles ({triangles(whole.data)} the set), "
+    print(f"{kind}: {sum(triangles(o.data) for o in meshes)} triangles ({triangles(whole.data)} the set), "
           f"{len({mat.name for o in meshes for mat in o.data.materials})} materials, "
           f"size {size.x:.1f} x {size.y:.1f} x {size.z:.1f} mm tilted, before the fit")
     export([root] + meshes, out, animations=True)

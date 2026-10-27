@@ -8,7 +8,7 @@ swatches small parts take their colour from. Run it with the system Python (Pill
 
     python tools/console-models/snes_print.py <kind> <out folder>
 
-It writes <kind>_print.png there (snes, satellaview).
+It writes <kind>_print.png there (snes, sfc, satellaview).
 """
 
 import os
@@ -177,6 +177,8 @@ def main(kind, out):
 TEXTS = {
     "snes": dict(name=[("SUPER NINTENDO", 7.0, 7.5), ("ENTERTAINMENT SYSTEM", 3.2, 13.0)], slot_text="PAL VERSION",
                  label="SUPER NINTENDO", boxed=True),
+    "sfc": dict(name=[("Nintendo", 7.0, 0.0), ("SUPER Famicom", 6.0, 7.5)],
+                slot_text="USE CASSETTE WITH SUPER Famicom MARK ONLY", label="SUPER Famicom", boxed=False),
     "satellaview": dict(name=[("Nintendo", 7.0, 0.0), ("SUPER Famicom", 6.0, 7.5)],
                         slot_text="USE CASSETTE WITH SUPER Famicom MARK ONLY", label="SUPER Famicom", boxed=False),
 }

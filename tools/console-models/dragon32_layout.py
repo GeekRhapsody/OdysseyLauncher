@@ -56,6 +56,14 @@ TV_AT = (0.0, 400.0)              # the television's front's middle
 
 COLOURS = dict(case="#D9CDAE", key="#232325", print="#FFFFFF", dark="#0A0A0B")
 
+# The machines built from it: the Dragon 32, and the Tano Dragon (the Dragon 64 Tano Corporation made in New Orleans
+# for America), the same case in its own colours with its own badge, its screens one of tools/made-up-games's games in
+# the VDG's colours (game: its file's stem and system).
+KINDS = {
+    "dragon32": dict(case=COLOURS["case"], key=COLOURS["key"], legend="#ECECE6", game=None),
+    "tanodragon": dict(case="#E2DCC8", key="#2A2627", legend="#ECECE6", game=("Ghoulish Gus (Europe)", "megadrive")),
+}
+
 TOP = 175.0                       # how far back the top's region reaches (y): the slope, its keys and the badge
 PRINT_REGIONS = dict(top=(0, 0, 1024, 551), cartridge=(620, 600, 200, 174))
 SWATCHES = dict(case=(852, 620), key=(884, 620), dark=(916, 620), cart=(948, 620), rib=(852, 652))

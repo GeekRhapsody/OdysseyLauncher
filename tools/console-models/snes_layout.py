@@ -2,6 +2,7 @@
 Plain Python: Blender's Python imports it too.
 
 `snes`: the PAL Super Nintendo, which is the Super Famicom's shape (200 x 242 x 72 mm) with its own name on it.
+`sfc`: the Super Famicom itself, as the SuFami Turbo's card has it (sufami.py).
 `satellaview`: a Super Famicom standing on the Satellaview, the satellite receiver that fits under it (BASE: a box of
 its footprint, Nintendo Satellaview on its front panel with its ACCESS and POWER lights), the BS-X cartridge in its
 slot with the memory pack plugged into the cartridge's top (MEMORY_PACK). Millimetres: x from its middle (left to
@@ -42,6 +43,7 @@ CART = dict(width=135.0, height=90.0, arch=6.0, thickness=20.0,   # the cartridg
 
 KINDS = {
     "snes": dict(name="PAL", case="#D4D4D6", panel="#A9A9AD"),
+    "sfc": dict(name="SFC", case="#D2D2D4", panel="#A8A8AC"),
     "satellaview": dict(name="SFC", case="#D2D2D4", panel="#A8A8AC",
                         base=dict(height=46.0, corner=16.0, panel=(176.0, 30.0, 4.0), depth=2.0,
                                   lights=dict(access=(40.0, 13.0), power=(64.0, 13.0)))),

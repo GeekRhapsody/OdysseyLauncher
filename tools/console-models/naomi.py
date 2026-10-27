@@ -1,7 +1,8 @@
-"""The console theme's NAOMI system model (godot/themes/console/models/systems/naomi.glb): a Sega candy cabinet running
-NAOMI.
+"""The console theme's NAOMI, NAOMI 2 and NAOMI GD-ROM system models (godot/themes/console/models/systems/naomi.glb,
+naomi2.glb and naomigd.glb): a Sega candy cabinet running each.
 
-NAOMI is an arcade board, played in cabinets (naomi_layout.py): its card is a white candy cabinet, NAOMI on its marquee.
+NAOMI is an arcade board, played in cabinets (naomi_layout.py): its card is a white candy cabinet, NAOMI on its marquee;
+NAOMI 2's and NAOMI GD-ROM's are the same cabinet with their own marquees, start-ups and games (naomi_layout.KINDS).
 The cabinet is its side outline extruded across its width; the screen's recess is cut into the bezel's slope (its black
 surround), the CRT's curved glass set in it. The control panel's top carries its overlay, the two joysticks (ball tops),
 the buttons and the coin plate; the lower cabinet's front its coin doors, the kick plate at its foot. The printing is two
@@ -20,8 +21,10 @@ START flashing; START is pressed and the game plays, the stick waggling and the 
 Six materials (case, dark, metal, print, glass, button) and two textures, within the system model budget. Run from the
 repo root:
 
-    python tools/console-models/naomi_print.py artifacts/naomi
-    blender -b --factory-startup --python tools/console-models/naomi.py -- artifacts/naomi godot/themes/console/models/systems/naomi.glb
+    python tools/console-models/naomi_print.py naomi artifacts/made-up-games artifacts/naomi
+    blender -b --factory-startup --python tools/console-models/naomi.py -- artifacts/naomi naomi godot/themes/console/models/systems/naomi.glb
+
+and the same with naomi2 and naomigd.
 """
 
 import math
@@ -152,9 +155,9 @@ def controls(m):
 
 def button(name, x, v, colour, m):
     r, h = L.BUTTONS["r"], L.BUTTONS["height"]
-    part = painted(in_frame(name, PANEL_FRAME, circle(x, v, r, 24), -2.0, h, m["print"]), m, colour)
-    bevel(part, 1.6, segments=2)
-    return part
+    part = in_frame(name, PANEL_FRAME, circle(x, v, r, 24), -2.0, h, m["print"])
+    bevel(part, 1.6, segments=2)            # before painting: a bevel interpolates UVs, a float's last bit varying
+    return painted(part, m, colour)
 
 
 def stick(m):
@@ -260,24 +263,24 @@ def timeline(f):
 
 def main():
     args = sys.argv[sys.argv.index("--") + 1:]
-    images, out = os.path.abspath(args[0]), os.path.abspath(args[1])
+    images, kind, out = os.path.abspath(args[0]), args[1], os.path.abspath(args[2])
     bpy.ops.wm.read_factory_settings(use_empty=True)
     scene = bpy.context.scene
     scene.render.fps = L.FPS
-    printed = bpy.data.images.load(os.path.join(images, "naomi_print.png"))
-    media = bpy.data.images.load(os.path.join(images, "naomi_media.png"))
+    printed = bpy.data.images.load(os.path.join(images, f"{kind}_print.png"))
+    media = bpy.data.images.load(os.path.join(images, L.media_file(kind)))
     colours = dict(L.COLOURS, button="#1A1A1C")
     textures = dict(print=printed, glass=media)
     m = {n: material(n, colours[n], r, textures.get(n)) for n, r in ROUGHNESS.items()}
 
-    whole = join(cabinet(m) + controls(m), "naomi")
+    whole = join(cabinet(m) + controls(m), kind)
     for poly in whole.data.polygons:
         poly.use_smooth = True
     whole.data.set_sharp_from_angle(angle=math.radians(35))
     parts = moving(m)
     parts.update(screens(m))
 
-    root = bpy.data.objects.new("naomi_root", None)
+    root = bpy.data.objects.new(kind + "_root", None)
     scene.collection.objects.link(root)
     whole.parent = root
     for name, (part, where) in parts.items():
@@ -295,7 +298,7 @@ def main():
 
     key("focused", nodes, timeline, L.LENGTH)
     meshes = [whole] + list(nodes.values())
-    print(f"NAOMI: {sum(triangles(o.data) for o in meshes)} triangles ({triangles(whole.data)} the set), "
+    print(f"{kind}: {sum(triangles(o.data) for o in meshes)} triangles ({triangles(whole.data)} the set), "
           f"{len({mat.name for o in meshes for mat in o.data.materials})} materials, "
           f"size {size.x:.1f} x {size.y:.1f} x {size.z:.1f} mm tilted, before the fit")
     export([root] + meshes, out, animations=True)

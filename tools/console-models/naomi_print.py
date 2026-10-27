@@ -1,15 +1,17 @@
-"""NAOMI's card's printing and screens, for the console theme's NAOMI model (tools/console-models/naomi.py).
+"""NAOMI's, NAOMI 2's and NAOMI GD-ROM's cards' printing and screens, for the console theme's NAOMI models
+(tools/console-models/naomi.py).
 
-Draws its two atlases, their regions as naomi_layout.py places them. naomi_print.png, each in millimetres as the
-model's UVs map it: the marquee (NAOMI's logo, its O orange, lit from behind), the speaker panel (two grilles and SEGA
-on a badge), the control panel's overlay (dark, its stripes, 1P and 2P, POWER CONTROL SYSTEM's place taken by
-ODYSSEY CITY, a made-up name), the lower cabinet's front (the two coin doors, their locks and coin returns), and the
-swatches small parts take their colour from. naomi_media.png: the screens, 4:3 (NAOMI's logo on white as the board
-starts; Odyssey's title, CREDIT 1 and PRESS START; two frames of play). Run it with the system Python (Pillow):
+Draws a kind's two atlases, their regions as naomi_layout.py places them. <kind>_print.png, each in millimetres as the
+model's UVs map it: the marquee (the board's logo, lit from behind: NAOMI's, its O orange; NAOMI 2's; NAOMI GD-ROM's),
+the speaker panel (two grilles and SEGA on a badge), the control panel's overlay (dark, its stripes, 1P and 2P, POWER
+CONTROL SYSTEM's place taken by ODYSSEY CITY, a made-up name), the lower cabinet's front (the two coin doors, their
+locks and coin returns), and the swatches small parts take their colour from. The screens, 4:3: the board's logo on
+white as it starts; the game's title, CREDIT 1 and PRESS START; two frames of play. NAOMI's (naomi_media.png) are a
+made-up game, Odyssey, drawn here; NAOMI 2's and NAOMI GD-ROM's (<kind>_media.jpg, pictures) one of
+tools/made-up-games's (arcade_print.Game: its logo, screenshot and a second frame from its painting). Make the made-up
+games' library first (tools/made-up-games/README.md), then run it with the system Python (Pillow, numpy, scipy):
 
-    python tools/console-models/naomi_print.py <out folder>
-
-It writes naomi_print.png and naomi_media.png there.
+    python tools/console-models/naomi_print.py <kind> artifacts/made-up-games <out folder>
 """
 
 import math
@@ -21,6 +23,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import naomi_layout as L  # noqa: E402
+from arcade_print import Game, on_screen, save, title_screen  # noqa: E402
 from psp_print import ship, space  # noqa: E402
 from retro_pc_print import rgb, shade  # noqa: E402
 from windows_pc_print import FONTS, Region  # noqa: E402
@@ -57,9 +60,38 @@ def naomi_logo(d, cx, cy, h, ink, scale=1.0):
     d.line([(x + stroke / 2, top), (x + stroke / 2, bottom)], fill=ink, width=stroke)
 
 
+BLUE = (30, 80, 200)
+RED = (206, 28, 30)                    # NAOMI GD-ROM's bar, red as on its start-up screen
+LOGO_WIDTH = 4.39                      # naomi_logo's width over its height
+
+
+def board_logo(d, kind, cx, cy, h, ink):
+    """The kind's logo, h tall (its letters), its middle at (cx, cy): NAOMI's; NAOMI 2's, a 2 after it as thick as the
+    O's ring and in its orange (as on the board's own label); NAOMI GD-ROM's, NAOMI over GD-ROM SYSTEM in a red bar (as
+    on its discs and its start-up screen)."""
+    if kind == "naomi2":
+        w = h * 0.86
+        naomi_logo(d, cx - w * 0.75, cy, h, ink)
+        stroke = round(max(1, round(h * 0.11)) * 1.5)
+        x = cx - w * 0.75 + LOGO_WIDTH * h / 2 + h * 0.34
+        top, bottom = cy - h / 2 + stroke / 2, cy + h / 2 - stroke / 2
+        rx, ry = w / 2, h * 0.27                             # the bowl over its top half, then the diagonal and foot
+        arc = [(x + rx + rx * math.cos(math.radians(a)), top + ry + ry * math.sin(math.radians(a)))
+               for a in range(165, 391, 15)]
+        d.line(arc + [(x, bottom), (x + w, bottom)], fill=ORANGE, width=stroke, joint="curve")
+    elif kind == "naomigd":
+        naomi_logo(d, cx, cy - h * 0.3, h * 0.8, ink)
+        bw, bh = LOGO_WIDTH * h * 0.8 * 1.04, h * 0.44
+        d.rectangle([cx - bw / 2, cy + h * 0.24, cx + bw / 2, cy + h * 0.24 + bh], fill=RED)
+        f = ImageFont.truetype(FONTS + "ariblk.ttf", max(1, round(bh * 0.66)))
+        d.text((cx, cy + h * 0.24 + bh / 2), "GD-ROM SYSTEM", font=f, fill=(250, 250, 250), anchor="mm")
+    else:
+        naomi_logo(d, cx, cy, h, ink)
+
+
 # ---- The cabinet's printing --------------------------------------------------------------------------------------------
 
-def marquee():
+def marquee(kind):
     (y0, z0), (y1, z1) = L.MARQUEE
     w, h = L.WIDTH - 50.0, math.hypot(y1 - y0, z1 - z0)
     reg = Region(L.REGIONS["marquee"], w, h, (250, 250, 248))
@@ -69,7 +101,7 @@ def marquee():
         a = 18 - k
         gd.rectangle(reg.box(0.0, h * (0.5 - 0.03 * k), w, h * (0.5 + 0.03 * k)), fill=(255, 236, 200, a))
     reg.over(glow)
-    naomi_logo(reg.draw, *reg.p(w / 2, h * 0.47), 54.0 * reg.sy, (20, 20, 22))
+    board_logo(reg.draw, kind, *reg.p(w / 2, h * 0.47), 54.0 * reg.sy, (20, 20, 22))
     reg.rect_(0.0, h - 9.0, w, h - 5.0, ORANGE)
     reg.rect_(0.0, 4.0, w, 7.0, ORANGE)
     return reg
@@ -126,9 +158,9 @@ def front():
     return reg
 
 
-def print_atlas(out):
+def print_atlas(kind, out):
     image = Image.new("RGB", (L.ATLAS, L.ATLAS), CASE)
-    for reg in (marquee(), speakers(), panel(), front()):
+    for reg in (marquee(kind), speakers(), panel(), front()):
         reg.paste(image)
     d = ImageDraw.Draw(image)
     for name, colour in (("green", (70, 210, 90)), ("pink", (240, 120, 170)), ("yellow", (240, 200, 40)),
@@ -136,7 +168,7 @@ def print_atlas(out):
                          ("dark", PANEL_DARK), ("coin", (210, 200, 160)), ("white", (250, 250, 250))):
         x, y = L.SWATCHES[name]
         d.rectangle([x - 12, y - 12, x + 11, y + 11], fill=colour)
-    path = os.path.join(out, "naomi_print.png")
+    path = os.path.join(out, f"{kind}_print.png")
     image.save(path, optimize=True)
     print(path)
 
@@ -151,11 +183,17 @@ def font(name, size):
     return ImageFont.truetype(FONTS + name, max(1, round(size * SS)))
 
 
-def boot():
+def boot(kind="naomi"):
     img = Image.new("RGB", (W * SS, H * SS), (250, 250, 250))
     d = ImageDraw.Draw(img)
-    naomi_logo(d, W * SS / 2, H * SS * 0.45, 48 * SS, (20, 20, 22))
-    d.text((W * SS / 2, H * SS * 0.66), "SEGA", font=font("ariblk.ttf", 20), fill=(30, 80, 200), anchor="mm")
+    board_logo(d, kind, W * SS / 2, H * SS * 0.45, 48 * SS, (20, 20, 22))
+    if kind == "naomigd":                                  # the GD-ROM's game loaded into the board's memory
+        d.text((W * SS / 2, H * SS * 0.72), "NOW LOADING... 100%", font=font("arialbd.ttf", 16), fill=(20, 20, 22),
+               anchor="mm")
+        d.text((W * SS / 2, H * SS * 0.8), "PLEASE WAIT...", font=font("arialbd.ttf", 12), fill=(90, 90, 96),
+               anchor="mm")
+    else:
+        d.text((W * SS / 2, H * SS * 0.66), "SEGA", font=font("ariblk.ttf", 20), fill=(30, 80, 200), anchor="mm")
     return img
 
 
@@ -197,21 +235,31 @@ def game(frame):
     return img
 
 
-def media_atlas(out):
+def media_atlas(kind, made_up, out):
     image = Image.new("RGB", (L.ATLAS, L.ATLAS), (0, 0, 0))
-    for name, art in (("boot", boot()), ("title", title()), ("game1", game(0)), ("game2", game(1))):
+    if L.KINDS[kind]["game"] is None:
+        shots = (("boot", boot()), ("title", title()), ("game1", game(0)), ("game2", game(1)))
+    else:                                                  # a made-up game from the library, as the arcade cards'
+        made = Game(*L.KINDS[kind]["game"][:1], made_up, L.KINDS[kind]["game"][1])
+        size = (W * SS, H * SS)
+        shots = (("boot", boot(kind)), ("title", title_screen(made, size)), ("game1", on_screen(made.shot, size)),
+                 ("game2", on_screen(made.frame(0.4), size)))
+    for name, art in shots:
         x, y, w, h = L.MEDIA_REGIONS[name]
         image.paste(art.resize((w, h), Image.LANCZOS), (x, y))
-    path = os.path.join(out, "naomi_media.png")
-    image.save(path, optimize=True)
-    print(path)
+    if L.KINDS[kind]["game"] is None:
+        path = os.path.join(out, L.media_file(kind))
+        image.save(path, optimize=True)
+        print(path)
+    else:
+        save(image, out, L.media_file(kind))
 
 
-def main(out):
+def main(kind, made_up, out):
     os.makedirs(out, exist_ok=True)
-    print_atlas(out)
-    media_atlas(out)
+    print_atlas(kind, out)
+    media_atlas(kind, made_up, out)
 
 
 if __name__ == "__main__":
-    main(sys.argv[1])
+    main(*sys.argv[1:4])

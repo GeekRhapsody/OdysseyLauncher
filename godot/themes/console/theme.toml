@@ -75,6 +75,9 @@ model = "models/systems/pokemini.glb"          # built by tools/console-models/p
 [systems.psp]
 model = "models/systems/psp.glb"              # built by tools/console-models/psp.py, turned to a three-quarter view; its focused clip turns it round, rolls a UMD into its door, and turns back to the XMB and the game
 
+[systems.sg-1000]
+model = "models/systems/sg-1000.glb"           # built by tools/console-models/sg1000.py: Sega's SG-1000 and its hard-wired SJ-200 joystick; its focused clip drops a cartridge (a made-up game) into the slot, lights the power light and plays on the joystick, presses HOLD, then takes the cartridge out
+
 [systems.mastersystem]
 model = "models/systems/mastersystem.glb"      # built by tools/console-models/master_system.py: the first Master System and its Control Pad; its focused clip drops a cartridge in through the dust flap, presses POWER, plays the pad and PAUSE, and later takes the cartridge out
 
@@ -92,6 +95,45 @@ model = "models/systems/windows.glb"          # built by tools/console-models/wi
 
 [systems.desktop]
 model = "models/systems/desktop.glb"           # built by tools/console-models/desktop.py: Desktop Apps has no hardware, so an unbranded laptop showing a made-up desktop of shortcuts; its focused clip double-clicks the game's shortcut, plays it in its window, then closes it
+
+[systems.pc]
+model = "models/systems/pc.glb"                # built by tools/console-models/computer.py (pc_layout.py): the IBM PC 5150, its 5151 display on it and its Model F keyboard; its focused clip opens drive A's latch, slides in a disk (a made-up game) and shuts it, loads from DOS's prompt and plays the game in green on the keypad's arrows, then takes the disk out
+
+[systems.pc88]
+model = "models/systems/pc88.glb"              # built by tools/console-models/computer.py (pc88_layout.py): NEC's PC-8801mkII SR, its keyboard and a PC-KD851 display on it; its focused clip turns DRIVE 1's latch, slides in a disk (a made-up game), runs it from N88-BASIC and plays it on the arrows, then takes the disk out
+
+[systems.x1]
+model = "models/systems/x1.glb"                # built by tools/console-models/computer.py (x1_layout.py): Sharp's X1 in Rose Red, its keyboard and its CZ-800D display on it; its focused clip opens the cassette deck's door, drops in a cassette (a made-up game), loads it through Hu-BASIC and plays it, then takes the cassette out
+
+[systems.x68000]
+model = "models/systems/x68000.glb"            # built by tools/console-models/computer.py (x68000_layout.py): Sharp's X68000, its twin towers and handle, a CZ-600DE display beside it, its keyboard and mouse; its focused clip slides a disk (a made-up game) edge-on into the first slot, boots Human68k and plays the game, then ejects the disk
+
+[systems.fm7]
+model = "models/systems/fm7.glb"               # built by tools/console-models/computer.py (fm7_layout.py): Fujitsu's FM-7, a colour display behind it and a data recorder beside it; its focused clip drops a cassette (a made-up game) into the recorder, presses PLAY, loads it from F-BASIC and plays it, then takes the cassette out
+
+[systems.fmtowns]
+model = "models/systems/fmtowns.glb"           # built by tools/console-models/computer.py (fmtowns_layout.py): Fujitsu's FM Towns in Towns grey, its display, keyboard and pad; its focused clip slides the CD's tray out of its square door, drops a CD (a made-up game) on it, boots it and plays the game, then takes the CD out
+
+[systems.moto]
+model = "models/systems/moto.glb"              # built by tools/console-models/computer.py (moto_layout.py): Thomson's MO5, its light pen and a 14-inch television (unbranded) behind it; its focused clip drops a MEMO5 cartridge (a made-up game) into the slot at its back, starts it from BASIC and plays it, then takes the cartridge out
+
+[systems.to8]
+model = "models/systems/to8.glb"               # built by tools/console-models/computer.py (to8_layout.py): Thomson's TO8D and a colour monitor behind it; its focused clip slides a 3.5-inch disk (a made-up game) into the drive in its right side, calls it from the start-up menu and plays it, then ejects the disk
+
+[systems.samcoupe]
+model = "models/systems/samcoupe.glb"          # built by tools/console-models/computer.py (samcoupe_layout.py): the SAM Coupé with a SAM Drive in its right bay, and a 14-inch television (unbranded) behind it; its focused clip slides a disk (a made-up game) into the drive, boots it from SAM BASIC and plays it, then ejects the disk
+
+[systems.spectravideo]
+model = "models/systems/spectravideo.glb"      # built by tools/console-models/computer.py (spectravideo_layout.py): Spectravideo's SV-318, its built-in red-ball joystick, and a 14-inch television (unbranded) behind it; its focused clip drops a cartridge (a made-up game) into the slot and plays it on the joystick, then takes the cartridge out
+
+[systems.adam]
+model = "models/systems/adam.glb"              # built by tools/console-models/computer.py (adam_layout.py): Coleco's ADAM, its keyboard with a controller in its holder, its SmartWriter printer and a 14-inch television (unbranded); its focused clip slides a Digital Data Pack (a made-up game) into drive 1, reads it and plays the game, then takes the pack out
+
+[systems.coco]
+model = "models/systems/coco.glb"              # built by tools/console-models/computer.py (coco_layout.py): Tandy's TRS-80 Color Computer, the grey one, and a 14-inch television (unbranded) behind it; its focused clip slides a Program Pak (a made-up game) into its right side and plays it from the green screen, then takes the Pak out
+
+[systems.trs-80]
+model = "models/systems/trs-80.glb"            # built by tools/console-models/computer.py (trs80_layout.py, its file renamed): Tandy's TRS-80 Model I, its Video Display and a cassette recorder (unbranded); its focused clip drops a cassette (a made-up game) into the recorder, presses PLAY, loads it from Level II BASIC and plays it, then takes the cassette out
 
 [systems.dos]
 model = "models/systems/dos.glb"              # built by tools/console-models/retro_pc.py: a late-80s 386 desktop with a 14-inch VGA monitor on it
@@ -153,6 +195,66 @@ model = "models/systems/colecovision.glb"      # built by tools/console-models/c
 [systems.intellivision]
 model = "models/systems/intellivision.glb"     # built by tools/console-models/intellivision.py: Mattel's Intellivision, its controllers docked in its top; its focused clip slides a cartridge into its right end, switches on and lifts the right controller out to play, then puts it back
 
+[systems.arcadia]
+model = "models/systems/arcadia.glb"           # built by tools/console-models/arcadia.py: Emerson's Arcadia 2001 on its walnut plinth, its two controllers in their bays on coiled cords; its focused clip drops a cartridge (a made-up game) into the slot, presses POWER and START and plays on the right controller, then takes the cartridge out
+
+[systems.astrocade]
+model = "models/systems/astrocade.glb"         # built by tools/console-models/astrocade.py: the Bally Astrocade, walnut and black under its smoked cover, its pistol-grip controller standing beside it; its focused clip drops a Videocade (a made-up game) into the well and slides it home, starts it on the keypad and plays on the knob and trigger, then ejects it
+
+[systems.crvision]
+model = "models/systems/crvision.glb"          # built by tools/console-models/crvision.py: VTech's CreatiVision, its two controllers docked as one keyboard; its focused clip slides a cartridge (a made-up game) into its right end, switches on and lifts the right controller out to play, then puts it back
+
+[systems.scv]
+model = "models/systems/scv.glb"               # built by tools/console-models/scv.py: Epoch's Super Cassette Vision, its controllers stored under its smoked flap; its focused clip drops a cartridge (a made-up game) into the slot, switches on, swings the flap up and lifts the 2P controller out to play, then puts it all back
+
+[systems.pv1000]
+model = "models/systems/pv1000.glb"            # built by tools/console-models/pv1000.py: Casio's PV-1000, navy, its raised deck and ribbed back, its TJ-1 joystick plugged in; its focused clip drops a game pack (a made-up game) into the slot, rocks the power switch on, presses START and plays on the stick and its red button, then switches off and takes the game pack out
+
+[systems.multivision]
+model = "models/systems/multivision.glb"       # built by tools/console-models/multivision.py: Tsukuda Original's Othello Multivision FG-1000, cream on navy, its maroon keys and built-in joystick; its focused clip drops an SG-1000 cartridge (a made-up game) through the smoked flap, plays on the stick, S-1 and S-2, presses PAUSE, then takes the cartridge out
+
+[systems.supracan]
+model = "models/systems/supracan.glb"          # built by tools/console-models/supracan.py: Funtech's Super A'Can, charcoal, its controller plugged in; its focused clip drops a cartridge (a made-up game) through the flap, slides POWER on, plays on the D-pad and the four buttons, presses RESET, then EJECT and the cartridge comes out
+
+[systems.vsmile]
+model = "models/systems/vsmile.glb"            # built by tools/console-models/vsmile.py: VTech's V.Smile, orange and periwinkle under its smoked lid, its controller plugged in; its focused clip drops a Smartridge (a made-up game) into the pocket, presses ON, then ENTER, plays on the stick and the coloured buttons, and takes the Smartridge out
+
+[systems.uzebox]
+model = "models/systems/uzebox.glb"            # built by tools/console-models/uzebox.py: the Uzebox has no case of its own, so the red Uzebox V1.2 kit board with an SNES-style pad in SNES P1; its focused clip slides the SD card in, presses POWER (LED1 lights), plays on the pad, presses RESET and POWER, then the SD card springs out
+
+[systems.megaduck]
+model = "models/systems/megaduck.glb"          # built by tools/console-models/megaduck.py: Welback's Mega Duck, white with its turquoise buttons, standing; its focused clip drops a cartridge (a made-up game) into the bay in its back, slides the power knob on, shows the start-up screen and the game's title and plays it in the LCD's four blues, then switches off and takes the cartridge out
+
+[systems.gamate]
+model = "models/systems/gamate.glb"            # built by tools/console-models/gamate.py: Bit Corporation's Gamate, dark grey with its yellow buttons, standing; its focused clip slides a card (a made-up game) down into its back, switches on, shows the start-up screen and the game's title and plays it, then switches off and takes the card out
+
+[systems.gmaster]
+model = "models/systems/gmaster.glb"           # built by tools/console-models/gmaster.py: Hartung's Game Master, slate grey under its glossy black band, standing; its focused clip drops a cartridge (a made-up game) into its back, shows the start-up screen and the game's title and plays it on its 64 x 64 dots, then takes the cartridge out
+
+[systems.gamecom]
+model = "models/systems/gamecom.glb"           # built by tools/console-models/gamecom.py: Tiger's Game.com, silver over its charcoal band, its stylus in its groove, standing; its focused clip slides a cartridge (a made-up game) into its right end, switches on, taps GAME on the menu with the stylus, plays the game, then switches off and takes the cartridge out
+
+[systems.arduboy]
+model = "models/systems/arduboy.glb"           # built by tools/console-models/arduboy.py: the credit-card Arduboy, its white board under the clear plate, standing; its focused clip slides the power switch on, shows the ARDUBOY logo and a made-up game's title, plays it in white on black, then switches off
+
+[systems.ngage]
+model = "models/systems/ngage.glb"             # built by tools/console-models/ngage.py: Nokia's first N-Gage, its keys fanning round the portrait screen, standing; its focused clip switches on to NOKIA's start-up and the games menu, starts a made-up vertical shooter with 5 and plays it on the D-pad, 5 and 7, then switches off
+
+[systems.palm]
+model = "models/systems/palm.glb"              # built by tools/console-models/palm.py: a PalmPilot, standing, its stylus in its silo; its focused clip switches on to the launcher, draws the stylus out and taps a made-up game, plays it with the stylus's taps, then puts the stylus back and switches off
+
+[systems.lcdgames]
+model = "models/systems/lcdgames.glb"          # built by tools/console-models/lcdgames.py: a dedicated LCD handheld in the classic 1990s shell (unbranded), a made-up racing game's art round its LCD, standing; its focused clip presses ON/START and plays the game on the LCD's segments, the car changing lanes on the D-pad
+
+[systems.android]
+model = "models/systems/android.glb"           # built by tools/console-models/android.py: an unbranded Android phone of the 2020s on a desk stand; its focused clip wakes it to its lock screen and home screen, turns it landscape for a made-up game and back, and puts it to sleep
+
+[systems.j2me]
+model = "models/systems/j2me.glb"              # built by tools/console-models/j2me.py: an unbranded keypad phone of the 2000s, after the Nokia 6230, standing; its focused clip opens the menu to Games, starts a made-up Java game with 5 and plays it on the keypad
+
+[systems.symbian]
+model = "models/systems/symbian.glb"           # built by tools/console-models/symbian.py: an unbranded two-way slider phone of the late 2000s, after the Nokia N95, standing; its focused clip opens the menu, slides the face up to show the keypad and plays a made-up game, then slides it back down
+
 [systems.plus4]
 model = "models/systems/plus4.glb"             # built by tools/console-models/plus4.py: a Commodore Plus/4 and its 1531 Datassette in front of the ZX Spectrum's television; its focused clip puts a cassette in the Datassette, types LOAD, presses PLAY, finds and loads the game and plays it on the cursor keys, then takes the cassette out
 
@@ -199,11 +301,17 @@ model = "models/systems/archimedes.glb"        # built by tools/console-models/a
 [systems.dragon32]
 model = "models/systems/dragon32.glb"          # built by tools/console-models/dragon32.py: a Dragon 32 in front of the ZX Spectrum's television; its focused clip slides a cartridge into the slot in its right side, Odyssey starts and is played on the arrow keys, then the cartridge comes out and the Dragon starts again
 
+[systems.tanodragon]
+model = "models/systems/tanodragon.glb"        # built by tools/console-models/dragon32.py: the Tano Dragon, the Dragon 32's case in ivory with DRAGON By TANO on its badge, in front of the ZX Spectrum's television; its focused clip slides a cartridge into its side and plays a made-up game in the NTSC set's artifact colours, then takes the cartridge out
+
 [systems.oric]
 model = "models/systems/oric.glb"              # built by tools/console-models/oric.py: an Oric Atmos and a cassette recorder in front of the ZX Spectrum's television; its focused clip puts a cassette in the recorder, types CLOAD"" and presses PLAY, loads the game and plays it on the arrow keys, then takes the cassette out
 
 [systems.zxspectrum]
 model = "models/systems/zxspectrum.glb"       # built by tools/console-models/zx_spectrum.py: a ZX Spectrum 48K and a portable television; its focused clip types LOAD "" and loads a game from tape, stripes and all
+
+[systems.zxnext]
+model = "models/systems/zxnext.glb"           # built by tools/console-models/zxnext.py: the ZX Spectrum Next, its stripes round its right end, in front of the ZX Spectrum's television; its focused clip opens the browser, loads a made-up game and plays it on the arrows and SPACE, then presses RESET
 
 [systems.vic20]
 model = "models/systems/vic20.glb"             # built by tools/console-models/vic20.py: a Commodore VIC-20 and the ZX Spectrum's portable television, READY. on the screen; its focused clip switches off, plugs a cartridge into the expansion port, switches on to the game and plays it, then takes it out
@@ -220,6 +328,9 @@ model = "models/systems/msx1.glb"              # built by tools/console-models/m
 
 [systems.msx2]
 model = "models/systems/msx2.glb"              # built by tools/console-models/msx2.py: a Philips VG-8235, the MSX2 with its 3.5 drive in its right end; its focused clip slides a disk into the drive, flickers FDD BUSY, plays the cursor keys, the space bar and CAPS, then ejects the disk
+
+[systems.msxturbor]
+model = "models/systems/msxturbor.glb"         # built by tools/console-models/msxturbor.py: a Panasonic FS-A1GT, its glossy black band with A1GT and the lights; its focused clip slides a disk into the drive in its right end, flickers FDD IN USE, lights R800 mode, plays the cursor keys and the space bar, pushes the autofire slider up and back, presses RESET and ejects the disk
 
 [systems.flash]
 model = "models/systems/flash.glb"             # built by tools/console-models/flash.py: Flash has no hardware, so a 2000s LCD monitor playing a Flash game in a browser, and its mouse; its focused clip fills the preloader, clicks PLAY, plays, and right-clicks the Flash Player's menu
@@ -324,6 +435,9 @@ model = "models/systems/pc98.glb"              # built by tools/console-models/p
 [systems.pcengine]
 model = "models/systems/pcengine.glb"          # built by tools/console-models/pc_engine.py: the white PC Engine, a HuCard and its pad; its focused clip slides the HuCard in along its channel, slides POWER on and plays the pad, and later takes the HuCard out
 
+[systems.supergrafx]
+model = "models/systems/supergrafx.glb"        # built by tools/console-models/supergrafx.py: NEC's SuperGrafx, styled on an engine, and its pad (pc_engine.py's, in its grey and blue); its focused clip drops a HuCard (a made-up game) into the spine's channel and slides it under the strip, slides POWER on, locking it, and plays the pad, then takes it out
+
 [systems.pcenginecd]
 model = "models/systems/pcenginecd.glb"        # built by tools/console-models/pcenginecd.py: a PC Engine Duo (the PC Engine with the Super CD-ROM² built in) and its pad; its focused clip opens the lid, drops a CD in, switches on and plays, then takes the CD out
 
@@ -342,11 +456,20 @@ model = "models/systems/gameandwatch.glb"      # built by tools/console-models/g
 [systems.sgb]
 model = "models/systems/sgb.glb"               # built by tools/console-models/sgb.py: the Super Game Boy in the European Super Nintendo's slot (snes.py's); its focused clip drops a Game Boy cartridge into it and switches on, then takes the cartridge out
 
+[systems.sufami]
+model = "models/systems/sufami.glb"            # built by tools/console-models/sufami.py: Bandai's SuFami Turbo standing in a Super Famicom's slot (snes.py's); its focused clip drops two mini cartridges (made-up games) into its cradles and switches on, then takes them out
+
 [systems.gc]
 model = "models/systems/gc.glb"                # built by tools/console-models/gamecube.py: an indigo GameCube, its handle and its controller; its focused clip springs the lid open, drops a mini disc in, switches on and plays the controller, and later takes the disc out
 
 [systems.naomi]
 model = "models/systems/naomi.glb"             # built by tools/console-models/naomi.py: NAOMI is an arcade board, so a Sega candy cabinet with NAOMI on its marquee; its focused clip drops a coin in, presses START and plays, then shows NAOMI's logo again
+
+[systems.naomi2]
+model = "models/systems/naomi2.glb"            # built by tools/console-models/naomi.py: NAOMI's cabinet with NAOMI 2 on its marquee (the 2 in the O's orange); its focused clip drops a coin in, presses START and plays a made-up game, then shows NAOMI 2's logo again
+
+[systems.naomigd]
+model = "models/systems/naomigd.glb"           # built by tools/console-models/naomi.py: NAOMI's cabinet with NAOMI over GD-ROM SYSTEM on its marquee, as on its discs, its start-up NOW LOADING; its focused clip drops a coin in, presses START and plays a made-up game, then shows the start-up again
 
 # The other arcade systems, built by tools/console-models/arcade.py: each a cabinet typical of its board, its name on
 # the marquee (or the POP sign, or the control panel's front), a made-up game on its screen; each focused clip puts a
@@ -395,6 +518,9 @@ model = "models/systems/consolearcade.glb"     # a twin-monitor cabinet: the gam
 
 [systems.pcarcade]
 model = "models/systems/pcarcade.glb"          # Taito's Vewlix: black, a white slash down its sides, a widescreen LCD under the red header
+
+[systems.type-x]
+model = "models/systems/type-x.glb"            # built by tools/console-models/arcade.py (card typex, its file renamed): Taito's Egret II, white, its hood's magenta marquee and side stripes, a POP sign on the hood, a made-up vertical shooter on its turned monitor
 
 [systems.n64]
 model = "models/systems/n64.glb"               # built by tools/console-models/n64.py: the console and its controller; its focused clip drops a cartridge in through the dust flaps, slides POWER on, swings the stick and presses the buttons, and later takes the cartridge out

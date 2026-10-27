@@ -753,7 +753,9 @@ public sealed class ThemeLoaderTests
             Assert.True(File.Exists(game.Path), $"{system}: {game.Path}");
         }
 
-        var unnamed = config.Systems.Select(s => s.Id).First(system => !console.Systems.ContainsKey(system));
+        // A system it doesn't name takes the base's card: a built-in one, or one of the user's own while it names them all.
+        var unnamed = config.Systems.Select(s => s.Id).FirstOrDefault(system => !console.Systems.ContainsKey(system))
+            ?? "users_own_system";
         Assert.Equal(baseTheme.PathOf(baseTheme.Defaults.SystemModel!), resolver.SystemModels(unnamed)[0].Path);
     }
 

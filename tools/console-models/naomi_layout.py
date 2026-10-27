@@ -3,8 +3,9 @@ and screens) and naomi.py (which builds it). Plain Python: Blender's Python impo
 
 NAOMI is an arcade board; its games were played in cabinets, and in Japan most often in Sega's candy cabinets. The
 card is one, 750 x 905 x 1445 mm (the New Astro City's figures in the Hard*Candy wiki), its shape measured from a
-photograph of a New Astro City on Wikimedia Commons, its marquee NAOMI's. Millimetres: x from its middle (left to
-right), y back from the control panel's front edge, z up from the floor.
+photograph of a New Astro City on Wikimedia Commons, its marquee NAOMI's. NAOMI 2 and NAOMI GD-ROM (KINDS) are the same
+cabinet, each with its own marquee and start-up, and one of tools/made-up-games's arcade games on its screen.
+Millimetres: x from its middle (left to right), y back from the control panel's front edge, z up from the floor.
 
 Its side outline (PROFILE): the lower cabinet's front set back under the control panel; the control panel tipped a
 little towards the player; the monitor's bezel sloping back from it; the speaker panel and the marquee over the
@@ -72,6 +73,19 @@ SWATCHES = dict(green=(600, 650), pink=(632, 650), yellow=(664, 650), yellow_lit
 SCREEN_PX = (480, 360)
 MEDIA_REGIONS = dict(boot=(0, 0) + SCREEN_PX, title=(512, 0) + SCREEN_PX, game1=(0, 368) + SCREEN_PX,
                      game2=(512, 368) + SCREEN_PX)
+
+# The cabinets: NAOMI's own (its screens drawn by naomi_print.py: a made-up game, Odyssey), and NAOMI 2's and NAOMI
+# GD-ROM's, each with its own marquee and start-up and one of tools/made-up-games's games (its file's stem and system),
+# their screens a picture (JPEG).
+KINDS = {
+    "naomi": dict(game=None),
+    "naomi2": dict(game=("dustygul", "arcade")),
+    "naomigd": dict(game=("Skylance (Europe)", "n64")),
+}
+
+
+def media_file(kind):
+    return f"{kind}_media.{'png' if KINDS[kind]['game'] is None else 'jpg'}"
 
 FPS = 30
 LENGTH = 240                 # 8 s
