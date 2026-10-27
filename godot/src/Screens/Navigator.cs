@@ -289,6 +289,11 @@ public sealed partial class Navigator : Node
             PollTheme(pending);
         }
 
+        if (_theme.CardsPending && _theme.PollCards())
+        {
+            ApplyCards();
+        }
+
         if (_overlay.List.Visible)
         {
             _overlay.List.Update(_gamesGrid.ScrollPosition, _gamesGrid.FocusIndex);
@@ -1167,6 +1172,7 @@ public sealed partial class Navigator : Node
                     _loader.ForgetUserModels();
                     _pendingTheme = new ThemeRuntime(plan, _loader);
                     _pendingTheme.UseGameChoices(choices);
+                    _pendingTheme.UseShownSystems(ShownSystemIds(_services.Systems, _services.Config));
                 });
             }
             catch (Exception e)
@@ -1263,6 +1269,41 @@ public sealed partial class Navigator : Node
         GD.Print(FormattableString.Invariant($"Theme: now '{theme.Plan.Active.Id}' ({theme.Plan.Active.Name}), {_clock - _themeRequestedAt:0.000} s after it was asked for, applied in {clock.Elapsed.TotalMilliseconds:0.0} ms on the main thread (the menus {menusMs:0.0} ms): {theme.GameTemplates.Count} game template(s), {theme.CardTemplates.Count} system model(s), {freed} model(s) freed; media slots: {theme.Layout}."));
         ShowStatus($"Theme: {theme.Plan.Active.Name}");
         OnFocusChanged();
+    }
+
+    /// <summary>
+    /// Main thread: the cards of the systems the grid shows are in (2026-10-27), after systems appeared or went (a
+    /// rescan, a deleted game, showing or hiding empty systems). The systems grid gets them and is bound again, and
+    /// the cards no longer shown are freed, video memory and all, as a theme switch frees a theme's (2026-10-16); while
+    /// a switch is on its way, it frees them instead, since its models aren't in use yet.
+    /// </summary>
+    private void ApplyCards()
+    {
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        _systemsGrid.DisableTextures();
+        _systemsGrid.SetTemplates(_theme.CardTemplates);
+        var freed = 0;
+        if (!_switchingTheme)
+        {
+            var inUse = new List<ItemTemplate>(_theme.GameTemplates);
+            inUse.AddRange(_theme.CardTemplates);
+            if (ModelView.ReleaseParked() is { } detailsModel)
+            {
+                inUse.Add(detailsModel);
+            }
+
+            freed = _loader.ReleaseUnused(inUse);
+            _themeCollectDue = _clock + ThemeCollectDelay;
+        }
+
+        InstallCardLayout(_theme);
+        RebindSystems(_services.Systems);
+        if (_screen == Screen.Systems)
+        {
+            OnFocusChanged();
+        }
+
+        GD.Print(FormattableString.Invariant($"Theme: the shown systems' cards applied in {clock.Elapsed.TotalMilliseconds:0.0} ms on the main thread: {_theme.CardTemplates.Count} system model(s), {freed} model(s) freed."));
     }
 
     /// <summary>The theme's slot layout: its arrays are built on a worker (creating textures can stall), then installed.</summary>
@@ -1785,7 +1826,13 @@ public sealed partial class Navigator : Node
             new(RecentlyPlayedId, "Recently played", "Newest first", Palette.RecentlyPlayed, null, null, VirtualKind.RecentlyPlayed, _theme.CardTemplateOf(RecentlyPlayedId),
                 _theme.LogoOf(RecentlyPlayedId)),
         };
-        var hideEmpty = _services.Config.Settings.Display.HideEmptySystems;
+        // Only the shown systems' cards are loaded (2026-10-27): a system that just appeared shows the default card until
+        // its own is in (ApplyCards), and the cards of those that went are freed then.
+        var shown = ShownSystemIds(summaries, _services.Config);
+        _theme.UseShownSystems(shown);
+        _pendingTheme?.UseShownSystems(shown);
+
+        var display = _services.Config.Settings.Display;
         var systems = new List<SystemEntry>(summaries.Count);
         var games = 0;
         foreach (var summary in summaries)
@@ -1796,7 +1843,7 @@ public sealed partial class Navigator : Node
             }
 
             games += summary.GameCount;
-            if (hideEmpty && summary.GameCount == 0)
+            if (!Shows(summary, display))
             {
                 continue;
             }
@@ -1812,6 +1859,24 @@ public sealed partial class Navigator : Node
         SystemOrder.Sort(systems, static entry => entry.System!, _services.Config.Settings.Display.SystemsSort);
         entries.AddRange(systems);
         return entries;
+    }
+
+    /// <summary>Whether the systems grid shows a system the config has: one with games, or any while empty ones show.</summary>
+    public static bool Shows(SystemSummary summary, DisplaySettings display) => summary.GameCount > 0 || !display.HideEmptySystems;
+
+    /// <summary>The systems the grid shows (<see cref="Shows"/>), whose cards the theme loads (2026-10-27).</summary>
+    public static List<string> ShownSystemIds(IReadOnlyList<SystemSummary> summaries, AppConfig config)
+    {
+        var ids = new List<string>(summaries.Count);
+        foreach (var summary in summaries)
+        {
+            if (config.FindSystem(summary.SystemId) is not null && Shows(summary, config.Settings.Display))
+            {
+                ids.Add(summary.SystemId);
+            }
+        }
+
+        return ids;
     }
 
     /// <summary>The first real system with games (or the first real one), so boot lands on something useful.</summary>

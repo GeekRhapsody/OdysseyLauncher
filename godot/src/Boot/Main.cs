@@ -316,11 +316,13 @@ public partial class Main : Node3D
             }
         }
 
-        // The templates games chose are known once the library is open, which can be after the theme is ready.
+        // The templates games chose and the systems the grid shows (whose cards are loaded: 2026-10-27) are known once
+        // the library is open; the theme isn't ready before then.
         if (_theme is not null && _services is { } opened && !_choicesGiven)
         {
             _choicesGiven = true;
             _theme.UseGameChoices(opened.GameTemplateChoices);
+            _theme.UseShownSystems(Navigator.ShownSystemIds(opened.Systems, opened.Config));
         }
 
         try
@@ -413,7 +415,7 @@ public partial class Main : Node3D
         foreach (var system in services.Systems)
         {
             games += system.GameCount;
-            if (system.GameCount > 0 || !services.Config.Settings.Display.HideEmptySystems)
+            if (Navigator.Shows(system, services.Config.Settings.Display))
             {
                 shownSystems++;
             }

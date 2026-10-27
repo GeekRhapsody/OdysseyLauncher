@@ -123,7 +123,8 @@ public sealed class ThemePlan
 
 /// <summary>
 /// Main thread: loads a <see cref="ThemePlan"/>'s models, trying each system's candidates in order until one loads, and
-/// then gives the grids their templates, the slot layout, and each system's look and colour.
+/// then gives the grids their templates, the slot layout, and each system's look and colour. Every system's games'
+/// templates are loaded, but only the shown systems' cards (2026-10-27, <see cref="UseShownSystems"/>).
 /// </summary>
 public sealed class ThemeRuntime
 {
@@ -136,6 +137,8 @@ public sealed class ThemeRuntime
     private readonly Dictionary<string, int> _cardTemplateOf = new(StringComparer.Ordinal);
     private readonly Dictionary<string, ModelCandidate> _choices = new(StringComparer.Ordinal);
     private readonly Dictionary<string, int> _chosenTemplateOf = new(StringComparer.Ordinal);
+    private HashSet<string> _shownCards = WithVirtualCards([]);
+    private bool _shownKnown;
 
     public ThemeRuntime(ThemePlan plan, ModelLoader loader)
     {
@@ -154,8 +157,16 @@ public sealed class ThemeRuntime
 
     public ThemePlan Plan { get; }
 
-    /// <summary>True once every system has a loaded model for its games and its card.</summary>
+    /// <summary>
+    /// True once every system has a loaded model for its games, and every shown system (<see cref="UseShownSystems"/>)
+    /// one for its card.
+    /// </summary>
     public bool Ready { get; private set; }
+
+    /// <summary>
+    /// True from when the shown systems change, once ready, until <see cref="PollCards"/> has the cards they need.
+    /// </summary>
+    public bool CardsPending { get; private set; }
 
     public IReadOnlyList<ItemTemplate> GameTemplates => _gameTemplates;
 
@@ -177,17 +188,19 @@ public sealed class ThemeRuntime
             return false;
         }
 
+        // The games' templates and the virtual cards start loading at once; the systems' cards once the shown systems
+        // are known (at boot, once the library is open).
         _loader.Poll();
-        var waiting = Advance(Plan.GameCandidates, _gameChoice, systemCard: false)
-            | Advance(Plan.CardCandidates, _cardChoice, systemCard: true)
+        var waiting = Advance(Plan.GameCandidates, _gameChoice, systemCard: false, null)
+            | Advance(Plan.CardCandidates, _cardChoice, systemCard: true, _shownCards)
             | AdvanceChoices();
-        if (waiting)
+        if (waiting || !_shownKnown)
         {
             return false;
         }
 
-        Collect(Plan.GameCandidates, _gameChoice, false, _gameTemplates, _gameTemplateOf);
-        Collect(Plan.CardCandidates, _cardChoice, true, _cardTemplates, _cardTemplateOf);
+        Collect(Plan.GameCandidates, _gameChoice, false, _gameTemplates, _gameTemplateOf, null);
+        Collect(Plan.CardCandidates, _cardChoice, true, _cardTemplates, _cardTemplateOf, _shownCards);
         CollectChoices();
         if (_gameTemplates.Count == 0 || _cardTemplates.Count == 0)
         {
@@ -196,9 +209,58 @@ public sealed class ThemeRuntime
 
         Layout = new SlotLayout(_gameTemplates);
         CardLayout = new SlotLayout(_cardTemplates);
+        CardsPending = false;
         Ready = true;
         return true;
     }
+
+    /// <summary>
+    /// Main thread: the systems the grid shows (2026-10-27), whose cards are loaded; Favourites, Recently played, All
+    /// games and the default card always are. Before <see cref="Ready"/>, the theme waits for it. Once ready, a change
+    /// makes <see cref="CardsPending"/> true: the new systems' cards load in the background (their entries show the
+    /// default card meanwhile), and <see cref="PollCards"/> says when the cards are collected again, to be applied, so
+    /// the systems no longer shown can be freed.
+    /// </summary>
+    public void UseShownSystems(IReadOnlyCollection<string> systemIds)
+    {
+        var shown = WithVirtualCards(systemIds);
+        if (_shownKnown && shown.SetEquals(_shownCards))
+        {
+            return;
+        }
+
+        _shownCards = shown;
+        _shownKnown = true;
+        CardsPending |= Ready;
+    }
+
+    /// <summary>
+    /// Main thread, each frame while <see cref="CardsPending"/>: loads the shown systems' cards. True once they're in
+    /// and <see cref="CardTemplates"/>, the card indices and <see cref="CardLayout"/> are built again for them.
+    /// </summary>
+    public bool PollCards()
+    {
+        if (!CardsPending || !Ready)
+        {
+            return false;
+        }
+
+        _loader.Poll();
+        if (Advance(Plan.CardCandidates, _cardChoice, systemCard: true, _shownCards))
+        {
+            return false;
+        }
+
+        _cardTemplates.Clear();
+        _cardTemplateOf.Clear();
+        Collect(Plan.CardCandidates, _cardChoice, true, _cardTemplates, _cardTemplateOf, _shownCards);
+        CardLayout = new SlotLayout(_cardTemplates);
+        CardsPending = false;
+        return true;
+    }
+
+    private static HashSet<string> WithVirtualCards(IReadOnlyCollection<string> systemIds) =>
+        new(systemIds, StringComparer.Ordinal) { ThemePlan.VirtualCards, Navigator.FavouritesId, Navigator.RecentlyPlayedId, Navigator.AllGamesId };
 
     /// <summary>The games grid template index for a system's games (the first template for a system it doesn't know).</summary>
     public int GameTemplateOf(string systemId) => _gameTemplateOf.TryGetValue(systemId, out var t) ? t : 0;
@@ -273,7 +335,10 @@ public sealed class ThemeRuntime
     /// <summary>The candidate a system's games use, once ready (the options panel says which: M7); null if none loaded.</summary>
     public ModelCandidate? GameModelInUse(string systemId) => InUse(Plan.GameCandidates, _gameChoice, systemId);
 
-    /// <summary>The candidate a system's card uses, once ready; null if none loaded.</summary>
+    /// <summary>
+    /// The candidate a system's card uses, once ready; null if none loaded. For a system not shown, whose card isn't
+    /// loaded, the one it would try first.
+    /// </summary>
     public ModelCandidate? CardModelInUse(string systemId) => InUse(Plan.CardCandidates, _cardChoice, systemId);
 
     private static ModelCandidate? InUse(Dictionary<string, IReadOnlyList<ModelCandidate>> lists, Dictionary<string, int> choice, string systemId) =>
@@ -304,12 +369,20 @@ public sealed class ThemeRuntime
     /// <summary>Main thread, each frame while per-game models load.</summary>
     public bool PollLoads() => (_loader.Pending > 0 || _loader.HasResults) && _loader.Poll();
 
-    /// <summary>Requests each list's current candidate; moves past failed ones. True while any is still loading.</summary>
-    private bool Advance(Dictionary<string, IReadOnlyList<ModelCandidate>> lists, Dictionary<string, int> choice, bool systemCard)
+    /// <summary>
+    /// Requests each list's current candidate (only <paramref name="only"/>'s, when given); moves past failed ones. True
+    /// while any is still loading.
+    /// </summary>
+    private bool Advance(Dictionary<string, IReadOnlyList<ModelCandidate>> lists, Dictionary<string, int> choice, bool systemCard, HashSet<string>? only)
     {
         var waiting = false;
         foreach (var (system, candidates) in lists)
         {
+            if (only is not null && !only.Contains(system))
+            {
+                continue;
+            }
+
             while (choice[system] < candidates.Count)
             {
                 var state = _loader.Request(candidates[choice[system]], systemCard);
@@ -362,10 +435,15 @@ public sealed class ThemeRuntime
 
     private void Collect(
         Dictionary<string, IReadOnlyList<ModelCandidate>> lists, Dictionary<string, int> choice, bool systemCard,
-        List<ItemTemplate> templates, Dictionary<string, int> indexOf)
+        List<ItemTemplate> templates, Dictionary<string, int> indexOf, HashSet<string>? only)
     {
         foreach (var (system, candidates) in lists)
         {
+            if (only is not null && !only.Contains(system))
+            {
+                continue;
+            }
+
             if (choice[system] >= candidates.Count)
             {
                 GD.PushWarning($"Themes: no model for {(system.Length == 0 ? "the default card" : system)} could be loaded; another system's is used.");
