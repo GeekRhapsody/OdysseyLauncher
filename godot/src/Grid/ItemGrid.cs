@@ -150,7 +150,8 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
 
     // Each template's MultiMesh draws only the instances in use (2026-10-08): its cells are packed into the first ones,
     // and VisibleInstanceCount says how many. Every instance is vertex-shaded, hidden or not, so drawing all of them
-    // ran each template's whole mesh once per cell: 9 million vertices a frame for the console theme's models.
+    // ran each template's whole mesh once per cell: 9 million vertices a frame for the console theme's models. Its
+    // node shows only while it has some (2026-10-27, PlaceInstance).
     private readonly List<int[]> _instanceCell = [];
     private readonly List<int> _instancesUsed = [];
     private readonly int[] _cellInstance;
@@ -787,11 +788,6 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
         for (var t = 0; t < _templates.Count; t++)
         {
             var used = source.UsesTemplate(t);
-            if (_instances[t] is { } instance)
-            {
-                instance.Visible = used;
-            }
-
             if (used && _templates[t].ShapeFromMedia && _envelopeWidth > 0)
             {
                 // Reshaped boxes: the cells fit the list's widest and tallest.
@@ -2578,7 +2574,7 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
 
     /// <summary>
     /// Draws the cell with an instance of its template's MultiMesh at <paramref name="transform"/>: the one it has, or
-    /// the next unused one, which then counts as visible.
+    /// the next unused one, which then counts as visible. The MultiMesh's node shows only while it has instances in use.
     /// </summary>
     private void PlaceInstance(int cell, Transform3D transform)
     {
@@ -2593,6 +2589,14 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
             _cellInstance[cell] = instance;
             multiMesh.SetInstanceCustomData(instance, _cellData[cell]);
             multiMesh.VisibleInstanceCount = instance + 1;
+
+            // An empty MultiMesh has no bounds, and while it has none the renderer keeps its node's last transform (the
+            // grid scrolls on without it), and takes its new bounds only the frame after its first instance: drawn in
+            // that frame, the instance was where the grid had been (2026-10-27). Shown again, the node sends both now.
+            if (instance == 0)
+            {
+                _instances[template]!.Visible = true;
+            }
         }
 
         _cellDrawn[cell] = transform;
@@ -2627,6 +2631,10 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
         multiMesh.SetInstanceTransform(last, Hidden);
         _instancesUsed[template] = last;
         multiMesh.VisibleInstanceCount = last;
+        if (last == 0)
+        {
+            _instances[template]!.Visible = false;
+        }
     }
 
     private void AnimateFades(float dt)
