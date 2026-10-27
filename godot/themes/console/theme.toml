@@ -227,6 +227,70 @@ model = "models/systems/flash.glb"             # built by tools/console-models/f
 [systems.pico8]
 model = "models/systems/pico8.glb"             # built by tools/console-models/pico8.py: PICO-8 has no hardware, so its cartridge made solid, its label a screen; its focused clip hops it round once and boots its label into a game
 
+[systems.scummvm]
+model = "models/systems/scummvm.glb"           # built by tools/console-models/scummvm.py: ScummVM has no hardware, so the green S of its icon, made solid; its focused clip jumps it about: high with a spin, a hop each way, and back in a somersault
+
+# More systems with no hardware of their own. Built by tools/console-models/devices.py: a device that stands for each,
+# its screen playing one of the made-up games.
+[systems.tic80]
+model = "models/systems/tic80.glb"             # TIC-80's mascot made solid in its pixels; its clip drops a cartridge into its top and plays a game on its face
+
+[systems.wasm4]
+model = "models/systems/wasm4.glb"             # WASM-4's emblem made a handheld; its clip picks it up, presses its buttons and turns it round to the game on its back
+
+[systems.lowresnx]
+model = "models/systems/lowresnx.glb"          # LowRes NX's handheld; its clip types RUN and slides the screen down over the keyboard to play
+
+[systems.vircon32]
+model = "models/systems/vircon32.glb"          # Vircon32's console and gamepad; its clip lifts the cartridge out to show its label, drops it back, plays and slides a memory card in
+
+[systems.fpinball]
+model = "models/systems/fpinball.glb"          # a pinball machine; its clip fires the plunger and plays a ball through the bumpers until it drains
+
+[systems.vpinball]
+model = "models/systems/vpinball.glb"          # a corner of a playfield, its chrome ball engraved with an X; its clip flips the ball off the bumper and back
+
+[systems.zmachine]
+model = "models/systems/zmachine.glb"          # a 1980s terminal and a brass lantern; its clip types LIGHT LAMP, lights the lantern and plays a made-up text adventure
+
+[systems.steam]
+model = "models/systems/steam.glb"             # a Steam Deck; its clip picks it up, wakes it, launches a made-up game from its library and plays it
+
+# Built by tools/console-models/emblems.py: the emblem made solid.
+[systems.doom]
+model = "models/systems/doom.glb"              # Doom's letters in steel and rust; its clip jolts each back as a shotgun's blast would, its face glowing ember orange
+
+[systems.quake]
+model = "models/systems/quake.glb"             # Quake's rune in rusted iron, driven into a stone; its clip pulls it out, turns it and slams it back, the stone shaking
+
+[systems.easyrpg]
+model = "models/systems/easyrpg.glb"           # EasyRPG's three curling arms on their medallion; its clip springs it up spinning, as an item got, sparkles round it
+
+[systems.solarus]
+model = "models/systems/solarus.glb"           # Solarus's sun and the sword across it; its clip draws the sword out, spins it and plunges it back, the sun flaring
+
+[systems.lutro]
+model = "models/systems/lutro.glb"             # Lutro's split disc and its heart; its clip beats the heart and turns the disc round to a moon going round its planet
+
+[systems.mugen]
+model = "models/systems/mugen.glb"             # M.U.G.E.N's letters on a stage under a fighting game's health bars; its clip has the M throw a ball of energy at the N
+
+[systems.mess]
+model = "models/systems/mess.glb"              # MESS's letters among a mess of cartridges, a floppy, a cassette and a calculator; its clip tidies them into a pile, then they tumble back
+
+# Built by tools/console-models/props.py: an object that stands for each.
+[systems.ags]
+model = "models/systems/ags.glb"               # Adventure Game Studio's blue mug with its tea bag's tag; its clip clicks it with a pointing hand and it hops round
+
+[systems.chailove]
+model = "models/systems/chailove.glb"          # ChaiLove's cup of chai with a heart in its foam; its clip stirs it, the heart swirling away and back, steam rising
+
+[systems.openbor]
+model = "models/systems/openbor.glb"           # a beat 'em up's oil drum with a dragon sprayed on it; its clip punches it, its lid flying off and a roast chicken leaping out
+
+[systems.ports]
+model = "models/systems/ports.glb"             # a cargo ship carrying a container with a gamepad on it; its clip rocks it on the swell while its crane swings the container out
+
 [systems.amigacd32]
 model = "models/systems/amigacd32.glb"         # built by tools/console-models/cd32.py: the Amiga CD32 and its pad; its focused clip swings the lid up, drops a CD in, plays the pad's coloured buttons, and later takes the CD out
 
@@ -252,7 +316,7 @@ model = "models/systems/ngp.glb"               # built by tools/console-models/n
 model = "models/systems/ngpc.glb"              # built by tools/console-models/neogeo_pocket.py: a Neo Geo Pocket Color in Platinum Blue; its focused clip drops a cartridge into its back, boots, plays on the clicky stick, does a special move and hops, then takes the cartridge out
 
 [systems.nes]
-model = "models/systems/nes.glb"               # built by tools/console-models/nes.py: the front-loading NES and its controller; its focused clip opens the door, slides a cartridge in and presses it down, shuts the door, switches on and plays on the controller, then takes the cartridge out
+model = "models/systems/nes.glb"               # built by tools/console-models/nes.py: the front-loading NES and its controller; its focused clip flips the door up and over, slides a cartridge in and presses it down, shuts the door, switches on and plays on the controller, then takes the cartridge out
 
 [systems.pc98]
 model = "models/systems/pc98.glb"              # built by tools/console-models/pc98.py: an NEC PC-9801VM, its colour monitor and its keyboard; its focused clip slides a floppy into drive 1, shuts its lever, boots to a game's title, presses RETURN and plays, then takes the floppy out
@@ -284,6 +348,54 @@ model = "models/systems/gc.glb"                # built by tools/console-models/g
 [systems.naomi]
 model = "models/systems/naomi.glb"             # built by tools/console-models/naomi.py: NAOMI is an arcade board, so a Sega candy cabinet with NAOMI on its marquee; its focused clip drops a coin in, presses START and plays, then shows NAOMI's logo again
 
+# The other arcade systems, built by tools/console-models/arcade.py: each a cabinet typical of its board, its name on
+# the marquee (or the POP sign, or the control panel's front), a made-up game on its screen; each focused clip puts a
+# coin in, presses START and plays, then shows the board's start-up again.
+[systems.cps]
+model = "models/systems/cps.glb"               # Capcom's Japanese BGS-25: white and blue, CAPCOM along its sides, Q-Sound speakers and a POP sign on its top
+
+[systems.cps1]
+model = "models/systems/cps1.glb"              # Capcom's first "Big Blue": blue sides, the hood over the screen, CP SYSTEM on its marquee
+
+[systems.cps2]
+model = "models/systems/cps2.glb"              # the Q-Sound "Big Blue": its marquee a lightbox on its top, the diamond-plate panel, the CAPCOM badge
+
+[systems.cps3]
+model = "models/systems/cps3.glb"              # Capcom's Impress: white, speakers and a POP sign on its top, the panel blue edged with pink
+
+[systems.model2]
+model = "models/systems/model2.glb"            # a sit-down driving cabinet: the wheel, the shifter, the seat with its race number; its clip steers round the bends
+
+[systems.model3]
+model = "models/systems/model3.glb"            # Sega's Blast City: white, the swoosh along its sides, MODEL 3 under its hood
+
+[systems.stv]
+model = "models/systems/stv.glb"               # Sega's Versus City: two cabinets back to back under a roof with WINNER on it
+
+[systems.atomiswave]
+model = "models/systems/atomiswave.glb"        # Sammy's Atomiswave cabinet: its hood out to the lit marquee, the green band down its sides
+
+[systems.triforce]
+model = "models/systems/triforce.glb"          # a sit-down kart racer: speaker rings beside the screen, a bucket seat on a checkered base
+
+[systems.daphne]
+model = "models/systems/daphne.glb"            # a laserdisc game's black cabinet: its LED scores, a dragon up its side, a made-up animated game on its screen
+
+[systems.arcade]
+model = "models/systems/arcade.glb"            # a classic upright of the early 1980s, its made-up game's side art: a cat burglar in a museum
+
+[systems.mame]
+model = "models/systems/mame.glb"              # the classic upright again, black with yellow trim, its made-up game's bees up its side
+
+[systems.fbneo]
+model = "models/systems/fbneo.glb"             # a red four-game cabinet, its marquee the four games' own
+
+[systems.consolearcade]
+model = "models/systems/consolearcade.glb"     # a twin-monitor cabinet: the game menu and the time left over a made-up Mega Drive game
+
+[systems.pcarcade]
+model = "models/systems/pcarcade.glb"          # Taito's Vewlix: black, a white slash down its sides, a widescreen LCD under the red header
+
 [systems.n64]
 model = "models/systems/n64.glb"               # built by tools/console-models/n64.py: the console and its controller; its focused clip drops a cartridge in through the dust flaps, slides POWER on, swings the stick and presses the buttons, and later takes the cartridge out
 
@@ -314,9 +426,12 @@ model = "models/systems/saturn.glb"            # built by tools/console-models/s
 [systems.dreamcast]
 model = "models/systems/dreamcast.glb"         # built by tools/console-models/dreamcast.py: the European Dreamcast and its controller with a VMU; its focused clip opens the lid, drops a GD-ROM onto the spindle and shuts it, presses POWER (the light and the VMU come on) and plays on the controller, then takes the GD-ROM out
 
-# Favourites and Recently played have no console: a Power Star and an alarm clock.
+# Favourites, Recently played and All games have no console: a Power Star, an alarm clock and a pile of games.
 [systems.favourites]
 model = "models/systems/favourites.glb"       # built by tools/console-models/power_star.py: Super Mario 64's Power Star; its focused clip opens its eyes, hops, spins and wiggles
 
 [systems.recently_played]
 model = "models/systems/recently_played.glb"  # built by tools/console-models/alarm_clock.py: the Dreamcast settings menu's alarm clock; its focused clip is the menu's: a one-second rocking roll with hops, scissoring hands and pulsing bells
+
+[systems.all_games]
+model = "models/systems/all_games.glb"        # built by tools/console-models/all_games.py: an untidy pile of made-up games' boxes (Mega Drive, Super Nintendo and N64); its focused clip flips the top case off the pile and back, then the leaning box slips and drops back

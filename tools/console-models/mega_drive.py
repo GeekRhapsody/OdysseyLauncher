@@ -1,27 +1,32 @@
 """The console theme's Sega Mega Drive system model (godot/themes/console/models/systems/megadrive.glb): the first Mega
 Drive and its control pad. build(), the console alone, is the 32X's and Mega-CD's cards' too (sega32x.py, mega_cd.py).
 
-Built in Blender from the first model's proportions (280 x 212 mm): the body, flat behind and sloping down to its front,
-its top side edges chamfered; the vents at the back left, wrapping round the side; the control panel sunk into the slope
-at the front left, with the volume slider, the power switch and RESET; the raised round platform with its glossy black
-ring, the disc and the slot's lip; the 16-BIT plate running over the ring; and the controller ports and the headphone
-socket in the front. The printing (the ring's legend, the plate, the panel's legends, MEGA DRIVE SEGA) is one texture,
-drawn by mega_drive_print.py and projected onto the top.
+Built in Blender from the first model's proportions (280 x 212 mm) and photographs of the European one (Evan-Amos's and
+Bill Bertram's on Wikimedia Commons, from the front left; its underside, Solomon203's): the black body, flat behind and
+sloping down to its front, its top side edges chamfered, standing on four rubber feet; the seam between its two halves
+running round it; the vents at the back left, wrapping round the side; the control panel sunk a little into the slope
+at the front left, its floor following the slope, with the volume slider, the power switch and RESET standing out of it;
+the raised round platform with its glossy black ring, the disc and the slot's lip, the slot's two dust flaps meeting in
+the middle; the 16-BIT plate running over the ring; the controller ports and the headphone socket in the front; the A/V,
+RF and power sockets in the back; the expansion port's cover in the right end; and underneath, the feet, the screws, the
+two vents and the labels. The printing (the plate, the panel's legends, MEGA DRIVE SEGA) is one texture, drawn by
+mega_drive_print.py and projected onto every face that looks up; the rest take the body's black, or the ring's.
 
 The card (main(); mega_drive_layout.py has its measurements) adds the three-button control pad in front of it at its
 left: its smoothed outline raised with a rounded profile, the D-pad, A, B and C, START, its printing its own texture;
-its cable runs from its strain relief to its 9-pin plug in CONTROL 1 (plugs.py's). The power switch and RESET are
-build()'s, left apart; the POWER light sits on the plate's white strip. The cartridge is mega_drive_cartridge.py's, a
-made-up game, Odyssey, on its label (mega_drive_print.py's megadrive_odyssey.png).
+its cable runs from its strain relief to its 9-pin plug in CONTROL 1 (plugs.py's). The power switch, RESET and the
+flaps are build()'s, left apart; the POWER light sits on the plate's white strip. The cartridge is
+mega_drive_cartridge.py's, a made-up game, Odyssey, on its label (mega_drive_print.py's megadrive_odyssey.png); seated,
+it sinks into the slot as a real one does, its thin lower half and the label's band out of sight.
 
 A node tree: a root (the turn to a three-quarter view, TILT_YAW and TILT_PITCH: the right end towards the viewer, the
 top tipped up; then the model spec's fit: standing on y = 0, centred, the largest side 1 m) holding the set; the set
-holding the cartridge (waiting over the slot, shrunk to nothing), the power switch, RESET, the POWER light (lit and
-unlit, swapped by depth), and the pad's D-pad, A, B and C.
+holding the cartridge (waiting over the slot, shrunk to nothing), the flaps (each on its hinge), the power switch,
+RESET, the POWER light (lit and unlit, swapped by depth), and the pad's D-pad, A, B and C.
 
-The `focused` clip (8 s, looping): the cartridge drops into the slot and seats with a push; the power switch slides to
-ON and the light comes on; the D-pad rocks while A, B and C fire; RESET; the switch slides back to OFF, the light goes
-out, and the cartridge rises out and goes.
+The `focused` clip (8 s, looping): the cartridge drops into the slot, pushing the flaps down, and seats with a push; the
+power switch slides to ON and the light comes on; the D-pad rocks while A, B and C fire; RESET; the switch slides back
+to OFF, the light goes out, and the cartridge rises out, the flaps springing shut behind it, and goes.
 
 Eight materials (print, gloss, dark, reset, pad; cart, cart_label, pcb) and three textures, within the system model
 budget. Run from the repo root:
@@ -51,9 +56,15 @@ TILT_PITCH = 30.0  # degrees about the horizontal: the top tips up towards the v
 
 WIDTH, DEPTH = 280.0, 212.0
 TOP = 50.0                                   # the flat top, behind the slope
+FEET = 1.5                                   # the rubber feet's height: the body's underside is this far up
+SLOPE = math.atan2(25.0, 66.0)               # the front slope, from its foot (y -104, z 25) up to the top (-38, 50)
 CENTRE = (34.0, 17.4)                        # the platform's centre (as in mega_drive_print.py)
 LIP = (34.0, 38.0, 134.0, 23.0, 57.5)        # the slot's lip: centre, length, width, top
 OPENING = (34.0, 37.0, 114.0, 15.0)          # the slot's opening: centre, length, width
+FLAP = dict(length=98.0, width=7.6, thickness=1.4, z=55.6, droop=8.0, open=80.0)   # each dust flap, hinged at an
+                                             # edge of the opening, drooping to the middle; how far it swings open
+PANEL = dict(x=(-121.0, -50.0), y=(-98.0, -37.5), depth=3.5)   # the control panel, sunk depth under the slope
+BODY_AT, BLACK_AT = (-75.0, 50.0), (-42.1, -10.3)   # spots of the print in the body's black and the ring's
 
 
 def prism_z(name, outline, z0, z1, mat):
@@ -130,35 +141,82 @@ def lathe(name, profile, centre, mats, segments=96):
     return obj
 
 
-def top_uvs(obj):
-    """Prints an object's top: the planar projection from above (as mega_drive_print.py draws it); smooth, its sharp
-    edges kept."""
+def print_uv(x, y):
+    """A point of the console's top, seen from above, in the print (as mega_drive_print.py draws it)."""
+    return (x + WIDTH / 2) / WIDTH, (y + DEPTH / 2) / DEPTH
+
+
+def print_uvs(obj):
+    """Prints an object: each face that looks up takes the planar projection from above; every other face (the sides,
+    the front and back, the underside, the recesses' walls) the body's black, or the ring's on the glossy parts, from a
+    spot of it in the print. Smooth, its sharp edges kept."""
     mesh = obj.data
     uv = mesh.uv_layers[0] if mesh.uv_layers else mesh.uv_layers.new(name="UVMap")
-    for loop in mesh.loops:
-        co = mesh.vertices[loop.vertex_index].co
-        uv.data[loop.index].uv = ((co.x + WIDTH / 2) / WIDTH, (co.y + DEPTH / 2) / DEPTH)
+    names = [mat.name for mat in mesh.materials]
+    body, black = print_uv(*BODY_AT), print_uv(*BLACK_AT)
+    for p in mesh.polygons:
+        side = black if names[p.material_index].startswith("gloss") else body
+        for li in p.loop_indices:
+            co = mesh.vertices[mesh.loops[li].vertex_index].co
+            uv.data[li].uv = print_uv(co.x, co.y) if p.normal.z > 0.3 else side
     for p in mesh.polygons:
         p.use_smooth = True
     mesh.set_sharp_from_angle(angle=math.radians(35))
 
 
+def panel_floor(y):
+    """The control panel's floor at y: the slope, the panel's depth under it."""
+    return 25.0 + (y + 104.0) * math.tan(SLOPE) - PANEL["depth"] / math.cos(SLOPE)
+
+
+def on_panel(name, x0, x1, y0, y1, h, mat, rounded=0.8):
+    """A part standing out of the panel's sloping floor, square to it: its plan rectangle and its height off the floor
+    (from 1 under it), its edges rounded. Returns it and its foot's middle."""
+    ym = (y0 + y1) / 2
+    half = (y1 - y0) / 2 / math.cos(SLOPE)
+    part = box(name, x0, x1, -half, half, -1.0, h, mat)
+    if rounded:
+        bevel(part, rounded, angle=30)
+    part.data.transform(Matrix.Translation((0.0, ym, panel_floor(ym))) @ Matrix.Rotation(SLOPE, 4, "X"))
+    return part, Vector(((x0 + x1) / 2, ym, panel_floor(ym)))
+
+
+def flap(m, side):
+    """A dust flap, its origin on its hinge (the opening's front edge, side -1, or its back edge, side 1), drooping to
+    the middle; and where its hinge goes."""
+    f = FLAP
+    y0, y1 = (0.0, f["width"]) if side < 0 else (-f["width"], 0.0)
+    part = box("flap", -f["length"] / 2, f["length"] / 2, y0, y1, -f["thickness"], 0.0, m["print"])
+    part.data.transform(Matrix.Rotation(math.radians(f["droop"] * side), 4, "X"))
+    x, y, _, width = OPENING
+    return part, Vector((x, y + side * width / 2, f["z"]))
+
+
 def build(m, apart=False):
-    """The console, its top printed. With apart, the power switch and RESET are left out of it and returned too, each
-    its foot's middle at its origin, with where it goes: (console, {"power": (part, place), "reset": ...})."""
+    """The console, its top printed. With apart, the power switch, RESET and the slot's flaps are left out of it and
+    returned too, each with its origin where it moves about (a switch's foot's middle, a flap's hinge) and where that
+    goes: (console, {"power": (part, place), "reset": ..., "flap_front": ..., "flap_back": ...})."""
     # The body: the side outline (flat top, then the slope down to the front) cut by the plan's corners and the top
-    # side chamfers.
-    body = prism_x("megadrive", [(-106, 0), (106, 0), (106, TOP), (-38, TOP), (-104, 25), (-106, 23)], -141, 141, m["print"])
+    # side chamfers; its underside FEET up, on its feet.
+    outline = [(-106, FEET), (106, FEET), (106, TOP), (-38, TOP), (-104, 25), (-106, 23)]
+    body = prism_x("megadrive", outline, -141, 141, m["print"])
     plan = chamfered([(-140, -106), (140, -106), (140, 106), (-140, 106)], [9, 9, 15, 10])
     boolean(body, prism_z("plan", plan, -1, 80, m["print"]), "INTERSECT")
     ends = [(-141, -1), (141, -1), (141, TOP - 7), (133, TOP + 1), (-133, TOP + 1), (-141, TOP - 7)]
     boolean(body, prism_y("ends", ends, -107, 107, m["print"]), "INTERSECT")
     bevel(body, 1.5)
 
-    # The platform: the glossy ring round the disc, standing out of the top and the slope.
+    # The seam between the halves, round the body.
+    inner = chamfered([(-139.2, -105.2), (139.2, -105.2), (139.2, 105.2), (-139.2, 105.2)], [8.7, 8.7, 14.7, 9.7])
+    seam = box("seam", -150, 150, -120, 120, 10.4, 11.6, m["print"])
+    boolean(seam, prism_z("inner", inner, 9, 13, m["print"]))
+    boolean(body, seam)
+
+    # The platform: the glossy ring round the disc, standing out of the top and the slope, on a matte wall.
     platform = [(0, 30), (88, 30), (88, 52), (87, 53), (84, 54.4), (80, 55.4), (76, 55.8), (74, 55.5), (74, 53.5),
                 (0, 53.5)]
-    ring = lathe("platform", platform, CENTRE, lambda r0, r1, z0, z1: 1 if min(r0, r1) >= 74 else 0)
+    ring = lathe("platform", platform, CENTRE, lambda r0, r1, z0, z1: 1 if min(r0, r1) >= 74 and min(z0, z1) >= 52
+                 else 0)
     ring.data.materials.append(m["print"])
     ring.data.materials.append(m["gloss"])
     boolean(body, ring, "UNION")
@@ -193,38 +251,74 @@ def build(m, apart=False):
         y = -16 + pitch * (i + 0.5)
         slats.append(prism_y("slat", outline, y - 1.25, y + 1.25, m["print"]))
 
-    # The control panel, sunk into the slope, with the volume slider's and power switch's knobs and RESET.
-    floor = 25.5
-    boolean(body, box("panel", -121, -50, -98, -37.5, floor, 70, m["print"]))
-    parts = []
-    for name, (x0, x1, y0, y1, h), mat in (("volume", (-109.4, -96.6, -78.3, -67.6, 5.5), m["gloss"]),
-                                           ("power", (-73.0, -60.6, -57.2, -46.1, 4.5), m["gloss"]),
-                                           ("reset", (-84.7, -60.5, -90.0, -79.0, 3.0), m["reset"])):
-        part = box(name, x0, x1, y0, y1, floor - 1, floor + h, mat)
-        bevel(part, 0.8, angle=30)
-        parts.append(part)
+    # The control panel, sunk a little into the slope, its floor following it, with the volume slider's and power
+    # switch's knobs and RESET standing out of it.
+    (px0, px1), (py0, py1) = PANEL["x"], PANEL["y"]
+    sunk = [(py0, panel_floor(py0)), (py1, panel_floor(py1)), (py1, 70.0), (py0, 70.0)]
+    boolean(body, prism_x("panel", sunk, px0, px1, m["print"]))
+    parts = {name: on_panel(name, *where, mat) for name, where, mat in (
+        ("volume", (-109.4, -96.6, -78.3, -67.6, 5.5), m["gloss"]),
+        ("power", (-73.0, -60.6, -57.2, -46.1, 4.5), m["gloss"]),
+        ("reset", (-84.7, -60.5, -90.0, -79.0, 3.0), m["reset"]))}
 
-    # The controller ports and the headphone socket, in the front.
+    # The controller ports and the headphone socket, in the front; the A/V, RF and power sockets in the back; the
+    # expansion port's cover, set in the right end.
     for x in (22.0, 66.0):
         port = [(x - 16, 6), (x + 16, 6), (x + 14, 16), (x - 14, 16)]
         boolean(body, prism_y("port", port, -110, -101, m["dark"]))
-    jack = [(-112 + 2.6 * math.cos(math.radians(a)), 12 + 2.6 * math.sin(math.radians(a))) for a in range(0, 360, 30)]
-    boolean(body, prism_y("jack", jack, -110, -101, m["dark"]))
 
-    moving = dict(zip(("power", "reset"), parts[1:])) if apart else {}
-    console = join([body] + slats + [p for p in parts if p not in moving.values()], "megadrive")
+    def hole(x, z, r, y0, y1, n=12):
+        return prism_y("hole", [(x + r * math.cos(2 * math.pi * k / n), z + r * math.sin(2 * math.pi * k / n))
+                                for k in range(n)], y0, y1, m["dark"])
 
-    # Everything's top is printed: the planar projection from above (as mega_drive_print.py draws it).
-    top_uvs(console)
+    boolean(body, hole(-112.0, 12.0, 2.6, -110, -101))
+    for x, r in ((-64.0, 7.0), (-86.0, 4.5), (-40.0, 4.0)):
+        boolean(body, hole(x, 24.0, r, 98.0, 110.0, 16))
+    boolean(body, box("expansion", 139.2, 150.0, -40.0, 75.0, 14.0, 38.0, m["print"]))
+
+    # Underneath: the screws, the two vents' slots and the labels; the feet.
+    under = []
+    for x, y in ((107.0, 89.0), (4.0, 89.0), (-117.0, 89.0), (121.0, -79.0), (4.0, -79.0), (-117.0, -79.0)):
+        ring = [(x + 3.2 * math.cos(2 * math.pi * k / 12), y + 3.2 * math.sin(2 * math.pi * k / 12)) for k in range(12)]
+        under.append(prism_z("screw", ring, -1.0, FEET + 2.5, m["dark"]))
+    for y0, y1 in ((40.0, 59.0), (-56.0, -37.0)):
+        under += [box("vent", x - 1.0, x + 1.0, y0, y1, -1.0, FEET + 1.5, m["dark"]) for x in range(-108, -28, 4)]
+    boolean(body, join(under, "underneath"))
+    labels = [box("label", x0, x1, -11.0, 24.0, FEET - 0.3, FEET + 0.1, m["gloss"]) for x0, x1 in ((27.5, 106.0),
+                                                                                                  (-24.5, 22.0))]
+    feet = [prism_z("foot", stadium(x, y, 26.0, 7.0, 6), 0.0, FEET + 0.5, m["dark"]) for x in (-92.0, 92.0)
+            for y in (-78.0, 78.0)]
+
+    # The slot's flaps, meeting in the middle.
+    flaps = {}
+    for name, side in (("flap_front", -1), ("flap_back", 1)):
+        part, hinge = flap(m, side)
+        mesh = part.data
+        uv = mesh.uv_layers.new(name="UVMap")
+        for loop in mesh.loops:
+            uv.data[loop.index].uv = print_uv(*BLACK_AT)
+        flaps[name] = (part, hinge)
+
+    names = ("power", "reset", "flap_front", "flap_back") if apart else ()
+    rest = [part for name, (part, _) in parts.items() if name not in names]
+    for name, (part, hinge) in flaps.items():
+        if name not in names:
+            part.data.transform(Matrix.Translation(hinge))
+            rest.append(part)
+    console = join([body] + slats + labels + feet + rest, "megadrive")
+
+    # Everything that looks up is printed: the planar projection from above (as mega_drive_print.py draws it).
+    print_uvs(console)
     if not apart:
         return console
     out = {}
-    for name, part in moving.items():
-        top_uvs(part)
-        xs, ys, zs = ([v.co[i] for v in part.data.vertices] for i in range(3))
-        foot = Vector(((min(xs) + max(xs)) / 2, (min(ys) + max(ys)) / 2, min(zs)))
+    for name in names[:2]:
+        part, foot = parts[name]
+        print_uvs(part)
         part.data.transform(Matrix.Translation(-foot))
         out[name] = (part, foot)
+    for name in names[2:]:
+        out[name] = flaps[name]
     return console, out
 
 
@@ -324,6 +418,16 @@ def tap(f, f0, hold=2):
     return smooth(phase(f, f0, f0 + 3)) * (1 - smooth(phase(f, f0 + 3 + hold, f0 + 7 + hold)))
 
 
+def flaps_open(f):
+    """How far the cartridge has pushed the flaps down: as its edge reaches them going in; they spring shut once it's
+    out."""
+    if f < 23:
+        return 0.0
+    if f < 190:
+        return smooth(phase(f, 23, 25))
+    return 1.0 - back_out(phase(f, 190, 199))
+
+
 def timeline(f):
     above = ML.CART["above"]
     if f < 8 or f >= 200:
@@ -341,7 +445,11 @@ def timeline(f):
     t = phase(f, 66, 162)
     k = math.sin(math.pi * t)
     sink = Pose(z=-1.2)
-    return {"cartridge": cart, "power": Pose(x=ML.SWITCH["on"] * on), "reset": Pose(z=-1.6 * tap(f, 164)),
+    press = 1.6 * tap(f, 164)                                  # RESET goes in square to the panel's floor
+    swing = (FLAP["open"] - FLAP["droop"]) * flaps_open(f)
+    return {"cartridge": cart, "power": Pose(x=ML.SWITCH["on"] * on),
+            "reset": Pose(y=press * math.sin(SLOPE), z=-press * math.cos(SLOPE)),
+            "flap_front": Pose(pitch=-swing), "flap_back": Pose(pitch=swing),
             "light": Pose() if lit else sink, "light_off": sink if lit else Pose(),
             "dpad": Pose(pitch=8.0 * k * math.sin(2 * math.pi * 3.0 * t),
                          roll=8.0 * k * math.cos(2 * math.pi * 2.0 * t)),
@@ -378,7 +486,7 @@ def main():
     lead = cable(m, [start, start + leaving * 40.0 + Vector((0.0, 0.0, -8.0)), end + back * 50.0, end])
     # The power switch's slot, dark: its print shows the knob's stripe where the knob rests, which the slid knob would
     # leave behind.
-    slot = colour(box("switch_slot", -85.5, -58.5, -57.2, -46.1, 25.5, 25.6, m["pad"]), m["pad"], "black")
+    slot = colour(on_panel("switch_slot", -85.5, -58.5, -57.2, -46.1, 0.1, m["pad"], rounded=0)[0], m["pad"], "black")
     extras = [body, lead, slot] + relief + plug
     for part in extras:
         for p in part.data.polygons:

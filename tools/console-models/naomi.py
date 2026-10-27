@@ -223,6 +223,15 @@ def tap(f, f0, hold=2):
 PRESS = PANEL_FRAME.to_3x3() @ Vector((0.0, 0.0, -1.0))
 
 
+def showing(f):
+    """The screen shown at frame f: the title, then two frames of play in turn; None for the start-up's."""
+    if 30 <= f < 64:
+        return "title"
+    if 64 <= f < 200:
+        return "game1" if ((f - 64) // 7) % 2 == 0 else "game2"
+    return None
+
+
 def timeline(f):
     poses = {}
     if f < 8 or f >= 29:
@@ -231,13 +240,11 @@ def timeline(f):
         poses["coin"] = Pose(z=60.0, scale=HIDDEN + (1 - HIDDEN) * back_out(phase(f, 8, 14)))
     else:                                                  # it drops into the slot
         poses["coin"] = Pose(z=60.0 - 76.0 * ease_in(phase(f, 16, 28)))
-    shown = None
-    if 30 <= f < 64:
-        shown = "title"
-    elif 64 <= f < 200:
-        shown = "game1" if ((f - 64) // 7) % 2 == 0 else "game2"
+    # A screen stays up a frame after the next comes up: shrunk to hide, a screen sinks behind the CRT's bulge, so
+    # between two keys (the app draws the clip at 60 fps) the start-up would show through.
+    on = (showing(f), showing(f - 1))
     for name in ("title", "game1", "game2"):
-        poses["screen_" + name] = Pose() if name == shown else Pose(scale=HIDDEN)
+        poses["screen_" + name] = Pose() if name in on else Pose(scale=HIDDEN)
     flash = 30 <= f < 60 and (f // 6) % 2 == 0
     poses["start_light"] = Pose() if flash else Pose(scale=HIDDEN)
     poses["start"] = Pose(*(PRESS * 3.0 * tap(f, 58)))

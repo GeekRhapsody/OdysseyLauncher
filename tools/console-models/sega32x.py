@@ -12,12 +12,14 @@ own shell, from a photograph of one in Chromagi's catalogue of Sega's games.
 
 A node tree: a root (the turn to a three-quarter view, TILT_YAW and TILT_PITCH: the right end towards the viewer, the
 top tipped up; then the model spec's fit: standing on y = 0, centred, the largest side 1 m) holding the Mega Drive; the
-Mega Drive holding the 32X (its origin at the plug's foot, in the slot); the 32X holding its two dust flaps (each on its
-hinge) and the cartridge (waiting over its slot, shrunk to nothing).
+Mega Drive holding its own slot's two dust flaps (each on its hinge, pushed open by the plug at rest) and the 32X (its
+origin at the plug's foot, in the slot); the 32X holding its two dust flaps (each on its hinge) and the cartridge
+(waiting over its slot, shrunk to nothing).
 
-The `focused` clip (8 s, looping): the 32X crouches, hops off the Mega Drive, turns once round in the air and drops
-back into the slot with a squash; a cartridge appears over its own slot and falls in, pushing the flaps down, and seats
-with a push; later it rises out, the flaps spring shut behind it, and it goes.
+The `focused` clip (8 s, looping): the 32X crouches, hops off the Mega Drive, the Mega Drive's flaps springing shut
+under it, turns once round in the air and drops back into the slot with a squash, pushing them open again; a cartridge
+appears over its own slot and falls in, pushing the flaps down, and seats with a push; later it rises out, the flaps
+spring shut behind it, and it goes.
 
 Seven materials (the Mega Drive's print, gloss, dark and reset; case, shell, pcb) and two textures, within the system
 model budget. Run from the repo root:
@@ -33,13 +35,13 @@ import sys
 
 import bmesh
 import bpy
-from mathutils import Matrix, Vector
+from mathutils import Matrix, Quaternion, Vector
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import sega32x_layout as L  # noqa: E402
 from amiga import paint, rounded  # noqa: E402
 from clip import HIDDEN, Pose, back_out, ease_in, ease_out, hop, key, phase, smooth, wobble  # noqa: E402
-from mega_drive import build as mega_drive, prism_y, prism_z, stadium  # noqa: E402
+from mega_drive import FLAP as MD_FLAP, build as mega_drive, prism_y, prism_z, stadium  # noqa: E402
 from mega_drive_cartridge import bevel, boolean, box, export, join, material, new_object, triangles  # noqa: E402
 
 TILT_YAW = -25.0     # degrees about the vertical: the right end comes towards the viewer
@@ -261,6 +263,16 @@ def flaps_open(f):
     return 1.0 - back_out(phase(f, 189, 198))
 
 
+def md_flaps_shut(f):
+    """How far the Mega Drive's own flaps are shut: open round the plug, springing shut once it's up out of the slot
+    (above their hinges from frame 14 to 34 of the hop), pushed open again as it drops back in."""
+    if f < 14 or f >= 35:
+        return 0.0
+    if f < 33:
+        return back_out(phase(f, 14, 20))
+    return 1.0 - smooth(phase(f, 33, 35))
+
+
 def timeline(f):
     # The hop: a crouch, up and once round, down into the slot and a squash.
     if f < 12:
@@ -288,7 +300,9 @@ def timeline(f):
     else:
         cart = Pose(z=above, scale=max(HIDDEN, 1 - ease_in(phase(f, 202, 210))))
     swing = (L.FLAP["open"] - L.FLAP["droop"]) * flaps_open(f)
-    return {"sega32x": x32, "cartridge": cart, "flap_front": Pose(pitch=-swing), "flap_back": Pose(pitch=swing)}
+    shut = (MD_FLAP["open"] - MD_FLAP["droop"]) * md_flaps_shut(f)
+    return {"sega32x": x32, "cartridge": cart, "flap_front": Pose(pitch=-swing), "flap_back": Pose(pitch=swing),
+            "md_flap_front": Pose(pitch=shut), "md_flap_back": Pose(pitch=-shut)}
 
 
 # ---- Main ------------------------------------------------------------------------------------------------------------
@@ -311,7 +325,11 @@ def main():
         "pcb": material("pcb", "#B8924A", 0.35),
     }
 
-    md = mega_drive(m)
+    md, md_parts = mega_drive(m, apart=True)
+    for name in ("power", "reset"):                          # the switches stay put on this card
+        part, foot = md_parts.pop(name)
+        part.data.transform(Matrix.Translation(foot))
+        md = join([md, part], "megadrive")
     x32 = thirty_two_x(m)
     x32.data.transform(Matrix.Translation((0.0, 0.0, -FOOT)))
     for part in (x32,):
@@ -333,7 +351,16 @@ def main():
         part.location = hinge - Vector((0.0, 0.0, FOOT))
     cart.parent = x32
     cart.location = (L.ISLAND["at"][0], L.ISLAND["at"][1], L.TOP + L.ISLAND["height"] - L.CART["seat"] - FOOT)
-    nodes = {"sega32x": x32, "cartridge": cart, **{name: part for name, (part, _) in flaps.items()}}
+    pushed = math.radians(MD_FLAP["open"] - MD_FLAP["droop"])
+    md_flaps = {}
+    for name, (part, hinge) in md_parts.items():               # the Mega Drive's flaps, open round the plug
+        part.name = part.data.name = "md_" + name
+        part.parent = md
+        part.location = hinge
+        part.rotation_mode = "QUATERNION"
+        part.rotation_quaternion = Quaternion((1.0, 0.0, 0.0), -pushed if name == "flap_front" else pushed)
+        md_flaps[part.name] = part
+    nodes = {"sega32x": x32, "cartridge": cart, **{name: part for name, (part, _) in flaps.items()}, **md_flaps}
 
     tilt = Matrix.Rotation(math.radians(TILT_PITCH), 4, "X") @ Matrix.Rotation(math.radians(TILT_YAW), 4, "Z")
     place = Matrix.Translation(x32.location)
@@ -345,7 +372,7 @@ def main():
                                                                              -lo.z)) @ tilt
 
     key("focused", nodes, timeline, L.LENGTH)
-    meshes = [md, x32, cart] + [part for part, _ in flaps.values()]
+    meshes = [md, x32, cart] + [part for part, _ in flaps.values()] + list(md_flaps.values())
     print(f"Sega 32X: {sum(triangles(o.data) for o in meshes)} triangles ({triangles(md.data)} the Mega Drive, "
           f"{triangles(x32.data)} the 32X, {triangles(cart.data)} the cartridge), "
           f"{len({mat.name for o in meshes for mat in o.data.materials})} materials, "

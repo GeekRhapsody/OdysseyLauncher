@@ -9,8 +9,11 @@ the front left and right, the back right, the set with its controller; the contr
 cousin flat on; a cartridge).
 
 The console: the light grey upper body over the darker base, its sides sloping in to the foot (BASE); in the upper
-body's front, the door (DOOR, hinged along its top, flipping up and out till it stands over the top, its face up) over
-the cartridge's chamber (CHAMBER); under it, on the base's front, POWER and RESET and the red light (BUTTONS, LIGHT);
+body's front, the door (DOOR) over the cartridge's chamber (CHAMBER). The door is an L-shaped flap, as the real one is
+(the owner's photograph, and replacement doors photographed on their own): its face, up to the top's front edge, and a
+plate running back from that edge as part of the top, pivoting on pins along the plate's back edge. It flips up and
+over on them until the plate stands up from the top and the face lies over it, face up, its logo reading from the
+front; triangles close its ends. Under it, on the base's front, POWER and RESET and the red light (BUTTONS, LIGHT);
 the band (BAND) across the top from the front to the back, black at its ends and ribbed between (RIBS), down the front
 round the two ports (PORTS). The controller (PAD): a grey slab, its black face with the cross, SELECT and START in their
 grey stripes, B and A in red.
@@ -25,8 +28,10 @@ ATLAS = 1024
 
 WIDTH, DEPTH, HEIGHT = 256.0, 203.0, 90.0
 BASE = dict(top=32.0, slope=8.0, back=8.0)        # the base's top; how far its sides slope in at the foot; at the back
-DOOR = dict(x=(-96.0, 36.0), z=(38.0, 80.0), gap=1.2, open=-105.0)   # how far it flips up (degrees)
-CHAMBER = dict(depth=150.0)                        # how far back the chamber runs behind the door
+# The door: its face (x, z: up to the top), the gap round it, how far back its top plate runs, how far it flips up
+# (degrees).
+DOOR = dict(x=(-96.0, 36.0), z=(38.0, 90.0), gap=1.2, top=34.0, open=-98.0)
+CHAMBER = dict(depth=150.0, top=82.0)              # how far back the chamber runs behind the door; its ceiling
 BUTTONS = dict(power=(-86.0, 17.0), reset=(-58.0, 17.0), size=(24.0, 10.0, 3.0))   # middles (x, z); w, h, out
 LIGHT = dict(at=(-104.0, 19.0), size=4.0)
 BAND = dict(x=(41.0, 79.0), front=30.0, back=26.0)  # across the top: black for front and back from its ends

@@ -2,17 +2,18 @@
 mega_drive_cartridge.py).
 
 Writes five images into a folder: - megadrive_print.png: the console's top, as the model's planar UVs map it (x
--140..140 left to right, y -106..106 front to back, seen from above): the body colour, the black ring with HIGH
-DEFINITION GRAPHICS - STEREO SOUND round its back, the slot's black lip, the 16-BIT plate and its white POWER strip, the
-volume, power and reset legends in the control panel, and MEGA DRIVE SEGA on the front slope. - megadrive_label.png:
-mega_drive_label.png (the cartridge label) as plain RGB, for the inserted cartridge. - megadrive_band.png: the label's
-bottom band (the grid and the MEGA DRIVE logo under the grey border), for the cartridge template, whose art shows above
-it. What's above the border's curve is painted the border's grey, so filtering never brings the label's art in at the
-edge. - megadrive_odyssey.png: a label in the same layout for the console's card, with a made-up game, Odyssey (space,
-the ship, the ringed planet, its title) over a band of its own (the grid, the grey border with its bump, SEGA and MEGA
-DRIVE in plain lettering), for the cartridge its focused clip puts in. - megadrive_pad.png: the control pad's printing
-and the swatches its small parts take their colour from, laid out as mega_drive_layout.py's PAD_REGIONS and SWATCHES
-say.
+-140..140 left to right, y -106..106 front to back, seen from above): the black body, the glossier black ring (plain, as
+on the European console, whose ring has no legend), the slot's black lip, the 16-BIT plate and its cream POWER strip,
+the volume, power and reset legends in the control panel, and MEGA DRIVE SEGA on the front slope; the faces that aren't
+printed take the body's or the ring's colour from a spot of it (mega_drive.py's BODY_AT and BLACK_AT). -
+megadrive_label.png: mega_drive_label.png (the cartridge label) as plain RGB, for the inserted cartridge. -
+megadrive_band.png: the label's bottom band (the grid and the MEGA DRIVE logo under the grey border), for the cartridge
+template, whose art shows above it. What's above the border's curve is painted the border's grey, so filtering never
+brings the label's art in at the edge. - megadrive_odyssey.png: a label in the same layout for the console's card, with
+a made-up game, Odyssey (space, the ship, the ringed planet, its title) over a band of its own (the grid, the grey
+border with its bump, SEGA and MEGA DRIVE in plain lettering), for the cartridge its focused clip puts in. -
+megadrive_pad.png: the control pad's printing and the swatches its small parts take their colour from, laid out as
+mega_drive_layout.py's PAD_REGIONS and SWATCHES say.
 
 Run it with the system Python (Pillow):
 
@@ -31,9 +32,9 @@ OUT = (2048, 1552)
 FONTS = "C:/Windows/Fonts/"
 HERE = os.path.dirname(os.path.abspath(__file__))
 
-BODY = "#34363B"
-BLACK = "#151619"
-SLOT = "#0A0A0C"
+BODY = "#1A1B1E"
+BLACK = "#0B0B0D"
+SLOT = "#050506"
 WHITE = "#ECECEC"
 STRIP = "#E6E2D4"
 GOLD = "#DDBE68"
@@ -112,28 +113,13 @@ def text(canvas, s, font, cap_mm, x, y, fill, anchor="centre", shear=0.0, stretc
     canvas.alpha_composite(layer, (int(left_px), int(cy - layer.height / 2)))
 
 
-def arc_text(canvas, s, font, cap_mm, centre, radius, fill, spacing=1.0):
-    """Text round an arc, reading clockwise with its tops outwards, centred on the arc's back (+y)."""
-    f = face(font, cap_mm)
-    widths = [f.getlength(c) / SCALE * spacing for c in s]
-    total = sum(widths)
-    angle = math.pi / 2 + total / 2 / radius  # start left of the back, going clockwise
-    for c, w in zip(s, widths):
-        a = angle - w / 2 / radius
-        if c != " ":
-            x, y = centre[0] + radius * math.cos(a), centre[1] + radius * math.sin(a)
-            text(canvas, c, font, cap_mm, x, y, fill, degrees=math.degrees(a - math.pi / 2))
-        angle -= w / radius
-
-
 def top_print(out):
     canvas = Image.new("RGBA", (int(WIDTH_MM * SCALE), int(DEPTH_MM * SCALE)), BODY)
     draw = ImageDraw.Draw(canvas)
 
-    # The ring (black, gloss on the model) and its legend; the disc inside it keeps the body colour.
+    # The ring (black, gloss on the model); the disc inside it keeps the body colour.
     circle(draw, *RING_CENTRE, RING_OUTER + 0.6, BLACK)
     circle(draw, *RING_CENTRE, RING_INNER - 0.3, BODY)
-    arc_text(canvas, "HIGH DEFINITION GRAPHICS \u00b7 STEREO SOUND", "arial.ttf", 1.9, RING_CENTRE, 79.6, WHITE, 1.04)
 
     # The slot's lip, black like the ring.
     x, y, length, width = LIP

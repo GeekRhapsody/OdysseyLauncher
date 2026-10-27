@@ -29,7 +29,8 @@ PAD = dict(points=[(82.0, 5.0), (78.0, 25.0), (66.0, 40.0), (45.0, 47.0), (20.0,
 PORT = dict(x=22.0, z=11.0, front=-106.0)                 # CONTROL 1, on the console's front
 SWITCH = dict(on=-12.0)                                   # how far the power switch slides to ON (x)
 LIGHT = dict(at=(33.4, -65.2), z=56.0, r=1.3)             # the POWER light on the plate's white strip
-CART = dict(above=40.0, inserted=14.0)                    # how far over its seat it appears; how far it goes in
+CART = dict(above=62.0, inserted=43.0)                    # how far over its seat it appears; how far it goes in,
+                                                          # its thin lower half sunk in the slot, as a real one's
 
 PAD_ATLAS = 512
 PAD_REGIONS = dict(pad=(0, 0, 512, 304))

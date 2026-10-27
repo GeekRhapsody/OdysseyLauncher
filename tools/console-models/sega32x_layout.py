@@ -53,8 +53,8 @@ CART = dict(width=113.0, height=75.0, thickness=18.0, corner=6.0, label=(80.0, 4
 # Where it stands on the Mega Drive (mega_drive.py's coordinates): its plug over the slot, the plug's bottom in it.
 ON_MEGA_DRIVE = dict(slot=(34.0, 37.0), plug_bottom=41.0)
 
-COLOURS = dict(case="#34353A", shell="#1B1C1F", recess="#1A1B1D", slot="#08080A", flap="#2C2D30", silver="#C9CDD3",
-               cart="#18181A", print="#FFFFFF")
+COLOURS = dict(case="#1C1D20", shell="#111214", recess="#141517", slot="#08080A", flap="#202124", silver="#C9CDD3",
+               cart="#18181A", print="#FFFFFF")     # black, as the Mega Drive under it
 
 REGIONS = dict(badge=(0, 0, 640, 255), vents=(648, 0, 376, 235), label=(0, 264, 640, 368), flap=(0, 640, 1024, 82))
 SWATCHES = dict(case=(680, 280), shell=(712, 280), recess=(744, 280), slot=(776, 280), flap=(808, 280),

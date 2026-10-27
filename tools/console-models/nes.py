@@ -3,21 +3,24 @@ Entertainment System and its controller.
 
 Built in Blender (nes_layout.py has the measurements, taken from photographs and published figures). The base is a solid
 from its top's outline down to its foot's, its sides and back sloping in; the upper body is a box on it, the door's
-recess and the cartridge's chamber cut into its front, the ribs standing in the band across its top; the ports are cut
-into the base's front, POWER and RESET stand out of it by the red light. The door is a plate in its recess, hinged along
-its top front edge, flipping up and out. The controller is a slab, its cross, SELECT and START, B and A standing on its
+recess (up to the top), the slot its top plate lies in and the cartridge's chamber cut into its front, the ribs standing
+in the band across its top; the ports are cut into the base's front, POWER and RESET stand out of it by the red light.
+The door is an L-shaped flap: its face in the recess and its top plate in the top, turned from one profile with its
+outer corner rounded as the body's edges are, triangles closing its ends, a rod with a pin at each end along the top
+plate's back edge, which it pivots on. The controller is a slab, its cross, SELECT and START, B and A standing on its
 printed face, its cable running from its strain relief to its plug in port 1 (plugs.py's). The printing is one texture
 (nes_print.py's), projected from above onto the top, the controller and the cartridge, and from in front onto the front
 and the door.
 
 A node tree: a root (the turn to a three-quarter view, TILT_YAW and TILT_PITCH: the right end towards the viewer, the
 top tipped up; then the model spec's fit: standing on y = 0, centred, the largest side 1 m) holding the set; the set
-holding the door (on its hinge), the cartridge (waiting in front of the door, shrunk to nothing), POWER and RESET, the
+holding the door (on its pivot), the cartridge (waiting in front of the door, shrunk to nothing), POWER and RESET, the
 red light (lit and unlit, swapped by depth), and the controller's cross, START, B and A.
 
-The `focused` clip (8 s, looping), the NES's way: the door flips up and out, the cartridge slides in and is pressed
-down, the door shuts; POWER goes in and the light comes on; START, then the cross rocks while B and A fire; RESET; POWER
-again and the light goes out; the door flips up again, the cartridge comes up, slides out and goes, and the door shuts.
+The `focused` clip (8 s, looping), the NES's way: the door flips up and over on its pivot until its top plate stands up
+and its face lies over it, face up; the cartridge slides in under it and is pressed down, the door shuts; POWER goes in
+and the light comes on; START, then the cross rocks while B and A fire; RESET; POWER again and the light goes out; the
+door flips up again, the cartridge comes up, slides out and goes, and the door shuts.
 
 Two materials (case, cart) and one 1024² texture, within the system model budget. Run from the repo root:
 
@@ -39,7 +42,7 @@ import plugs  # noqa: E402
 from amiga import paint, rounded, solid  # noqa: E402
 from clip import HIDDEN, Pose, back_out, ease_in, ease_out, key, phase, smooth  # noqa: E402
 from mega_drive import prism_z  # noqa: E402
-from mega_drive_cartridge import bevel, boolean, box, export, join, material, new_object, triangles  # noqa: E402
+from mega_drive_cartridge import bevel, boolean, box, export, join, material, new_object, prism_x, triangles  # noqa: E402
 
 TILT_YAW = -24.0     # degrees about the vertical: the right end comes towards the viewer
 TILT_PITCH = 26.0    # degrees about the horizontal: the top tips up towards the viewer
@@ -93,14 +96,16 @@ def console(m):
           and any(abs(c.x - x) < pw / 2 + 0.5 for x in L.PORTS["x"]))
     upper = box("upper", -half, half, 0.0, L.DEPTH, b["top"], L.HEIGHT, m["case"])
     bevel(upper, 3.0, segments=3)
-    (dx0, dx1), (dz0, dz1) = L.DOOR["x"], L.DOOR["z"]
-    boolean(upper, box("door_recess", dx0, dx1, -1.0, 2.5, dz0, dz1, m["case"]))
-    boolean(upper, box("chamber", dx0 + 2.0, dx1 - 2.0, 0.0, L.CHAMBER["depth"], b["top"] + 2.0, dz1 + 2.0, m["case"]))
+    (dx0, dx1), (dz0, dz1), t = L.DOOR["x"], L.DOOR["z"], L.DOOR["top"]
+    ceiling = L.CHAMBER["top"]
+    boolean(upper, box("door_recess", dx0, dx1, -1.0, 2.5, dz0, dz1 + 1.0, m["case"]))
+    boolean(upper, box("door_top", dx0, dx1, -1.0, t, ceiling - 2.0, dz1 + 1.0, m["case"]))
+    boolean(upper, box("chamber", dx0 + 2.0, dx1 - 2.0, 0.0, L.CHAMBER["depth"], b["top"] + 2.0, ceiling, m["case"]))
     colour(upper, m["case"], "case")
     paint(upper, m["case"], top_uv, lambda c, n, kind: n.z > 0.9 and c.z > L.HEIGHT - 0.5)
     paint(upper, m["case"], front_uv, lambda c, n, kind: n.y < -0.9 and c.y < 0.5)
-    paint(upper, m["case"], swatch("dark"), lambda c, n, kind: c.y > 2.0 and dx0 - 0.5 < c.x < dx1 + 0.5
-          and c.z < dz1 + 2.5)
+    paint(upper, m["case"], swatch("dark"), lambda c, n, kind: dx0 - 0.5 < c.x < dx1 + 0.5
+          and 2.0 < c.y < L.CHAMBER["depth"] + 1.0 and c.z < L.HEIGHT - 0.5)
     (bx0, bx1), (ry0, ry1), n, w = L.BAND["x"], L.RIBS["y"], L.RIBS["count"], L.RIBS["width"]
     ribs = []
     for k in range(n):
@@ -134,15 +139,28 @@ def buttons(m):
 
 
 def door(m):
-    """The door, its origin on its hinge along its top; printed."""
-    (dx0, dx1), (dz0, dz1), g = L.DOOR["x"], L.DOOR["z"], L.DOOR["gap"]
-    part = box("door", dx0 + g, dx1 - g, 0.2, 2.4, dz0 + g, dz1 - g, m["case"])
-    bevel(part, 0.6, segments=1)
+    """The door, an L-shaped flap: its face and its top plate from one (y, z) profile, the outer corner between them
+    rounded as the body's edges are; the triangles closing its ends; the rod along the top plate's back edge, a pin out
+    of each end. The face printed from in front, the top plate from above. Its origin on its pivot, the rod's axis."""
+    (dx0, dx1), (dz0, dz1), g, t = L.DOOR["x"], L.DOOR["z"], L.DOOR["gap"], L.DOOR["top"]
+    x0, x1 = dx0 + g, dx1 - g
+    front, inner, top, under, r = 0.2, 2.4, dz1 - 0.2, dz1 - 2.2, 3.0
+    corner = [(front + r + r * math.cos(math.radians(a)), top - r + r * math.sin(math.radians(a)))
+              for a in range(180, 89, -15)]
+    profile = [(front, dz0 + g)] + corner + [(t - g, top), (t - g, under), (inner, under), (inner, dz0 + g)]
+    plate = prism_x("door", profile, x0, x1, m["case"])
+    ends = [solid("door_end", [[(x, y, z) for y, z in ((inner, under), (inner, dz0 + g + 6.0), (t - g - 3.0, under))]
+                               for x in (xa, xa + 1.4)], m["case"]) for xa in (x0 + 1.0, x1 - 2.4)]
+    pivot = Vector(((dx0 + dx1) / 2, t - g - 1.2, dz1 - 1.2))
+    ring = [(pivot.y + 1.3 * math.cos(2 * math.pi * k / 12), pivot.z + 1.3 * math.sin(2 * math.pi * k / 12))
+            for k in range(12)]
+    rod = solid("door_rod", [[(x, y, z) for y, z in ring] for x in (x0 - 2.0, x1 + 2.0)], m["case"])
+    part = join([plate] + ends + [rod], "door")
     colour(part, m["case"], "case")
-    paint(part, m["case"], front_uv, lambda c, n, kind: n.y < -0.9)
-    hinge = Vector(((dx0 + dx1) / 2, 0.2, dz1 - g))           # along its face's top edge: it flips up and out
-    part.data.transform(Matrix.Translation(-hinge))
-    return part, hinge
+    paint(part, m["case"], front_uv, lambda c, n, kind: n.y < -0.9 and c.y < 0.5)
+    paint(part, m["case"], top_uv, lambda c, n, kind: n.z > 0.9 and c.z > top - 0.5)
+    part.data.transform(Matrix.Translation(-pivot))
+    return part, pivot
 
 
 def cartridge(m):

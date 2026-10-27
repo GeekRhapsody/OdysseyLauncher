@@ -60,8 +60,8 @@ def front():
     (bx0, bx1) = L.BAND["x"]
     reg.rect_(*at(bx0, L.HEIGHT), *at(bx1, 0.0), BLACK)
     (dx0, dx1), (dz0, dz1) = L.DOOR["x"], L.DOOR["z"]
-    reg.text("Nintendo", "arialbd.ttf", 7.0, *at(dx0 + 6.0, dz1 - 12.0), RED, anchor="lm")
-    reg.text("ENTERTAINMENT SYSTEM", "arial.ttf", 4.0, *at(dx0 + 6.0, dz1 - 19.0), RED, anchor="lm")
+    reg.text("Nintendo", "arialbd.ttf", 7.0, *at(dx0 + 6.0, dz1 - 21.0), RED, anchor="lm")
+    reg.text("ENTERTAINMENT SYSTEM", "arial.ttf", 4.0, *at(dx0 + 6.0, dz1 - 28.5), RED, anchor="lm")
     reg.rect_(*at((dx0 + dx1) / 2 - 12.0, dz0 + 2.4), *at((dx0 + dx1) / 2 + 12.0, dz0 + 1.2), shade(CASE, -0.15),
               r=0.6)
     for name, (x, z) in (("POWER", L.BUTTONS["power"]), ("RESET", L.BUTTONS["reset"])):
