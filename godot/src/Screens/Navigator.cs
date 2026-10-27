@@ -986,21 +986,7 @@ public sealed partial class Navigator : Node
     {
         _services.Systems = systems;
         _cache.Clear();
-        var systemsFocus = _systemsGrid.FocusIndex;
-        var focusedId = systemsFocus >= 0 && systemsFocus < _systems.Entries.Count ? _systems.Entries[systemsFocus].Id : null;
-        _systems = new SystemsSource(BuildEntries(systems), _systemsGrid.Templates.Count);
-        var index = -1;
-        for (var i = 0; focusedId is not null && i < _systems.Entries.Count; i++)
-        {
-            if (_systems.Entries[i].Id == focusedId)
-            {
-                index = i;
-                break;
-            }
-        }
-
-        _systemsGrid.Layout = SystemsLayout();
-        _systemsGrid.Bind(_systems, index >= 0 ? index : Math.Clamp(systemsFocus, 0, Math.Max(0, _systems.Entries.Count - 1)));
+        RebindSystems(systems);
         if (_screen == Screen.Systems)
         {
             OnFocusChanged();
@@ -1606,19 +1592,17 @@ public sealed partial class Navigator : Node
 
     /// <summary>
     /// Main thread: the settings screen saved config (M7). The systems grid is built again with it (names, emulators,
-    /// folders in the details, its layout and order); ROM folder changes are rescanned by the settings screen, which
-    /// refreshes it again. The games shown are read again if their order changed, or laid out again if their layout
-    /// did, keeping the focus on the same game.
+    /// folders in the details, its layout and order, whether systems without games show), keeping the focus on the
+    /// same system, on whichever screen; ROM folder changes are rescanned by the settings screen, which refreshes it
+    /// again. The games shown are read again if their order changed, or laid out again if their layout did, keeping
+    /// the focus on the same game.
     /// </summary>
     public void OnConfigChanged()
     {
         _cache.Clear();
-        var focus = _systemsGrid.FocusIndex;
-        _systems = new SystemsSource(BuildEntries(_services.Systems), _systemsGrid.Templates.Count);
+        RebindSystems(_services.Systems);
         if (_screen == Screen.Systems)
         {
-            _systemsGrid.Layout = SystemsLayout();
-            _systemsGrid.Bind(_systems, Math.Max(0, focus));
             OnFocusChanged();
         }
         else if (_screen == Screen.Games && _games is { } games && FindEntry(games.Id) is { Sorted: true } entry
@@ -1768,6 +1752,29 @@ public sealed partial class Navigator : Node
     }
 
     // ---- Entries --------------------------------------------------------------------------------
+
+    /// <summary>
+    /// Main thread: the systems grid built again from <paramref name="summaries"/> and bound, whichever screen is
+    /// shown, with the focus on the system it was on (or in the same place, if that one dropped out).
+    /// </summary>
+    private void RebindSystems(IReadOnlyList<SystemSummary> summaries)
+    {
+        var systemsFocus = _systemsGrid.FocusIndex;
+        var focusedId = systemsFocus >= 0 && systemsFocus < _systems.Entries.Count ? _systems.Entries[systemsFocus].Id : null;
+        _systems = new SystemsSource(BuildEntries(summaries), _systemsGrid.Templates.Count);
+        var index = -1;
+        for (var i = 0; focusedId is not null && i < _systems.Entries.Count; i++)
+        {
+            if (_systems.Entries[i].Id == focusedId)
+            {
+                index = i;
+                break;
+            }
+        }
+
+        _systemsGrid.Layout = SystemsLayout();
+        _systemsGrid.Bind(_systems, index >= 0 ? index : Math.Clamp(systemsFocus, 0, Math.Max(0, _systems.Entries.Count - 1)));
+    }
 
     private List<SystemEntry> BuildEntries(IReadOnlyList<SystemSummary> summaries)
     {

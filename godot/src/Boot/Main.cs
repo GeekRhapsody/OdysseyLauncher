@@ -361,18 +361,10 @@ public partial class Main : Node3D
         _gamesGrid.SetTemplates(theme.GameTemplates);
         var templatesMs = clock.Elapsed.TotalMilliseconds;
 
-        // Every shown system fits in the pool (empty ones aren't shown unless the setting says so), with room for the
-        // columns to change; the virtual systems are 3 more.
-        var shownSystems = 0;
-        foreach (var system in services.Systems)
-        {
-            if (system.GameCount > 0 || !services.Config.Settings.Display.HideEmptySystems)
-            {
-                shownSystems++;
-            }
-        }
-
-        var systemSlots = Math.Clamp(shownSystems + 3 + ItemGrid.MaxColumns, 24, MaxSystemSlots);
+        // Every system the grid can show fits in the pool, with room for the columns to change; the virtual systems are
+        // 3 more. That's every enabled system, with games or not: the settings show the empty ones without a restart
+        // (2026-10-27), and a pool can't grow, so one sized for fewer would cost the grid columns once they appear.
+        var systemSlots = Math.Clamp(services.Systems.Count + 3 + ItemGrid.MaxColumns, 24, MaxSystemSlots);
 
         // The cards' logos (A6 logos/) stream through a streamer of their own, one worker, whose arrays are only made
         // for a theme whose cards show logos; for any other it's never asked for anything.
@@ -417,9 +409,14 @@ public partial class Main : Node3D
         DebugHooks.Theme = (theme.Plan.Active.Id, theme.Layout.ToString());
 
         var games = 0;
+        var shownSystems = 0;
         foreach (var system in services.Systems)
         {
             games += system.GameCount;
+            if (system.GameCount > 0 || !services.Config.Settings.Display.HideEmptySystems)
+            {
+                shownSystems++;
+            }
         }
 
         DebugHooks.Library = new BenchLibrary(shownSystems + 2, games, null, 0);

@@ -17,7 +17,7 @@ using Launcher.Core.Theming;
 namespace Launcher.App.Settings;
 
 /// <summary>
-/// The main settings screen (M7): ROM folders, the media folder, emulators, the theme and layout, graphics, the status indicators and navigation sounds, scraping, and the
+/// The main settings screen (M7): ROM folders, the media folder, emulators, the theme and layout, whether systems without games show, graphics, the status indicators and navigation sounds, scraping, and the
 /// library's actions (rescan, with or without every media folder, scrape all missing, and whether it's scanned at launch) with their progress and a way to cancel them. Menu, B or the Back
 /// button closes it; every change is saved as it's made, and applies without a restart.
 /// </summary>
@@ -29,6 +29,7 @@ public sealed partial class SettingsHome : ListPanel
     private readonly SettingRow _emulators;
     private readonly SettingRow _theme;
     private readonly SettingRow _layout;
+    private readonly SettingRow _emptySystems;
     private readonly SettingRow _graphics;
     private readonly SettingRow _clock;
     private readonly SettingRow _battery;
@@ -61,6 +62,9 @@ public sealed partial class SettingsHome : ListPanel
         AddRow("Download themes", "Themes made for Odyssey Launcher: get them, keep them up to date, or remove them",
             activated: () => Layer.Push(new ThemeDownloaderPage(_settings)));
         _layout = AddRow("Layout", activated: () => Layer.Push(new LayoutPage(_settings)));
+        _emptySystems = AddRow("Show systems without games", "A card for every system, even one with nothing in its ROM folders",
+            activated: () => SetShowEmptySystems(null));
+        _emptySystems.Adjuster = direction => SetShowEmptySystems(direction > 0);
         _graphics = AddRow("Graphics", activated: () => Layer.Push(new GraphicsPage(_settings)));
 
         AddSection("UI");
@@ -138,6 +142,7 @@ public sealed partial class SettingsHome : ListPanel
         ShowIndicator(_network, config.Settings.Ui.ShowNetwork);
         ShowIndicator(_sounds, config.Settings.Ui.NavigationSounds);
         ShowIndicator(_scanAtLaunch, config.Settings.Scanning.ScanAtLaunch);
+        ShowIndicator(_emptySystems, !display.HideEmptySystems);
         if (_settings.DeviceStatus?.Current is { Battery.Present: false })
         {
             _battery.Detail = "This PC has no battery, so it never shows";
@@ -251,6 +256,20 @@ public sealed partial class SettingsHome : ListPanel
 
     private static string NameOf(string manifest, string id) =>
         TomlEditor.Parse(manifest, id, out _)?.Get(["name"]) as string ?? id;
+
+    /// <param name="on">Shown or not; null turns it the other way. It's saved the other way round, as <c>[display] hide_empty_systems</c>.</param>
+    private void SetShowEmptySystems(bool? on)
+    {
+        var current = !_settings.Services.Config.Settings.Display.HideEmptySystems;
+        var wanted = on ?? !current;
+        if (current == wanted)
+        {
+            return;
+        }
+
+        _settings.Save(this, [new ConfigEdit(ConfigFileKind.Settings, ["display", "hide_empty_systems"], !wanted)],
+            wanted ? "Every system has a card now, with games or not." : "Systems without games are hidden.");
+    }
 
     // ---- Library actions -------------------------------------------------------------------------------
 

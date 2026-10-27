@@ -28,6 +28,18 @@ Core's timings on the export's runtime (`tools/core-bench`, .NET 8.0.31, `Export
 
 The runs vary by more than the difference (370–594 ms), so the result is "no measurable cost", not "faster". After it, the systems grid's pool was sized from the shown systems instead of every system (it would otherwise have grown from 27 to 64 slots); that change was checked by the headless smoke run and a capture, not re-benched.
 
+**2026-10-27: back to every enabled system.** Settings > Look > Show systems without games shows the empty systems without a restart, and the pool can't grow, so it's sized for every enabled system again (64 cells with the catalogue; a library with 52 or more systems with games had 64 already). A pool sized for 3 shown systems (24 cells) drops the grid from 5 columns to 4 at 1280×800 once they all appear. Same method, the export at `ea023f3` before and with the change after, the 20-system synthetic library (32 cells to 64), medians of 5 warm runs:
+
+| | Slab before | Slab after | Console before | Console after |
+|---|---|---|---|---|
+| Our start-up | 284.2 ms | 279.1 ms | 1,582.2 ms | 1,603.7 ms |
+| Frame p99 / hitches | 17.06 ms / 0 | 17.02 ms / 0 | 17.20 ms / 0 | 17.32 ms / 0 |
+| Video memory | 296.2 MiB | 315.2 MiB | 1,993.8 MiB | 2,009.5 MiB |
+| Texture memory | 255.8 MiB | 274.3 MiB | 1,529.1 MiB | 1,544.8 MiB |
+| Working set | 351.1 MiB | 353.2 MiB | 591.4 MiB | 592.0 MiB |
+
+Start-up and frames show no measurable change (Console's runs, 1,570–1,618 ms before and 1,592–1,636 ms after, overlap). The cost is video memory: about 16 MiB in both themes, and on Slab another 3 MiB (its cards' logo layers). The 16 MiB wasn't measured apart, but the only other per-cell texture is the systems grid's title atlas, a render target that grows from 6 × 6 blocks of 192 px to 8 × 8.
+
 ## What else grew
 
 - The settings screen's ROM folders page lists all 164 systems (a row each, built when it's opened); the Emulators page lists only the profiles the systems with games use.
