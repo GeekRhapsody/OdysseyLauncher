@@ -36,12 +36,11 @@ Odyssey Launcher is built with Godot 4 and C# for Windows. **Performance is the 
 
 ### Your collection, as it is
 
-- **Over 160 systems built in.** These are ES-DE's catalogue, with the same folder names (`megadrive`, `snes`, `psx`, `ps2`...) and aliases (`genesis`, `sfc`...), plus the PlayStation 5, the PlayStation Vita (through Vita3K: a game is installed on its first launch, then started by its title id), Windows games, Steam games and desktop apps. Systems with no games stay hidden, unless you choose to show them in the settings.
 - **Multi-disc games** show as one game: an `.m3u`, `.cue` or `.gdi` hides the files it lists. PS3, PS4 and PS5 games kept as folders (`Game.ps3`) count as one game too.
 - **Clean titles** come from No-Intro and Redump file names. The region, languages, revision and disc number are kept as details, and titles sort naturally ("The Legend of Zelda" under L).
 - **Sorting:** order systems by name, maker or release year. Order games by title, last played, time played, date added or release date, per system if you like.
 - **Play history:** play counts, total play time and last played, recorded for every launch.
-- **Import from ES-DE:** a system's `gamelist.xml` brings in its titles, metadata, favourites and media without overwriting anything you already have.
+- **Import from RetroBat/Batocera:** a system's `gamelist.xml` brings in its titles, metadata, favourites and media without overwriting anything you already have.
 - **Network drives work well.** Folders are listed in large batches and scanned in parallel, and unplugging a drive never loses your favourites or history.
 
 ### Scraping
@@ -52,7 +51,7 @@ Odyssey Launcher is built with Godot 4 and C# for Windows. **Performance is the 
 - **Accurate matching:** ScreenScraper identifies files by name, size and checksum, and a title search only counts a hit when the name really matches. When a match is wrong, "scrape this game" searches every provider at once, shows each result with its cover, and lets you choose. For a SteamGridDB result you can also pick the cover, logo and hero from its alternatives.
 - **Runs in the background** in a queue that survives closing the app, and respects each provider's rate limits and quotas.
 - **Your own art and edits win.** Set any image, the video or the manual yourself, edit a title or any metadata field, and a later scrape never overwrites it. Remove any of a game's media from its options.
-- **ES-DE's media layout:** media is stored in `covers/`, `screenshots/`, `videos/` and so on, under a folder you can move to any drive.
+- **Media layout:** media is stored in `covers/`, `screenshots/`, `videos/` and so on, under a folder you can move to any drive.
 
 ### Details and media
 
@@ -62,7 +61,7 @@ Odyssey Launcher is built with Godot 4 and C# for Windows. **Performance is the 
 
 ### Launching
 
-- **Emulator profiles** drawn from ES-DE's list: RetroArch cores, standalone emulators (PCSX2, Dolphin, PPSSPP, DuckStation and more), and games that are their own program, script or shortcut.
+- **Emulator profiles** RetroArch cores, standalone emulators (PCSX2, Dolphin, PPSSPP, DuckStation and more), and games that are their own program, script or shortcut.
 - **Per-game overrides:** run one game with another of its system's emulators, from its options.
 - **Switch controllers** are set up in Eden before each launch, the pad that chose the game as player 1, with an option to swap A/B and X/Y for non-Nintendo pads.
 - **Steam games** are handed to Steam and followed until Steam says they've ended, so their play time is recorded too.
@@ -72,7 +71,7 @@ Odyssey Launcher is built with Godot 4 and C# for Windows. **Performance is the 
 
 - **A full settings screen driven by the controller:** ROM folders, the media folder, emulators, themes (and downloading more), layouts and sorting, graphics, the status indicators and sounds, scraping providers, regions and credentials, rescanning and scraping the whole library, problems in your config files, and checking for updates. It includes an on-screen keyboard, file and folder pickers, and a "test connection" button for each provider.
 - **Options for each game (X):** the emulator, the 3D model, its media (images, video and manual), title and metadata, scraping, clearing metadata and deleting the game.
-- **Options for each system (X):** its ROM folders, emulator, layout and sorting, card and game models, scraping all its games (or only those missing a cover or a screenshot, or not scraped lately), and importing ES-DE's `gamelist.xml`.
+- **Options for each system (X):** its ROM folders, emulator, layout and sorting, card and game models, scraping all its games (or only those missing a cover or a screenshot, or not scraped lately), and importing an existing `gamelist.xml`.
 - **Power menu (View):** restart, shut down or sleep the PC, or quit the app.
 - **Status indicators:** the clock, the battery, and the Wi-Fi signal or cable, top right, plus an optional FPS and video memory readout.
 - **Navigation sounds:** a tock as the focus moves and a whoosh as you enter a system (they can be turned off).
@@ -91,7 +90,7 @@ Odyssey Launcher is built with Godot 4 and C# for Windows. **Performance is the 
 
 ### Themes
 
-The **Slab** theme (the default) shows each system as a dark slab with its logo. **Console** shows each system as its console, modelled in 3D: every built-in system has its own, from the Channel F to the PlayStation 5 and the PS Vita (with a PC for Windows and DOS, and a laptop for desktop apps), most of them loading a made-up game when you focus them; a system you add yourself gets a plain card. **Classic View** looks like a 2D launcher: flat logo cards and flat covers over a wallpaper, with nothing swaying. Switch themes from the settings, or for the session with <kbd>T</kbd> on the systems screen, without a restart. Get more from **Download themes** in the settings: themes checked before they're listed, then kept up to date from their own repositories, as ES-DE's theme downloader does.
+The **Slab** theme (the default) shows each system as a dark slab with its logo. **Console** shows each system as its console, modelled in 3D: every built-in system has its own, from the Channel F to the PlayStation 5 and the PS Vita (with a PC for Windows and DOS, and a laptop for desktop apps), most of them loading a made-up game when you focus them; a system you add yourself gets a plain card. **Classic View** looks like a 2D launcher: flat logo cards and flat covers over a wallpaper, with nothing swaying. Switch themes from the settings, or for the session with <kbd>T</kbd> on the systems screen, without a restart. Get more from **Download themes** in the settings: themes checked before they're listed, then kept up to date from their own repositories.
 
 ![Switching from the Console theme to Slab, then Classic View](docs/readme/themes.webp)
 
@@ -126,7 +125,7 @@ The **Slab** theme (the default) shows each system as a dark slab with its logo.
 ## Getting started
 
 1. **Download** the latest `OdysseyLauncher-<version>-windows-x86_64.zip` from [Releases](https://github.com/GeekRhapsody/OdysseyLauncher/releases), unzip it anywhere, and run `OdysseyLauncher.exe`. The .NET runtime is included, so there's nothing else to install. It needs 64-bit Windows 10 or 11 and a GPU with Direct3D 12 or Vulkan.
-2. **Point it at your games.** By default each system's games are expected in `<your user folder>\ROMs\<system id>` (`ROMs\megadrive`, `ROMs\snes`...), as in ES-DE and RetroBat. In **Settings > ROM folders** you can set another root folder, or give any system its own folders.
+2. **Point it at your games.** By default each system's games are expected in `<your user folder>\ROMs\<system id>` (`ROMs\megadrive`, `ROMs\snes`...), as in other frontends. In **Settings > ROM folders** you can set another root folder, or give any system its own folders.
 3. **Point it at your emulators.** In **Settings > Emulators**, set the folder your emulators live in and RetroArch's folder. Each system's emulator can be changed from its options (X on its card). The settings list any emulator that's missing.
 4. **Scrape** from **Settings > Library**: "Scrape all missing metadata" fetches art and metadata for every game never scraped, not found before, or without a front cover. Add your ScreenScraper account (or IGDB and SteamGridDB keys) under **Settings > Scraping** for faster, fuller results.
 
@@ -198,5 +197,5 @@ The system logos in the **Classic View** theme (`godot/themes/classic-view/logos
 - [Godot Engine](https://godotengine.org), which renders everything.
 - [ES-DE](https://es-de.org), whose systems catalogue, folder names, emulator commands, release years and descriptions are the basis of the built-in systems.
 - [Lucide](https://lucide.dev) for the status indicator icons (ISC licence).
-- [LibGit2Sharp](https://github.com/libgit2/libgit2sharp) (MIT licence) and [libgit2](https://libgit2.org) (GPLv2 with a linking exception), with which the theme downloader clones and updates themes; ES-DE's theme downloader is the model for it.
+- [LibGit2Sharp](https://github.com/libgit2/libgit2sharp) (MIT licence) and [libgit2](https://libgit2.org) (GPLv2 with a linking exception), with which the theme downloader clones and updates themes.
 - [ScreenScraper](https://www.screenscraper.fr), [IGDB](https://www.igdb.com), [SteamGridDB](https://www.steamgriddb.com) and Steam for game metadata and art.
