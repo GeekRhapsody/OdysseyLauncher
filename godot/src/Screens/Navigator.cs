@@ -51,6 +51,12 @@ public sealed partial class Navigator : Node
     /// <summary>How long after a theme is applied its predecessor's leftovers are collected, in seconds (2026-10-16).</summary>
     private const double ThemeCollectDelay = 1;
 
+    /// <summary>Frames drawn by hand once a game's textures are freed, so the renderer lets go of them (2026-10-28).</summary>
+    private const int ReleaseDraws = 3;
+
+    /// <summary>How long after a game starts the collection and those draws run, in seconds (2026-10-28).</summary>
+    private const double CollectAfterGameSeconds = 0.3;
+
     private static readonly GridPose Shown = new(0, 1, 0);
     private static readonly GridPose SystemsHidden = new(1, 1.12f, 0.7f);
     private static readonly GridPose GamesHidden = new(1, 0.82f, -1.6f);
@@ -1738,13 +1744,19 @@ public sealed partial class Navigator : Node
         }
     }
 
-    /// <summary>A game is starting: free the media textures for the emulator (A1 Starting).</summary>
+    /// <summary>
+    /// A game is starting: free the media textures for the emulator (A1 Starting). The renderer lets go of them only
+    /// once it draws and the wrappers holding them are collected, which <see cref="CollectAfterFree"/> does a moment on.
+    /// </summary>
     public void OnGameModeEntered()
     {
         _gamesGrid.DisableTextures();
         Streamer?.Evict();
         _systemsGrid.DisableTextures();
         CardStreamer?.Evict();
+
+        // The tree is paused, so the timer is one that runs anyway.
+        GetTree().CreateTimer(CollectAfterGameSeconds, processAlways: true).Timeout += CollectAfterFree;
     }
 
     /// <summary>Back in the launcher: recreate the media arrays and re-request what's on screen.</summary>
@@ -1754,6 +1766,28 @@ public sealed partial class Navigator : Node
         _gamesGrid.EnableTextures();
         CardStreamer?.Restore();
         _systemsGrid.EnableTextures();
+    }
+
+    /// <summary>
+    /// Main thread, a moment after a game starts: a full collection that waits for the finalisers, then frames drawn by
+    /// hand. The arrays went through a Variant, whose disposer holds them until its finaliser runs (2026-10-16, as
+    /// after a theme switch), and the render loop is off, so the renderer only lets go of what was freed when it draws
+    /// (more frames than it keeps in flight). Without them the first launch of a session freed the arrays but every
+    /// later one freed nothing, and each return added another 171 MB (a Console library, measured 2026-10-28).
+    /// </summary>
+    private void CollectAfterFree()
+    {
+        if (Launcher?.InGameMode != true)
+        {
+            return;
+        }
+
+        GC.Collect(2, GCCollectionMode.Forced, blocking: true);
+        GC.WaitForPendingFinalizers();
+        for (var frame = 0; frame < ReleaseDraws; frame++)
+        {
+            RenderingServer.ForceDraw(true, 0.0);
+        }
     }
 
     // ---- Animation ------------------------------------------------------------------------------
