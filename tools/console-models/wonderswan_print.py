@@ -20,8 +20,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import wonderswan_layout as L  # noqa: E402
-from game_boy_print import FONTS, SCALE, Face, rgb  # noqa: E402
-from game_gear_print import rounded_polygon  # noqa: E402
+from game_boy_print import FONTS, SCALE, Face, rgb, rounded_polygon  # noqa: E402
 
 LCD = ["#A3AA92", "#79806C", "#4D5345", "#262A20"]  # the WonderSwan's four shades, lightest first
 INK = "#3E434B"

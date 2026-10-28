@@ -254,9 +254,11 @@ public partial class Main : Node3D
         _statusBar?.Tick(delta);
         _navigator?.Update(delta);
         var dt = (float)delta;
-        _systemsGrid!.Tick(dt);
 
-        // A game's video and its sound stop under the settings, a game's details or options, and the power menu.
+        // The focused card's video, and a game's video and its sound, stop under the settings, a system's or a game's
+        // details or options, and the power menu (a system's details play its card's video on their own view).
+        _systemsGrid!.VideosSuspended = _ui.IsOpen;
+        _systemsGrid.Tick(dt);
         _gamesGrid!.VideosSuspended = _ui.IsOpen;
         _gamesGrid.Tick(dt);
         _gamesGrid.PumpTextures(TextureStreamer.DefaultBudgetBytes, _options.UploadCap);
@@ -770,10 +772,11 @@ public partial class Main : Node3D
         _jobs.GameDeleted += navigator.OnGameDeleted;
 
         // Y on a game: its details, with its images and video full size, and its manual. The focused system card plays its
-        // theme's video (A6 Card videos), and the focused game its own on a template that shows it (A6 Game videos), with
-        // the same decoder.
+        // theme's video (A6 Card videos), in the grid and on its details' view, and the focused game its own on a template
+        // that shows it (A6 Game videos), with the same decoder.
         _systemsGrid!.VideoDecoder = _videoDecoder;
         _gamesGrid!.VideoDecoder = _videoDecoder;
+        ModelView.VideoDecoder = _videoDecoder;
         navigator.GameDetailsRequested += id =>
         {
             if (!_ui!.IsOpen)

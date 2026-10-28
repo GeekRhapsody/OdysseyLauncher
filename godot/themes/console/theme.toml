@@ -40,16 +40,20 @@ model = "models/templates/megadrive_cartridge.glb"  # built by tools/console-mod
 # System cards: the console's own model. A system's games keep memory-card's template for it unless one is named
 # here (game_template = "jewel_case", say: any of memory-card's templates, or one of this theme's).
 [systems.gamegear]
-model = "models/systems/gamegear.glb"         # built by tools/console-models/game_gear.py, turned to a three-quarter view
+model = "models/systems/gamegear.glb"         # built by tools/console-models/game_gear.py: the black Game Gear standing up; its focused clip drops a cartridge (a made-up game) in, switches on and plays on the D-pad, 1 and 2, then switches off and takes the cartridge out
+video = "videos/gamegear.mp4"                 # drawn by tools/console-models/game_gear_video.py: the lens through the clip (a publisher's splash, the title and the game), played on its video material
 
 [systems.gb]
-model = "models/systems/gb.glb"               # built by tools/console-models/game_boy.py, turned to a three-quarter view; its focused clip drops a cartridge in and scrolls the Nintendo logo down
+model = "models/systems/gb.glb"               # built by tools/console-models/game_boy.py: a grey DMG-01 standing up; its focused clip drops a cartridge (a made-up game) into the bay at the top of its back, switches on and plays it on the D-pad, A and B, then switches off and takes the cartridge out
+video = "videos/gb.mp4"                       # drawn by tools/console-models/game_boy_video.py: the lens through the clip (the start-up, then Kaleidrop in the DMG's four greens), played on its video material
 
 [systems.gbc]
-model = "models/systems/gbc.glb"              # built by tools/console-models/game_boy.py, turned to a three-quarter view; its focused clip bonks a cartridge off the top, then slides it in
+model = "models/systems/gbc.glb"              # built by tools/console-models/game_boy.py: a Game Boy Color in Dandelion standing up; its focused clip drops a cartridge (a made-up game) into the bay at the top of its back, switches on and plays it on the D-pad, A and B, then switches off and takes the cartridge out
+video = "videos/gbc.mp4"                      # drawn by tools/console-models/game_boy_video.py: the lens through the clip (the Color's start-up, then Ghoulish Gus), played on its video material
 
 [systems.gba]
-model = "models/systems/gba.glb"              # built by tools/console-models/game_boy.py, turned to a three-quarter view; its focused clip swoops a cartridge in on a barrel roll
+model = "models/systems/gba.glb"              # built by tools/console-models/gba.py: the indigo Game Boy Advance standing up; its focused clip drops a cartridge (a made-up game) into the bay, switches on and plays it on the D-pad, A, B and R, then switches off and takes the cartridge out
+video = "videos/gba.mp4"                      # drawn by tools/console-models/gba_video.py: the lens through the clip (the start-up, then Kaleidrop), played on its video material
 
 [systems.wonderswan]
 model = "models/systems/wonderswan.glb"       # built by tools/console-models/wonderswan.py, turned to a three-quarter view; its focused clip somersaults a cartridge into the back, then hops onto its end for a game played upright
@@ -73,7 +77,8 @@ model = "models/systems/wii.glb"                # built by tools/console-models/
 model = "models/systems/pokemini.glb"          # built by tools/console-models/pokemini.py: the Pokémon mini in Wooper Blue, its clock on the LCD; its focused clip drops a cartridge into the top of its back and plays a made-up game on the D-pad and A, shakes it and rumbles, then takes the cartridge out
 
 [systems.psp]
-model = "models/systems/psp.glb"              # built by tools/console-models/psp.py, turned to a three-quarter view; its focused clip turns it round, rolls a UMD into its door, and turns back to the XMB and the game
+model = "models/systems/psp.glb"              # built by tools/console-models/psp.py: a PSP-1000 standing up; its focused clip turns it round, springs the UMD door open and slides a UMD in, turns back and switches on, chooses the game and plays it on the nub and CROSS
+video = "videos/psp.mp4"                      # drawn by tools/console-models/psp_video.py: the screen through the clip (the start-up, the XMB, then Skylance), played on its video material
 
 [systems.sg-1000]
 model = "models/systems/sg-1000.glb"           # built by tools/console-models/sg1000.py: Sega's SG-1000 and its hard-wired SJ-200 joystick; its focused clip drops a cartridge (a made-up game) into the slot, lights the power light and plays on the joystick, presses HOLD, then takes the cartridge out
@@ -259,7 +264,8 @@ model = "models/systems/symbian.glb"           # built by tools/console-models/s
 model = "models/systems/plus4.glb"             # built by tools/console-models/plus4.py: a Commodore Plus/4 and its 1531 Datassette in front of the ZX Spectrum's television; its focused clip puts a cassette in the Datassette, types LOAD, presses PLAY, finds and loads the game and plays it on the cursor keys, then takes the cassette out
 
 [systems.c64]
-model = "models/systems/c64.glb"              # built by tools/console-models/commodore_64.py
+model = "models/systems/c64.glb"              # built by tools/console-models/commodore_64.py: a C64 with a 1541 drive and a 1702 monitor; its focused clip loads a game from disk: the floppy in, LOAD"*",8,1, the game played, the floppy out and the power cycled
+video = "videos/c64.mp4"                      # drawn by tools/console-models/commodore_64_video.py: the screen through the clip (the start-up screen, the typing, the loading picture and the game), played on the glass's video material
 
 [systems.odyssey2]
 model = "models/systems/odyssey2.glb"          # built by tools/console-models/odyssey2.py: a Magnavox Odyssey² and its two joysticks; its focused clip drops a cartridge in, presses POWER and plays on the joystick, then takes the cartridge out

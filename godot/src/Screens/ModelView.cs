@@ -18,9 +18,9 @@ namespace Launcher.App.Screens;
 /// One item's model, large, in a world of its own (a system's details): a <see cref="SubViewport"/> with its own camera,
 /// its look's gradient, ambient and lights (<see cref="LookStage"/>), and a one-cell <see cref="ItemGrid"/> showing it
 /// one at a time and focused, so the model is drawn as the grid draws it (its colour, its generated faces and title, its
-/// logo, its clips, the focus's sway) and turns as it does (<see cref="Tick"/>, <see cref="Step"/>). Its own world keeps its
-/// environment and lights away from the grids'. Shown through a <see cref="TextureRect"/>, rendered at the grids' pixel
-/// density (A3: 3D at no more than 1080p).
+/// logo, its clips and its card's video, the focus's sway) and turns as it does (<see cref="Tick"/>, <see cref="Step"/>).
+/// Its own world keeps its environment and lights away from the grids'. Shown through a <see cref="TextureRect"/>,
+/// rendered at the grids' pixel density (A3: 3D at no more than 1080p).
 /// <para>
 /// There's one, made on first use and kept (<see cref="Show"/>, <see cref="Park"/>): making its world, grid and render
 /// target took 10–15 ms of the main thread, and its render target's first frames more, on every open.
@@ -40,6 +40,7 @@ public sealed partial class ModelView : Control
 
     private static ModelView? _shared;
     private static Viewport.AnisotropicFiltering _anisotropy = Viewport.AnisotropicFiltering.Anisotropy16X;
+    private static IVideoDecoder? _videoDecoder;
 
     private readonly SubViewport _viewport;
     private readonly LookStage _stage;
@@ -67,6 +68,24 @@ public sealed partial class ModelView : Control
         }
     }
 
+    /// <summary>
+    /// The decoder a system card's video plays through (A6 Card videos), the systems grid's: shown here, the card plays
+    /// its video as the grid's focused card does, timed by its focused clip, while the grid's is held off under the
+    /// details. Null for none (a platform without one): the card shows its <c>video</c> material's own texture.
+    /// </summary>
+    public static IVideoDecoder? VideoDecoder
+    {
+        get => _videoDecoder;
+        set
+        {
+            _videoDecoder = value;
+            if (_shared is not null && IsInstanceValid(_shared))
+            {
+                _shared._grid.VideoDecoder = value;
+            }
+        }
+    }
+
     private ModelView()
     {
         Name = "ModelView";
@@ -90,6 +109,7 @@ public sealed partial class ModelView : Control
         {
             Name = "Model",
             Layout = new GridLayout(GridShape.Single),
+            VideoDecoder = _videoDecoder,
         };
         _viewport.AddChild(_grid);
 

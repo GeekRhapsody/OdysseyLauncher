@@ -1,31 +1,39 @@
-"""The console theme's PlayStation Portable system model (godot/themes/console/models/systems/psp.glb).
+"""The console theme's PlayStation Portable system model (godot/themes/console/models/systems/psp.glb): a piano-black
+PSP-1000, standing up.
 
-Built in Blender from the real handheld's proportions (psp_layout.py has the measurements, taken from photographs): a
-piano-black PSP-1000. The body is its front outline (each end one broad arc) lofted back: the front's edge rounded a
-little, the back's a lot, and a silver band round the middle of its depth, the clear grey shoulder buttons taking its
-place at the top corners. On the front stand the D-pad's four buttons, the analogue nub, the four face buttons and the
-row along the bottom (HOME, the volume, the display and sound buttons, SELECT and START); on the top the IR window and
-the USB port, on the ends the WLAN and POWER switches, under the right end the yellow DC IN plug. The printing (the
-face, the switched-off screen, the legends, the speaker's dots, the buttons' tops, and the back with the UMD bay under
-its door) is one 1024 x 1024 texture, drawn by psp_print.py and projected onto the front and the back; the screens,
-the UMD and the door's outside are a second.
+Built in Blender from the real handheld's measurements (psp_layout.py has them, and their sources): the body is its
+face's outline (each end one broad arc) lofted back through its depth: the glossy front shell, its edge rounded over;
+the seam; the silver band standing a quarter millimetre proud, the clear shoulder buttons L and R in its place at the
+top corners; the matte back shell, its edge rounded over a lot; the bay, a recess the door's shape, cut into the back.
+On the face stand the D-pad's four buttons, the analogue nub, the four face buttons and the bottom row (HOME, VOL - +,
+the display and sound buttons, SELECT and START), each a solid domed over; the screen's glass is one flat face over
+the face's printing. In the band: the POWER/HOLD switch on the right end and the OPEN latch on the top edge. On the
+back: the UMD door, a panel standing a millimetre proud, hinged along its bottom edge, and the UMD (a made-up game).
+The printing is three textures drawn by psp_print.py: the face, the back and the top edge in one atlas; the UMD's
+two sides and the door's outside in a second; and the glass's own, the screen switched off.
 
-It's a small node tree: a root (the three-quarter view and the model spec's fit) holding the console, and the console
-holding the UMD door (hinged along its bottom edge, on the back), the door holding the UMD (Odyssey, a made-up game),
-and the two screens switched on, the XMB and the game's title screen. At rest the UMD and the screens are shrunk to
-nothing inside the console, so it stands with its screen off and its door shut, and the rest pose's bounds are the
-console's and its door's. The `focused` clip (7 s, looping) plays a game: the console hops round to show its back, the
-door springs open, the UMD rolls in on its edge like a wheel, rocks to a stop and slides down into the door, which
-snaps shut; the console hops round to the front again, the XMB comes on with the game at the top of its list, then the
-game's title screen, and the screen goes off.
+The glass's material is `video`: while the card is focused, the launcher plays the theme's video for it there
+(godot/themes/console/videos/psp.mp4, drawn by psp_video.py), starting it again each time the clip loops (A6 Card
+videos); otherwise, and where there's no decoder, it shows its own texture, the screen switched off.
 
-The model is turned to a three-quarter view (TILT: its left end towards the viewer and its face tipped up, as the
-handheld looks lying in front of you), then fitted to the model spec (A7): standing on y = 0, centred, the largest side
-1 m. The turn and the fit are the root's transform, so the clip moves its parts in millimetres.
+A node tree: a root (the turn to a three-quarter view, TILT_YAW and TILT_PITCH: the right end towards the viewer, the
+face tipped up a little; then the model spec's fit: standing on y = 0, centred, the largest side 1 m) holding the
+console, which turns about its middle; the console holding CROSS, START, the nub, the POWER switch, the OPEN latch,
+the power light (shrunk to nothing while it's off) and the door (its origin on its hinge), the door holding the UMD,
+which waits in its seat shrunk to nothing, so the rest pose is the console alone, its door shut.
 
-Eight materials and two textures, within the system model budget. Run from the repo root:
+The `focused` clip (10 s, looping; its timing is psp_layout.py's, which the video follows) plays a game: the console
+turns round on the spot to show its back; OPEN slides towards R and the door springs open; the UMD appears over it,
+its label out, and slides down into it; the door shuts on it and the latch springs back; the console turns back to its
+face; POWER slides up and springs back, the power light comes on and the screen with it (the start-up, the XMB); CROSS
+chooses the game; START at its title; the nub steers the ship and CROSS fires, five times; POWER is held up, the screen
+goes off and the light out. The UMD stays in, and is shrunk away once the door has shut on it.
 
-    python tools/console-models/psp_print.py artifacts/psp
+Seven materials (case, rear, buttons, silver, clear, media, video) and three textures, within the system model budget.
+Run from the repo root:
+
+    python tools/console-models/psp_print.py artifacts/made-up-games artifacts/psp
+    python tools/console-models/psp_video.py artifacts/made-up-games godot/themes/console/videos/psp.mp4
     blender -b --factory-startup --python tools/console-models/psp.py -- artifacts/psp godot/themes/console/models/systems/psp.glb
 """
 
@@ -39,348 +47,432 @@ from mathutils import Matrix, Vector
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import psp_layout as L  # noqa: E402
-from clip import HIDDEN, Pose, back_out, ease_in, ease_out, hop, key, phase, smooth, wobble  # noqa: E402
-from game_gear import ellipse, rounded_polygon  # noqa: E402
-from mega_drive_cartridge import export, material, triangles  # noqa: E402
+from amiga import paint, solid  # noqa: E402
+from clip import HIDDEN, Pose, back_out, ease_in, ease_out, key, phase, smooth  # noqa: E402
+from mega_drive_cartridge import bevel, boolean, box, export, join, material, new_object, triangles  # noqa: E402
+from saturn import inset  # noqa: E402
 
-TILT = (20.0, 10.0)       # degrees: yaw (left end nearer), pitch (face up)
-FPS = 30
-LENGTH = 210              # the focused clip's frames
-MATERIALS = ["case", "print", "rear", "buttons", "silver", "shoulder", "media", "umd"]  # never a media slot's name (A7)
-ROUGHNESS = dict(case=0.45, print=0.45, rear=0.6, buttons=0.45, silver=0.3, shoulder=0.3, media=0.45, umd=0.5)
-OPEN = 42.0               # degrees the UMD door opens
-
-
-# ---- Geometry --------------------------------------------------------------------------------------------------------
-
-def at(outline, y):
-    """An (x, z) outline at depth y."""
-    return [(x, y, z) for x, z in outline]
+TILT_YAW = -22.0     # degrees about the vertical: the right end (the face buttons, POWER) comes towards the viewer
+TILT_PITCH = 10.0    # degrees about the horizontal: seen a little from above
+ROUGHNESS = dict(case=0.42, rear=0.7, buttons=0.38, silver=0.48, clear=0.38, media=0.45, video=0.5)
+PIVOT = Vector((0.0, L.BACK / 2, 0.0))   # the console turns about its middle
+PRESS = 0.8                              # how far a button goes in
 
 
-def region_uv(regions, name, mirror=False):
-    """The planar projection of a point (x, z in millimetres) into the atlas region name; mirror for a face seen from
-    behind (+y)."""
-    x, y, w, h = regions[name]["px"]
+# ---- UVs ---------------------------------------------------------------------------------------------------------------
+
+def region_uv(regions, name, mirror=False, depth=False):
+    """A planar projection into an atlas region: (x, z) (or (x, y) with depth, for the top edge) in millimetres to UVs;
+    mirror for a face seen from behind."""
+    px, py, pw, ph = regions[name]["px"]
     x0, x1, z0, z1 = regions[name]["mm"]
 
     def uv(co):
-        cx = -co.x if mirror else co.x
-        return ((x + (cx - x0) / (x1 - x0) * w) / L.ATLAS, 1 - (y + (z1 - co.z) / (z1 - z0) * h) / L.ATLAS)
+        x = -co.x if mirror else co.x
+        z = co.y if depth else co.z
+        return (px + (x - x0) / (x1 - x0) * pw) / L.ATLAS, 1 - (py + (z1 - z) / (z1 - z0) * ph) / L.ATLAS
     return uv
 
 
-def swatch(name):
-    """Every point to the middle of one of the print atlas's swatches: a small part's plain colour."""
-    x, y = L.SWATCHES[name]
+FRONT = region_uv(L.PRINT_REGIONS, "front")
+REAR = region_uv(L.PRINT_REGIONS, "rear", mirror=True)
+TOP = region_uv(L.PRINT_REGIONS, "top", depth=True)
+
+
+def swatch(name, swatches=L.SWATCHES):
+    x, y = swatches[name]
     return lambda co: (x / L.ATLAS, 1 - y / L.ATLAS)
 
 
-class Model:
-    """One mesh, built from lofts: rings of points joined by quads, closed by caps."""
-
-    def __init__(self):
-        self.bm = bmesh.new()
-        self.uv = self.bm.loops.layers.uv.new("UVMap")
-
-    def face(self, verts, mat, smooth=False, uv=None):
-        face = self.bm.faces.new(verts)
-        face.material_index = MATERIALS.index(mat)
-        face.smooth = smooth  # caps are flat, so their big polygons shade evenly
-        if uv is not None:
-            for loop in face.loops:
-                loop[self.uv].uv = uv(loop.vert.co)
-        return face
-
-    def loft(self, rings, bands, caps, uvs=(None, None), band_uv=None):
-        """rings: lists of points; bands: per gap between rings, a material or a function of a quad's middle (x, z)
-        giving one; caps: (first ring's, last ring's) or None."""
-        verts = [[self.bm.verts.new(p) for p in ring] for ring in rings]
-        for k, mat in enumerate(bands):
-            a, b = verts[k], verts[k + 1]
-            for j in range(len(a)):
-                quad = [a[j], a[(j + 1) % len(a)], b[(j + 1) % len(b)], b[j]]
-                m = mat
-                if callable(mat):
-                    m = mat(sum(v.co.x for v in quad) / 4, sum(v.co.z for v in quad) / 4)
-                self.face(quad, m, smooth=True, uv=band_uv)
-        if caps[0]:
-            self.face(verts[0], caps[0], uv=uvs[0])
-        if caps[1]:
-            self.face(verts[-1], caps[1], uv=uvs[1])
-
-    def slab(self, outline_at, front, back, front_round, back_round, side, caps, uvs=(None, None), steps=5):
-        """A solid from front to back whose front and back edges are rounded over: outline_at(inset) is its outline,
-        front_round and back_round (inset, depth) the roundings."""
-        rings = []
-        for k in range(steps + 1):
-            a = math.pi / 2 * (1 - k / steps)
-            rings.append(at(outline_at(front_round[0] * (1 - math.cos(a))), front + front_round[1] * (1 - math.sin(a))))
-        for k in range(steps + 1):
-            a = math.pi / 2 * k / steps
-            rings.append(at(outline_at(back_round[0] * (1 - math.cos(a))), back - back_round[1] * (1 - math.sin(a))))
-        self.loft(rings, [side] * (len(rings) - 1), caps, uvs)
-
-    def button(self, outline_at, front, height, dome, side, top, uv, rings=4):
-        """A button standing out of the face at depth front: straight sides, then a dome; outline_at(inset) is its rim.
-        Its top is the material top, projected through uv."""
-        stack = [at(outline_at(0), front + 0.6), at(outline_at(0), front - height)]
-        for k in range(1, rings + 1):
-            a = math.pi / 2 * k / rings
-            stack.append(at(outline_at(dome[0] * (1 - math.cos(a))), front - height - dome[1] * math.sin(a)))
-        self.loft(stack, [side] * (len(stack) - 1), (side, top), (None, uv))
-
-    def block(self, x0, x1, y0, y1, z0, z1, mat, uv=None):
-        outline = [(x1, z0), (x1, z1), (x0, z1), (x0, z0)]
-        self.loft([at(outline, y0), at(outline, y1)], [mat], (mat, mat), (uv, uv), band_uv=uv)
-
-    def finish(self, name, mats, outward=True):
-        """The mesh object: normals outward (for closed solids), edges sharper than 35 degrees sharp."""
-        bm = self.bm
-        if outward:
-            bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
-        for e in bm.edges:
-            if len(e.link_faces) == 2 and e.calc_face_angle(0.0) > math.radians(35):
-                e.smooth = False
-        mesh = bpy.data.meshes.new(name)
-        bm.to_mesh(mesh)
-        bm.free()
-        for n in MATERIALS:
-            mesh.materials.append(mats[n])
-        obj = bpy.data.objects.new(name, mesh)
-        bpy.context.scene.collection.objects.link(obj)
-        return obj
+def smoother(t):
+    """Smootherstep: no jolt where it starts or stops."""
+    t = min(1.0, max(0.0, t))
+    return t * t * t * (t * (6 * t - 15) + 10)
 
 
-def band_material(x, z):
-    """The silver band, or a shoulder button at the top corners."""
-    return "shoulder" if abs(x) > L.SHOULDER["x"] and z > L.SHOULDER["z"] else "silver"
+def shade(obj, angle=35.0):
+    """Smooth shading, edges sharper than angle kept sharp; flat faces (caps) stay flat."""
+    for p in obj.data.polygons:
+        p.use_smooth = len(p.vertices) <= 4
+    obj.data.set_sharp_from_angle(angle=math.radians(angle))
+    return obj
 
 
-def body(model):
-    """The body: the front's edge rounded over, the silver band standing a quarter millimetre proud round the middle,
-    the back's edge rounded over a lot."""
-    rings, bands = [], []
-    fi, fd = L.FRONT_ROUND
-    bi, bd = L.BACK_ROUND
-    steps = 5
-    for k in range(steps + 1):
-        a = math.pi / 2 * (1 - k / steps)
-        rings.append(at(L.body_outline(fi * (1 - math.cos(a))), L.FRONT + fd * (1 - math.sin(a))))
+# ---- The body ----------------------------------------------------------------------------------------------------------
+
+def rings():
+    """The body's rings, front to back: (y, inset, what the band after it is)."""
+    out = []
+    r = L.FRONT_ROUND
+    for k in range(4):
+        a = math.pi / 2 * k / 3
+        out.append((r * (1 - math.cos(a)), r * (1 - math.sin(a)), "front"))
     b0, b1 = L.BAND
-    rings += [at(L.body_outline(0), b0 - 0.2), at(L.body_outline(-0.25), b0), at(L.body_outline(-0.25), b1),
-              at(L.body_outline(0), b1 + 0.2)]
-    for k in range(steps + 1):
-        a = math.pi / 2 * k / steps
-        rings.append(at(L.body_outline(bi * (1 - math.cos(a))), L.BACK - bd * (1 - math.sin(a))))
-    bands = ["case"] * (steps + 1) + [band_material] * 3 + ["case"] * (steps + 1)
-    model.loft(rings, bands, ("print", "rear"),
-               (region_uv(L.PRINT_REGIONS, "front"), region_uv(L.PRINT_REGIONS, "rear", mirror=True)))
+    out += [(L.SEAM - 0.25, 0.0, "front"), (L.SEAM, 0.35, "groove"), (b0 - 0.05, 0.35, "groove"),
+            (b0, -L.BAND_OUT + 0.12, "band"), (b0 + 0.25, -L.BAND_OUT, "band"), (b1 - 0.25, -L.BAND_OUT, "band"),
+            (b1, -L.BAND_OUT + 0.12, "groove"), (b1 + 0.05, 0.35, "groove"), (b1 + 0.3, 0.0, "back")]
+    r = L.BACK_ROUND
+    out.append((L.BACK - r, 0.0, "back"))
+    for k in range(1, 5):
+        a = math.pi / 2 * k / 4
+        out.append((L.BACK - r + r * math.sin(a), r * (1 - math.cos(a)), "back"))
+    return out
 
 
-def controls(model):
-    front, uv = L.FRONT, region_uv(L.PRINT_REGIONS, "front")
+def body(m):
+    """The shell from the face's outline through its depth: one closed solid, each band of faces its own material."""
+    spec = rings()
+    bm = bmesh.new()
+    loops = [[bm.verts.new((x, y, z)) for x, z in L.body_outline(d)] for y, d, _ in spec]
+    kinds = []
+    for (a, b), (_, _, kind) in zip(zip(loops, loops[1:]), spec):
+        n = len(a)
+        for j in range(n):
+            bm.faces.new([a[j], a[(j + 1) % n], b[(j + 1) % n], b[j]])
+            kinds.append(kind)
+    bm.faces.new(loops[0])
+    bm.faces.new(list(reversed(loops[-1])))
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    kinds += ["front_cap", "back_cap"]                      # the faces keep the order they were made in
+    obj = new_object("psp", bm, m["case"])
+    mesh = obj.data
+    # Each face's material and UVs by the band it's in.
+    for mat in (m["rear"], m["silver"], m["clear"]):
+        mesh.materials.append(mat)
+    names = [mt.name for mt in mesh.materials]
+    uv = mesh.uv_layers.new(name="UVMap")
+    for p, kind in zip(mesh.polygons, kinds):
+        c, n = p.center, p.normal
+        up = n.z > 0.85 and abs(c.x) < L.SHOULDER["x"]
+        if kind == "front_cap":
+            mat, uv_of = "case", FRONT
+        elif kind == "back_cap":
+            mat, uv_of = "rear", REAR
+        elif kind == "band":
+            if abs(c.x) > L.SHOULDER["x"] and c.z > L.SHOULDER["z"]:
+                mat, uv_of = "clear", None
+            elif up:
+                mat, uv_of = "case", TOP
+            else:
+                mat, uv_of = "silver", None
+        elif up:
+            mat, uv_of = ("rear" if kind == "back" else "case"), TOP
+        else:
+            mat, uv_of = {"front": ("case", swatch("case")), "groove": ("case", swatch("dark")),
+                          "back": ("rear", swatch("rear"))}[kind]
+        p.material_index = names.index(m[mat].name)
+        for li in p.loop_indices:
+            uv.data[li].uv = uv_of(mesh.vertices[mesh.loops[li].vertex_index].co) if uv_of else (0.0, 0.0)
+    shade(obj)
+    # The bay under the door: a recess its shape, its floor the back's printing.
+    depth = L.BAY["depth"]
+    cutter = solid("bay", [[(x, y, z) for x, z in L.door_outline(L.BAY["inset"])] for y in (L.BACK - depth, L.BACK + 3.0)],
+                   m["rear"])
+    boolean(obj, cutter)
+    paint(obj, m["rear"], REAR, lambda c, n, kind: n.y > 0.9 and abs(c.y - (L.BACK - depth)) < 0.05)
+    paint(obj, m["rear"], swatch("dark"),
+          lambda c, n, kind: L.BACK - depth + 0.05 < c.y < L.BACK - 0.01 and abs(n.y) < 0.5 and kind == "rear")
+    return obj
+
+
+# ---- The controls --------------------------------------------------------------------------------------------------------
+
+def button(name, outline_at, height, dome, m, rings_=4, top=None):
+    """A button standing out of the face: its foot inside it, straight sides out to height, then a dome (inset, rise)
+    over; outline_at(inset) its rim. The faces turned to the viewer take the face's printing (its top, its symbol)."""
+    stack = [(outline_at(0.0), 0.6), (outline_at(0.0), -height)]
+    for k in range(1, rings_ + 1):
+        a = math.pi / 2 * k / rings_
+        stack.append((outline_at(dome[0] * (1 - math.cos(a))), -height - dome[1] * math.sin(a)))
+    obj = solid(name, [[(x, y, z) for x, z in pts] for pts, y in stack], m["buttons"])
+    paint(obj, m["buttons"], top or FRONT, lambda c, n, kind: n.y < -0.35)
+    paint(obj, m["buttons"], swatch("case"), lambda c, n, kind: n.y >= -0.35)
+    return shade(obj, 50.0)
+
+
+def circle(x, z, r, n=28):
+    return [(x + r * math.cos(2 * math.pi * k / n), z + r * math.sin(2 * math.pi * k / n)) for k in range(n)]
+
+
+def at_origin(obj, where):
+    """The part's mesh moved so that where (in the set) is its origin: it moves from there."""
+    obj.data.transform(Matrix.Translation(-Vector(where)))
+    return obj, Vector(where)
+
+
+def controls(m):
+    """The buttons: the still ones joined into the set; CROSS, START and the nub, which the clip moves, apart."""
+    still, moving = [], {}
     cx, cz = L.DPAD["x"], L.DPAD["z"]
-    for _, a in L.DPAD_BUTTONS:
+    for name, a in L.DPAD_BUTTONS:
         corners, radii = L.pentagon(cx, cz, a)
-        model.button(lambda i, c=corners, r=radii: rounded_polygon(c, r, i, 6), front, 1.3, (0.8, 0.5), "buttons",
-                     "print", uv)
+        rim = L.rounded_polygon(corners, radii, 6)
+        still.append(button("dpad_" + name, lambda d, rim=rim: inset(rim, d) if d > 1e-6 else rim, 1.3, (0.8, 0.5), m))
     r = L.FACE["radius"]
-    for _, x, z in L.face_centres():
-        model.button(lambda i, x=x, z=z: ellipse(x, z, r - i, r - i, 0, 32), front, 1.4, (1.4, 0.6), "buttons",
-                     "print", uv)
+    for name, x, z in L.face_centres():
+        part = button("face_" + name, lambda d, x=x, z=z: circle(x, z, r - d, 32), 1.4, (1.5, 0.7), m)
+        if name == "cross":
+            moving["cross"] = at_origin(part, (x, 0.0, z))
+        else:
+            still.append(part)
     x, z, r = L.NUB["x"], L.NUB["z"], L.NUB["radius"]
-    model.button(lambda i: ellipse(x, z, r - i, r - i, 0, 32), front, 1.6, (1.0, 0.25), "buttons", "print", uv,
-                 rings=3)
-    for _, x, shape in L.ROW:
+    nub = solid("nub", [[(px, y, pz) for px, pz in circle(x, z, rr, 32)] for rr, y in
+                        ((r, 0.6), (r, -1.3), (r - 0.4, -1.75), (r - 1.1, -1.95))], m["buttons"])
+    paint(nub, m["buttons"], FRONT, lambda c, n, kind: n.y < -0.35)
+    paint(nub, m["buttons"], swatch("case"), lambda c, n, kind: n.y >= -0.35)
+    moving["nub"] = at_origin(shade(nub, 50.0), (x, 0.0, z))
+    for name, x, shape in L.ROW:
         if shape == "shield":
             corners, radii = L.shield(x, L.ROW_Z)
-            outline = lambda i, c=corners, r=radii: rounded_polygon(c, r, i, 5)
+            rim = L.rounded_polygon(corners, radii, 5)
+            outline = lambda d, rim=rim: inset(rim, d) if d > 1e-6 else rim
         else:
-            outline = lambda i, x=x: ellipse(x, L.ROW_Z, 2.9 - i, 2.4 - i, 0, 24)
-        model.button(outline, front, 0.6, (0.5, 0.3), "buttons", "print", uv, rings=3)
+            outline = lambda d, x=x: [(x + (2.9 - d) * math.cos(2 * math.pi * k / 24),
+                                       L.ROW_Z + (2.4 - d) * math.sin(2 * math.pi * k / 24)) for k in range(24)]
+        part = button("row_" + name.lower(), outline, 0.6, (0.5, 0.3), m, rings_=3)
+        if name == "START":
+            moving["start"] = at_origin(part, (x, 0.0, L.ROW_Z))
+        else:
+            still.append(part)
+    return still, moving
 
 
-def edges(model):
-    """What stands on the top, the ends and the bottom: the IR window and the USB port; the WLAN and POWER switches;
-    the DC IN plug, yellow."""
-    top = L.HEIGHT + 0.25
-    model.block(-48.8, -36.5, -3.0, 4.2, top - 0.6, top + 0.35, "buttons")
-    model.block(-4.0, 4.0, -1.4, 3.0, top - 0.6, top + 0.3, "buttons")
-    end = L.WIDTH / 2 + 0.25
-    model.block(-end - 0.6, -end + 0.6, -1.8, 3.2, 27.0, 33.0, "buttons")
-    model.block(end - 0.6, end + 0.6, -1.8, 3.2, 17.0, 26.0, "buttons")
-    model.block(62.0, 68.0, -3.4, 1.6, -0.55, 0.6, "print", swatch("yellow"))
+def power_switch(m):
+    """The POWER/HOLD switch in the band on the right end: a ribbed silver slide, its origin where it rests."""
+    z0, z1 = L.POWER["z"]
+    zm = (z0 + z1) / 2
+    xe = L.end_x(zm, -L.BAND_OUT)
+    cx, cz = L.END_CENTRE
+    out = Vector((xe - cx, 0.0, zm - cz)).normalized()       # the end's outward normal there
+    along = Vector((-out.z, 0.0, out.x))                       # up the end, as the switch slides
+    ym = (L.BAND[0] + L.BAND[1]) / 2
+    part = box("power", -(z1 - z0) / 2, (z1 - z0) / 2, -1.5, 1.5, -0.6, 1.0, m["silver"])
+    bevel(part, 0.5, segments=2)
+    for k in range(4):                                       # its grip's ribs
+        rib = box("rib", -2.4 + k * 1.6 - 0.25, -2.4 + k * 1.6 + 0.25, -1.3, 1.3, 0.9, 1.4, m["silver"])
+        part = join([part, rib], "power")
+    frame = Matrix(((along.x, 0.0, out.x, 0.0), (0.0, 1.0, 0.0, 0.0), (along.z, 0.0, out.z, 0.0), (0, 0, 0, 1)))
+    part.data.transform(frame)
+    return shade(part, 40.0), Vector((xe, ym, zm)), along
 
 
-def door(mats):
-    """The UMD door, its origin on its hinge (its outside's bottom edge): a panel standing proud of the back, its
-    outside the media atlas's door, its inside dark."""
-    (x0, x1), (z0, z1) = L.DOOR["x"], L.DOOR["z"]
-    corners = [(x1, z0), (x1, z1), (x0, z1), (x0, z0)]
-    outline = lambda i: rounded_polygon(corners, [2.0, 4.0, 4.0, 2.0], i, 6)
-    model = Model()
-    model.slab(outline, L.BACK + L.DOOR["inner"], L.BACK + L.DOOR["out"], (0.3, 0.3), (1.0, 0.8), "case",
-               ("buttons", "media"), (None, region_uv(L.MEDIA_REGIONS, "door", mirror=True)), steps=4)
-    hinge = Vector((0.0, L.BACK + L.DOOR["out"], z0))
-    for v in model.bm.verts:
-        v.co -= hinge
-    return model.finish("umd_door", mats), hinge
+def latch(m):
+    """The OPEN latch on the top edge, its top printed as it rests (the top region draws it), its origin where it
+    rests."""
+    x0, x1 = L.LATCH["x"]
+    ym = (L.BAND[0] + L.BAND[1]) / 2
+    part = box("latch", x0, x1, ym - 1.5, ym + 1.5, L.HEIGHT - 0.6, L.HEIGHT + 0.7, m["case"])
+    bevel(part, 0.4, segments=2)
+    paint(part, m["case"], TOP, lambda c, n, kind: n.z > 0.5)
+    paint(part, m["case"], swatch("silver"), lambda c, n, kind: n.z <= 0.5)
+    return at_origin(shade(part, 40.0), ((x0 + x1) / 2, ym, L.HEIGHT))
 
 
-def umd(mats):
-    """The UMD, its disc's middle at its origin, its label facing +y (the console's back), as it goes in."""
+def light(m):
+    """The POWER light lit: a green dot on the face, shrunk to nothing while the PSP is off."""
+    x, z = L.LIGHTS["power"]
+    part = solid("power_light", [[(px, y, pz) for px, pz in circle(0.0, 0.0, L.LIGHTS["r"] + 0.1, 12)] for y in (-0.08, 0.3)],
+                 m["case"])
+    paint(part, m["case"], swatch("lit"), lambda c, n, kind: True)
+    return part, Vector((x, 0.0, z))
+
+
+def edges(m):
+    """What stands on the ends and the bottom: the WLAN switch (left end) and the yellow DC IN (under the right end)."""
+    parts = []
+    z0, z1 = L.WLAN["z"]
+    zm = (z0 + z1) / 2
+    xe = L.end_x(zm, -L.BAND_OUT)
+    ym = (L.BAND[0] + L.BAND[1]) / 2
+    wlan = box("wlan", -xe - 1.0, -xe + 0.6, ym - 1.2, ym + 1.2, z0, z1, m["silver"])
+    bevel(wlan, 0.4, segments=2)
+    parts.append(wlan)
+    x0, x1 = L.DC_IN["x"]
+    plug = box("dc_in", x0, x1, ym - 2.4, ym + 2.4, -0.5, 0.6, m["case"])
+    paint(plug, m["case"], swatch("yellow"), lambda c, n, kind: True)
+    parts.append(plug)
+    return parts
+
+
+def screen(m):
+    """The glass: one flat face over the face's printing, the video's whole frame across it."""
+    (x0, x1), (z0, z1) = L.GLASS["x"], L.GLASS["z"]
+    bm = bmesh.new()
+    uv = bm.loops.layers.uv.new("UVMap")
+    corners = [(x0, z0), (x1, z0), (x1, z1), (x0, z1)]          # anticlockwise seen from the front: it faces -y
+    face = bm.faces.new([bm.verts.new((x, -0.04, z)) for x, z in corners])
+    for loop, (x, z) in zip(face.loops, corners):
+        loop[uv].uv = ((x - x0) / (x1 - x0), (z - z0) / (z1 - z0))
+    return new_object("glass", bm, m["video"])
+
+
+# ---- The door and the UMD ------------------------------------------------------------------------------------------------
+
+MEDIA = {name: region_uv(L.MEDIA_REGIONS, name) for name in L.MEDIA_REGIONS}
+
+
+def door(m):
+    """The UMD door, its origin on its hinge (its outside's bottom edge): a panel standing a millimetre proud of the
+    back, its outside's edge rounded over, its outside the media atlas's door, the rest dark."""
+    y0, y1 = L.BACK - L.DOOR["thick"] / 2, L.BACK + L.DOOR["thick"] / 2
+    r = 0.7
+    stack = [(L.door_outline(0.0), y0), (L.door_outline(0.0), y1 - r)]
+    for k in range(1, 4):
+        a = math.pi / 2 * k / 3
+        stack.append((L.door_outline(r * (1 - math.cos(a))), y1 - r + r * math.sin(a)))
+    part = solid("door", [[(x, y, z) for x, z in pts] for pts, y in stack], m["media"])
+    paint(part, m["media"], region_uv(L.MEDIA_REGIONS, "door", mirror=True), lambda c, n, kind: n.y > 0.9 and c.y > y1 - 0.01)
+    paint(part, m["media"], swatch("inside", L.MEDIA_SWATCHES), lambda c, n, kind: not (n.y > 0.9 and c.y > y1 - 0.01))
+    for p in part.data.polygons:
+        p.use_smooth = not (abs(p.normal.y) > 0.99)
+    part.data.set_sharp_from_angle(angle=math.radians(40))
+    return at_origin(part, (0.0, y1, L.DOOR["z"][0]))
+
+
+def umd(m):
+    """The UMD, its disc's middle at its origin, its label facing +y (the back, outwards), as it goes into the door."""
     t = L.UMD["thickness"]
-    model = Model()
-    model.slab(L.umd_outline, -t / 2, t / 2, (0.5, 0.5), (0.5, 0.5), "umd", ("media", "media"),
-               (region_uv(L.MEDIA_REGIONS, "umd_rear"), region_uv(L.MEDIA_REGIONS, "umd", mirror=True)), steps=3)
-    return model.finish("umd", mats)
+    r = 0.5
+    stack = [(L.umd_outline(r), -t / 2)]
+    for k in range(1, 3):
+        a = math.pi / 2 * k / 2
+        stack.append((L.umd_outline(r * (1 - math.sin(a))), -t / 2 + r * (1 - math.cos(a))))
+    for k in range(0, 3):
+        a = math.pi / 2 * k / 2
+        stack.append((L.umd_outline(r * (1 - math.cos(a))), t / 2 - r + r * math.sin(a)))
+    part = solid("umd", [[(x, y, z) for x, z in pts] for pts, y in stack], m["media"])
+    paint(part, m["media"], region_uv(L.MEDIA_REGIONS, "umd", mirror=True), lambda c, n, kind: n.y > 0.9)
+    paint(part, m["media"], MEDIA["umd_rear"], lambda c, n, kind: n.y < -0.9)
+    paint(part, m["media"], swatch("edge", L.MEDIA_SWATCHES), lambda c, n, kind: abs(n.y) <= 0.9)
+    for p in part.data.polygons:
+        p.use_smooth = abs(p.normal.y) < 0.99
+    part.data.set_sharp_from_angle(angle=math.radians(40))
+    return part
 
 
-def quad(mats, name):
-    """A flat face facing the front, showing the media region name (a screen switched on), its middle at its origin."""
-    model = Model()
-    x0, x1, z0, z1 = L.MEDIA_REGIONS[name]["mm"]
-    verts = [model.bm.verts.new(p) for p in ((x0, 0, z0), (x1, 0, z0), (x1, 0, z1), (x0, 0, z1))]  # wound to face -y
-    model.face(verts, "media", uv=region_uv(L.MEDIA_REGIONS, name))
-    return model.finish(name, mats, outward=False)
+# ---- The clip --------------------------------------------------------------------------------------------------------------
+
+def tap(f, f0, hold=2):
+    """A button pressed at f0: in over two frames, held, out over three."""
+    return smooth(phase(f, f0, f0 + 2)) * (1 - smooth(phase(f, f0 + 2 + hold, f0 + 5 + hold)))
 
 
-# ---- The focused clip ------------------------------------------------------------------------------------------------
-
-def appear(f, f0, f1):
-    """A part popping in from nothing between f0 and f1."""
-    return HIDDEN + (1 - HIDDEN) * back_out(phase(f, f0, f1)) if f >= f0 else HIDDEN
-
-
-def flat(v):
-    """A screen squeezed to v of its height (switching on or off)."""
-    return Pose(axes=(1.0, 1.0, max(HIDDEN, v)))
+def slide_up(f, f0, hold):
+    """The POWER switch pushed up at f0, held for hold frames, then let go: it springs back."""
+    return smooth(phase(f, f0, f0 + 3)) * (1 - ease_out(phase(f, f0 + 3 + hold, f0 + 7 + hold)))
 
 
 def timeline(f, c):
-    hover, start = c["hover"], c["start"]
+    poses = {}
+    # The console turns round on the spot to show its back, and back again once the UMD is in.
+    poses["console"] = Pose(spin=180.0 * smoother(phase(f, *L.TURN_OUT)) * (1 - smoother(phase(f, *L.TURN_BACK))))
 
-    # The console: a hop round to its back, a squash as the door snaps shut, a hop round to its front.
-    if f < 8:
-        console = Pose()
-    elif f < 36:
-        console = Pose(z=hop(f, 8, 32, 12.0), spin=180 * back_out(phase(f, 8, 32), 1.3))
-    elif f < 104:
-        console = Pose(spin=180, squash=wobble(f, 100, 0.06, 8, 5))
-    elif f < 134:
-        console = Pose(z=hop(f, 104, 128, 12.0), spin=180 + 180 * back_out(phase(f, 104, 128), 1.3),
-                       squash=wobble(f, 100, 0.06, 8, 5))
+    # OPEN slides towards R, the door springs open; it shuts on the UMD with a little bounce, and the latch springs back.
+    shut = L.DOOR_SHUT[1]
+    poses["latch"] = Pose(x=L.LATCH["travel"] * smooth(phase(f, *L.LATCH_OPEN)) * (1 - ease_out(phase(f, shut, shut + 4))))
+    opening = back_out(phase(f, *L.DOOR_OPEN), 1.5) * (1 - ease_in(phase(f, *L.DOOR_SHUT)))
+    bounce = 2.5 * math.exp(-(f - shut) / 2.5) * abs(math.sin(math.pi * (f - shut) / 4.0)) if f >= shut else 0.0
+    poses["door"] = Pose(pitch=L.OPEN * opening - bounce)
+
+    # The UMD, in the door's frame: it appears over the open door, its label out, slides down into it and seats; once
+    # the door has shut on it, it's inside the console, and goes.
+    lift = c["lift"]
+    s0, s1 = L.UMD_SHOWN
+    d0, d1 = L.UMD_SLIDE
+    if f < s0 or f >= shut + 4:
+        disc = Pose(scale=HIDDEN)
+    elif f < s1:
+        disc = Pose(y=1.5, z=lift, scale=max(HIDDEN, back_out(phase(f, s0, s1), 1.6)))
+    elif f < d0:
+        disc = Pose(y=1.5, z=lift + 1.2 * math.sin(math.pi * phase(f, s1, d0)))
+    elif f < d1:
+        t = smoother(phase(f, d0, d1))
+        disc = Pose(y=1.5 * (1 - t), z=lift * (1 - t))
     else:
-        console = Pose(spin=360, squash=wobble(f, 128, 0.05, 8, 5))
+        disc = Pose(z=-0.7 * math.sin(math.pi * phase(f, d1, d1 + 4)))
+    poses["umd"] = disc
 
-    # The door: springs open, waits for the UMD, snaps shut.
-    if f < 36 or f >= 100:
-        lid = Pose()
-    elif f < 48:
-        lid = Pose(pitch=-OPEN * back_out(phase(f, 36, 48), 1.8))
-    elif f < 92:
-        lid = Pose(pitch=-OPEN)
-    else:
-        lid = Pose(pitch=-OPEN * (1 - ease_in(phase(f, 92, 100))))
+    # POWER: pushed up and let go to switch on; held up to switch off. The light while it's on.
+    up = max(slide_up(f, L.POWER_ON, 2), slide_up(f, L.POWER_OFF, 7))
+    poses["power"] = Pose(x=c["along"].x * L.POWER["travel"] * up, z=c["along"].z * L.POWER["travel"] * up)
+    poses["power_light"] = Pose() if L.POWER_ON + 2 <= f < L.LIGHT_OFF else Pose(scale=HIDDEN)
 
-    # The UMD, in the door's frame: it rolls in from the viewer's right like a wheel (two turns, anticlockwise as the
-    # viewer sees it), rocks to a stop upright over the door, and slides down into it; once the door is shut it's
-    # inside the console, and goes.
-    if f == 0 or f >= 101:
-        disc = Pose(scale=HIDDEN)  # in its seat, so the rest pose's bounds are the console's
-    elif f < 44:
-        disc = Pose(x=start, z=hover, scale=HIDDEN)
-    elif f < 74:
-        t = ease_out(phase(f, 44, 74))
-        disc = Pose(x=start * (1 - t), z=hover + hop(f, 44, 56, 6.0), roll=720 * t, scale=appear(f, 44, 52))
-    elif f < 84:
-        disc = Pose(z=hover, roll=wobble(f, 74, -9.0, 10, 4))
-    elif f < 92:
-        disc = Pose(z=hover * (1 - ease_in(phase(f, 84, 92))))
-    else:
-        disc = Pose(z=-0.6 * math.sin(math.pi * phase(f, 92, 96)) if f < 96 else 0.0)
-
-    # The screens: the XMB, then the game's title screen zooming in.
-    if f < 136 or f >= 172:
-        xmb = Pose(scale=HIDDEN)
-    elif f < 144:
-        xmb = flat(0.02 + 0.98 * ease_out(phase(f, 136, 144)))
-    elif f < 166:
-        xmb = Pose()
-    else:
-        xmb = flat(1 - ease_in(phase(f, 166, 172)))
-    if f < 170 or f >= 202:
-        game = Pose(scale=HIDDEN)
-    elif f < 180:
-        game = Pose(scale=max(HIDDEN, back_out(phase(f, 170, 180), 1.6)))
-    elif f < 196:
-        game = Pose()
-    else:
-        game = flat(1 - ease_in(phase(f, 196, 202)))
-    return {"console": console, "umd_door": lid, "umd": disc, "screen": xmb, "screen_game": game}
+    # CROSS chooses the game and fires; START at the title; the nub steers.
+    poses["cross"] = Pose(y=PRESS * max(tap(f, f0) for f0 in (L.CROSS,) + L.FIRE))
+    poses["start"] = Pose(y=PRESS * 0.8 * tap(f, L.START, 3))
+    sx, sz = L.steer(f)
+    poses["nub"] = Pose(x=L.NUB["travel"] * sx, z=L.NUB["travel"] * sz)
+    return poses
 
 
-# ---- Main ------------------------------------------------------------------------------------------------------------
+# ---- Main --------------------------------------------------------------------------------------------------------------
+
+def finish(whole, parts, timeline_, out):
+    """card.finish(), but the set turns too: the root holds the console, keyed about its middle, which holds the parts
+    (each at its place in the set, or in another part it rides). The root turns the card to the three-quarter view and
+    fits its rest pose."""
+    scene = bpy.context.scene
+    root = bpy.data.objects.new("psp_root", None)
+    scene.collection.objects.link(root)
+    whole.data.transform(Matrix.Translation(-PIVOT))
+    whole.parent = root
+    whole.location = PIVOT
+    nodes = {"console": whole}
+    for name, spec in parts.items():
+        obj, where = spec[0], spec[1]
+        holder = parts[spec[2]][0] if len(spec) > 2 else whole
+        obj.parent = holder
+        obj.location = where - PIVOT if holder is whole else where
+        nodes[name] = obj
+    key("focused", nodes, timeline_, L.LENGTH)
+    bpy.context.view_layer.update()
+
+    tilt = Matrix.Rotation(math.radians(TILT_PITCH), 4, "X") @ Matrix.Rotation(math.radians(TILT_YAW), 4, "Z")
+    meshes = list(nodes.values())
+    points = [tilt @ (o.matrix_world @ v.co) for o in meshes for v in o.data.vertices]
+    lo = Vector([min(p[i] for p in points) for i in range(3)])
+    hi = Vector([max(p[i] for p in points) for i in range(3)])
+    size = hi - lo
+    root.matrix_world = Matrix.Scale(1 / max(size), 4) @ Matrix.Translation((-(lo.x + hi.x) / 2, -(lo.y + hi.y) / 2,
+                                                                             -lo.z)) @ tilt
+    textures = {node.image.name for o in meshes for mat in o.data.materials if mat.node_tree
+                for node in mat.node_tree.nodes if node.type == "TEX_IMAGE" and node.image}
+    print(f"PSP: {sum(triangles(o.data) for o in meshes)} triangles ({triangles(whole.data)} the set, "
+          f"{triangles(parts['umd'][0].data)} the UMD, {triangles(parts['door'][0].data)} the door), "
+          f"{len({mat.name for o in meshes for mat in o.data.materials})} materials, {len(textures)} textures, "
+          f"size {size.x:.1f} x {size.y:.1f} x {size.z:.1f} mm tilted, before the fit")
+    export([root] + meshes, out, animations=True)
+
 
 def main():
     args = sys.argv[sys.argv.index("--") + 1:]
     images, out = os.path.abspath(args[0]), os.path.abspath(args[1])
     bpy.ops.wm.read_factory_settings(use_empty=True)
-    scene = bpy.context.scene
-    scene.render.fps = FPS
+    bpy.context.scene.render.fps = L.FPS
     printed = bpy.data.images.load(os.path.join(images, "psp_print.png"))
     media = bpy.data.images.load(os.path.join(images, "psp_media.png"))
-    colours = dict(L.COLOURS, print="#FFFFFF", rear="#FFFFFF", media="#FFFFFF")
-    textures = dict(print=printed, rear=printed, media=media)
-    mats = {n: material(n, colours[n], ROUGHNESS[n], textures.get(n)) for n in MATERIALS}
+    still = bpy.data.images.load(os.path.join(images, "psp_screen.png"))
+    colours = dict(case="#FFFFFF", rear="#FFFFFF", buttons="#FFFFFF", silver=L.COLOURS["silver"],
+                   clear=L.COLOURS["clear"], media="#FFFFFF", video="#FFFFFF")
+    textures = dict(case=printed, rear=printed, buttons=printed, media=media, video=still)
+    m = {n: material(n, colours[n], r, textures.get(n)) for n, r in ROUGHNESS.items()}
 
-    model = Model()
-    body(model)
-    controls(model)
-    edges(model)
-    console = model.finish("psp", mats)
-    lid, hinge = door(mats)
-    disc = umd(mats)
-    screen = quad(mats, "screen")
-    game = quad(mats, "screen_game")
-
-    # The node tree: root (the view and the fit), console, its door holding the UMD, and the screens, at their rest
-    # places; the UMD and the screens shrunk to nothing.
-    s = L.SCREEN
-    screen_at = Vector((s["x"], L.FRONT - 0.25, s["z"]))
-    seat = Vector((0.0, L.DOOR["inner"] - L.DOOR["out"] - 0.8 - L.UMD["thickness"] / 2, 1.2 - L.UMD["bottom"]))
-    root = bpy.data.objects.new("psp_root", None)
-    scene.collection.objects.link(root)
-    console.parent = root
-    for part, parent, where in ((lid, console, hinge), (screen, console, screen_at),
-                                (game, console, screen_at + Vector((0.0, -0.05, 0.0))), (disc, lid, seat)):
-        part.parent = parent
-        part.location = where
-    nodes = {"console": console, "umd_door": lid, "umd": disc, "screen": screen, "screen_game": game}
-
-    # The three-quarter view, then the spec's fit (on y = 0, Blender's z; centred; the largest side 1 m) of the console
-    # and its door at rest, as the root's transform.
-    yaw, pitch = TILT
-    tilt = Matrix.Rotation(math.radians(yaw), 4, "Z") @ Matrix.Rotation(math.radians(-pitch), 4, "X")
-    points = [tilt @ v.co for v in console.data.vertices] + [tilt @ (v.co + hinge) for v in lid.data.vertices]
-    lo = Vector([min(p[i] for p in points) for i in range(3)])
-    hi = Vector([max(p[i] for p in points) for i in range(3)])
-    size = hi - lo
-    fit = Matrix.Scale(1 / max(size), 4) @ Matrix.Translation((-(lo.x + hi.x) / 2, -(lo.y + hi.y) / 2, -lo.z))
-    root.matrix_world = fit @ tilt
-
-    # The UMD's bottom clears the open door's top edge by 3 mm while it hovers; it starts past the console's right end
-    # (seen from behind: -x, the door's frame being the console's).
-    door_height = L.DOOR["z"][1] - L.DOOR["z"][0]
-    context = {"hover": door_height - (seat.z + L.UMD["bottom"]) + 3.0, "start": -100.0}
-    key("focused", nodes, lambda f: timeline(f, context), LENGTH)
-
-    meshes = [console, lid, disc, screen, game]
-    tris = sum(triangles(o.data) for o in meshes)
-    print(f"PSP: {tris} triangles ({triangles(disc.data)} the UMD, {triangles(lid.data)} the door), "
-          f"{len(MATERIALS)} materials, size {size.x:.1f} x {size.y:.1f} x {size.z:.1f} mm tilted, before the fit")
-    export([root] + meshes, out, animations=True)
+    still_parts, moving = controls(m)
+    whole = join([body(m)] + still_parts + edges(m) + [screen(m)], "psp")
+    switch, switch_at, along = power_switch(m)
+    lit, lit_at = light(m)
+    lid, hinge = door(m)
+    disc = umd(m)
+    seat = Vector((0.0, -L.DOOR["thick"] - L.UMD["thickness"] / 2,
+                   L.UMD_SEAT - L.UMD["bottom"]))                 # in the door's frame: against its inside
+    parts = {name: spec for name, spec in moving.items()}
+    parts.update({"power": (switch, switch_at), "latch": latch(m), "power_light": (lit, lit_at), "door": (lid, hinge),
+                  "umd": (disc, seat, "door")})
+    # The UMD hovers with its flat edge 3 mm over the open door's top edge.
+    lift = (L.DOOR["z"][1] - L.DOOR["z"][0]) + 3.0 - L.UMD_SEAT
+    context = dict(lift=lift, along=along)
+    finish(whole, parts, lambda f: timeline(f, context), out)
 
 
-main()
+if __name__ == "__main__":
+    main()

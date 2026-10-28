@@ -1618,13 +1618,14 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
     public IVideoDecoder? VideoDecoder { get; set; }
 
     /// <summary>
-    /// Once a frame: the focused card plays its video while the grid shows, on its <c>video</c> material's texture,
-    /// timed by its focused clip (or, without one, by its own clock); anything else stops it and puts the texture back.
+    /// Once a frame: the focused card plays its video while the grid shows and nothing covers it
+    /// (<see cref="VideosSuspended"/>), on its <c>video</c> material's texture, timed by its focused clip (or, without
+    /// one, by its own clock); anything else stops it and puts the texture back.
     /// </summary>
     private void UpdateVideo(float dt)
     {
         var cell = _focusCell;
-        var model = cell >= 0 && Visible && VideoDecoder is not null ? _cellModel[cell] : null;
+        var model = cell >= 0 && Visible && !VideosSuspended && VideoDecoder is not null ? _cellModel[cell] : null;
         if (model is null || !model.HasVideo)
         {
             StopVideo();
@@ -1705,9 +1706,10 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
     private static readonly Vector4 NoGameVideo = new(-1, -1, 1, 0);
 
     /// <summary>
-    /// Holds games' videos off while something covers the grid (a settings screen, a game's details or options), so
-    /// no sound plays under it: the owner sets it each frame. A video stops, and starts again after its delay once this
-    /// is cleared.
+    /// Holds videos off while something covers the grid (a settings screen, a system's or a game's details or options):
+    /// a game's, so no sound plays under it, and the focused card's, whose details play it on a view of their own
+    /// (<see cref="Screens.ModelView"/>). The owner sets it each frame. A video stops, and starts again (a game's after
+    /// its delay) once this is cleared.
     /// </summary>
     public bool VideosSuspended { get; set; }
 
