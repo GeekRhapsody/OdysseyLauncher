@@ -537,6 +537,16 @@ public sealed record SystemConfig(
 /// systems with <c>auto_configure_controllers</c>. Only <c>"eden"</c> (<see cref="Launching.Controllers.EdenControllers"/>);
 /// null when the emulator isn't set up.
 /// </param>
+/// <param name="Installs">
+/// <c>installs</c>: the emulator runs games installed in its own storage, so the launcher boots one installed there
+/// with <paramref name="Args"/>, and gives one that isn't to <paramref name="InstallArgs"/>. Only <c>"vita3k"</c>
+/// (<see cref="Launching.Vita3KGames"/>, which knows where Vita3K keeps them); null for every other emulator.
+/// </param>
+/// <param name="InstallArgs">
+/// <c>install_args</c>, templates like <paramref name="Args"/>: a game that isn't installed yet is launched with these,
+/// so the emulator installs it and then runs it. Only with <paramref name="Installs"/>; null when the profile has none,
+/// and then such a game can't be launched until it's installed.
+/// </param>
 public sealed record EmulatorConfig(
     string Id,
     string Name,
@@ -545,7 +555,9 @@ public sealed record EmulatorConfig(
     string WorkingDir,
     string? Core = null,
     bool RunFile = false,
-    string? Controllers = null)
+    string? Controllers = null,
+    string? Installs = null,
+    IReadOnlyList<string>? InstallArgs = null)
 {
     /// <summary>What the settings screens show where a profile's program goes.</summary>
     public string ProgramText => RunFile ? "Runs the game's own file" : Executable;

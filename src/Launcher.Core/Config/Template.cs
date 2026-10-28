@@ -14,11 +14,12 @@ public static class Template
 {
     /// <summary>
     /// Placeholders expanded at launch time (A5). <c>{emulator}</c>, <c>{emulator_dir}</c> and <c>{core}</c> come
-    /// from the emulator profile chosen for the game; the rest come from the ROM.
+    /// from the emulator profile chosen for the game; <c>{title_id}</c> is read from the game's file when it's launched
+    /// (<see cref="Launching.TitleId"/>); the rest come from the ROM.
     /// </summary>
     public static IReadOnlySet<string> LaunchPlaceholders { get; } = new HashSet<string>(StringComparer.Ordinal)
     {
-        "rom", "rom_dir", "rom_file", "rom_stem", "system", "emulator", "emulator_dir", "core",
+        "rom", "rom_dir", "rom_file", "rom_stem", "system", "emulator", "emulator_dir", "core", "title_id",
     };
 
     /// <summary>Placeholders the loader provides itself, which variables can't shadow.</summary>

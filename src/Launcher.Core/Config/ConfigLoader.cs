@@ -49,8 +49,11 @@ public sealed class ConfigLoader : IConfigLoader
     ];
 
     private static readonly string[] SystemRequiredKeys = ["name", "extensions", "emulator"];
-    private static readonly string[] EmulatorKeys = ["enabled", "name", "executable", "core", "args", "working_dir", "run_file", "controllers"];
+    private static readonly string[] EmulatorKeys =
+        ["enabled", "name", "executable", "core", "args", "working_dir", "run_file", "controllers", "installs", "install_args"];
+
     private static readonly string[] ControllerKinds = [Launching.Controllers.EdenControllers.Kind];
+    private static readonly string[] InstallKinds = [Launching.Vita3KGames.Kind];
     private static readonly string[] EmulatorRequiredKeys = ["name", "executable"];
     private static readonly string[] EmulatorRunFileRequiredKeys = ["name"];
 
@@ -875,12 +878,12 @@ public sealed class ConfigLoader : IConfigLoader
 
                 if (runFile)
                 {
-                    foreach (var key in (ReadOnlySpan<string>)["executable", "core", "args"])
+                    foreach (var key in (ReadOnlySpan<string>)["executable", "core", "args", "install_args"])
                     {
                         if (entry.TryGet(key, out var extra))
                         {
                             Error(extra, prefix + "." + key,
-                                "a run_file profile runs the game's own file, so it takes no executable, core or args");
+                                "a run_file profile runs the game's own file, so it takes no executable, core, args or install_args");
                         }
                     }
                 }
@@ -907,20 +910,11 @@ public sealed class ConfigLoader : IConfigLoader
                     core = ExpandPath(rawCore, coreNode, prefix + ".core", allowRomRoot: true);
                 }
 
-                var args = new List<string>();
                 var usesCore = false;
                 var argsNode = default(TomlNode);
-                if (!runFile && entry.TryGet("args", out argsNode) && StringArray(argsNode, prefix + ".args", string.Empty) is { } rawArgs)
-                {
-                    foreach (var rawArg in rawArgs)
-                    {
-                        if (Expand(rawArg, argsNode, prefix + ".args", keepLaunchPlaceholders: true, allowRomRoot: true) is { } arg)
-                        {
-                            args.Add(arg);
-                            usesCore |= UsesPlaceholder(arg, "core");
-                        }
-                    }
-                }
+                var args = runFile ? null : ArgTemplates(entry, prefix, "args", ref usesCore, out argsNode);
+                var installArgsNode = default(TomlNode);
+                var installArgs = runFile ? null : ArgTemplates(entry, prefix, "install_args", ref usesCore, out installArgsNode);
 
                 var workingDir = runFile ? "{rom_dir}" : "{emulator_dir}";
                 if (entry.TryGet("working_dir", out var wdNode) && String(entry, prefix, "working_dir") is { } rawWd)
@@ -958,16 +952,69 @@ public sealed class ConfigLoader : IConfigLoader
                     }
                 }
 
+                // How the launcher knows which games the emulator has installed, so it boots those with args and gives
+                // the others to install_args. An unknown kind is only a warning: every game is then launched with args.
+                var installs = String(entry, prefix, "installs");
+                if (installs is not null && entry.TryGet("installs", out var installsNode))
+                {
+                    if (runFile)
+                    {
+                        Warning(installsNode, prefix + ".installs", "a run_file profile has no emulator to install games in, so it's ignored");
+                        installs = null;
+                    }
+                    else if (!InstallKinds.Contains(installs))
+                    {
+                        Warning(installsNode, prefix + ".installs",
+                            $"'{installs}' isn't an emulator whose installed games the launcher knows (only {string.Join(", ", InstallKinds.Select(k => $"\"{k}\""))}), so it's ignored");
+                        installs = null;
+                    }
+                }
+
+                if (installs is null && installArgs is not null)
+                {
+                    if (!entry.Contains("installs"))
+                    {
+                        Warning(installArgsNode!, prefix + ".install_args", "install_args is only used with installs, so it's ignored");
+                    }
+
+                    installArgs = null;
+                }
+
                 if (ErrorCount > errorsBefore || (executable is null && !runFile))
                 {
                     Info(entry, prefix, "this emulator is disabled until its errors are fixed");
                     continue;
                 }
 
-                result[id] = new EmulatorConfig(id, name, executable ?? string.Empty, args, workingDir, core, runFile, controllers);
+                result[id] = new EmulatorConfig(
+                    id, name, executable ?? string.Empty, args ?? [], workingDir, core, runFile, controllers, installs, installArgs);
             }
 
             return result;
+        }
+
+        /// <summary>
+        /// A profile's argument templates under <paramref name="key"/> (<c>args</c>, <c>install_args</c>), with config
+        /// variables expanded and launch placeholders kept; null when the profile has none (or it isn't an array).
+        /// </summary>
+        private List<string>? ArgTemplates(TomlTableNode entry, string prefix, string key, ref bool usesCore, out TomlNode? node)
+        {
+            if (!entry.TryGet(key, out node) || StringArray(node, prefix + "." + key, string.Empty) is not { } rawArgs)
+            {
+                return null;
+            }
+
+            var args = new List<string>(rawArgs.Count);
+            foreach (var rawArg in rawArgs)
+            {
+                if (Expand(rawArg, node, prefix + "." + key, keepLaunchPlaceholders: true, allowRomRoot: true) is { } arg)
+                {
+                    args.Add(arg);
+                    usesCore |= UsesPlaceholder(arg, "core");
+                }
+            }
+
+            return args;
         }
 
         private bool UsesPlaceholder(string template, string name)

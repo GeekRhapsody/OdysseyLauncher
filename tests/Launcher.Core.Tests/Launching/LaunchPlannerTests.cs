@@ -89,6 +89,41 @@ public class LaunchPlannerTests
     }
 
     [Fact]
+    public void Title_id_expands_to_the_id_given_and_without_one_the_plan_says_where_to_put_it()
+    {
+        var emulator = Emulator(["-r", "{title_id}"]);
+
+        Assert.Equal(["-r", "PCSF00024"], LaunchPlanner.Plan(emulator, "psvita", Rom, "PCSF00024").Plan!.Arguments);
+        var none = LaunchPlanner.Plan(emulator, "psvita", Rom);
+        Assert.Null(none.Plan);
+        Assert.Equal($"No title id was found for '{Rom}', and Emu needs one to know which game to run. Put it in the file's name in " +
+            "square brackets, as in 'Gravity Rush [PCSF00024].vpk'.", none.Error);
+        Assert.Equal("emulators.emu.working_dir: {title_id} is used, but the game has no title id",
+            LaunchPlanner.Plan(Emulator([], "{title_id}"), "psvita", Rom).Error);
+    }
+
+    [Fact]
+    public void A_game_to_install_is_planned_with_the_install_args()
+    {
+        var emulator = Emulator(["-r", "{title_id}"]) with { Installs = "vita3k", InstallArgs = ["--install", "{rom}"] };
+
+        Assert.Equal(["-r", "PCSF00024"], LaunchPlanner.Plan(emulator, "psvita", Rom, "PCSF00024").Plan!.Arguments);
+        Assert.Equal(["--install", Rom], LaunchPlanner.Plan(emulator, "psvita", Rom, "PCSF00024", install: true).Plan!.Arguments);
+        Assert.Equal(["--install", Rom], LaunchPlanner.Plan(emulator, "psvita", Rom, null, install: true).Plan!.Arguments);
+        Assert.Equal("Emu has no install_args in emulators.toml, so a game that isn't installed in it can't be installed.",
+            LaunchPlanner.Plan(emulator with { InstallArgs = null }, "psvita", Rom, null, install: true).Error);
+    }
+
+    [Fact]
+    public void Uses_finds_a_placeholder_in_the_args_the_install_args_or_the_working_folder()
+    {
+        Assert.False(LaunchPlanner.Uses(Emulator(["{rom}", "{{title_id}}"]), "title_id"));
+        Assert.True(LaunchPlanner.Uses(Emulator(["-r={title_id}"]), "title_id"));
+        Assert.True(LaunchPlanner.Uses(Emulator([]) with { InstallArgs = ["{title_id}"] }, "title_id"));
+        Assert.True(LaunchPlanner.Uses(Emulator([], "{rom_dir}/{title_id}"), "title_id"));
+    }
+
+    [Fact]
     public void An_argument_with_a_NUL_character_is_refused()
     {
         var plan = LaunchPlanner.Plan(Emulator(["a\0b"]), "megadrive", Rom);

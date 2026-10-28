@@ -224,9 +224,38 @@ public sealed class LaunchService
     private async Task<LaunchOutcome> RunAsync(
         GameDetails game, string? emulatorOverride, IReadOnlyList<Gamepad>? gamepads, CancellationToken cancellationToken)
     {
+        var (emulator, resolveError) = LaunchPlanner.Resolve(Config, game, emulatorOverride);
+        if (emulator is null)
+        {
+            return Fail(game, null, LaunchFailure.Config, resolveError!);
+        }
+
         // A folder game is planned with its file of the folder's name, or the folder (FolderGame).
         var target = FolderGame.LaunchTarget(game.RomPath);
-        var planned = LaunchPlanner.Plan(Config, target == game.RomPath ? game : game with { RomPath = target }, emulatorOverride);
+        string? titleId = null;
+        var install = false;
+        if (emulator.Installs is not null || LaunchPlanner.Uses(emulator, "title_id"))
+        {
+            // Both are read from the game's file, so a missing one is reported as such, not as a game without an id.
+            if (MissingRom(game) is { } missingRom)
+            {
+                return Fail(game, null, LaunchFailure.MissingFile, missingRom);
+            }
+
+            titleId = TitleId.Read(target);
+            if (emulator.Installs == Vita3KGames.Kind
+                && (titleId is null || !Vita3KGames.IsInstalled(Vita3KGames.StorageFolder(emulator.Executable, ApplicationData), titleId)))
+            {
+                if (NotInstallable(emulator, target, titleId) is { } notInstalled)
+                {
+                    return Fail(game, null, LaunchFailure.MissingFile, notInstalled);
+                }
+
+                install = true;
+            }
+        }
+
+        var planned = LaunchPlanner.Plan(emulator, game.Key.SystemId, target, titleId, install);
         if (planned.Plan is not { } plan)
         {
             return Fail(game, null, LaunchFailure.Config, planned.Error!);
@@ -356,12 +385,44 @@ public sealed class LaunchService
         }
     }
 
+    /// <summary>
+    /// Why a game that isn't installed in its emulator (<c>installs</c>) can't be installed by this launch, for the user;
+    /// null when it can.
+    /// </summary>
+    private static string? NotInstallable(EmulatorConfig emulator, string target, string? titleId)
+    {
+        var canInstall = emulator.InstallArgs is not null && Vita3KGames.CanInstall(target);
+        if (titleId is null)
+        {
+            return canInstall
+                ? null
+                : $"No title id was found for '{target}', so {emulator.Name} can't be told which installed game to run. Write it " +
+                  "in the file (as in PCSF00024), or put it in the file's name in square brackets, as in 'Gravity Rush [PCSF00024].psvita'.";
+        }
+
+        if (emulator.InstallArgs is null)
+        {
+            return $"The game {titleId} isn't installed in {emulator.Name}. Install it in {emulator.Name}, then launch it again.";
+        }
+
+        return canInstall
+            ? null
+            : $"The game {titleId} isn't installed in {emulator.Name}, and '{target}' isn't something it can install (a .vpk or " +
+              $".zip package, or a game's folder). Install the game in {emulator.Name}, then launch it again.";
+    }
+
+    /// <summary>The game's file, as a message for the user if it isn't there.</summary>
+    private static string? MissingRom(GameDetails game) =>
+        File.Exists(game.RomPath) || FolderGame.IsFolder(game.RomPath)
+            ? null
+            : $"The game's file is missing: '{game.RomPath}'. Reconnect the drive it's on, or rescan the system if it has moved.";
+
     /// <summary>The first file the launch needs that isn't there, as a message for the user.</summary>
     private static string? MissingFile(GameDetails game, LaunchPlan plan)
     {
-        if (!File.Exists(game.RomPath) && !FolderGame.IsFolder(game.RomPath))
+        if (MissingRom(game) is { } missingRom)
         {
-            return $"The game's file is missing: '{game.RomPath}'. Reconnect the drive it's on, or rescan the system if it has moved.";
+            return missingRom;
         }
 
         if (!plan.RunFile && !File.Exists(plan.Executable))
