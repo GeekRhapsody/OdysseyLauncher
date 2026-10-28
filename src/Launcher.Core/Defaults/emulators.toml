@@ -7,6 +7,7 @@
 #   {rom_file}  its file name                    {rom_stem}      its file name without the extension
 #   {system}    the system id                    {emulator}      the expanded executable
 #   {emulator_dir}  the executable's folder      {core}          the profile's `core`, expanded
+#   {title_id}  the game's title id: "[PCSF00024]" in its name, else the text of a small file, else its param.sfo
 # Write {{ or }} for a literal brace. working_dir defaults to "{emulator_dir}". .bat and .cmd executables
 # are rejected. A game can use another profile through its per-game emulator override.
 #
@@ -19,7 +20,8 @@
 # (%ROM% {rom}, %GAMEDIR% {rom_dir}, %BASENAME% {rom_stem}, %ROMPATH% {rom_root}, %EMUDIR% {emulator_dir},
 # %STARTDIR% working_dir). ES-DE's %INJECT% files (extra arguments read from a file next to the ROM) aren't
 # supported, so they're dropped where the command works without them, and the command is left out where it
-# needs them (PS3 and PS4 game serials, Vita3K, 3dSen, Linux Loader). RetroArch profiles pass --fullscreen
+# needs them (PS3 and PS4 game serials, 3dSen, Linux Loader; Vita3K came later, reading its .psvita file's title id
+# through {title_id}). RetroArch profiles pass --fullscreen
 # like the ones above. Only the programs a system's games use are checked for installs, and the settings
 # screen lists only the profiles of systems that have games. `pcsx2x6` assumes pcsx2-qt.exe (ES-DE matches
 # pcsx2x6*.exe, which config can't).
@@ -2542,6 +2544,17 @@ args = ["-d", "-g", "{rom}"]
 name = "KytyPS5"
 executable = "{emulators}/KytyPS5/kyty_emulator.exe"
 args = ["--game", "{rom}"]
+
+# Sony PlayStation Vita emulator Vita3K, which runs games installed in it (installs, A5 Vita3K's games): one installed
+# already is booted by its title id (args), and a package or a game's folder that isn't is given to Vita3K to install
+# and boot (install_args), since Vita3K installs whatever it's given again, every time. --frontend=sdl runs the game in
+# a plain window that closes with it (Vita3K from 2026-10-09; older builds ignore an option they don't know).
+[emulators.vita3k]
+name = "Vita3K"
+executable = "{emulators}/Vita3K/Vita3K.exe"
+args = ["--frontend=sdl", "-F", "-r", "{title_id}"]
+install_args = ["--frontend=sdl", "-F", "{rom}"]
+installs = "vita3k"
 
 # Sony PlayStation 1 emulator DuckStation
 [emulators.duckstation]

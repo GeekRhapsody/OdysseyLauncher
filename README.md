@@ -36,7 +36,7 @@ Odyssey Launcher is built with Godot 4 and C# for Windows. **Performance is the 
 
 ### Your collection, as it is
 
-- **Over 160 systems built in.** These are ES-DE's catalogue, with the same folder names (`megadrive`, `snes`, `psx`, `ps2`...) and aliases (`genesis`, `sfc`...), plus the PlayStation 5, Windows games, Steam games and desktop apps. Systems with no games stay hidden, unless you choose to show them in the settings.
+- **Over 160 systems built in.** These are ES-DE's catalogue, with the same folder names (`megadrive`, `snes`, `psx`, `ps2`...) and aliases (`genesis`, `sfc`...), plus the PlayStation 5, the PlayStation Vita (through Vita3K: a game is installed on its first launch, then started by its title id), Windows games, Steam games and desktop apps. Systems with no games stay hidden, unless you choose to show them in the settings.
 - **Multi-disc games** show as one game: an `.m3u`, `.cue` or `.gdi` hides the files it lists. PS3, PS4 and PS5 games kept as folders (`Game.ps3`) count as one game too.
 - **Clean titles** come from No-Intro and Redump file names. The region, languages, revision and disc number are kept as details, and titles sort naturally ("The Legend of Zelda" under L).
 - **Sorting:** order systems by name, maker or release year. Order games by title, last played, time played, date added or release date, per system if you like.

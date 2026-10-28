@@ -839,6 +839,9 @@ game_template = "dvd_case"
 colour = "#675C9E"
 game_template = "dvd_case"
 
+[systems.psvita]                    # PlayStation Vita: the default box, shaped by each game's art (its cases' scans vary)
+colour = "#735C9E"
+
 [systems.pv1000]                       # PV-1000
 colour = "#5C8B9E"
 

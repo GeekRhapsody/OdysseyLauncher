@@ -1292,8 +1292,8 @@ public class ConfigLoaderTests
         Assert.Contains(Path.GetFullPath("D:/ROMs/snesna"), config.FindSystem("snes")!.RomDirs);
 
         // What isn't a game system, or has nothing to launch, was left out. Windows and Steam games came back later,
-        // with their own launching (SteamGameTests), and desktop apps with them.
-        foreach (var skipped in (string[])["emulators", "kodi", "epic", "androidapps", "androidgames", "lutris", "xboxone", "psvita"])
+        // with their own launching (SteamGameTests), and desktop apps with them; the PS Vita came back with {title_id}.
+        foreach (var skipped in (string[])["emulators", "kodi", "epic", "androidapps", "androidgames", "lutris", "xboxone"])
         {
             Assert.Null(config.FindSystem(skipped));
         }
@@ -1331,6 +1331,58 @@ public class ConfigLoaderTests
         var kyty = config.Emulators["kytyps5"];
         Assert.Equal("C:/Emulators/KytyPS5/kyty_emulator.exe", kyty.Executable.Replace('\\', '/'));
         Assert.Equal(["--game", "{rom}"], kyty.Args);
+    }
+
+    [Fact]
+    public void PlayStation_Vita_boots_installed_games_in_Vita3K_by_title_id_and_installs_the_rest()
+    {
+        var config = Load().Config;
+
+        var vita = config.FindSystem("psvita")!;
+        Assert.Equal(("PlayStation Vita", "Sony", 2011), (vita.Name, vita.Manufacturer, vita.Year));
+        Assert.Equal([".psvita", ".vpk", ".zip"], vita.Extensions);
+        Assert.Equal(("vita3k", 62), (vita.Emulator, vita.ScreenScraperId));
+        Assert.Equal([46], vita.IgdbPlatforms);
+
+        var vita3k = config.Emulators["vita3k"];
+        Assert.Equal("C:/Emulators/Vita3K/Vita3K.exe", vita3k.Executable.Replace('\\', '/'));
+        Assert.Equal(["--frontend=sdl", "-F", "-r", "{title_id}"], vita3k.Args);
+        Assert.Equal(["--frontend=sdl", "-F", "{rom}"], vita3k.InstallArgs);
+        Assert.Equal("vita3k", vita3k.Installs);
+    }
+
+    [Fact]
+    public void Installs_takes_a_known_emulator_and_install_args_is_only_used_with_it()
+    {
+        var result = Load(emulators: """
+            [emulators.vita3k]
+            installs = "rpcs3"
+
+            [emulators.mesen]
+            install_args = ["--install", "{rom}"]
+
+            [emulators.run-file]
+            installs = "vita3k"
+            """);
+
+        Assert.Equal(2, result.Diagnostics.Count(d => d.Severity == Severity.Warning && d.Key.EndsWith(".installs", StringComparison.Ordinal)));
+        var unused = Assert.Single(result.Diagnostics, d => d.Key == "emulators.mesen.install_args");
+        Assert.Equal((Severity.Warning, "install_args is only used with installs, so it's ignored"), (unused.Severity, unused.Message));
+        Assert.Equal((null, null), (result.Config.Emulators["vita3k"].Installs, result.Config.Emulators["vita3k"].InstallArgs));
+        Assert.Null(result.Config.Emulators["mesen"].InstallArgs);
+        Assert.Null(result.Config.Emulators["run-file"].Installs);
+
+        // install_args is checked as args is, and a run_file profile can't have it.
+        result = Load(emulators: """
+            [emulators.vita3k]
+            install_args = ["{rom_name}"]
+
+            [emulators.run-file]
+            install_args = ["{rom}"]
+            """);
+        Assert.Contains(result.Diagnostics, d => d.IsError && d.Key == "emulators.vita3k.install_args"
+            && d.Message.Contains("unknown placeholder {rom_name}", StringComparison.Ordinal));
+        Assert.Contains(result.Diagnostics, d => d.IsError && d.Key == "emulators.run-file.install_args");
     }
 
     [Fact]

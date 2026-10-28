@@ -633,3 +633,16 @@ This checks what the tests and the made-up manual can't: real scraped manuals (l
 ### Send back
 
 - Anything that differed, the biggest manual's page count and size, how long its first page took to show, and the log lines: `Select-String -Path "$env:APPDATA\Godot\app_userdata\Odyssey Launcher\logs\godot.log" -Pattern '^Manual|error|warning'`.
+
+## The PlayStation Vita in Vita3K
+
+This checks what the tests and the fake emulator can't: real Vita games installed by Vita3K on their first launch, booted by their title id after that, full screen, with the launcher seeing each game end (docs/ARCHITECTURE.md A5, "Vita3K's games"). It uses the M3 set-up (`C:\OdysseyTest`) and the export. Install a current Vita3K (from 2026-10-09 or later, for `--frontend=sdl`) under `C:\Emulators\Vita3K\`, start it once on its own to install the firmware it asks for, and quit it. Point `[systems.psvita] rom_dirs` in `C:\OdysseyTest\config\systems.toml` at your Vita folder (`S:\Sony PlayStation Vita`), or copy two small games' `.vpk` files into `psvita\` under your ROM root, and rescan.
+
+1. **First launch: installed, then played.** Launch a game Vita3K doesn't have yet (a small one, such as Age of Zombies): the launcher's running screen stays while Vita3K installs it (no window of its own meanwhile), then the game starts full screen. Quit it from Vita3K's window (close it, or Alt+F4): Vita3K quits with it, and the launcher comes back with focus. The log's `Launch` line shows the package's path as Vita3K's only game argument.
+2. **Next launch: booted by its title id.** Launch the same game again: it starts within a few seconds, without installing, and the log's `Launch` line ends with `-r PCSE00362` (its title id). Quit it as before.
+3. **ES-DE's file.** Make `psvita\Age of Zombies.psvita` holding only `PCSE00362` and rescan: launching it boots the installed game the same way. Make one holding the id of a game Vita3K doesn't have: the launch fails at once, saying the game isn't installed in Vita3K.
+4. **Where Vita3K keeps its games.** If your Vita3K is portable (a `portable` folder beside `Vita3K.exe`) or its `config.yml` sets `pref-path`, step 2 still boots by title id rather than installing again.
+
+### Send back
+
+- Anything that differed (especially a game installed again on its second launch, or the launcher coming back while the game still ran), how long the first launch's install took and the game's size, your Vita3K's version (its window's title), and the log lines: `Select-String -Path "$env:APPDATA\Godot\app_userdata\Odyssey Launcher\logs\godot.log" -Pattern '^Launch|error|warning'`.
