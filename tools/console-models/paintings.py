@@ -38,6 +38,14 @@ SIDE_ART = ("Side art for the side panel of a fictional early-1980s American arc
             "silk-screened cabinet art of the time: bold flat colours, thick black outlines, a little halftone "
             "shading, one big illustration standing tall in a portrait panel on a plain ")
 PORTRAIT = " Tall portrait, the figures filling the frame, a plain margin of the background all round."
+HD_FIGHTER = ("A screenshot from a fictional 2010s high-definition 3D fighting game, exactly as it ran: detailed "
+              "modern 3D rendering, dynamic neon lighting, and no interface at all (no health bars, no timer, no "
+              "names): ")
+HD_POSES = ("Four poses of one original character from a fictional 2010s high-definition 3D fighting game, in a 2x2 "
+            "grid of four equal square panels, each pose whole from head to feet with a margin round it, seen from "
+            "the side as the game's camera sees the fighters, detailed modern 3D rendering lit by cyan and red neon. "
+            "Every panel's background is the same plain flat pure green (#00FF00), with no floor, shadow, scenery or "
+            "lines between the panels, so the figures can be cut out. The character: ")
 PAINTINGS = {
     # Daphne's card: its screen plays the laserdisc's frames.
     "daphne_frame1": LASERDISC + "a brave, slightly clumsy young knight in bright silver armour with a red plume leaps "
@@ -78,6 +86,29 @@ PAINTINGS = {
     "past a giant ringed green planet, little round alien saucers with glowing green lights, stars and a nebula "
     "behind, in the airbrushed style of the pinball backglasses of the time, a dark band left clear across the top "
     "for a title. Square.",
+    # The PS Vita card: its screen plays Voltcrown (tools/made-up-games), its fighters cut out of the poses (on green)
+    # and moved over the empty arena, as a 2.5D fighting game draws them; the key art is its LiveArea and its bubble.
+    "vita_arena": HD_FIGHTER + "the empty arena, with no fighters in it: a rain-soaked rooftop in a neon megacity at "
+    "night, seen from the side at a fighter's height, the flat roof running the whole width of the picture with a low "
+    "railing along its far edge, skyscrapers behind with holographic billboards of abstract shapes (a cyan triangle, "
+    "a red crescent) and no lettering, rain falling, puddles on the concrete reflecting the cyan and red lights. Leave "
+    "the middle of the roof clear: the fighters will be drawn over it later. Landscape 3:2.",
+    "vita_juno": HD_POSES + "a lanky young man with a shaved head, glowing cyan circuit tattoos down his bare forearms, "
+    "a cropped black jacket, black cargo trousers and black boots, facing right. Top left: his fighting stance, fists "
+    "up, weight on his back foot. Top right: a straight punch, his right arm out at full stretch. Bottom left: a high "
+    "kick, his leading leg out straight at head height. Bottom right: his finisher, both fists thrust forward, cyan "
+    "lightning crackling along his arms and bursting from his fists.",
+    "vita_sable": HD_POSES + "a tall woman in sleek white armour plating over a black bodysuit, a red visor across her "
+    "eyes, long black hair, short glowing red energy blades on her forearms, facing left. Top left: her fighting "
+    "stance, her blades raised. Top right: a slash with her right blade. Bottom left: reeling backwards from a blow, "
+    "her head thrown back. Bottom right: knocked down, lying on her side on the ground, beaten.",
+    "vita_keyart": "Key art for a fictional 2014 high-definition 3D fighting game, as glossy as the game box and poster "
+    "art of the time: two original fighters face off on a rain-soaked rooftop in a neon megacity at night. On the left "
+    "a lanky young man with a shaved head, glowing cyan circuit tattoos down his forearms and a cropped black jacket, "
+    "cyan electricity crackling round his fists; on the right a tall woman in sleek white armour with a red visor and "
+    "short red energy blades on her forearms. Holographic billboards of abstract shapes behind them, rain and neon "
+    "reflections. Keep the fighters in the lower two thirds and the top third dark and open: a title will be printed "
+    "there later. Landscape 3:2.",
 }
 
 

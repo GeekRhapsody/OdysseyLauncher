@@ -80,6 +80,10 @@ model = "models/systems/pokemini.glb"          # built by tools/console-models/p
 model = "models/systems/psp.glb"              # built by tools/console-models/psp.py: a PSP-1000 standing up; its focused clip turns it round, springs the UMD door open and slides a UMD in, turns back and switches on, chooses the game and plays it on the nub and CROSS
 video = "videos/psp.mp4"                      # drawn by tools/console-models/psp_video.py: the screen through the clip (the start-up, the XMB, then Skylance), played on its video material
 
+[systems.psvita]
+model = "models/systems/psvita.glb"           # built by tools/console-models/psvita.py: the first PS Vita standing up; its focused clip wakes it with the PS button, plays a game on the left stick, the face buttons and the touch screen, leaning with the play, then puts it to sleep with POWER
+video = "videos/psvita.mp4"                   # drawn by tools/console-models/psvita_video.py: the screen through the clip (the lock screen peeled away, the bubbles, the LiveArea's gate, then Voltcrown; the LiveArea peeled away to close it), played on its video material
+
 [systems.sg-1000]
 model = "models/systems/sg-1000.glb"           # built by tools/console-models/sg1000.py: Sega's SG-1000 and its hard-wired SJ-200 joystick; its focused clip drops a cartridge (a made-up game) into the slot, lights the power light and plays on the joystick, presses HOLD, then takes the cartridge out
 
