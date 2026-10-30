@@ -173,6 +173,8 @@ jobs:
           Add-Type -AssemblyName System.IO.Compression, System.IO.Compression.FileSystem
           $staging = Join-Path $env:RUNNER_TEMP $env:PACKAGE
           Copy-Item artifacts\export\windows $staging -Recurse
+          # The MIT licence's notice travels with every copy.
+          Copy-Item LICENSE (Join-Path $staging 'LICENSE.txt')
           New-Item -ItemType Directory -Force artifacts\release | Out-Null
           $zip = Join-Path $env:GITHUB_WORKSPACE "artifacts\release\$env:PACKAGE.zip"
           # One folder inside the zip, named after the package.

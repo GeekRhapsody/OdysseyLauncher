@@ -19,6 +19,7 @@ Odyssey Launcher is built with Godot 4 and C# for Windows. **Performance is the 
 - [Configuration](#configuration)
 - [Themes and models](#themes-and-models)
 - [Credits](#credits)
+- [Licence](#licence)
 
 ## Features
 
@@ -199,3 +200,9 @@ The system logos in the **Classic View** theme (`godot/themes/classic-view/logos
 - [Lucide](https://lucide.dev) for the status indicator icons (ISC licence).
 - [LibGit2Sharp](https://github.com/libgit2/libgit2sharp) (MIT licence) and [libgit2](https://libgit2.org) (GPLv2 with a linking exception), with which the theme downloader clones and updates themes.
 - [ScreenScraper](https://www.screenscraper.fr), [IGDB](https://www.igdb.com), [SteamGridDB](https://www.steamgriddb.com) and Steam for game metadata and art.
+
+## Licence
+
+Odyssey Launcher is released under the [MIT licence](LICENSE). That covers its code, tools and documentation, and the models, images, videos and sounds made for it.
+
+What comes from others keeps its own licence: the Slab and Classic View themes' system logos (CC BY-NC-SA, as described under [Credits](#credits)), the Lucide icons (ISC), and the libraries the release ships (LibGit2Sharp and libgit2, the .NET runtime, and Godot, each under its own licence). Console makers' names, logos and products are their owners' trademarks.
