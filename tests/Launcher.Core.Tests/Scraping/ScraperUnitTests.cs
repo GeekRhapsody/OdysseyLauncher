@@ -504,6 +504,33 @@ public sealed class ScraperUnitTests
     }
 
     [Fact]
+    public async Task An_image_the_check_rejects_is_refused_and_leaves_no_file()
+    {
+        using var dir = new TempDir();
+        var store = new MediaStore(dir.Combine("media"));
+        var ct = TestContext.Current.CancellationToken;
+        (string Path, int Width, int Height, long Size)? seen = null;
+        var png = ScrapeBed.Png("back");
+
+        var refused = await Assert.ThrowsAsync<InvalidDataException>(() => store.SaveAsync("megadrive", "Sonic.md", MediaKinds.Back, png, ct,
+            (path, width, height, size) =>
+            {
+                seen = (path, width, height, size);
+                Assert.True(File.Exists(path));                                        // written, under a temporary name
+                return "a placeholder";
+            }));
+
+        Assert.Equal("a placeholder", refused.Message);
+        Assert.Equal((24, 32, (long)png.Length), (seen!.Value.Width, seen.Value.Height, seen.Value.Size));
+        Assert.False(File.Exists(seen.Value.Path));
+        Assert.Empty(Directory.EnumerateFiles(dir.Combine("media"), "*", SearchOption.AllDirectories));
+
+        var kept = await store.SaveAsync("megadrive", "Sonic.md", MediaKinds.Back, png, ct, (_, _, _, _) => null);
+        Assert.Equal("media/megadrive/backcovers/Sonic.png", kept!.RelativePath);
+        Assert.NotNull(await store.SaveAsync("megadrive", "Sonic.md", MediaKinds.Video, ScrapeBed.Mp4("clip"), ct, (_, _, _, _) => "never asked"));
+    }
+
+    [Fact]
     public async Task A_download_never_replaces_a_file_the_game_has_in_any_format_its_own_or_shared()
     {
         using var dir = new TempDir();

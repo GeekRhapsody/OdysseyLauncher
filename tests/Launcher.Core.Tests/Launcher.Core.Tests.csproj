@@ -32,9 +32,9 @@
   <ItemGroup>
     <!--
       Recorded provider responses for the scraping tests (no test touches the network), and LaunchBox's: a few records
-      in the shape of its Metadata.zip's files, and its platform names.
+      in the shape of its Metadata.zip's files, and its platform names; and ScreenScraper's green placeholder image.
     -->
-    <None Include="Scraping\Fixtures\*.json;Scraping\Fixtures\*.xml;Scraping\Fixtures\*.txt" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Scraping\Fixtures\*.json;Scraping\Fixtures\*.xml;Scraping\Fixtures\*.txt;Scraping\Fixtures\*.png" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

@@ -378,7 +378,8 @@ This checks what the fixtures can't (2026-11-01): LaunchBox's real dump download
 4. **Odd file names.** An arcade set (`arcade/<short name>.zip`, such as `sf2.zip`) and, if you have one, a WHDLoad Amiga game (`amiga/<name>_v1.2.lha`): both are found by their file name (method `filename`).
 5. **The default order.** Put `provider = "screenscraper"` and `fallback = ["launchbox", "igdb", "steamgriddb"]` back (or delete the lines). A game ScreenScraper lacks art for gets LaunchBox's; one it has everything for asks LaunchBox nothing.
 6. **Manual matching.** On a game, X, then "Scrape this game": LaunchBox's section lists its hits, each with its box, and choosing one scrapes the game with it.
-7. **The weekly check.** `& $cli --user-dir=C:\OdysseyTest launchbox-info` says when the copy was checked; `launchbox-update` within the week says `Unchanged` at once, and `launchbox-update --force` asks LaunchBox (also `Unchanged`, unless a new dump was published since).
+7. **ScreenScraper's green backs** (needs your ScreenScraper credentials). With the default order and `"back"` in `media`, `clear` and then `game` Super Mario Odyssey on the Switch (its ScreenScraper back is the flat green placeholder). The output has `screenscraper: switch/...: back: a flat green placeholder`, the back is `from launchbox`, and the cover is still `from screenscraper`. A game whose ScreenScraper back is real keeps it.
+8. **The weekly check.** `& $cli --user-dir=C:\OdysseyTest launchbox-info` says when the copy was checked; `launchbox-update` within the week says `Unchanged` at once, and `launchbox-update --force` asks LaunchBox (also `Unchanged`, unless a new dump was published since).
 
 ### Send back
 

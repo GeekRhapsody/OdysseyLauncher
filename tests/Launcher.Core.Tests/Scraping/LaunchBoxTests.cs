@@ -302,6 +302,96 @@ public sealed class LaunchBoxTests : IAsyncLifetime
         Assert.True(service.LaunchBox!.IsReady);
     }
 
+    // ---- ScreenScraper's placeholders ---------------------------------------------------------------
+
+    /// <summary>
+    /// ScreenScraper knows Streets of Rage 2 (as its Sonic 3 fixture, less <paramref name="without"/>), and serves its
+    /// real flat green placeholder as the box back.
+    /// </summary>
+    private void GreenBackRoutes(string? without = null)
+    {
+        var placeholder = File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Scraping", "Fixtures", "ss_green_placeholder.png"));
+        _bed.Http.On("GET", u => ScrapeBed.Is(u, "screenscraper.fr", "jeuInfos.php"), r =>
+            (r.Query("romnom") ?? string.Empty).StartsWith("Streets of Rage 2", StringComparison.Ordinal) || r.Query("gameid") == "1187"
+                ? FakeHttpHandler.Json(_bed.Fill("ss_jeuinfos.json", r).Replace(without ?? "\u0000", string.Empty, StringComparison.Ordinal))
+                : FakeHttpHandler.Text("Erreur : Rom/Iso/Dossier non trouvée !  ", HttpStatusCode.NotFound));
+        _bed.Http.On("GET", u => ScrapeBed.Is(u, "screenscraper.fr", "mediaJeu.php"), r =>
+            (r.Query("media") ?? string.Empty).StartsWith("box-2D-back", StringComparison.Ordinal)
+                ? FakeHttpHandler.Bytes(placeholder)
+                : FakeHttpHandler.Bytes(ScrapeBed.Png(r.Query("media") ?? "x")));
+    }
+
+    private ScrapeGameResult Sor2Result => _bed.Scraped[Key(Sor2)];
+
+    [Fact]
+    public async Task A_placeholder_back_is_refused_and_LaunchBox_left_out_until_then_is_asked_for_the_back()
+    {
+        GreenBackRoutes();
+        _bed.Rom(Sor2);
+        await _bed.ScanAsync();
+        using var service = _bed.Service(derivatives: true);
+
+        await service.ScrapeGameAsync(Key(Sor2), Ct);
+
+        Assert.Equal("launchbox", _bed.SuppliedBy(Key(Sor2), MediaKinds.Back));
+        Assert.Equal(1, _bed.Http.Count("images.launchbox-app.com/sor2-back-na.jpg"));      // eu has none; World neither; then the USA's
+        Assert.Equal("screenscraper", _bed.SuppliedBy(Key(Sor2), MediaKinds.Cover));
+        Assert.Equal("screenscraper", (await _bed.Game("megadrive", "Streets of Rage 2 (USA).md")).Metadata!.Source);
+        Assert.Equal("2001", _bed.Query<string>("SELECT scraper_game_id FROM scraper_matches WHERE scraper = 'launchbox'"));
+        Assert.Contains(_bed.Log.Lines, l => l.Contains("screenscraper: megadrive/", StringComparison.Ordinal)
+            && l.EndsWith("back: " + PlaceholderImages.Reason, StringComparison.Ordinal));
+        Assert.Equal(["screenscraper", "launchbox"], Sor2Result.Providers);
+        Assert.Equal(1, Sor2Result.Log.Count(l => l.Provider == "launchbox"));
+        Assert.Equal(0, _bed.Http.Count("igdb"));                                            // it has no backs: not asked
+    }
+
+    [Fact]
+    public async Task Without_a_decoder_the_placeholder_is_kept_as_before()
+    {
+        GreenBackRoutes();
+        _bed.Rom(Sor2);
+        await _bed.ScanAsync();
+        using var service = _bed.Service();
+
+        await service.ScrapeGameAsync(Key(Sor2), Ct);
+
+        Assert.Equal("screenscraper", _bed.SuppliedBy(Key(Sor2), MediaKinds.Back));
+        Assert.Equal(["screenscraper"], Sor2Result.Providers);                             // LaunchBox had nothing to add
+    }
+
+    [Fact]
+    public async Task A_fallback_already_asked_supplies_the_back_without_being_asked_again()
+    {
+        GreenBackRoutes(without: "\"joueurs\": { \"text\": \"1-2\" },");                   // players: LaunchBox is asked at once
+        _bed.Rom(Sor2);
+        await _bed.ScanAsync();
+        using var service = _bed.Service(derivatives: true);
+
+        await service.ScrapeGameAsync(Key(Sor2), Ct);
+
+        Assert.Equal("launchbox", _bed.SuppliedBy(Key(Sor2), MediaKinds.Back));
+        Assert.Equal(1, Sor2Result.Log.Count(l => l.Provider == "launchbox"));
+        Assert.Equal("1-2", (await _bed.Game("megadrive", "Streets of Rage 2 (USA).md")).Metadata!.Players);   // LaunchBox's
+    }
+
+    [Fact]
+    public async Task With_no_fallback_for_it_a_placeholder_leaves_the_game_without_a_back()
+    {
+        _bed.Reconfigure("fallback = []\nmedia = [\"cover\", \"back\"]");
+        GreenBackRoutes();
+        _bed.Rom(Sor2);
+        await _bed.ScanAsync();
+        using var service = _bed.Service(derivatives: true);
+
+        await service.ScrapeGameAsync(Key(Sor2), Ct);
+
+        Assert.Equal("ok", Sor2Result.Status);
+        Assert.Null(_bed.SuppliedBy(Key(Sor2), MediaKinds.Back));
+        Assert.Equal("screenscraper", _bed.SuppliedBy(Key(Sor2), MediaKinds.Cover));
+        Assert.DoesNotContain(Directory.EnumerateFiles(Path.Combine(_bed.Paths.DataDir, "media", "megadrive"), "*", SearchOption.AllDirectories),
+            f => f.Contains("backcovers", StringComparison.Ordinal));
+    }
+
     [Fact]
     public async Task A_file_LaunchBox_lists_under_another_name_or_a_MAME_set_is_matched_by_its_file()
     {

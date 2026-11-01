@@ -1379,30 +1379,13 @@ public sealed class ScrapeService : IDisposable
 
         // Providers whose manual match answered: what they'd brought in before is replaced (ScrapeStore.SaveReplacing).
         var replaced = new HashSet<string>(StringComparer.Ordinal);
-        for (var i = 0; i < order.Count; i++)
+
+        // Asks one provider for the game: its manual match, else its stored match, else a lookup.
+        async Task AskAsync(string id, IScraper scraper, IReadOnlySet<string> wantedMedia)
         {
-            var id = order[i];
-            var scraper = _scrapers[id];
             context.ManualMatches.TryGetValue(id, out var manualMatch);
-            if (scraper.Unavailable is not null || scraper.Unsupported(system) is not null)
-            {
-                continue;
-            }
-
-            if (IsResting(id, out var resting))
-            {
-                failed = true;
-                log.Add(new ProviderLog(id, "error", resting.Message));
-                continue;
-            }
-
-            if (i > 0 && !merge.CouldUse(scraper.Capabilities))
-            {
-                continue;
-            }
-
             tried = true;
-            var providerQuery = query with { WantedMedia = merge.MissingMedia() };
+            var providerQuery = query with { WantedMedia = wantedMedia };
             try
             {
                 ProviderResult result;
@@ -1456,16 +1439,51 @@ public sealed class ScrapeService : IDisposable
             }
         }
 
+        // The fallbacks left out because the providers before them seemed to have everything, in order.
+        var skipped = new List<string>();
+        for (var i = 0; i < order.Count; i++)
+        {
+            var id = order[i];
+            var scraper = _scrapers[id];
+            if (scraper.Unavailable is not null || scraper.Unsupported(system) is not null)
+            {
+                continue;
+            }
+
+            if (IsResting(id, out var resting))
+            {
+                failed = true;
+                log.Add(new ProviderLog(id, "error", resting.Message));
+                continue;
+            }
+
+            if (i > 0 && !merge.CouldUse(scraper.Capabilities))
+            {
+                skipped.Add(id);
+                continue;
+            }
+
+            await AskAsync(id, scraper, merge.MissingMedia()).ConfigureAwait(false);
+        }
+
         if (!tried)
         {
             return new ScrapeGameResult(key, "skipped", [], [], [new ProviderLog("-", "skipped", "no configured provider can look up this system's games")]);
         }
 
-        // Media: each kind from the first provider whose download works.
+        // Media: each kind from the first provider whose download works. An image that is a provider's placeholder
+        // (ScreenScraper's flat green box backs) is refused like a download that isn't an image, when there's a
+        // decoder to look at it.
         var saved = new List<(string Kind, StoredMedia Media)>();
         var sources = new Dictionary<string, string>(StringComparer.Ordinal);
         var savedBy = new Dictionary<string, List<SavedMedia>>(StringComparer.Ordinal);
-        foreach (var (kind, candidates) in merge.MediaCandidates())
+        var placeholders = new HashSet<string>(StringComparer.Ordinal);
+        var decoder = _options.ImageDecoder;
+        Func<string, int, int, long, string?>? reject = decoder is null
+            ? null
+            : (path, width, height, size) => PlaceholderImages.Check(decoder, path, size, width, height);
+
+        async Task DownloadKindAsync(string kind, IEnumerable<(string Provider, ScrapedMedia Media)> candidates)
         {
             foreach (var (provider, media) in candidates)
             {
@@ -1477,10 +1495,11 @@ public sealed class ScrapeService : IDisposable
                 try
                 {
                     var bytes = await _scrapers[provider].DownloadAsync(media, cancellationToken).ConfigureAwait(false);
+                    var check = MediaKinds.Images.Contains(kind) ? reject : null;
                     // Null: a file of that kind turned up meanwhile (the user's own), and it stays.
-                    if (await MediaFiles.SaveAsync(key.SystemId, context.RelPath, kind, bytes, cancellationToken).ConfigureAwait(false) is not { } stored)
+                    if (await MediaFiles.SaveAsync(key.SystemId, context.RelPath, kind, bytes, cancellationToken, check).ConfigureAwait(false) is not { } stored)
                     {
-                        break;
+                        return;
                     }
 
                     saved.Add((kind, stored));
@@ -1498,7 +1517,7 @@ public sealed class ScrapeService : IDisposable
                         await Derivatives.BakeAsync(stored.RelativePath, stored.SizeBytes, stored.MtimeMs, cancellationToken).ConfigureAwait(false);
                     }
 
-                    break;
+                    return;
                 }
                 catch (ProviderException e)
                 {
@@ -1508,8 +1527,50 @@ public sealed class ScrapeService : IDisposable
                 catch (InvalidDataException e)
                 {
                     _log.Write(LogLevel.Warning, $"{provider}: {key.SystemId}/{key.PathKey}: {kind}: {e.Message}");
+                    if (e.Message == PlaceholderImages.Reason)
+                    {
+                        placeholders.Add(kind);
+                    }
                 }
             }
+        }
+
+        foreach (var (kind, candidates) in merge.MediaCandidates())
+        {
+            await DownloadKindAsync(kind, candidates).ConfigureAwait(false);
+        }
+
+        // A kind whose every image was a placeholder: the fallbacks left out are asked for it after all, in order,
+        // and only their images of it are tried. Their metadata fills only what's still missing, as any fallback's.
+        var retry = placeholders.Where(k => !sources.ContainsKey(k)).ToHashSet(StringComparer.Ordinal);
+        foreach (var id in skipped)
+        {
+            var scraper = _scrapers[id];
+            if (retry.Count == 0)
+            {
+                break;
+            }
+
+            if (IsResting(id, out _) || !retry.Any(scraper.Capabilities.Media.Contains))
+            {
+                continue;
+            }
+
+            await AskAsync(id, scraper, retry).ConfigureAwait(false);
+            if (!found.Contains(id))
+            {
+                continue;
+            }
+
+            foreach (var (kind, candidates) in merge.MediaCandidates())
+            {
+                if (retry.Contains(kind))
+                {
+                    await DownloadKindAsync(kind, candidates.Where(c => c.Provider == id)).ConfigureAwait(false);
+                }
+            }
+
+            retry.RemoveWhere(sources.ContainsKey);
         }
 
         var status = found.Count > 0 ? (failed ? "partial" : "ok") : (failed ? "error" : "not_found");

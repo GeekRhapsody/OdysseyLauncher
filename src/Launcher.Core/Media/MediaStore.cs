@@ -59,9 +59,17 @@ public sealed class MediaStore(string mediaDir)
     /// PDF) as the game's file of that kind, unless the game has one already (<see cref="HasFile"/>). A video or a
     /// manual has no size: its width and height are 0.
     /// </summary>
+    /// <param name="reject">
+    /// For an image: why the written file (still under a temporary name), with its width, height and size, isn't to be
+    /// kept (a provider's placeholder: <see cref="PlaceholderImages"/>), or null to keep it.
+    /// </param>
     /// <returns>The file written, or null when the game already had a file of that kind, which is left as it is.</returns>
-    /// <exception cref="InvalidDataException">The content isn't a PNG, JPEG or WebP image, for a video an MP4, or for a manual a PDF.</exception>
-    public async Task<StoredMedia?> SaveAsync(string systemId, string relPath, string kind, ReadOnlyMemory<byte> content, CancellationToken cancellationToken)
+    /// <exception cref="InvalidDataException">
+    /// The content isn't a PNG, JPEG or WebP image, for a video an MP4, or for a manual a PDF; or <paramref name="reject"/> refused it.
+    /// </exception>
+    public async Task<StoredMedia?> SaveAsync(
+        string systemId, string relPath, string kind, ReadOnlyMemory<byte> content, CancellationToken cancellationToken,
+        Func<string, int, int, long, string?>? reject = null)
     {
         int width = 0, height = 0;
         string extension;
@@ -99,6 +107,11 @@ public sealed class MediaStore(string mediaDir)
             await using (stream.ConfigureAwait(false))
             {
                 await stream.WriteAsync(content, cancellationToken).ConfigureAwait(false);
+            }
+
+            if (width > 0 && reject?.Invoke(temp, width, height, content.Length) is { } reason)
+            {
+                throw new InvalidDataException(reason);
             }
 
             // Not overwriting: a file the user put there meanwhile stays.
