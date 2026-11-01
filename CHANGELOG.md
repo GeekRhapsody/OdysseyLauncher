@@ -10,6 +10,8 @@ it releases, and the Release workflow puts it on the release page (tools/release
 
 ## Unreleased
 
+## 0.21.0 (2026-11-01)
+
 ### New
 
 - **LaunchBox's Games DB** is a scraping provider, the first fallback after ScreenScraper. It needs no account: its database (about 110 MB) is downloaded the first time a scrape needs it, then checked for a newer one once a week. Its names and art follow your preferred regions, as ScreenScraper's do, and it has box backs, spines, logos, fan art and disc and cartridge art. Settings > Scraping > LaunchBox Games DB shows your copy and updates it.
