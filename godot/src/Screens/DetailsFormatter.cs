@@ -126,6 +126,7 @@ public static class DetailsFormatter
         Add(rows, "IGDB", system.IgdbPlatforms is { Count: > 0 } platforms
             ? (platforms.Count == 1 ? "Platform " : "Platforms ") + string.Join(", ", Array.ConvertAll([.. platforms], p => p.ToString(Uk)))
             : "Not looked up");
+        Add(rows, "LaunchBox", system.LaunchBoxPlatforms is { Count: > 0 } launchBox ? string.Join(", ", launchBox) : "Not looked up");
         Add(rows, "Steam store", system.SteamStore ? "Looked up by title" : null);
         Add(rows, "Id", system.Id);
         return rows;

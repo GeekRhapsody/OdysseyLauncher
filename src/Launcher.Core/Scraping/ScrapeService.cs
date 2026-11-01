@@ -251,8 +251,15 @@ public sealed class ScrapeServiceOptions
     /// <summary>POC (direct source images): scraped images get no derivative (<see cref="DerivativeService.SkipLibraryBakes"/>).</summary>
     public bool SkipDerivatives { get; init; }
 
-    /// <summary>Null builds the three real providers.</summary>
+    /// <summary>Null builds the real providers.</summary>
     public IReadOnlyList<IScraper>? Scrapers { get; init; }
+
+    /// <summary>
+    /// The local copy of LaunchBox's database the LaunchBox provider reads. Null: the service makes its own, in
+    /// <c>CacheDir/launchbox</c>, and disposes it. The app shares one between its services, so one update runs at a
+    /// time and its progress is shown once.
+    /// </summary>
+    public LaunchBoxDatabase? LaunchBox { get; init; }
 
     /// <summary>Games worked on at once, at most. Each provider still keeps to its own limit.</summary>
     public int MaxWorkers { get; init; } = 8;
@@ -302,6 +309,7 @@ public sealed class ScrapeService : IDisposable
     private readonly LibraryService _library;
     private readonly Dictionary<string, IScraper> _scrapers;
     private readonly HttpClient? _client;
+    private readonly bool _ownsLaunchBox;
     private readonly Redactor _redactor;
 
     /// <summary>The media folder as the library's config has it now (A4: settings can move it), for each download and clear.</summary>
@@ -332,6 +340,7 @@ public sealed class ScrapeService : IDisposable
         if (options.Scrapers is { } scrapers)
         {
             _scrapers = scrapers.ToDictionary(s => s.Id, StringComparer.Ordinal);
+            LaunchBox = options.LaunchBox;
         }
         else
         {
@@ -340,12 +349,16 @@ public sealed class ScrapeService : IDisposable
             var settings = _library.Config.Settings.Scraping;
             var accountsFile = Path.Combine(options.Paths.ConfigDir, ProviderAccounts.FileName);
             var tokenFile = Path.Combine(_library.DataDir, "tokens", "igdb.json");
+            _ownsLaunchBox = options.LaunchBox is null;
+            LaunchBox = options.LaunchBox
+                ?? new LaunchBoxDatabase(Path.Combine(options.Paths.CacheDir, "launchbox"), options.HttpHandler, _clock, options.Delay, _log);
             _scrapers = new IScraper[]
             {
                 new ScreenScraperScraper(http, options.Accounts, settings, _log, accountsFile),
                 new IgdbScraper(http, options.Accounts, settings, _log, accountsFile, tokenFile),
                 new SteamGridDbScraper(http, options.Accounts, _log, accountsFile),
                 new SteamStoreScraper(http, settings, _log),
+                new LaunchBoxScraper(LaunchBox, http, settings, _log),
             }.ToDictionary(s => s.Id, StringComparer.Ordinal);
         }
     }
@@ -365,6 +378,9 @@ public sealed class ScrapeService : IDisposable
 
     /// <summary>The providers, by id.</summary>
     public IReadOnlyDictionary<string, IScraper> Scrapers => _scrapers;
+
+    /// <summary>The local copy of LaunchBox's database; null when the service was given providers and no copy.</summary>
+    public LaunchBoxDatabase? LaunchBox { get; }
 
     /// <summary>Every provider's state, in config order first.</summary>
     public IReadOnlyList<ProviderStatus> GetProviders()
@@ -946,6 +962,11 @@ public sealed class ScrapeService : IDisposable
         }
 
         Derivatives.Dispose();
+        if (_ownsLaunchBox)
+        {
+            LaunchBox?.Dispose();
+        }
+
         _client?.Dispose();
         _lifetime.Dispose();
     }

@@ -86,6 +86,37 @@ public sealed class ScrapeBed : IAsyncDisposable
     /// <summary>requeststoday, as ScreenScraper reports it.</summary>
     public int RequestsToday { get; set; } = 10;
 
+    /// <summary>The ETag of the LaunchBox dump the bed serves: a request that sends it gets 304 Not Modified.</summary>
+    public string LaunchBoxETag { get; set; } = "\"lb-1\"";
+
+    /// <summary>The LaunchBox dump the bed serves (<see cref="LaunchBoxZip"/> of the fixtures unless a test sets another).</summary>
+    public byte[] LaunchBoxDump { get; set; } = LaunchBoxZip();
+
+    /// <summary>
+    /// A LaunchBox <c>Metadata.zip</c> holding these files' contents, by name; by default the fixtures' Metadata.xml,
+    /// Files.xml and Mame.xml.
+    /// </summary>
+    public static byte[] LaunchBoxZip(IReadOnlyDictionary<string, string>? files = null)
+    {
+        files ??= new Dictionary<string, string>
+        {
+            ["Metadata.xml"] = Fixture("launchbox_metadata.xml"),
+            ["Files.xml"] = Fixture("launchbox_files.xml"),
+            ["Mame.xml"] = Fixture("launchbox_mame.xml"),
+        };
+        using var buffer = new MemoryStream();
+        using (var archive = new System.IO.Compression.ZipArchive(buffer, System.IO.Compression.ZipArchiveMode.Create, leaveOpen: true))
+        {
+            foreach (var (name, text) in files)
+            {
+                using var writer = new StreamWriter(archive.CreateEntry(name).Open(), new System.Text.UTF8Encoding(false));
+                writer.Write(text);
+            }
+        }
+
+        return buffer.ToArray();
+    }
+
     public static string Fixture(string name) => File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Scraping", "Fixtures", name));
 
     public static async Task<ScrapeBed> CreateAsync(string? scraping = null)
@@ -269,6 +300,22 @@ public sealed class ScrapeBed : IAsyncDisposable
             ? FakeHttpHandler.Bytes([])
             : FakeHttpHandler.Text("Not Found", HttpStatusCode.NotFound));
         Http.On("GET", u => u.Host == SteamStoreScraper.ImageHost, r => FakeHttpHandler.Bytes(Png(r.Uri.AbsolutePath)));
+
+        // LaunchBox: the dump (304 to a request that has the current one), and its images.
+        Http.On("GET", u => u.AbsoluteUri == LaunchBoxDatabase.DumpUrl, r =>
+        {
+            if (r.IfNoneMatch == LaunchBoxETag)
+            {
+                return new HttpResponseMessage(HttpStatusCode.NotModified);
+            }
+
+            var response = FakeHttpHandler.Bytes(LaunchBoxDump, "application/x-zip-compressed");
+            response.Headers.ETag = System.Net.Http.Headers.EntityTagHeaderValue.Parse(LaunchBoxETag);
+            response.Content.Headers.LastModified = new DateTimeOffset(2026, 9, 28, 8, 0, 0, TimeSpan.Zero);
+            return response;
+        });
+        Http.On("HEAD", u => u.AbsoluteUri == LaunchBoxDatabase.DumpUrl, _ => FakeHttpHandler.Bytes([], "application/x-zip-compressed"));
+        Http.On("GET", u => u.Host == "images.launchbox-app.com", r => FakeHttpHandler.Bytes(Png(r.Uri.AbsolutePath)));
     }
 
     /// <summary>The <c>input_json</c> a Steam store request carries.</summary>

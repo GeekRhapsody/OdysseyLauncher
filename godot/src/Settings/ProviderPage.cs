@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -15,6 +16,7 @@ namespace Launcher.App.Settings;
 /// set, and where (secrets.toml, or an <c>ODYSSEY_*</c> variable, which wins). A release has ScreenScraper's developer
 /// credentials built in, and then doesn't list them: only the user's account. A types a new value on the on-screen
 /// keyboard (hidden, with Show to check it), Y clears it, and "Test connection" tries them with one cheap request.
+/// LaunchBox has no credentials: its page shows the local copy of its database instead, and A on it updates it.
 /// </summary>
 public sealed partial class ProviderPage : ListPanel
 {
@@ -22,6 +24,7 @@ public sealed partial class ProviderPage : ListPanel
     private readonly string _provider;
     private readonly List<(SettingRow Row, string Key)> _keyRows = [];
     private SettingRow? _test;
+    private SettingRow? _copy;
     private ProviderAccounts? _accounts;
     private int _check;
     private bool _testing;
@@ -36,6 +39,19 @@ public sealed partial class ProviderPage : ListPanel
         Build();
         SetHints(keyless ? "A  Choose     B  Back" : "A  Change     Y  Clear     B  Back");
         Load();
+        if (provider == ScraperIds.LaunchBox)
+        {
+            _settings.Jobs.LaunchBox.UpdateEnded += LaunchBoxUpdated;
+            LoadCopy();
+        }
+    }
+
+    public override void OnClosed()
+    {
+        if (_provider == ScraperIds.LaunchBox)
+        {
+            _settings.Jobs.LaunchBox.UpdateEnded -= LaunchBoxUpdated;
+        }
     }
 
     /// <summary>A provider's credentials at a glance: "Ready", "Needs its credentials"… and whether it can be used.</summary>
@@ -52,7 +68,12 @@ public sealed partial class ProviderPage : ListPanel
         };
     }
 
-    private string TestDetail => ConfigInput.CredentialKeys(_provider).Count == 0 ? "One search on the store" : "One request with these credentials";
+    private string TestDetail => _provider switch
+    {
+        ScraperIds.LaunchBox => "One request for LaunchBox's database, without downloading it",
+        _ when ConfigInput.CredentialKeys(_provider).Count == 0 => "One search on the store",
+        _ => "One request with these credentials",
+    };
 
     /// <summary>Whether this build carries <paramref name="key"/> (ScreenScraper's developer credentials, in a release).</summary>
     private static bool IsBuiltIn(string provider, string key) => ProviderAccounts.BuiltIn.ContainsKey(provider + "." + key);
@@ -72,6 +93,8 @@ public sealed partial class ProviderPage : ListPanel
             "Make an API key on steamgriddb.com: Preferences, then API.",
         ScraperIds.Steam =>
             "The Steam store needs no account. It finds a game by its title (not the shortcut's app id), for systems with steam_store = true in systems.toml: Windows and Steam. A game no longer sold can't be found.",
+        ScraperIds.LaunchBox =>
+            "LaunchBox's Games DB needs no account. Its whole database (about 110 MB) is downloaded the first time a scrape needs it and checked for a newer copy once a week; games are then found in it without the network, for systems with launchbox_platforms in systems.toml. Names and art follow your preferred regions.",
         _ => string.Empty,
     };
 
@@ -94,9 +117,52 @@ public sealed partial class ProviderPage : ListPanel
             AddKeyRows(developer);
         }
 
+        if (_provider == ScraperIds.LaunchBox)
+        {
+            AddSection("Database");
+            _copy = AddRow("Local copy", "Checking…", null, UpdateLaunchBox);
+        }
+
         AddSection("Check");
         _test = AddRow("Test connection", TestDetail, null, Test);
     }
+
+    /// <summary>Reads the local copy's state off the main thread (it opens the index), then shows it.</summary>
+    private void LoadCopy()
+    {
+        var database = _settings.Jobs.LaunchBox;
+        _ = Task.Run(() =>
+        {
+            var info = database.Info;
+            _settings.Ui.Queue.Post(() =>
+            {
+                if (!IsInstanceValid(_copy))
+                {
+                    return;
+                }
+
+                if (info is null)
+                {
+                    _copy.Value = "Not downloaded";
+                    _copy.ValueColour = UiStyle.Dim;
+                    _copy.Detail = "Downloaded the first time a scrape needs it. A downloads it now.";
+                    return;
+                }
+
+                var published = info.Published is { } p ? p.ToLocalTime().ToString("d MMM yyyy", CultureInfo.InvariantCulture) : "on an unknown date";
+                _copy.Value = info.Games.ToString("N0", CultureInfo.InvariantCulture) + " games";
+                _copy.ValueColour = UiStyle.Good;
+                _copy.Detail = $"Published {published}, checked {info.Checked.ToLocalTime().ToString("d MMM yyyy", CultureInfo.InvariantCulture)}. A checks for a newer one.";
+            });
+        });
+    }
+
+    /// <summary>Worker thread: an update ended, so the copy's state may have changed.</summary>
+    private void LaunchBoxUpdated(object? sender, LaunchBoxUpdateEndedEventArgs e) => _settings.Ui.Queue.Post(LoadCopy);
+
+    private void UpdateLaunchBox() => ShowStatus(_settings.Jobs.UpdateLaunchBox()
+        ? "Updating LaunchBox's database: the progress card shows how it's going."
+        : "LaunchBox's database is already updating.", UiStyle.Dim, 4);
 
     private void AddKeyRows(List<(string Key, string Label, bool Secret)> keys)
     {

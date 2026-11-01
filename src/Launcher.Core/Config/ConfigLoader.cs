@@ -21,7 +21,7 @@ public sealed class ConfigLoader : IConfigLoader
     public const string DefaultRomRoot = "{home}/ROMs";
 
     /// <summary>The scraping providers <c>[scraping] provider</c> and <c>fallback</c> can name.</summary>
-    public static IReadOnlyList<string> Scrapers { get; } = ["screenscraper", "igdb", "steamgriddb", "steam"];
+    public static IReadOnlyList<string> Scrapers { get; } = ["screenscraper", "igdb", "steamgriddb", "steam", "launchbox"];
 
     /// <summary>Used when <c>scraping.hash_limit_mb</c> is missing or invalid.</summary>
     public const long DefaultHashLimitMb = 64;
@@ -44,7 +44,7 @@ public sealed class ConfigLoader : IConfigLoader
     private static readonly string[] SystemKeys =
     [
         "enabled", "name", "manufacturer", "year", "description", "aliases", "extensions", "emulator", "alt_emulators",
-        "game_model", "screenscraper_id", "igdb_platforms", "steam_store", "rom_dirs", "recursive", "exclude",
+        "game_model", "screenscraper_id", "igdb_platforms", "launchbox_platforms", "steam_store", "rom_dirs", "recursive", "exclude",
         "games_layout", "games_columns", "games_rows", "games_sort", "games_sort_order", "auto_configure_controllers", "swap_ab_xy",
     ];
 
@@ -1184,6 +1184,19 @@ public sealed class ConfigLoader : IConfigLoader
                         Error(igdbNode, prefix + ".igdb_platforms", $"expected an array of integers, found {TomlNode.KindName(igdbNode.Kind)}");
                     }
                 }
+                var launchBoxPlatforms = new List<string>();
+                if (entry.TryGet("launchbox_platforms", out var launchBoxNode)
+                    && StringArray(launchBoxNode, prefix + ".launchbox_platforms", string.Empty) is { } rawLaunchBox)
+                {
+                    foreach (var platform in rawLaunchBox)
+                    {
+                        if (!string.IsNullOrWhiteSpace(platform) && !launchBoxPlatforms.Contains(platform.Trim(), StringComparer.Ordinal))
+                        {
+                            launchBoxPlatforms.Add(platform.Trim());
+                        }
+                    }
+                }
+
                 var steamStore = Bool(entry, prefix, "steam_store") ?? false;
                 var autoControllers = Bool(entry, prefix, "auto_configure_controllers") ?? false;
                 var swapFaceButtons = Bool(entry, prefix, "swap_ab_xy") ?? false;
@@ -1326,7 +1339,8 @@ public sealed class ConfigLoader : IConfigLoader
                 result.Add(new SystemConfig(
                     id, name, manufacturer, (int?)year, aliases, extensions, emulator, altEmulators, gameModel,
                     (int?)screenScraperId, romDirs, romDirSource, recursive, exclude, igdbPlatforms, steamStore, gamesColumns, gamesRows, gamesLayout,
-                    gamesSort, gamesSortOrder, string.IsNullOrWhiteSpace(description) ? null : description, autoControllers, swapFaceButtons)
+                    gamesSort, gamesSortOrder, string.IsNullOrWhiteSpace(description) ? null : description, autoControllers, swapFaceButtons,
+                    launchBoxPlatforms)
                 {
                     // The built-in definition's own emulator, offered with the alternatives once the user has chosen another.
                     DefaultEmulator = builtInEmulatorOf.TryGetValue(id, out var builtInEmulator) && emulators.ContainsKey(builtInEmulator) ? builtInEmulator : null,

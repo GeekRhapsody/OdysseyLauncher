@@ -357,7 +357,7 @@ This checks what the fixtures can't: that ScreenScraper really names its media a
 
 This checks what the fixtures can't: Steam's live store answering searches, its art arriving, and its titles matching your shortcuts' names. It needs no credentials. It uses the M3 set-up (`C:\OdysseyTest`) with the Steam shortcuts from [Windows and Steam games](#windows-and-steam-games), and the scrape CLI built with `dotnet build`: `$cli = '.\tools\scrape-cli\bin\Debug\net8.0\odyssey-scrape.exe'`.
 
-1. **Opt in.** Under `[scraping]` in `C:\OdysseyTest\settings.toml`, set `provider = "steam"` and `fallback = ["screenscraper", "igdb", "steamgriddb"]`, and add `"hero"` to `media`. `& $cli --user-dir=C:\OdysseyTest providers` lists "Steam store: Ready" first. (Or in the app: Settings, Providers, media and credentials, Default provider, then right until it says Steam store; Steam store's own page says no credentials are needed, and Test connection says "The Steam store answered.")
+1. **Opt in.** Under `[scraping]` in `C:\OdysseyTest\settings.toml`, set `provider = "steam"` and `fallback = ["screenscraper", "launchbox", "igdb", "steamgriddb"]`, and add `"hero"` to `media`. `& $cli --user-dir=C:\OdysseyTest providers` lists "Steam store: Ready" first. (Or in the app: Settings, Providers, media and credentials, Default provider, then right until it says Steam store; Steam store's own page says no credentials are needed, and Test connection says "The Steam store answered.")
 2. **One game.** `& $cli --user-dir=C:\OdysseyTest game "steam/<a shortcut>.url"`, then `show` for it: the title, description, developer, publisher and release date are Steam's, the metadata source is `steam`, and the cover, hero, logo and screenshot are from `steam`. Genre and players come from ScreenScraper or IGDB.
 3. **Every game.** `& $cli --user-dir=C:\OdysseyTest system steam`, and the same for `windows` if it has shortcuts to games. Note the time and any games not found.
 4. **Not a Steam system.** Scrape a Mega Drive game: the log has no `steam:` lines and nothing changed for it.
@@ -367,6 +367,24 @@ This checks what the fixtures can't: Steam's live store answering searches, its 
 
 - Games matched to the wrong Steam game, and games not found with their file names (a game Steam no longer sells isn't found: that's expected).
 - The `steam:` warnings: `Select-String -Path "$env:APPDATA\Godot\app_userdata\Odyssey Launcher\logs\godot.log" -Pattern 'steam:'`, or the CLI's output.
+
+## LaunchBox scraping
+
+This checks what the fixtures can't (2026-11-01): LaunchBox's real dump downloading and indexing, its matches on your own files, its art arriving, and its job card. It needs no credentials. It uses the M3 set-up (`C:\OdysseyTest`) and the scrape CLI built with `dotnet build`: `$cli = '.\tools\scrape-cli\bin\Debug\net8.0\odyssey-scrape.exe'`. Note the first download's time: it's about 110 MB.
+
+1. **The first download, in the app.** Delete `C:\OdysseyTest\cache\launchbox\` if it's there. In the export, Settings, Providers, media and credentials, LaunchBox Games DB: "Local copy" says "Not downloaded". Press A: a job card, "Updating LaunchBox's database", counts the megabytes downloaded, then indexed, and ends "Done: LaunchBox's database is ready." The row then shows about 190,000 games and today's dates. Press A again: the card ends "LaunchBox's database is up to date." Test connection says it's reachable and how many games the copy has.
+2. **LaunchBox alone.** Under `[scraping]` in `C:\OdysseyTest\settings.toml`, set `provider = "launchbox"` and `fallback = []`, and add `"hero"` and `"label"` to `media`. `& $cli --user-dir=C:\OdysseyTest system megadrive` (or a system you have more games for): note the time, the games not found, and any matched to the wrong game. `show` a few: the metadata source is `launchbox`, and the cover, back, spine, logo, fan art and cartridge or disc art are from `launchbox`.
+3. **Regions.** Set `regions = ["jp"]`, then `clear` and `game` a game released in Japan under another name: its title is the Japanese one, and its cover the Japanese box. Set `regions = ["eu", "wor", "us", "jp"]` and do it again: the European box (or the American one when LaunchBox has no European one).
+4. **Odd file names.** An arcade set (`arcade/<short name>.zip`, such as `sf2.zip`) and, if you have one, a WHDLoad Amiga game (`amiga/<name>_v1.2.lha`): both are found by their file name (method `filename`).
+5. **The default order.** Put `provider = "screenscraper"` and `fallback = ["launchbox", "igdb", "steamgriddb"]` back (or delete the lines). A game ScreenScraper lacks art for gets LaunchBox's; one it has everything for asks LaunchBox nothing.
+6. **Manual matching.** On a game, X, then "Scrape this game": LaunchBox's section lists its hits, each with its box, and choosing one scrapes the game with it.
+7. **The weekly check.** `& $cli --user-dir=C:\OdysseyTest launchbox-info` says when the copy was checked; `launchbox-update` within the week says `Unchanged` at once, and `launchbox-update --force` asks LaunchBox (also `Unchanged`, unless a new dump was published since).
+
+### Send back
+
+- The first download's and index's times, from the job card or `launchbox-update`'s output, and `launchbox-info`'s size of the index.
+- Games matched to the wrong LaunchBox game, and games not found with their file names.
+- The `launchbox:` warnings: `Select-String -Path "$env:APPDATA\Godot\app_userdata\Odyssey Launcher\logs\godot.log" -Pattern 'launchbox:'`, or the CLI's output.
 
 ## Manual matching
 

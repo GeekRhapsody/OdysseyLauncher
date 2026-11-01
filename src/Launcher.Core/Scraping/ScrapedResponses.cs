@@ -161,6 +161,7 @@ public static class ScrapedResponses
             ScraperIds.SteamGridDb => SteamGridDbScraper.Parse(scrape.Response),
             ScraperIds.Igdb => IgdbScraper.Parse(scrape.Response, settings, system),
             ScraperIds.Steam => SteamStoreScraper.Parse(scrape.Response),
+            ScraperIds.LaunchBox => LaunchBoxScraper.Parse(scrape.Response, settings),
             _ => null,
         };
     }

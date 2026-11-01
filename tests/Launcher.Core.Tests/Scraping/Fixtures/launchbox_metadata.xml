@@ -1,0 +1,161 @@
+<?xml version="1.0" standalone="yes"?>
+<!-- A few records in the shape of Metadata.xml in LaunchBox's Metadata.zip (2026-11-01); the image file names are made up. -->
+<LaunchBox>
+  <Platform>
+    <Name>Sega Genesis</Name>
+    <Category>Consoles</Category>
+  </Platform>
+  <Game>
+    <Name>Streets of Rage 2</Name>
+    <ReleaseDate>1992-12-20T00:00:00-08:00</ReleaseDate>
+    <Overview>  Mr. X is back, and he has kidnapped Adam.  </Overview>
+    <MaxPlayers>2</MaxPlayers>
+    <ReleaseType>Released</ReleaseType>
+    <Cooperative>true</Cooperative>
+    <VideoURL>https://www.youtube.com/watch?v=xxxxxxxxxxx</VideoURL>
+    <DatabaseID>2001</DatabaseID>
+    <CommunityRating>4.5</CommunityRating>
+    <Platform>Sega Genesis</Platform>
+    <CommunityRatingCount>120</CommunityRatingCount>
+    <Genres>Beat 'em Up; Action</Genres>
+    <Developer>Sega; Ancient</Developer>
+    <Publisher>Sega</Publisher>
+  </Game>
+  <Game>
+    <Name>Gunstar Heroes</Name>
+    <Overview>Run and gun.</Overview>
+    <ReleaseYear>1993</ReleaseYear>
+    <MaxPlayers>1</MaxPlayers>
+    <DatabaseID>2002</DatabaseID>
+    <Platform>Sega Genesis</Platform>
+    <Genres>Shooter</Genres>
+    <Developer>Treasure</Developer>
+    <Publisher>Sega</Publisher>
+  </Game>
+  <Game>
+    <Name>Streets of Rage</Name>
+    <DatabaseID>2003</DatabaseID>
+    <Platform>Sega Genesis</Platform>
+    <Genres />
+  </Game>
+  <Game>
+    <Name>Comix Zone</Name>
+    <DatabaseID>2004</DatabaseID>
+    <Platform>Super Nintendo Entertainment System</Platform>
+  </Game>
+  <Game>
+    <Name>Pac-Man</Name>
+    <ReleaseDate>1980-05-22T00:00:00+09:00</ReleaseDate>
+    <DatabaseID>2005</DatabaseID>
+    <Platform>Arcade</Platform>
+  </Game>
+  <GameAlternateName>
+    <AlternateName>Bare Knuckle II: Shitou e no Requiem</AlternateName>
+    <DatabaseID>2001</DatabaseID>
+    <Region>Japan</Region>
+  </GameAlternateName>
+  <GameAlternateName>
+    <AlternateName>Streets of Rage II</AlternateName>
+    <DatabaseID>2001</DatabaseID>
+  </GameAlternateName>
+  <GameImage>
+    <DatabaseID>2001</DatabaseID>
+    <FileName>sor2-front-na.jpg</FileName>
+    <Type>Box - Front</Type>
+    <Region>North America</Region>
+    <CRC32>1</CRC32>
+  </GameImage>
+  <GameImage>
+    <DatabaseID>2001</DatabaseID>
+    <FileName>sor2-front-eu.jpg</FileName>
+    <Type>Box - Front</Type>
+    <Region>Europe</Region>
+    <CRC32>2</CRC32>
+  </GameImage>
+  <GameImage>
+    <DatabaseID>2001</DatabaseID>
+    <FileName>sor2-front-jp.jpg</FileName>
+    <Type>Box - Front</Type>
+    <Region>Japan</Region>
+    <CRC32>3</CRC32>
+  </GameImage>
+  <GameImage>
+    <DatabaseID>2001</DatabaseID>
+    <FileName>sor2-back-na.jpg</FileName>
+    <Type>Box - Back</Type>
+    <Region>North America</Region>
+    <CRC32>4</CRC32>
+  </GameImage>
+  <GameImage>
+    <DatabaseID>2001</DatabaseID>
+    <FileName>sor2-back-jp.jpg</FileName>
+    <Type>Box - Back</Type>
+    <Region>Japan</Region>
+    <CRC32>5</CRC32>
+  </GameImage>
+  <GameImage>
+    <DatabaseID>2001</DatabaseID>
+    <FileName>sor2-spine-eu.jpg</FileName>
+    <Type>Box - Spine</Type>
+    <Region>Europe</Region>
+    <CRC32>6</CRC32>
+  </GameImage>
+  <GameImage>
+    <DatabaseID>2001</DatabaseID>
+    <FileName>sor2-logo.png</FileName>
+    <Type>Clear Logo</Type>
+    <Region>World</Region>
+    <CRC32>7</CRC32>
+  </GameImage>
+  <GameImage>
+    <DatabaseID>2001</DatabaseID>
+    <FileName>sor2-title-us.png</FileName>
+    <Type>Screenshot - Game Title</Type>
+    <Region>United States</Region>
+    <CRC32>8</CRC32>
+  </GameImage>
+  <GameImage>
+    <DatabaseID>2001</DatabaseID>
+    <FileName>sor2-play.png</FileName>
+    <Type>Screenshot - Gameplay</Type>
+    <CRC32>9</CRC32>
+  </GameImage>
+  <GameImage>
+    <DatabaseID>2001</DatabaseID>
+    <FileName>sor2-fanart.jpg</FileName>
+    <Type>Fanart - Background</Type>
+    <CRC32>10</CRC32>
+  </GameImage>
+  <GameImage>
+    <DatabaseID>2001</DatabaseID>
+    <FileName>sor2-cart-jp.png</FileName>
+    <Type>Cart - Front</Type>
+    <Region>Japan</Region>
+    <CRC32>11</CRC32>
+  </GameImage>
+  <GameImage>
+    <DatabaseID>2001</DatabaseID>
+    <FileName>sor2-banner.jpg</FileName>
+    <Type>Banner</Type>
+    <CRC32>12</CRC32>
+  </GameImage>
+  <GameImage>
+    <DatabaseID>2002</DatabaseID>
+    <FileName>gunstar-front-rebuilt-eu.jpg</FileName>
+    <Type>Box - Front - Reconstructed</Type>
+    <Region>Europe</Region>
+    <CRC32>13</CRC32>
+  </GameImage>
+  <GameImage>
+    <DatabaseID>2002</DatabaseID>
+    <FileName>gunstar-fanart-front.jpg</FileName>
+    <Type>Fanart - Box - Front</Type>
+    <CRC32>14</CRC32>
+  </GameImage>
+  <GameImage>
+    <DatabaseID>2005</DatabaseID>
+    <FileName>pacman-flyer.jpg</FileName>
+    <Type>Advertisement Flyer - Front</Type>
+    <CRC32>15</CRC32>
+  </GameImage>
+</LaunchBox>

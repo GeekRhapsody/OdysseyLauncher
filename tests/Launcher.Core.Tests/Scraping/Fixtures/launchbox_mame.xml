@@ -1,0 +1,13 @@
+<?xml version="1.0" standalone="yes"?>
+<!-- A few records in the shape of Mame.xml in LaunchBox's Metadata.zip (2026-11-01). -->
+<LaunchBox>
+  <MameFile>
+    <FileName>pacman</FileName>
+    <Name>Pac-Man (Midway)</Name>
+    <Year>1980</Year>
+  </MameFile>
+  <ControllerSupport>
+    <ControllerName>4-Way Joystick</ControllerName>
+    <FileName>pacman</FileName>
+  </ControllerSupport>
+</LaunchBox>

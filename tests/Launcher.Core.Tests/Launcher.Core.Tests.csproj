@@ -30,8 +30,11 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- Recorded provider responses for the scraping tests (no test touches the network). -->
-    <None Include="Scraping\Fixtures\*.json" CopyToOutputDirectory="PreserveNewest" />
+    <!--
+      Recorded provider responses for the scraping tests (no test touches the network), and LaunchBox's: a few records
+      in the shape of its Metadata.zip's files, and its platform names.
+    -->
+    <None Include="Scraping\Fixtures\*.json;Scraping\Fixtures\*.xml;Scraping\Fixtures\*.txt" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

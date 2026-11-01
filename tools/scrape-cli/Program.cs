@@ -35,6 +35,10 @@ const string Usage = """
       scan [--quick] [<system>]   Rescans ROM folders and media folders (every system without an argument); with
                                   --quick, media folders only for systems with new games, as F5 does in the app
       ss-systems                  Lists ScreenScraper's systems against each system's screenscraper_id
+      launchbox-update [--force]  Downloads LaunchBox's database (about 110 MB) and indexes it in
+                                  CacheDir/launchbox/, or checks for a newer one if the copy is a week old (--force:
+                                  now). No credentials
+      launchbox-info              The local copy of LaunchBox's database: its date and games. No network
 
     Models (M6; no network):
       import-model --from=<file> <system>/<rel path>
@@ -70,7 +74,8 @@ const string Usage = """
     <rel path> is the ROM's path under its system's ROM folder, as on disk: megadrive/Sonic the Hedgehog 3 (Europe).md
     Credentials: ConfigDir/secrets.toml ([screenscraper] dev_id, dev_password, username, password;
     [steamgriddb] api_key; [igdb] client_id, client_secret), or ODYSSEY_* environment variables. The Steam store
-    ("steam") needs none; it looks up systems with steam_store = true (Windows and Steam) by title.
+    ("steam") needs none; it looks up systems with steam_store = true (Windows and Steam) by title. LaunchBox
+    ("launchbox") needs none either; it looks up systems with launchbox_platforms in its local copy.
     """;
 
 Console.OutputEncoding = System.Text.Encoding.UTF8;
@@ -82,6 +87,7 @@ var json = false;
 var replace = false;
 var discardChanges = false;
 var quick = false;
+var force = false;
 string? themesList = null;
 var kind = ModelKind.PerGame;
 var only = SystemScrapeFilter.All;
@@ -97,8 +103,9 @@ foreach (var argument in arguments.ToList())
         saveResponses = true;
         arguments.Remove(argument);
     }
-    else if (argument is "--json" or "--replace" or "--discard-changes" or "--quick")
+    else if (argument is "--json" or "--replace" or "--discard-changes" or "--quick" or "--force")
     {
+        force |= argument == "--force";
         json |= argument == "--json";
         replace |= argument == "--replace";
         discardChanges |= argument == "--discard-changes";
@@ -272,6 +279,34 @@ try
 
         case "show":
             return await Show(Key(Require(argument)));
+        case "launchbox-info":
+            LaunchBoxInfo(service.LaunchBox!);
+            return 0;
+        case "launchbox-update":
+            {
+                var database = service.LaunchBox!;
+                var clock = System.Diagnostics.Stopwatch.StartNew();
+                var phase = string.Empty;
+                var tenth = -1;
+                database.UpdateProgress += (_, e) =>
+                {
+                    var p = e.Progress;
+                    var step = p.Total > 0 ? p.Done * 10 / p.Total : -1;
+                    if (p.Phase != phase || step != tenth)
+                    {
+                        (phase, tenth) = (p.Phase, step);
+                        Console.WriteLine(p.Total > 0
+                            ? $"  {p.Phase}: {p.Done:N0} of {p.Total:N0} MB ({clock.Elapsed.TotalSeconds:0} s)"
+                            : $"  {p.Phase}: {p.Done:N0} MB ({clock.Elapsed.TotalSeconds:0} s)");
+                    }
+                };
+                using var cancelUpdate = stop.Token.Register(database.CancelUpdate);
+                var outcome = await database.UpdateAsync(force, CancellationToken.None);
+                Console.WriteLine($"{outcome} in {clock.Elapsed.TotalSeconds:0.0} s.");
+                LaunchBoxInfo(database);
+                return 0;
+            }
+
         case "bake":
             {
                 var summary = await service.Derivatives.BakeMissingAsync(null, stop.Token);
@@ -502,6 +537,19 @@ async Task<int> ImportGamelist(string systemId, string? file)
     var copied = string.Join(", ", result.Copied.Select(k => $"{k.Value} {k.Key}"));
     Console.WriteLine($"Imported: metadata for {result.MetadataGames}, {result.Favourites} favourite(s), {result.Matches} match(es); copied {result.CopiedTotal} file(s){(copied.Length > 0 ? $" ({copied})" : string.Empty)}, {result.AlreadyThere} already there, {result.Missing} missing, {result.Unreadable} unreadable.");
     return 0;
+}
+
+void LaunchBoxInfo(LaunchBoxDatabase database)
+{
+    if (database.Info is not { } info)
+    {
+        Console.WriteLine($"No copy of LaunchBox's database ({database.IndexPath}): `launchbox-update` downloads it.");
+        return;
+    }
+
+    var size = new FileInfo(database.IndexPath).Length / (1024.0 * 1024.0);
+    Console.WriteLine($"LaunchBox: {info.Games:N0} games, published {info.Published?.ToLocalTime().ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture) ?? "(unknown)"}, " +
+        $"checked {info.Checked.ToLocalTime().ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture)}; {database.IndexPath} ({size:0} MB)");
 }
 
 int Report(ScrapeBatchResult result)

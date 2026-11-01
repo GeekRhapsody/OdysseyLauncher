@@ -1428,8 +1428,25 @@ public class ConfigLoaderTests
 
         Assert.Equal(2, result.Diagnostics.Count(d => d.IsError));
         Assert.Equal(ScreenMode.Borderless, result.Config.Settings.Display.ScreenMode);
-        Assert.Equal(["igdb", "steamgriddb"], result.Config.Settings.Scraping.Fallback);
+        Assert.Equal(["launchbox", "igdb", "steamgriddb"], result.Config.Settings.Scraping.Fallback);
         Assert.Contains(result.Diagnostics, d => d.Message.Contains("did you mean 'steamgriddb'?", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void A_systems_LaunchBox_platforms_replace_the_built_in_ones_and_must_be_strings()
+    {
+        var result = Load(systems: """
+            [systems.megadrive]
+            launchbox_platforms = ["Sega Genesis", "Sega Pico", "Sega Genesis"]
+
+            [systems.snes]
+            launchbox_platforms = [58]
+            """);
+
+        Assert.Equal(["Sega Genesis", "Sega Pico"], result.Config.FindSystem("megadrive")!.LaunchBoxPlatforms);
+        var error = Single(result, Severity.Error);
+        Assert.Contains("snes.launchbox_platforms", error.ToString(), StringComparison.Ordinal);
+        Assert.Contains("expected an array of strings", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]

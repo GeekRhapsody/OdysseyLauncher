@@ -153,6 +153,7 @@ public sealed partial class GameArtPanel : UiPanel
         ScraperIds.ScreenScraper => "ScreenScraper",
         ScraperIds.Igdb => "IGDB",
         ScraperIds.Steam => "the Steam store",
+        ScraperIds.LaunchBox => "LaunchBox",
         _ => provider,
     };
 

@@ -79,18 +79,20 @@ navigation_sounds = true
 
 [scraping]
 # Every game is looked up with `provider` first; each `fallback` provider, in order, then fills in the fields
-# and media still missing. Providers are "screenscraper", "igdb", "steamgriddb" and "steam" (the Steam store's
-# official art and metadata, found by title, with no credentials; only for systems with steam_store = true, Windows
-# and Steam). A provider with no credentials in secrets.toml (or ODYSSEY_* environment variables) is skipped, and
-# scraping says so. For Steam's own art on PC games first: provider = "steam" and
-# fallback = ["screenscraper", "igdb", "steamgriddb"]; every other system then starts with ScreenScraper.
+# and media still missing. Providers are "screenscraper", "launchbox" (LaunchBox's Games DB, with no credentials: its
+# whole database, about 110 MB, is downloaded the first time it's needed and checked for a newer one weekly; only for
+# systems with launchbox_platforms), "igdb", "steamgriddb" and "steam" (the Steam store's official art and metadata,
+# found by title, with no credentials; only for systems with steam_store = true, Windows and Steam). A provider with
+# no credentials in secrets.toml (or ODYSSEY_* environment variables) is skipped, and scraping says so. For Steam's
+# own art on PC games first: provider = "steam" and fallback = ["screenscraper", "launchbox", "igdb", "steamgriddb"];
+# every other system then starts with ScreenScraper.
 provider = "screenscraper"
-fallback = ["igdb", "steamgriddb"]
-regions = ["eu", "wor", "us", "jp"]    # ScreenScraper region codes; first available wins
+fallback = ["launchbox", "igdb", "steamgriddb"]
+regions = ["eu", "wor", "us", "jp"]    # ScreenScraper region codes, which LaunchBox's regions map to; first available wins
 languages = ["en"]
-# Media kinds to download: cover, back, spine, screenshot, logo (ScreenScraper's wheel), hero (fan art),
-# label (ScreenScraper's support texture: a disc's or cartridge's art) and video (an MP4, which nothing plays yet).
-# Only ScreenScraper has back, spine, label and video.
+# Media kinds to download: cover, back, spine, screenshot, logo (ScreenScraper's wheel, LaunchBox's clear logo),
+# hero (fan art), label (a disc's or cartridge's art) and video (an MP4, which nothing plays yet).
+# Only ScreenScraper and LaunchBox have back, spine and label; only ScreenScraper has video.
 media = ["cover", "back", "spine", "screenshot", "logo"]
 # ROMs up to this size are hashed (CRC32, MD5, SHA-1) once, for ScreenScraper lookups, which ask for a hash.
 # Bigger files (disc images) are looked up by name and size only. 0 hashes nothing.

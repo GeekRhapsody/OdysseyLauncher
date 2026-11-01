@@ -15,7 +15,7 @@ namespace Launcher.App.Settings;
 /// </summary>
 public sealed partial class ScrapingPage : ListPanel
 {
-    private static readonly string[] Providers = [ScraperIds.ScreenScraper, ScraperIds.Igdb, ScraperIds.SteamGridDb, ScraperIds.Steam];
+    private static readonly string[] Providers = [ScraperIds.ScreenScraper, ScraperIds.LaunchBox, ScraperIds.Igdb, ScraperIds.SteamGridDb, ScraperIds.Steam];
 
     private readonly SettingsController _settings;
     private readonly Dictionary<string, SettingRow> _credentialRows = new(StringComparer.Ordinal);
@@ -37,6 +37,7 @@ public sealed partial class ScrapingPage : ListPanel
         ScraperIds.Igdb => "IGDB",
         ScraperIds.SteamGridDb => "SteamGridDB",
         ScraperIds.Steam => "Steam store",
+        ScraperIds.LaunchBox => "LaunchBox Games DB",
         _ => provider,
     };
 
@@ -46,6 +47,7 @@ public sealed partial class ScrapingPage : ListPanel
         ScraperIds.Igdb => "Metadata, covers, screenshots and artwork",
         ScraperIds.SteamGridDb => "Community covers, heroes and logos; no metadata",
         ScraperIds.Steam => "Steam's own art and store metadata, for Windows and Steam games",
+        ScraperIds.LaunchBox => "Metadata, boxes, logos, fan art and disc art; no account, a 110 MB download",
         _ => string.Empty,
     };
 

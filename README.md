@@ -46,8 +46,8 @@ Odyssey Launcher is built with Godot 4 and C# for Windows. **Performance is the 
 
 ### Scraping
 
-- **Four providers:** ScreenScraper, IGDB, SteamGridDB and the Steam store. Ask them in the order you choose; each later one fills only what the earlier ones didn't find.
-- **ScreenScraper works out of the box** in releases. Add your own account in the settings for higher limits; IGDB and SteamGridDB need free keys of your own.
+- **Five providers:** ScreenScraper, LaunchBox's Games DB, IGDB, SteamGridDB and the Steam store. Ask them in the order you choose; each later one fills only what the earlier ones didn't find.
+- **ScreenScraper works out of the box** in releases. Add your own account in the settings for higher limits; IGDB and SteamGridDB need free keys of your own. LaunchBox's Games DB needs no account: its database (about 110 MB) is downloaded the first time it's needed, so games are looked up without the network, and names and art follow the regions you prefer, as ScreenScraper's do.
 - **Every kind of media:** front and back covers, spines, screenshots, logos, fan art, disc and cartridge labels, videos, and PDF manuals. You choose which kinds to download.
 - **Accurate matching:** ScreenScraper identifies files by name, size and checksum, and a title search only counts a hit when the name really matches. When a match is wrong, "scrape this game" searches every provider at once, shows each result with its cover, and lets you choose. For a SteamGridDB result you can also pick the cover, logo and hero from its alternatives.
 - **Runs in the background** in a queue that survives closing the app, and respects each provider's rate limits and quotas.
@@ -199,7 +199,7 @@ The system logos in the **Classic View** theme (`godot/themes/classic-view/logos
 - [ES-DE](https://es-de.org), whose systems catalogue, folder names, emulator commands, release years and descriptions are the basis of the built-in systems.
 - [Lucide](https://lucide.dev) for the status indicator icons (ISC licence).
 - [LibGit2Sharp](https://github.com/libgit2/libgit2sharp) (MIT licence) and [libgit2](https://libgit2.org) (GPLv2 with a linking exception), with which the theme downloader clones and updates themes.
-- [ScreenScraper](https://www.screenscraper.fr), [IGDB](https://www.igdb.com), [SteamGridDB](https://www.steamgriddb.com) and Steam for game metadata and art.
+- [ScreenScraper](https://www.screenscraper.fr), [LaunchBox's Games DB](https://gamesdb.launchbox-app.com), [IGDB](https://www.igdb.com), [SteamGridDB](https://www.steamgriddb.com) and Steam for game metadata and art.
 
 ## Licence
 

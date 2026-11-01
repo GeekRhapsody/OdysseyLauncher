@@ -506,7 +506,8 @@ public sealed partial class ScreenScraperScraper : IScraper
         return url + (url.Contains('?', StringComparison.Ordinal) ? "&" : "?") + "maxwidth=" + side + "&maxheight=" + side;
     }
 
-    private static string[] RegionOrder(ScrapingSettings settings) => [.. settings.Regions.Concat(FallbackRegions).Distinct(StringComparer.Ordinal)];
+    /// <summary><c>[scraping] regions</c>, then <see cref="FallbackRegions"/>: the order every region-aware provider picks by (LaunchBox maps its regions to these codes).</summary>
+    internal static string[] RegionOrder(ScrapingSettings settings) => [.. settings.Regions.Concat(FallbackRegions).Distinct(StringComparer.Ordinal)];
 
     private static string[] LanguageOrder(ScrapingSettings settings) => [.. settings.Languages.Append("en").Distinct(StringComparer.Ordinal)];
 

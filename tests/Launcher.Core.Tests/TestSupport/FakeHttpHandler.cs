@@ -6,7 +6,8 @@ using System.Web;
 namespace Launcher.Core.Tests.TestSupport;
 
 /// <summary>A request the fake handler saw.</summary>
-public sealed record RecordedRequest(string Method, Uri Uri, string? Body, string? Authorization, string? ClientId)
+/// <param name="IfNoneMatch">The <c>If-None-Match</c> header (a conditional download), as sent.</param>
+public sealed record RecordedRequest(string Method, Uri Uri, string? Body, string? Authorization, string? ClientId, string? IfNoneMatch = null)
 {
     public string? Query(string name) => HttpUtility.ParseQueryString(Uri.Query)[name];
 }
@@ -54,7 +55,8 @@ public sealed class FakeHttpHandler : HttpMessageHandler
             request.RequestUri!,
             body,
             request.Headers.Authorization?.ToString(),
-            request.Headers.TryGetValues("Client-ID", out var ids) ? ids.FirstOrDefault() : null);
+            request.Headers.TryGetValues("Client-ID", out var ids) ? ids.FirstOrDefault() : null,
+            request.Headers.IfNoneMatch.Count > 0 ? request.Headers.IfNoneMatch.ToString() : null);
         Requests.Enqueue(recorded);
         if (Offline)
         {

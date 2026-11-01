@@ -48,21 +48,26 @@ public sealed class ManualMatchTests : IAsyncLifetime
         var search = (await service.SearchMatchesAsync(Key(Sonic), null, Ct))!;
 
         Assert.Equal("Sonic the Hedgehog 3", search.Term);                      // the file name's title, without its tags
-        Assert.Equal(["screenscraper", "igdb", "steamgriddb", "steam"], search.Providers.Select(p => p.Provider));
+        Assert.Equal(["screenscraper", "launchbox", "igdb", "steamgriddb", "steam"], search.Providers.Select(p => p.Provider));
         var ss = search.Providers[0];
         Assert.Null(ss.Problem);
         Assert.True(ss.InOrder);
         Assert.Equal(["1187", "1190"], ss.Candidates.Select(c => c.ProviderGameId));
         Assert.Equal("Sonic & Knuckles", ss.Candidates[1].Name);              // HTML entities decoded
         Assert.Equal(1.0, ss.Candidates[0].Similarity, 3);
-        Assert.Equal(["1234", "99"], search.Providers[1].Candidates.Select(c => c.ProviderGameId));
-        Assert.Equal("1994", search.Providers[1].Candidates[0].Year);
+        Assert.Equal(["1234", "99"], search.Providers[2].Candidates.Select(c => c.ProviderGameId));
+        Assert.Equal("1994", search.Providers[2].Candidates[0].Year);
+
+        // LaunchBox has no copy of its database yet: the search starts the download and says so.
+        var launchBox = search.Providers[1];
+        Assert.Empty(launchBox.Candidates);
+        Assert.Contains("downloading", launchBox.Problem, StringComparison.Ordinal);
 
         // SteamGridDB lists Sonic 3 & Knuckles first; the closer name comes first here.
-        Assert.Equal(["5170", "1"], search.Providers[2].Candidates.Select(c => c.ProviderGameId));
+        Assert.Equal(["5170", "1"], search.Providers[3].Candidates.Select(c => c.ProviderGameId));
 
         // The Steam store isn't in the order, and has nothing for a Mega Drive game: it says why.
-        var steam = search.Providers[3];
+        var steam = search.Providers[4];
         Assert.False(steam.InOrder);
         Assert.Empty(steam.Candidates);
         Assert.Contains("steam_store", steam.Problem, StringComparison.Ordinal);
@@ -232,9 +237,9 @@ public sealed class ManualMatchTests : IAsyncLifetime
         var search = (await service.SearchMatchesAsync(Key(Sonic), null, Ct))!;
 
         Assert.Equal(2, search.Providers[0].Candidates.Count);
-        Assert.Contains("client_id", search.Providers[1].Problem, StringComparison.Ordinal);
-        Assert.Contains("HTTP 502", search.Providers[2].Problem, StringComparison.Ordinal);
-        Assert.Empty(search.Providers[2].Candidates);
+        Assert.Contains("client_id", search.Providers[2].Problem, StringComparison.Ordinal);
+        Assert.Contains("HTTP 502", search.Providers[3].Problem, StringComparison.Ordinal);
+        Assert.Empty(search.Providers[3].Candidates);
         Assert.Equal(0, _bed.Http.Count("igdb"));
         Assert.All(search.Providers, p => Assert.DoesNotContain(ScrapeBed.SgdbKey, p.Problem ?? string.Empty, StringComparison.Ordinal));
     }

@@ -18,6 +18,7 @@ public sealed partial class ScrapeMediaPage : ListPanel
     private static readonly (string Id, ScraperCapabilities Supplies)[] Providers =
     [
         (ScraperIds.ScreenScraper, ScreenScraperScraper.Supplies),
+        (ScraperIds.LaunchBox, LaunchBoxScraper.Supplies),
         (ScraperIds.Igdb, IgdbScraper.Supplies),
         (ScraperIds.SteamGridDb, SteamGridDbScraper.Supplies),
         (ScraperIds.Steam, SteamStoreScraper.Supplies),

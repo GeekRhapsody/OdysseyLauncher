@@ -1,0 +1,14 @@
+<?xml version="1.0" standalone="yes"?>
+<!-- A few records in the shape of Files.xml in LaunchBox's Metadata.zip (2026-11-01). -->
+<LaunchBox>
+  <File>
+    <Platform>Sega Genesis</Platform>
+    <FileName>SOR2_v1.1</FileName>
+    <GameName>Streets of Rage 2 (USA)</GameName>
+  </File>
+  <File>
+    <Platform>Sega Genesis</Platform>
+    <FileName>Gunstar Heroes (USA)</FileName>
+    <GameName>Gunstar Heroes (USA)</GameName>
+  </File>
+</LaunchBox>

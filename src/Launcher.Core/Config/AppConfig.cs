@@ -445,6 +445,10 @@ public enum RomDirSource
 /// </param>
 /// <param name="IgdbPlatforms">IGDB platform ids searched for this system's games (a regional twin too, such as Famicom); null or empty skips IGDB.</param>
 /// <param name="SteamStore"><c>steam_store</c>: this system's games are looked up on the Steam store (a PC system).</param>
+/// <param name="LaunchBoxPlatforms">
+/// <c>launchbox_platforms</c>: the LaunchBox Games DB platforms (their names, as LaunchBox writes them) searched for this
+/// system's games; null or empty skips LaunchBox.
+/// </param>
 /// <param name="GameModel">
 /// <c>game_model</c>: a game template id the user chose for this system, looked up in the active theme and then the
 /// built-in one (A7). Null when unset: the theme decides.
@@ -487,7 +491,8 @@ public sealed record SystemConfig(
     SortOrder? GamesSortOrder = null,
     string? Description = null,
     bool AutoConfigureControllers = false,
-    bool SwapFaceButtons = false)
+    bool SwapFaceButtons = false,
+    IReadOnlyList<string>? LaunchBoxPlatforms = null)
 {
     /// <summary>
     /// The built-in definition's <c>emulator</c>, when it's a configured profile; null for a system the user defined, or

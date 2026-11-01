@@ -11,6 +11,7 @@ public static class ScraperIds
     public const string Igdb = "igdb";
     public const string SteamGridDb = "steamgriddb";
     public const string Steam = "steam";
+    public const string LaunchBox = "launchbox";
 }
 
 /// <summary>The metadata a provider can supply (the <c>metadata</c> columns, A4).</summary>

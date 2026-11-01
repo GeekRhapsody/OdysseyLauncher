@@ -100,6 +100,11 @@ public sealed partial class GameMatchPanel : ListPanel
                 new MatchCandidate("52211", term + " (Prototype)", null, 0.9),
                 new MatchCandidate("3402", "Sonic Spinball", "1993", 0.41),
             ], null, "1187", false),
+            new ProviderMatches(ScraperIds.LaunchBox, "LaunchBox Games DB", true,
+            [
+                new MatchCandidate("1043", term, "1994", 1),
+                new MatchCandidate("1121", term + " & Knuckles", "1994", 0.9),
+            ], null, null, false),
             new ProviderMatches(ScraperIds.Igdb, "IGDB", true,
             [
                 new MatchCandidate("1234", term, "1994", 1),

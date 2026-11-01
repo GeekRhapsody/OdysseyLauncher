@@ -20,7 +20,8 @@ namespace Launcher.App.Settings;
 /// each a <see cref="BackgroundJob"/> the HUD and the settings screen show, bound to the library's progress and the
 /// scrape service's M4 events, and cancellable. Neither blocks navigation. It also owns the scrape service: built on
 /// first use (off the main thread: it reads secrets.toml), and replaced when credentials or scraping settings change,
-/// once no scrape is using it.
+/// once no scrape is using it. The local copy of LaunchBox's database outlives the services, which share it, and its
+/// updates are a job of their own, whatever starts them (a scrape's first use, the weekly check, "Update now").
 /// </summary>
 public sealed class LibraryJobs : IDisposable
 {
@@ -33,6 +34,9 @@ public sealed class LibraryJobs : IDisposable
     /// <summary>A system's gamelist.xml being imported (2026-10-04).</summary>
     public const string ImportKind = "import";
 
+    /// <summary>LaunchBox's database being downloaded and indexed (2026-11-01).</summary>
+    public const string LaunchBoxKind = "launchbox";
+
     private readonly AppServices _services;
     private readonly MainThreadQueue _queue;
     private readonly CancellationTokenSource _shutdown = new();
@@ -40,13 +44,29 @@ public sealed class LibraryJobs : IDisposable
     private ScrapeService? _scraper;
     private bool _scraperStale;
     private GamelistImportService? _gamelists;
+    private readonly Lazy<LaunchBoxDatabase> _launchBox;
+    private BackgroundJob? _launchBoxJob;
 
     public LibraryJobs(AppServices services, MainThreadQueue queue)
     {
         _services = services;
         _queue = queue;
         Jobs = new BackgroundJobs(queue);
+        _launchBox = new Lazy<LaunchBoxDatabase>(() =>
+        {
+            var database = new LaunchBoxDatabase(System.IO.Path.Combine(services.Paths.CacheDir, "launchbox"), null, TimeProvider.System, null, GodotLog.Instance);
+            database.UpdateStarted += LaunchBoxStarted;
+            database.UpdateProgress += LaunchBoxProgressed;
+            database.UpdateEnded += LaunchBoxEnded;
+            return database;
+        }, LazyThreadSafetyMode.ExecutionAndPublication);
     }
+
+    /// <summary>
+    /// The local copy of LaunchBox's database, made on first use (not at boot: it makes an HttpClient). Its members do
+    /// file I/O: thread pool only.
+    /// </summary>
+    public LaunchBoxDatabase LaunchBox => _launchBox.Value;
 
     public BackgroundJobs Jobs { get; }
 
@@ -519,6 +539,73 @@ public sealed class LibraryJobs : IDisposable
     /// <summary>Each provider's state, for the settings screen. Thread pool.</summary>
     public IReadOnlyList<ProviderStatus> Providers() => Scraper().GetProviders();
 
+    // ---- LaunchBox's database -------------------------------------------------------------------------
+
+    /// <summary>
+    /// Settings' "Update now": downloads LaunchBox's database when LaunchBox has a newer one than the copy (or there's
+    /// none). The job card shows it and how it ended. Main thread; false if an update is already running.
+    /// </summary>
+    public bool UpdateLaunchBox()
+    {
+        if (Jobs.Running(LaunchBoxKind) is not null)
+        {
+            return false;
+        }
+
+        var database = LaunchBox;
+        var shutdown = _shutdown.Token;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await database.UpdateAsync(force: true, shutdown).ConfigureAwait(false);
+            }
+            catch (Exception e) when (e is ProviderException or OperationCanceledException)
+            {
+                // The job card says how it ended (LaunchBoxEnded).
+            }
+        });
+        return true;
+    }
+
+    private void LaunchBoxStarted(object? sender, EventArgs e) => _queue.Post(() =>
+    {
+        _launchBoxJob = Jobs.Start(LaunchBoxKind, "Updating LaunchBox's database", "MB", LaunchBox.CancelUpdate);
+        _launchBoxJob.SetNote("Asking LaunchBox for a newer copy");
+    });
+
+    /// <summary>Worker thread: straight into the job, once the main thread has started it.</summary>
+    private void LaunchBoxProgressed(object? sender, LaunchBoxProgressEventArgs e)
+    {
+        if (Volatile.Read(ref _launchBoxJob) is { State: JobState.Running } job)
+        {
+            job.SetNote(e.Progress.Phase == "Indexing" ? "Indexing it, for lookups without the network" : "Downloading it (about 110 MB, once a week at most)");
+            job.Report(e.Progress.Done, e.Progress.Total);
+        }
+    }
+
+    private void LaunchBoxEnded(object? sender, LaunchBoxUpdateEndedEventArgs e) => _queue.Post(() =>
+    {
+        if (_launchBoxJob is not { } job)
+        {
+            return;
+        }
+
+        _launchBoxJob = null;
+        if (e.Cancelled)
+        {
+            Jobs.End(job, JobState.Cancelled, "Stopped. LaunchBox keeps the copy it had, if any.");
+        }
+        else if (e.Error is { } error)
+        {
+            Jobs.End(job, JobState.Failed, error);
+        }
+        else
+        {
+            Jobs.End(job, JobState.Finished, e.Outcome == LaunchBoxUpdateOutcome.Updated ? "Done: LaunchBox's database is ready." : "LaunchBox's database is up to date.");
+        }
+    });
+
     /// <summary>
     /// Main thread: credentials or scraping settings changed, so the next scrape needs a new service. One a scrape is
     /// using carries on and is replaced when that scrape ends.
@@ -591,6 +678,7 @@ public sealed class LibraryJobs : IDisposable
             ImageDecoder = PlatformServices.CreateImageDecoder(),
             SkipDerivatives = true,
             SaveResponses = _services.SaveResponses,
+            LaunchBox = LaunchBox,
         });
     }
 
@@ -607,6 +695,14 @@ public sealed class LibraryJobs : IDisposable
         }
 
         scraper?.Dispose();
+        if (_launchBox.IsValueCreated)
+        {
+            var database = _launchBox.Value;
+            database.UpdateStarted -= LaunchBoxStarted;
+            database.UpdateProgress -= LaunchBoxProgressed;
+            database.UpdateEnded -= LaunchBoxEnded;
+            database.Dispose();
+        }
     }
 
     /// <summary>The library's scan progress, straight into the job (Progress&lt;T&gt; would post through Godot's context, unbudgeted).</summary>

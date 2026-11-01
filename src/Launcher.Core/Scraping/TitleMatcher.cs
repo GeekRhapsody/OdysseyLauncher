@@ -51,10 +51,16 @@ public static partial class TitleMatcher
     }
 
     /// <summary>1 for the same name, falling towards 0 with the edit distance; a name that matches before its subtitle scores 0.9.</summary>
-    public static double Similarity(string title, string candidate)
+    public static double Similarity(string title, string candidate) => SimilarityOfNormalised(Normalise(title), Normalise(candidate));
+
+    /// <summary>
+    /// <see cref="Similarity"/> of two names already normalised (<see cref="Normalise"/>), for scoring one title against
+    /// many whose normalised forms are kept (LaunchBox's index).
+    /// </summary>
+    public static double SimilarityOfNormalised(string a, string b)
     {
-        var a = Normalise(title);
-        var b = Normalise(candidate);
+        ArgumentNullException.ThrowIfNull(a);
+        ArgumentNullException.ThrowIfNull(b);
         if (a.Length == 0 || b.Length == 0)
         {
             return 0;

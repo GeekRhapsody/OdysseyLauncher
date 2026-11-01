@@ -313,6 +313,7 @@ public sealed class ScrapeServiceTests : IAsyncLifetime
     [Fact]
     public async Task With_no_credentials_at_all_nothing_is_queued_and_the_reasons_are_given()
     {
+        _bed.Reconfigure("fallback = [\"igdb\", \"steamgriddb\"]\nmedia = [\"cover\", \"label\", \"spine\"]");     // LaunchBox needs none
         _bed.Rom(Sonic);
         await _bed.ScanAsync();
         using var service = _bed.Service(ProviderAccounts.None);
@@ -523,6 +524,7 @@ public sealed class ScrapeServiceTests : IAsyncLifetime
     public async Task A_batch_left_unfinished_when_the_service_stops_resumes_where_it_left_off()
     {
         _bed.MaxThreads = 1;
+        _bed.Reconfigure("fallback = [\"igdb\", \"steamgriddb\"]\nmedia = [\"cover\", \"label\", \"spine\"]");     // one worker: LaunchBox allows four
         for (var i = 1; i <= 5; i++)
         {
             _bed.Rom($"megadrive/Sonic the Hedgehog 3 (Beta {i}).md");
@@ -565,6 +567,7 @@ public sealed class ScrapeServiceTests : IAsyncLifetime
     public async Task Cancelling_a_batch_drops_its_remaining_games()
     {
         _bed.MaxThreads = 1;
+        _bed.Reconfigure("fallback = [\"igdb\", \"steamgriddb\"]\nmedia = [\"cover\", \"label\", \"spine\"]");     // one worker: LaunchBox allows four
         for (var i = 1; i <= 4; i++)
         {
             _bed.Rom($"megadrive/Sonic the Hedgehog 3 (Beta {i}).md");

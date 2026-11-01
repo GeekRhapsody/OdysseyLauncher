@@ -421,16 +421,19 @@ public sealed class ScraperUnitTests
     // ---- Config ------------------------------------------------------------------------------------
 
     [Fact]
-    public void Scraping_settings_default_to_screenscraper_then_igdb_then_steamgriddb()
+    public void Scraping_settings_default_to_screenscraper_then_launchbox_then_igdb_then_steamgriddb()
     {
         var settings = Settings();
         var systems = new ConfigLoader().Load(new ConfigSources { HomeDir = "C:/h", ConfigDir = "C:/c", FileExists = null }).Config;
 
-        Assert.Equal(["screenscraper", "igdb", "steamgriddb"], settings.ProviderOrder);
+        Assert.Equal(["screenscraper", "launchbox", "igdb", "steamgriddb"], settings.ProviderOrder);
         Assert.Equal(["cover", "back", "spine", "screenshot", "logo"], settings.Media);   // not fan art, support textures or videos
         Assert.Equal(64L * 1024 * 1024, settings.HashLimitBytes);
         Assert.Equal([18, 99], systems.FindSystem("nes")!.IgdbPlatforms);
         Assert.Equal([29], systems.FindSystem("megadrive")!.IgdbPlatforms);
+        Assert.Equal(["Sega Genesis"], systems.FindSystem("megadrive")!.LaunchBoxPlatforms);
+        Assert.Equal(["SNK Neo Geo AES", "SNK Neo Geo MVS"], systems.FindSystem("neogeo")!.LaunchBoxPlatforms);
+        Assert.Empty(systems.FindSystem("tic80")!.LaunchBoxPlatforms!);
     }
 
     [Fact]
