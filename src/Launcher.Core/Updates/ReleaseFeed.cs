@@ -88,8 +88,9 @@ public static partial class ReleaseFeed
 
     /// <summary>
     /// The first <paramref name="maxLines"/> lines of a release's notes as plain text, for the question that offers it:
-    /// GitHub's generated notes are Markdown (headings, bullets, links), and the changelog link and the "new
-    /// contributors" heading say nothing about the launcher, nor does each change's "by @author in &lt;pull request&gt;".
+    /// the notes are Markdown (from 2026-11-01 CHANGELOG.md's section for the version, then GitHub's generated notes),
+    /// whose headings ("New", "What's Changed") and changelog link say nothing about the launcher, nor does each
+    /// generated change's "by @author in &lt;pull request&gt;".
     /// Each line is a bullet, cut at <paramref name="maxLength"/> characters; a line follows saying how many more there are.
     /// </summary>
     public static IReadOnlyList<string> Summary(string notes, int maxLines = 5, int maxLength = 100)
@@ -99,6 +100,11 @@ public static partial class ReleaseFeed
         var more = 0;
         foreach (var raw in notes.ReplaceLineEndings("\n").Split('\n'))
         {
+            if (raw.TrimStart().StartsWith('#'))
+            {
+                continue;
+            }
+
             var line = Credit().Replace(raw.Trim().TrimStart('#', '*', '-', '+', ' ').Replace("**", string.Empty, StringComparison.Ordinal), string.Empty).Trim();
             if (line.Length == 0 || line.StartsWith("Full Changelog", StringComparison.OrdinalIgnoreCase)
                 || line.Equals("What's Changed", StringComparison.OrdinalIgnoreCase) || line.Equals("New Contributors", StringComparison.OrdinalIgnoreCase)

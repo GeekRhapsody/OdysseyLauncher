@@ -2,7 +2,8 @@
 # the zip to that tag's GitHub release (made if it doesn't exist). Run it by hand (Actions > Release > Run workflow)
 # for a test build: the zip is kept as the run's artifact and nothing is released.
 #
-# The tag must match <Version> in Directory.Build.props and config/version in godot/project.godot.
+# The tag must match <Version> in Directory.Build.props and config/version in godot/project.godot, and CHANGELOG.md
+# must have the version's notes (a '## <version>' section: tools/release-notes.ps1), which go on the release.
 # The runner has no GPU. The export still needs a rendering device for the shader baker (a headless export bakes
 # nothing), so Godot runs windowed on D3D12's software adapter (WARP), and the PCK's size shows the bake happened.
 name: Release
@@ -52,6 +53,8 @@ jobs:
           if ($Matches[1] -ne $version) { throw "Directory.Build.props says $version, godot/project.godot says $($Matches[1])." }
           if ($env:REF_TYPE -eq 'tag') {
             if ($env:REF_NAME -ne "v$version") { throw "The tag is $env:REF_NAME, but the version is ${version}: tag v$version, or change the version." }
+            # Checked now, so a release without notes stops before the build rather than after it.
+            ./tools/release-notes.ps1 -Version $version -Out "$env:RUNNER_TEMP/release-notes.md"
             $label = $version
           }
           else {
@@ -199,11 +202,12 @@ jobs:
           PRERELEASE: ${{ steps.version.outputs.prerelease }}
         run: |
           # A release made by hand on GitHub (which pushes the tag) keeps its title and notes; the files are added to it.
+          # Otherwise its notes are CHANGELOG.md's for the version, then GitHub's generated ones (the compare link).
           gh release view $env:TAG *> $null
           $exists = $LASTEXITCODE -eq 0
           $PSNativeCommandUseErrorActionPreference = $true
           if (-not $exists) {
-            $options = @('--verify-tag', '--title', "Odyssey Launcher $env:VERSION", '--generate-notes')
+            $options = @('--verify-tag', '--title', "Odyssey Launcher $env:VERSION", '--notes-file', "$env:RUNNER_TEMP/release-notes.md", '--generate-notes')
             if ($env:PRERELEASE -eq 'true') { $options += '--prerelease' }
             gh release create $env:TAG @options
           }

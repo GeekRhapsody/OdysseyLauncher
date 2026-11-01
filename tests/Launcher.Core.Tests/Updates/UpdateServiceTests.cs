@@ -199,6 +199,24 @@ public sealed class UpdateServiceTests : IDisposable
         Assert.Empty(ReleaseFeed.Summary(string.Empty));
     }
 
+    [Fact]
+    public void A_changelogs_headings_are_left_out_of_the_summary()
+    {
+        var notes = """
+            ### New
+
+            - **LaunchBox's Games DB** is a scraping provider.
+
+            ### Fixed
+
+            - Video memory is given back after each game.
+
+            **Full Changelog**: https://github.com/GeekRhapsody/OdysseyLauncher/compare/v0.20.0...v0.21.0
+            """;
+
+        Assert.Equal(["• LaunchBox's Games DB is a scraping provider.", "• Video memory is given back after each game."], ReleaseFeed.Summary(notes));
+    }
+
     // ---- Checking -------------------------------------------------------------------------------------
 
     [Fact]
