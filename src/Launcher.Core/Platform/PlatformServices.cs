@@ -31,7 +31,10 @@ public static class PlatformServices
     public static IUpdateInstaller CreateUpdateInstaller() =>
         OperatingSystem.IsWindows() ? new WindowsUpdateInstaller() : NullUpdateInstaller.Instance;
 
-    /// <summary>Null where no decoder exists yet (Linux): derivatives aren't baked there, and covers show as plain boxes.</summary>
+    /// <summary>
+    /// Null where Core has no decoder (Linux), so nothing is baked by Core alone there; the app brings Godot's instead
+    /// (<c>GodotImageDecoder</c>), which bakes the themes' logos.
+    /// </summary>
     public static Media.IImageDecoder? CreateImageDecoder() =>
         OperatingSystem.IsWindows() ? new WicImageDecoder() : null;
 

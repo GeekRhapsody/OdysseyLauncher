@@ -1,8 +1,10 @@
 using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
 
 namespace Launcher.Core.Platform.Windows;
 
 /// <summary>The kernel32, user32, dwmapi, advapi32, powrprof, iphlpapi and wlanapi calls the Windows platform code uses. Structs are blittable.</summary>
+[SupportedOSPlatform("windows")]
 internal static unsafe partial class NativeMethods
 {
     public const int ErrorFileNotFound = 2;

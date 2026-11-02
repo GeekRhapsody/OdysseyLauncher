@@ -11,6 +11,9 @@ namespace Launcher.Core.Platform;
 /// </summary>
 public sealed class PortableProcessRunner : IProcessRunner
 {
+    /// <summary>What an AppImage's runtime sets for the launcher (A4): not the emulator's, which may be an AppImage itself.</summary>
+    private static readonly string[] AppImageVariables = ["APPIMAGE", "APPDIR", "ARGV0", "OWD"];
+
     public IRunningProcess Start(LaunchPlan plan)
     {
         ArgumentNullException.ThrowIfNull(plan);
@@ -23,6 +26,8 @@ public sealed class PortableProcessRunner : IProcessRunner
         {
             info.ArgumentList.Add(argument);
         }
+
+        LeaveOutAppImageVariables(info.Environment);
 
         var process = new Process { StartInfo = info, EnableRaisingEvents = true };
         try
@@ -42,6 +47,14 @@ public sealed class PortableProcessRunner : IProcessRunner
         {
             process.Dispose();
             throw new ProcessStartException($"The OS couldn't start '{plan.Executable}': {e.Message} (error {e.NativeErrorCode}).", e.NativeErrorCode);
+        }
+    }
+
+    internal static void LeaveOutAppImageVariables(IDictionary<string, string?> environment)
+    {
+        foreach (var name in AppImageVariables)
+        {
+            environment.Remove(name);
         }
     }
 

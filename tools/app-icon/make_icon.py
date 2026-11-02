@@ -4,6 +4,8 @@ rounded square in the boot splash's navy. It writes:
     godot/icon.svg    the master, 256 units square: the editor's and Godot's window icon (config/icon)
     godot/icon.ico    every Windows size, for the window and taskbar (config/windows_native_icon), the exported
                       OdysseyLauncher.exe (the export preset's application/icon) and OdysseyUpdater.exe (ApplicationIcon)
+    tools/linux/odyssey-launcher.png
+                      the 256 pixels, as the .ico holds them, for the AppImage (tools/linux/make-appimage.sh)
 
 Every size is drawn from the same shapes, not scaled down from the master: below 48 pixels the ring and its cut are
 thicker, the tile fills more of the square and loses its gradient, so the cube and the ring stay apart at 16 pixels.
@@ -28,6 +30,7 @@ from PIL import Image
 
 SVG_OUT = 'godot/icon.svg'
 ICO_OUT = 'godot/icon.ico'
+PNG_OUT = 'tools/linux/odyssey-launcher.png'
 WORK = 'artifacts/app-icon'
 SIZES = [16, 20, 24, 32, 40, 48, 64, 128, 256]
 
@@ -159,7 +162,8 @@ def main():
         path = os.path.join(WORK, f'icon-{size}.png')
         images[size].save(path)
     write_ico([images[s] for s in SIZES], ICO_OUT)
-    print(f'{SVG_OUT}, {ICO_OUT} ({os.path.getsize(ICO_OUT) // 1024} KB, {len(SIZES)} sizes)')
+    images[256].save(PNG_OUT, 'PNG', optimize=True)
+    print(f'{SVG_OUT}, {ICO_OUT} ({os.path.getsize(ICO_OUT) // 1024} KB, {len(SIZES)} sizes), {PNG_OUT}')
     if preview_dir:
         preview(images, preview_dir)
 

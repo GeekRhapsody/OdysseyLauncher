@@ -46,7 +46,8 @@ public sealed class FilePickerModelTests : IDisposable
     [Fact]
     public void Hidden_entries_are_skipped()
     {
-        var hidden = _dir.File("list/hidden.png");
+        // Windows hides a file by its attribute; Linux by a name starting with a dot (which .NET reports as Hidden).
+        var hidden = _dir.File(OperatingSystem.IsWindows() ? "list/hidden.png" : "list/.hidden.png");
         File.SetAttributes(hidden, FileAttributes.Hidden);
         _dir.File("list/shown.png");
 

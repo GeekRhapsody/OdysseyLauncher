@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Godot;
 using Launcher.App.Diagnostics;
+using Launcher.App.Textures;
 using Launcher.App.Theming;
 using Launcher.Core.Config;
 using Launcher.Core.Diagnostics;
@@ -80,12 +81,15 @@ public sealed class AppServices : IDisposable
     /// <summary>The app's own themes, read once at boot, for theme switches.</summary>
     public IReadOnlyList<Launcher.Core.Theming.ThemeSource> BuiltInThemes { get; }
 
+    /// <summary>Core's image decoder where it has one (Windows: WIC), else Godot's (<see cref="GodotImageDecoder"/>: Linux).</summary>
+    public static IImageDecoder CreateImageDecoder() => PlatformServices.CreateImageDecoder() ?? new GodotImageDecoder();
+
     /// <summary>
     /// Bakes cover derivatives on its own below-normal thread (M4). Built on first use, after <c>interactive</c>, so
-    /// its thread costs nothing at boot. Null decoder on platforms without one: nothing is baked there.
+    /// its thread costs nothing at boot.
     /// POC (direct source images): the games grid reads the library's images themselves, so only theme logos are baked.
     /// </summary>
-    public DerivativeService Derivatives => _derivatives ??= new DerivativeService(Library, Paths, PlatformServices.CreateImageDecoder())
+    public DerivativeService Derivatives => _derivatives ??= new DerivativeService(Library, Paths, CreateImageDecoder())
     {
         SkipLibraryBakes = true,
     };

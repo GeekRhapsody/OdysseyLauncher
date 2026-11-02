@@ -1,3 +1,5 @@
+using Launcher.Core.Files;
+
 namespace Launcher.Core.Media;
 
 /// <summary>A file in the media folder: its path under the folder (the OS's separators) and its size.</summary>
@@ -84,7 +86,7 @@ public static class MediaFolderMove
         }
 
         files.Sort(static (a, b) => string.CompareOrdinal(a.RelativePath, b.RelativePath));
-        var sameVolume = string.Equals(Path.GetPathRoot(source), Path.GetPathRoot(target), MediaFolder.PathComparison);
+        var sameVolume = Volumes.Same(source, target);
         return new MediaMovePlan(source, target, files, bytes, sameVolume);
     }
 

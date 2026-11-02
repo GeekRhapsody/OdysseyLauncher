@@ -38,7 +38,8 @@ public static class MediaFolder
         var rest = stored.Length > Name.Length && stored.StartsWith(Name, StringComparison.Ordinal) && stored[Name.Length] is '/' or '\\'
             ? stored[(Name.Length + 1)..]
             : stored;
-        return Path.Combine(mediaDir, rest.Replace('/', Path.DirectorySeparatorChar));
+        // Linux keeps '\' as part of a name, so it's turned into the separator first.
+        return Path.Combine(mediaDir, rest.Replace('\\', '/').Replace('/', Path.DirectorySeparatorChar));
     }
 
     /// <summary>Whether two folders are the same folder (ignoring case on Windows, and a trailing separator).</summary>

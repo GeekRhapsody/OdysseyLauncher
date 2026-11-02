@@ -1,4 +1,5 @@
 using Launcher.Core.Config;
+using Launcher.Core.Tests.TestSupport;
 
 namespace Launcher.Core.Tests.Config;
 
@@ -6,6 +7,14 @@ public class ConfigLoaderTests
 {
     private static readonly string Home = Path.Combine(Path.GetTempPath(), "odyssey-home");
     private static readonly string ConfigDir = Path.Combine(Home, "config");
+
+    /// <summary>
+    /// The built-in RetroArch folder (C:/RetroArch-Win64) set to one rooted on this OS, for the install check's tests:
+    /// the built-in programs are Windows' (elsewhere C:/... resolves against ConfigDir) until Linux has its own.
+    /// </summary>
+    private static readonly string RetroArchDir = TestPaths.OnDrive('C', "RetroArch-Win64");
+
+    private static readonly string RetroArchSettings = $"[variables]\nretroarch = \"{RetroArchDir}\"\n";
 
     /// <summary>The systems that were built in before the ES-DE catalogue was added, which the install-check tests count on.</summary>
     private static readonly HashSet<string> FirstFourteen = new(
@@ -113,9 +122,14 @@ public class ConfigLoaderTests
     {
         var emulator = Load().Config.Emulators["retroarch-genesis-plus-gx"];
 
-        Assert.Equal(Path.GetFullPath("C:/RetroArch-Win64/retroarch.exe"), emulator.Executable);
+        if (OperatingSystem.IsWindows())
+        {
+            // The built-in programs are Windows' until Linux has its own.
+            Assert.Equal(Path.GetFullPath("C:/RetroArch-Win64/retroarch.exe"), emulator.Executable);
+            Assert.Equal(Path.GetFullPath("C:/RetroArch-Win64/cores/genesis_plus_gx_libretro.dll"), emulator.Core);
+        }
+
         Assert.Equal(["-L", "{core}", "--fullscreen", "{rom}"], emulator.Args);
-        Assert.Equal(Path.GetFullPath("C:/RetroArch-Win64/cores/genesis_plus_gx_libretro.dll"), emulator.Core);
         Assert.Equal("{emulator_dir}", emulator.WorkingDir);
     }
 
@@ -124,17 +138,18 @@ public class ConfigLoaderTests
     [Fact]
     public void A_system_defaults_to_its_id_then_its_aliases_under_rom_root()
     {
-        var result = Load(settings: """
+        var roms = TestPaths.OnDrive('D', "Games/ROMs");
+        var result = Load(settings: $"""
             [paths]
-            rom_root = "D:/Games/ROMs"
+            rom_root = "{roms}"
             """);
 
         var megadrive = result.Config.FindSystem("megadrive")!;
         Assert.Equal(RomDirSource.Default, megadrive.RomDirSource);
         Assert.Equal(
             [
-                Path.GetFullPath("D:/Games/ROMs/megadrive"), Path.GetFullPath("D:/Games/ROMs/genesis"), Path.GetFullPath("D:/Games/ROMs/md"),
-                Path.GetFullPath("D:/Games/ROMs/megadrivejp"),
+                Path.GetFullPath($"{roms}/megadrive"), Path.GetFullPath($"{roms}/genesis"), Path.GetFullPath($"{roms}/md"),
+                Path.GetFullPath($"{roms}/megadrivejp"),
             ],
             megadrive.RomDirs);
     }
@@ -144,15 +159,16 @@ public class ConfigLoaderTests
     {
         Assert.Null(Load().Config.Settings.MediaDir);
 
-        var absolute = Load(settings: """
+        var big = TestPaths.OnDrive('E', "Big drive");
+        var absolute = Load(settings: $$"""
             [variables]
-            big = "E:/Big drive"
+            big = "{{big}}"
 
             [paths]
             media = "{big}/Launcher media"
             """);
         Assert.Empty(absolute.Diagnostics);
-        Assert.Equal(Path.GetFullPath("E:/Big drive/Launcher media"), absolute.Config.Settings.MediaDir);
+        Assert.Equal(Path.GetFullPath($"{big}/Launcher media"), absolute.Config.Settings.MediaDir);
 
         var relative = Load(settings: """
             [paths]
@@ -184,10 +200,11 @@ public class ConfigLoaderTests
     [Fact]
     public void A_system_can_list_several_folders_using_variables_and_relative_paths()
     {
+        var sega = TestPaths.OnDrive('E', "Sega");
         var result = Load(
-            settings: """
+            settings: $"""
                 [variables]
-                sega = "E:/Sega"
+                sega = "{sega}"
                 """,
             systems: """
                 [systems.megadrive]
@@ -199,7 +216,7 @@ public class ConfigLoaderTests
         Assert.Equal(RomDirSource.Configured, megadrive.RomDirSource);
         Assert.Equal(
             [
-                Path.GetFullPath("E:/Sega/Mega Drive"),
+                Path.GetFullPath($"{sega}/Mega Drive"),
                 Path.GetFullPath(Path.Combine(Home, "ROMs", "genesis")),
                 Path.GetFullPath(Path.Combine(ConfigDir, "local", "md")),
             ],
@@ -554,9 +571,9 @@ public class ConfigLoaderTests
     [Fact]
     public void A_core_is_expanded_like_a_path_and_the_built_in_RetroArch_profiles_pass_it_with_L()
     {
-        var emulator = Load().Config.Emulators["retroarch-snes9x"];
+        var emulator = Load(settings: RetroArchSettings).Config.Emulators["retroarch-snes9x"];
 
-        Assert.Equal(Path.GetFullPath("C:/RetroArch-Win64/cores/snes9x_libretro.dll"), emulator.Core);
+        Assert.Equal(Path.GetFullPath($"{RetroArchDir}/cores/snes9x_libretro.dll"), emulator.Core);
         Assert.Equal(["-L", "{core}", "--fullscreen", "{rom}"], emulator.Args);
         Assert.Null(Load().Config.Emulators["pcsx2"].Core);
     }
@@ -610,9 +627,9 @@ public class ConfigLoaderTests
     [Fact]
     public void A_missing_executable_is_a_warning_naming_every_system_it_affects_and_the_systems_stay_enabled()
     {
-        var retroarch = Path.GetFullPath("C:/RetroArch-Win64/retroarch.exe");
+        var retroarch = Path.GetFullPath($"{RetroArchDir}/retroarch.exe");
 
-        var result = Load(fileExists: path => path != retroarch, checkFor: FirstFourteen.Contains);
+        var result = Load(settings: RetroArchSettings, fileExists: path => path != retroarch, checkFor: FirstFourteen.Contains);
 
         var gpgx = Assert.Single(result.Diagnostics, d => d.Key == "emulators.retroarch-genesis-plus-gx.executable");
         Assert.Equal(Severity.Warning, gpgx.Severity);
@@ -645,9 +662,9 @@ public class ConfigLoaderTests
     [Fact]
     public void A_missing_core_is_reported_on_its_own_key()
     {
-        var core = Path.GetFullPath("C:/RetroArch-Win64/cores/snes9x_libretro.dll");
+        var core = Path.GetFullPath($"{RetroArchDir}/cores/snes9x_libretro.dll");
 
-        var result = Load(fileExists: path => path != core, checkFor: FirstFourteen.Contains);
+        var result = Load(settings: RetroArchSettings, fileExists: path => path != core, checkFor: FirstFourteen.Contains);
 
         var warning = Single(result, Severity.Warning);
         Assert.Equal("emulators.retroarch-snes9x.core", warning.Key);
@@ -1327,9 +1344,10 @@ public class ConfigLoaderTests
     [Fact]
     public void The_catalogue_folds_regional_twins_into_aliases_so_ES_DE_folders_still_work()
     {
-        var config = Load(settings: """
+        var roms = TestPaths.OnDrive('D', "ROMs");
+        var config = Load(settings: $"""
             [paths]
-            rom_root = "D:/ROMs"
+            rom_root = "{roms}"
             """).Config;
 
         // genesis, megadrivejp, sfc, snesna, famicom and so on aren't systems of their own.
@@ -1338,9 +1356,9 @@ public class ConfigLoaderTests
             Assert.Null(config.FindSystem(twin));
         }
 
-        Assert.Contains(Path.GetFullPath("D:/ROMs/megacd"), config.FindSystem("segacd")!.RomDirs);
-        Assert.Contains(Path.GetFullPath("D:/ROMs/tg16"), config.FindSystem("pcengine")!.RomDirs);
-        Assert.Contains(Path.GetFullPath("D:/ROMs/snesna"), config.FindSystem("snes")!.RomDirs);
+        Assert.Contains(Path.GetFullPath($"{roms}/megacd"), config.FindSystem("segacd")!.RomDirs);
+        Assert.Contains(Path.GetFullPath($"{roms}/tg16"), config.FindSystem("pcengine")!.RomDirs);
+        Assert.Contains(Path.GetFullPath($"{roms}/snesna"), config.FindSystem("snes")!.RomDirs);
 
         // What isn't a game system, or has nothing to launch, was left out. Windows and Steam games came back later,
         // with their own launching (SteamGameTests), and desktop apps with them; the PS Vita came back with {title_id}.
@@ -1380,7 +1398,12 @@ public class ConfigLoaderTests
         Assert.Equal("kytyps5", ps5.Emulator);
 
         var kyty = config.Emulators["kytyps5"];
-        Assert.Equal("C:/Emulators/KytyPS5/kyty_emulator.exe", kyty.Executable.Replace('\\', '/'));
+        if (OperatingSystem.IsWindows())
+        {
+            // The built-in programs are Windows' until Linux has its own.
+            Assert.Equal("C:/Emulators/KytyPS5/kyty_emulator.exe", kyty.Executable.Replace('\\', '/'));
+        }
+
         Assert.Equal(["--game", "{rom}"], kyty.Args);
     }
 
@@ -1396,7 +1419,11 @@ public class ConfigLoaderTests
         Assert.Equal([46], vita.IgdbPlatforms);
 
         var vita3k = config.Emulators["vita3k"];
-        Assert.Equal("C:/Emulators/Vita3K/Vita3K.exe", vita3k.Executable.Replace('\\', '/'));
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Equal("C:/Emulators/Vita3K/Vita3K.exe", vita3k.Executable.Replace('\\', '/'));
+        }
+
         Assert.Equal(["--frontend=sdl", "-F", "-r", "{title_id}"], vita3k.Args);
         Assert.Equal(["--frontend=sdl", "-F", "{rom}"], vita3k.InstallArgs);
         Assert.Equal("vita3k", vita3k.Installs);
@@ -1441,9 +1468,14 @@ public class ConfigLoaderTests
     {
         var emulators = Load().Config.Emulators;
 
-        Assert.Equal("C:/Emulators/Mesen/Mesen.exe", emulators["mesen"].Executable.Replace('\\', '/'));
+        if (OperatingSystem.IsWindows())
+        {
+            // The built-in programs are Windows' until Linux has its own.
+            Assert.Equal("C:/Emulators/Mesen/Mesen.exe", emulators["mesen"].Executable.Replace('\\', '/'));
+            Assert.Equal("C:/RetroArch-Win64/cores/opera_libretro.dll", emulators["retroarch-opera"].Core!.Replace('\\', '/'));
+        }
+
         Assert.Equal(["--fullscreen", "{rom}"], emulators["mesen"].Args);
-        Assert.Equal("C:/RetroArch-Win64/cores/opera_libretro.dll", emulators["retroarch-opera"].Core!.Replace('\\', '/'));
         Assert.Equal(["-L", "{core}", "--fullscreen", "{rom}"], emulators["retroarch-opera"].Args);
 
         // %GAMEDIR%\;%ROMPATH%\adam became {rom_dir};{rom_root}/adam, and ES-DE's work-in-the-game's-folder flag a working_dir.

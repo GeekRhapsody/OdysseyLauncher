@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
 using static Launcher.Core.Platform.Windows.NativeMethods;
 
 namespace Launcher.Core.Platform.Windows;
@@ -13,6 +14,7 @@ namespace Launcher.Core.Platform.Windows;
 /// job, so it outlives the launcher whatever started it.
 /// </summary>
 /// <param name="helper">The helper to run; by default <see cref="HelperFileName"/> beside the launcher (<see cref="UpdateHandover.InstallDir"/>).</param>
+[SupportedOSPlatform("windows")]
 public sealed class WindowsUpdateInstaller(string? helper = null) : IUpdateInstaller
 {
     public const string HelperFileName = "OdysseyUpdater.exe";

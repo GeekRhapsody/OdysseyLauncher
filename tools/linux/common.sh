@@ -1,0 +1,57 @@
+# Sourced by the other tools/linux scripts: where the Linux tools live, their pinned versions, and the shared helpers
+# (docs/ARCHITECTURE.md decisions log, 2026-11-02, "A Linux AppImage, built locally").
+
+ODYSSEY_LINUX_CACHE="${ODYSSEY_LINUX_CACHE:-$HOME/.cache/odyssey-linux}"
+TOOLS_DIR="$ODYSSEY_LINUX_CACHE/tools"
+
+# Each pinned by version and by the SHA-256 GitHub gives for the asset.
+POWERSHELL_VERSION=7.6.9
+POWERSHELL_SHA256=1da6d6d6035d651f20e70ddee7c4c15ac6ab8b9fb40ee92240d91263f28a884b
+APPIMAGETOOL_VERSION=1.9.1
+APPIMAGETOOL_SHA256=ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0
+RUNTIME_VERSION=20251108
+RUNTIME_SHA256=2fca8b443c92510f1483a883f60061ad09b46b978b2631c807cd873a47ec260d
+
+PWSH="$TOOLS_DIR/powershell-$POWERSHELL_VERSION/pwsh"
+APPIMAGETOOL="$TOOLS_DIR/appimagetool-$APPIMAGETOOL_VERSION-x86_64.AppImage"
+APPIMAGE_RUNTIME="$TOOLS_DIR/runtime-$RUNTIME_VERSION-x86_64"
+
+export DOTNET_ROOT="$HOME/.dotnet"
+export PATH="$DOTNET_ROOT:$DOTNET_ROOT/tools:$PATH"
+export DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_NOLOGO=1 DOTNET_SKIP_FIRST_TIME_EXPERIENCE=1
+# As release.yml: no build servers left holding the console after a build.
+export MSBUILDDISABLENODEREUSE=1 DOTNET_CLI_USE_MSBUILD_SERVER=0 UseSharedCompilation=false
+
+# Downloads <url> to <file> unless it's there already with the right SHA-256; a file that doesn't match is refused.
+fetch() {
+    local url=$1 sha256=$2 file=$3
+    if [[ -f $file ]] && echo "$sha256  $file" | sha256sum --check --status; then
+        return
+    fi
+
+    mkdir -p "$(dirname "$file")"
+    curl --fail --location --silent --show-error --output "$file.part" "$url"
+    if ! echo "$sha256  $file.part" | sha256sum --check --status; then
+        rm -f "$file.part"
+        echo "error: $url doesn't have the SHA-256 pinned in tools/linux/common.sh" >&2
+        exit 1
+    fi
+
+    mv "$file.part" "$file"
+}
+
+# Copies the working tree at <from> to <to>, leaving out Windows' build outputs (bin/, obj/), Godot's import cache,
+# artifacts/ and .git/, and keeping <to>'s own bin/ and obj/, so builds there stay incremental.
+sync_tree() {
+    local from=$1 to=$2
+    mkdir -p "$to"
+    if command -v rsync > /dev/null; then
+        rsync -a --delete --exclude=/.git/ --exclude=/.vs/ --exclude=/.claude/ --exclude=/artifacts/ \
+            --exclude=/godot/.godot/ --exclude=bin/ --exclude=obj/ "$from/" "$to/"
+    else
+        rm -rf "$to"
+        mkdir -p "$to"
+        tar -C "$from" --exclude=./.git --exclude=./.vs --exclude=./.claude --exclude=./artifacts \
+            --exclude=./godot/.godot --exclude=bin --exclude=obj -cf - . | tar -C "$to" -xf -
+    fi
+}

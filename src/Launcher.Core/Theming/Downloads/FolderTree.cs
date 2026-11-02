@@ -1,3 +1,5 @@
+using Launcher.Core.Files;
+
 namespace Launcher.Core.Theming.Downloads;
 
 /// <summary>Deleting and moving a clone's folder, whose pack files libgit2 leaves read-only (Windows refuses to delete those).</summary>
@@ -38,7 +40,7 @@ internal static class FolderTree
             Directory.Move(from, to);
             return;
         }
-        catch (IOException) when (!SameRoot(from, to))
+        catch (IOException) when (!Volumes.Same(from, to))
         {
             // Another volume: copy, then delete below.
         }
@@ -46,9 +48,6 @@ internal static class FolderTree
         Copy(from, to);
         Delete(from);
     }
-
-    private static bool SameRoot(string a, string b) =>
-        string.Equals(Path.GetPathRoot(Path.GetFullPath(a)), Path.GetPathRoot(Path.GetFullPath(b)), StringComparison.OrdinalIgnoreCase);
 
     private static void Copy(string from, string to)
     {

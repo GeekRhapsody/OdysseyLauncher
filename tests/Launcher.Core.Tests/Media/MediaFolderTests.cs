@@ -67,7 +67,8 @@ public sealed class MediaFolderTests : IDisposable
         Old("ps2/covers/Game.png", "12345");
         Old("ps2/videos/Game.mp4", "123");
         Old("notes.txt", "1");
-        var hidden = Old("ps2/covers/Thumbs.db");
+        // Windows hides a file by its attributes; Linux by a name starting with a dot (KDE's folder settings, here).
+        var hidden = Old(OperatingSystem.IsWindows() ? "ps2/covers/Thumbs.db" : "ps2/covers/.directory");
         File.SetAttributes(hidden, FileAttributes.Hidden | FileAttributes.System);
 
         var plan = MediaFolderMove.Plan(From, To, Ct);

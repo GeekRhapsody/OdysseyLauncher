@@ -330,6 +330,7 @@ public sealed class LaunchBoxTests : IAsyncLifetime
         _bed.Rom(Sor2);
         await _bed.ScanAsync();
         using var service = _bed.Service(derivatives: true);
+        Assert.SkipUnless(service.Derivatives.CanBake, "no image decoder on this platform");
 
         await service.ScrapeGameAsync(Key(Sor2), Ct);
 
@@ -366,6 +367,7 @@ public sealed class LaunchBoxTests : IAsyncLifetime
         _bed.Rom(Sor2);
         await _bed.ScanAsync();
         using var service = _bed.Service(derivatives: true);
+        Assert.SkipUnless(service.Derivatives.CanBake, "no image decoder on this platform");
 
         await service.ScrapeGameAsync(Key(Sor2), Ct);
 
@@ -382,6 +384,7 @@ public sealed class LaunchBoxTests : IAsyncLifetime
         _bed.Rom(Sor2);
         await _bed.ScanAsync();
         using var service = _bed.Service(derivatives: true);
+        Assert.SkipUnless(service.Derivatives.CanBake, "no image decoder on this platform");
 
         await service.ScrapeGameAsync(Key(Sor2), Ct);
 

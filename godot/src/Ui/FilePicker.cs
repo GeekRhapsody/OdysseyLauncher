@@ -580,7 +580,8 @@ public sealed partial class FilePicker : UiPanel
                 }
             },
             Placeholder: OperatingSystem.IsWindows() ? @"D:\ROMs or \\nas\roms" : "/home/me/ROMs",
-            Subtitle: _request.Mode == PickerMode.Folder ? "A folder, or a network share (\\\\server\\share)" : "A folder, or the file itself",
+            Subtitle: _request.Mode != PickerMode.Folder ? "A folder, or the file itself"
+                : OperatingSystem.IsWindows() ? "A folder, or a network share (\\\\server\\share)" : "A folder (a network share is the folder it's mounted on)",
             Validate: text => PathInput.Resolve(text, here, home).Problem));
     }
 

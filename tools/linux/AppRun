@@ -1,0 +1,6 @@
+#!/bin/sh
+# The AppImage's entry point (tools/linux/make-appimage.sh): the launcher with every argument, in the folder it was
+# started from. It sets nothing, so what the launcher starts inherits the user's environment (the launcher leaves out
+# the variables the AppImage runtime adds: Platform/PortableProcessRunner).
+here="$(dirname "$(readlink -f "$0")")"
+exec "$here/usr/bin/OdysseyLauncher.x86_64" "$@"

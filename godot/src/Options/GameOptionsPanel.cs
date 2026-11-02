@@ -645,7 +645,7 @@ public sealed partial class GameOptionsPanel : ListPanel
 
         if (IsShortcut(plan.Files[0].RelPath))
         {
-            text += "\n\nIt's a shortcut: the game it starts stays installed. Uninstall that from Windows or its store.";
+            text += $"\n\nIt's a shortcut: the game it starts stays installed. Uninstall that from {(OperatingSystem.IsWindows() ? "Windows or its store" : "its store")}.";
         }
 
         return text + "\n\nIts images, favourite and play history are kept, and come back if you add the game again.";

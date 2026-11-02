@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Reflection;
+using System.Runtime.Versioning;
 using Launcher.Core.Platform;
 using Launcher.Core.Platform.Windows;
 using Launcher.Core.Tests.TestSupport;
@@ -11,6 +12,7 @@ namespace Launcher.Core.Tests.Updates;
 /// the release's Native AOT one, with the fake emulator standing in for the launcher: as the running launcher it
 /// waits for, and as the old and new versions' executable it starts again.
 /// </summary>
+[SupportedOSPlatform("windows")]
 public sealed class WindowsUpdateInstallerTests : IDisposable
 {
     private static readonly TimeSpan Wait = TimeSpan.FromSeconds(60);
@@ -53,10 +55,7 @@ public sealed class WindowsUpdateInstallerTests : IDisposable
     [Fact]
     public async Task An_update_replaces_the_launchers_files_keeps_the_users_and_starts_it_again()
     {
-        if (!OperatingSystem.IsWindows())
-        {
-            return;
-        }
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "The update helper is Windows-only; Linux can't update itself yet.");
 
         InstallOld();
         StageNew();
@@ -90,10 +89,7 @@ public sealed class WindowsUpdateInstallerTests : IDisposable
     [Fact]
     public async Task A_move_that_fails_puts_the_old_version_back_and_starts_it()
     {
-        if (!OperatingSystem.IsWindows())
-        {
-            return;
-        }
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "The update helper is Windows-only; Linux can't update itself yet.");
 
         InstallOld();
         StageNew();
@@ -122,6 +118,8 @@ public sealed class WindowsUpdateInstallerTests : IDisposable
     [Fact]
     public async Task Bad_arguments_change_nothing()
     {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "The update helper is Windows-only; Linux can't update itself yet.");
+
         InstallOld();
 
         var exit = await RunHelper(["--pid", "12", "--install", "relative", "--log", LogFile]);

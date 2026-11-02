@@ -13,6 +13,8 @@ public sealed class ToolProcessTests : IDisposable
     [Fact]
     public void A_tools_leftover_process_is_ended_when_it_exits()
     {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "Job objects are Windows-only; exports are made on Windows.");
+
         // The fake starts a copy of itself that sleeps 30 s, then exits 1.5 s later (time for the copy to log itself):
         // a build leaving vctip.exe behind.
         var log = _dir.Combine("tool.json");
@@ -26,11 +28,8 @@ public sealed class ToolProcessTests : IDisposable
 
         Assert.Equal(3, result.ExitCode);
         Assert.True(watch.Elapsed < TimeSpan.FromSeconds(20), $"It waited {watch.Elapsed} for the leftover's output pipe.");
-        if (OperatingSystem.IsWindows())
-        {
-            var child = WaitForLog(log + ".child");
-            Assert.True(HasExited(child.ProcessId), "The leftover should have been ended with the tool.");
-        }
+        var child = WaitForLog(log + ".child");
+        Assert.True(HasExited(child.ProcessId), "The leftover should have been ended with the tool.");
     }
 
     [Fact]

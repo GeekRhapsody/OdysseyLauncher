@@ -12,8 +12,8 @@ namespace Launcher.App.Settings;
 /// <summary>
 /// Graphics (2026-10-08), <c>[display]</c> in settings.toml: the screen mode (exclusive fullscreen, borderless or a
 /// window), the resolution (the 3D's in the fullscreen modes, as Godot can't change the display mode; the window's size
-/// in a window), the video driver (Direct3D 12 or Vulkan, from the next start: it's written to the
-/// <see cref="RenderingOverride"/> beside the executable, and a restart is offered), anisotropic filtering, and the FPS
+/// in a window), the video driver (on Windows, Direct3D 12 or Vulkan, from the next start: it's written to the
+/// <see cref="RenderingOverride"/> beside the executable, and a restart is offered; Linux has Vulkan only), anisotropic filtering, and the FPS
 /// and VRAM readout under the status indicators (<c>[ui] show_performance</c>). A chooses from a list; left and right
 /// step through the values. Each change is saved at once, and everything but the driver applies at once.
 /// </summary>
@@ -23,6 +23,12 @@ public sealed partial class GraphicsPage : ListPanel
     private static readonly ScreenMode[] Modes = [ScreenMode.Fullscreen, ScreenMode.Borderless, ScreenMode.Windowed];
 
     private static readonly RenderingDriver[] Drivers = [RenderingDriver.D3D12, RenderingDriver.Vulkan];
+
+    /// <summary>
+    /// Whether the driver is the user's to choose (A3): Direct3D 12 or Vulkan on Windows. Elsewhere the Mobile renderer
+    /// has only Vulkan, so the row just says so and nothing is written beside the executable (an AppImage's is read-only).
+    /// </summary>
+    private static bool DriverChoice => OperatingSystem.IsWindows();
 
     private readonly SettingsController _settings;
     private readonly SettingRow _screenMode;
@@ -61,8 +67,16 @@ public sealed partial class GraphicsPage : ListPanel
         AddNote("The menus and text are always drawn at the screen's own resolution.");
 
         AddSection("Rendering");
-        _driver = AddRow("Video driver", activated: ChooseDriver);
-        _driver.Adjuster = direction => Step(Drivers, Driver, direction, SaveDriver);
+        if (DriverChoice)
+        {
+            _driver = AddRow("Video driver", activated: ChooseDriver);
+            _driver.Adjuster = direction => Step(Drivers, Driver, direction, SaveDriver);
+        }
+        else
+        {
+            _driver = AddRow("Video driver");
+        }
+
         _anisotropy = AddRow("Anisotropic filtering", activated: ChooseAnisotropy);
         _anisotropy.Adjuster = direction => Step(DisplaySettings.AnisotropicLevels, Anisotropy, direction, SaveAnisotropy);
 
@@ -127,10 +141,18 @@ public sealed partial class GraphicsPage : ListPanel
             _resolution.Detail = ResolutionDetail(resolution, ScreenHeight());
         }
 
-        var driver = Driver;
-        _driver.Value = DriverTitle(driver);
-        _driver.Detail = DriverDetail(driver);
-        _driver.DetailColour = !_editorRun && DisplayNames.Name(driver) != _running ? UiStyle.Warning : UiStyle.Dim;
+        if (DriverChoice)
+        {
+            var driver = Driver;
+            _driver.Value = DriverTitle(driver);
+            _driver.Detail = DriverDetail(driver);
+            _driver.DetailColour = !_editorRun && DisplayNames.Name(driver) != _running ? UiStyle.Warning : UiStyle.Dim;
+        }
+        else
+        {
+            _driver.Value = RunningTitle(_running);
+            _driver.Detail = "The only driver on Linux";
+        }
 
         var anisotropy = Anisotropy;
         _anisotropy.Value = AnisotropyTitle(anisotropy);
@@ -143,7 +165,7 @@ public sealed partial class GraphicsPage : ListPanel
 
     /// <summary>A one-line summary for the settings screen's Graphics row.</summary>
     public static string Summary(DisplaySettings display) =>
-        $"{ModeTitle(display.ScreenMode)} · {(display.ScreenMode == ScreenMode.Windowed ? SizeTitle(display.WindowSize) : ResolutionTitle(display.RenderResolution))} · {DriverTitle(display.RenderingDriver)} · {AnisotropyTitle(display.AnisotropicFiltering)}";
+        $"{ModeTitle(display.ScreenMode)} · {(display.ScreenMode == ScreenMode.Windowed ? SizeTitle(display.WindowSize) : ResolutionTitle(display.RenderResolution))} · {(DriverChoice ? DriverTitle(display.RenderingDriver) : RunningTitle(RenderingServer.GetCurrentRenderingDriverName()))} · {AnisotropyTitle(display.AnisotropicFiltering)}";
 
     // ---- Screen mode ----------------------------------------------------------------------------------
 
@@ -374,16 +396,17 @@ public sealed partial class GraphicsPage : ListPanel
     {
         if (_editorRun)
         {
-            return $"Running {RunningTitle()}. Used by exported builds only: an editor run takes --rendering-driver";
+            return $"Running {RunningTitle(_running)}. Used by exported builds only: an editor run takes --rendering-driver";
         }
 
         return DisplayNames.Name(driver) == _running
             ? "Running now"
-            : $"From the next start (running {RunningTitle()} now)";
+            : $"From the next start (running {RunningTitle(_running)} now)";
     }
 
-    private string RunningTitle() =>
-        DisplayNames.TryParse(_running, out RenderingDriver running) ? DriverTitle(running) : _running;
+    /// <summary>The running driver's name (<see cref="RenderingServer.GetCurrentRenderingDriverName"/>) as the page writes it.</summary>
+    private static string RunningTitle(string running) =>
+        DisplayNames.TryParse(running, out RenderingDriver driver) ? DriverTitle(driver) : running;
 
     private void ChooseDriver()
     {

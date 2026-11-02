@@ -23,7 +23,7 @@ public static class PathInput
 
         if (text.Length == 0)
         {
-            return (null, "Type a folder, such as D:\\ROMs or \\\\nas\\roms.");
+            return (null, OperatingSystem.IsWindows() ? "Type a folder, such as D:\\ROMs or \\\\nas\\roms." : "Type a folder, such as /mnt/games/ROMs or ~/ROMs.");
         }
 
         if (OperatingSystem.IsWindows())
@@ -68,7 +68,9 @@ public static class PathInput
             {
                 if (relativeTo is null || !Path.IsPathFullyQualified(relativeTo))
                 {
-                    return (null, "Type the full path, starting with a drive (D:\\) or a share (\\\\server\\share).");
+                    return (null, OperatingSystem.IsWindows()
+                        ? "Type the full path, starting with a drive (D:\\) or a share (\\\\server\\share)."
+                        : "Type the full path, starting with / (or ~ for your home folder).");
                 }
 
                 text = Path.Combine(relativeTo, text);

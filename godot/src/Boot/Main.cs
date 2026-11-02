@@ -308,7 +308,7 @@ public partial class Main : Node3D
         if (_theme is null && Volatile.Read(ref _plan) is { } plan)
         {
             // User models are processed into CacheDir/models/ and their problems logged to DataDir/logs/models.log (A7).
-            _loader.UseFolders(plan.Paths.CacheDir, plan.Paths.DataDir, PlatformServices.CreateImageDecoder());
+            _loader.UseFolders(plan.Paths.CacheDir, plan.Paths.DataDir, AppServices.CreateImageDecoder());
             _theme = new ThemeRuntime(plan, _loader);
 
             // The theme's wallpaper (A6 Background) is decoded on the thread pool meanwhile; the look shows its gradient
@@ -709,7 +709,7 @@ public partial class Main : Node3D
         AddChild(hud);
         _videoDecoder = PlatformServices.CreateVideoDecoder();
         var context = new UiContext(_ui!, _queue, PlatformServices.CreateFileLocations(services.Paths.HomeDir), services.Paths.HomeDir,
-            services.Paths.DataDir, () => services.Config.Settings.RomRoot, PlatformServices.CreateImageDecoder(), _videoDecoder, PlatformServices.CreatePdfRenderer());
+            services.Paths.DataDir, () => services.Config.Settings.RomRoot, AppServices.CreateImageDecoder(), _videoDecoder, PlatformServices.CreatePdfRenderer());
         _settings = new SettingsController(services, context, _jobs) { Rescan = navigator.Rescan, ThemesList = _options.ThemesList, UpdateFeed = _options.UpdateFeed };
         _settings.ConfigApplied += config =>
         {

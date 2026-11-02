@@ -107,7 +107,8 @@ public static class ObjConverter
         {
             try
             {
-                var candidate = Path.IsPathRooted(path) ? path : Path.Combine(folder, path.Replace('/', Path.DirectorySeparatorChar));
+                // A model made on Windows names its textures with '\', which Linux keeps as part of the name.
+                var candidate = Path.IsPathRooted(path) ? path : Path.Combine(folder, Normalise(path).Replace('/', Path.DirectorySeparatorChar));
                 if (!File.Exists(candidate))
                 {
                     candidate = Path.Combine(folder, Path.GetFileName(Normalise(path)));

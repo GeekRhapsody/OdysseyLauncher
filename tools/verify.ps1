@@ -40,7 +40,9 @@ try {
     Invoke-Step 'Godot C# build (headless)' { godot --headless --path godot --build-solutions --quit }
     Invoke-Step 'Godot import (headless)' { godot --headless --path godot --import }
     Invoke-Step 'Godot smoke run (headless)' { godot --headless --path godot --quit-after 10 } -MustContain 'Launcher.Core'
-    Invoke-Step 'Godot launch smoke run (headless)' { powershell -NoProfile -ExecutionPolicy Bypass -File tools\launch-smoke.ps1 } -MustContain 'Launch smoke passed'
+    # In a PowerShell of its own (this one's program: Windows PowerShell or pwsh), so its output is captured whole.
+    $powershell = (Get-Process -Id $PID).Path
+    Invoke-Step 'Godot launch smoke run (headless)' { & $powershell -NoProfile -ExecutionPolicy Bypass -File tools/launch-smoke.ps1 } -MustContain 'Launch smoke passed'
 
     Write-Host 'All checks passed.' -ForegroundColor Green
 }

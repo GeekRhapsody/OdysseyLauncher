@@ -23,7 +23,9 @@ public static class ConfigInput
 
         if (!Path.IsPathFullyQualified(path))
         {
-            return $"'{path}' isn't a full path. Start it with a drive (D:\\) or a share (\\\\server\\share).";
+            return OperatingSystem.IsWindows()
+                ? $"'{path}' isn't a full path. Start it with a drive (D:\\) or a share (\\\\server\\share)."
+                : $"'{path}' isn't a full path. Start it with /.";
         }
 
         try

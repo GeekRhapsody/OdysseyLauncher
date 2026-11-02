@@ -665,3 +665,35 @@ This checks what the tests and the fake emulator can't: real Vita games installe
 ### Send back
 
 - Anything that differed (especially a game installed again on its second launch, or the launcher coming back while the game still ran), how long the first launch's install took and the game's size, your Vita3K's version (its window's title), and the log lines: `Select-String -Path "$env:APPDATA\Godot\app_userdata\Odyssey Launcher\logs\godot.log" -Pattern '^Launch|error|warning'`.
+
+## Linux: the AppImage on CachyOS (KDE)
+
+This checks what WSL can't: the AppImage on a real Linux desktop, with its GPU, KDE's window manager, a pad and a real emulator (ROADMAP.md, L1). The launcher has no Linux emulator profiles yet (L2), so you point it at your emulators yourself, below.
+
+**Set-up (once).**
+- Copy `artifacts/linux/OdysseyLauncher-0.21.0-linux-x86_64.AppImage` and its `.sha256` from the Windows PC into `~/Applications` (make the folder if need be), then, in a terminal there: `sha256sum -c OdysseyLauncher-0.21.0-linux-x86_64.AppImage.sha256` (it should say OK), and `chmod +x OdysseyLauncher-0.21.0-linux-x86_64.AppImage`.
+- A few ROMs under `~/ROMs/<system>` (the default ROM root), such as `~/ROMs/megadrive` and `~/ROMs/snes`, or your NAS's folders later in Settings > ROM folders.
+- RetroArch and a Mega Drive core: `sudo pacman -S retroarch libretro-genesis-plus-gx`. Then make `~/.config/OdysseyLauncher/emulators.toml` (start the launcher once first, so the folder exists) holding:
+
+  ```toml
+  [emulators.retroarch-genesis-plus-gx]
+  executable = "/usr/bin/retroarch"
+  core = "/usr/lib/libretro/genesis_plus_gx_libretro.so"
+  ```
+
+1. **Starting.** Double-click the AppImage in Dolphin (the file manager); if KDE asks, choose to run it. Quit it (View, Quit app), and start it again from a terminal: `~/Applications/OdysseyLauncher-0.21.0-linux-x86_64.AppImage`. Among the first lines, `Vulkan … Using Device #0:` names your GPU, and `Launcher.Core …` ends `mobile/vulkan`.
+2. **The systems grid.** Slab's cards each show their system's image. The first start bakes them in the background, so they appear within about ten seconds (the log's `Theme: logos: 173 baked, 0 failed` line gives the time); after that they're there at once. In Settings > Theme try Console and Classic View, then go back to Slab.
+3. **Browsing.** Enter a system, scroll its games, inspect one (R3) and put it back, and go back to the systems. Turn on Settings > Graphics > Show FPS and VRAM, and note the frame rate while scrolling.
+4. **Graphics.** Settings > Graphics: Video driver says Vulkan, "The only driver on Linux", with nothing to choose. Try each screen mode (Borderless, Fullscreen, Windowed) and note anything odd: a window in the wrong place, a black screen, a blurry picture.
+5. **Launching.** Launch a Mega Drive game: RetroArch starts full screen with it. Quit RetroArch: the launcher comes back. Note whether it's in front with the focus, or you had to click it or Alt+Tab to it (Linux's focus hand-back isn't written yet, so KWin decides). If you have a standalone emulator installed (Dolphin, PCSX2, ...), set its program in Settings > Emulators with the picker (its folders start from `/`, your home folder, Desktop and Downloads) and launch a game with it too.
+6. **A pad.** Navigate the grids and the settings with your controller alone.
+7. **Folders.** The launcher keeps its config in `~/.config/OdysseyLauncher`, its databases and media in `~/.local/share/OdysseyLauncher`, and its cache in `~/.cache/OdysseyLauncher`. Then the portable mode: quit, make an empty `portable.txt` beside the AppImage (`touch ~/Applications/portable.txt`), and start it: it begins with an empty library in `~/Applications/userdata/`. Delete `portable.txt` and `userdata` afterwards.
+8. **Downloading a theme.** Settings > Download themes: the list loads, and a theme installs and can be chosen (this is libgit2 and your system's OpenSSL working from the AppImage).
+9. **The taskbar.** While it runs, KDE's taskbar shows Odyssey Launcher with its icon (a cube in a ring), not a generic one.
+
+### Send back
+
+- Anything that differed, above all a step that failed, a wrong-looking screen, or the launcher not coming back after a game.
+- Your set-up: `echo $XDG_SESSION_TYPE` (wayland or x11), Plasma's version (`plasmashell --version`), the GPU and its driver (step 1's `Vulkan … Using Device` line), and the display's resolution and scale (System Settings > Display).
+- The log lines: `grep -E '^(Launch|Boot|Theme: logos|Vulkan)|ERROR|WARNING' ~/.local/share/godot/app_userdata/"Odyssey Launcher"/logs/godot.log`.
+- The first Linux bench numbers, with nothing else running: `~/Applications/OdysseyLauncher-0.21.0-linux-x86_64.AppImage --resolution 1280x800 -- --bench=$HOME/odyssey-bench-boot.json --bench-frames=600`, and with your library's biggest system, `… -- --bench=$HOME/odyssey-bench-scroll.json --bench-scenario=scroll`. Send both JSON files.

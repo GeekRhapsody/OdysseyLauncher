@@ -68,7 +68,7 @@ public sealed partial class SettingsHome : ListPanel
         _graphics = AddRow("Graphics", activated: () => Layer.Push(new GraphicsPage(_settings)));
 
         AddSection("UI");
-        _clock = AddIndicatorRow("Clock", "The time, top right, in your Windows time format", "show_clock", ui => ui.ShowClock);
+        _clock = AddIndicatorRow("Clock", $"The time, top right, in your {(OperatingSystem.IsWindows() ? "Windows" : "system's")} time format", "show_clock", ui => ui.ShowClock);
         _battery = AddIndicatorRow("Battery", "Its charge, top right", "show_battery", ui => ui.ShowBattery);
         _network = AddIndicatorRow("Network", "Wi-Fi with its signal, a cable, or disconnected", "show_network", ui => ui.ShowNetwork);
         _sounds = AddIndicatorRow("Navigation sounds", "A tock when the focus moves, a whoosh when you enter a system", "navigation_sounds",
@@ -145,7 +145,8 @@ public sealed partial class SettingsHome : ListPanel
         ShowIndicator(_emptySystems, !display.HideEmptySystems);
         if (_settings.DeviceStatus?.Current is { Battery.Present: false })
         {
-            _battery.Detail = "This PC has no battery, so it never shows";
+            // Off Windows the battery isn't read yet (PortableDeviceStatus), so none is reported, even on a laptop.
+            _battery.Detail = OperatingSystem.IsWindows() ? "This PC has no battery, so it never shows" : "The battery isn't read on Linux yet, so it never shows";
         }
 
         var problems = services.Diagnostics.Count(d => d.Severity != Severity.Info);

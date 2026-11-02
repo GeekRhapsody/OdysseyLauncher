@@ -296,6 +296,26 @@ Moved or not done:
 - the app still doesn't resume a scrape batch left unfinished when it closed (part 1)
 - the owner's manual test: a real pad on the panels, and a live "scrape this game" and "scrape this system" ([manual-tests.md](manual-tests.md#m7-part-2-item-options))
 
+## L1: Linux AppImage (local)
+
+The owner's request (2026-11-02): the first step towards Linux, accepted on a CachyOS KDE desktop, then Ubuntu and Mint. The design is in [ARCHITECTURE.md](ARCHITECTURE.md) (A1 `Platform`, A3 Rendering, A4, and the decisions log, 2026-11-02).
+
+**Scope**
+- A "Linux" export preset, exported on Windows, and an AppImage made from it on Linux (a WSL distro on the same PC), built locally: the release workflow is unchanged.
+- Core's tests on Linux, and the launch smoke test against the AppImage.
+- What broke or looked broken on Linux: the Graphics page's driver, the default theme's logos, the cache's folder, portable mode in an AppImage, moves between volumes, what the emulator inherits, and Windows wording.
+
+**Acceptance**
+- `tools/linux/test.sh` passes on Linux, with the Windows-only tests reported as skipped, not passed.
+- `tools/linux/make-appimage.ps1` makes the AppImage, and its checks pass from its read-only mount: a headless smoke run, and a `--launch` of the fake emulator.
+- On a CachyOS KDE desktop the AppImage starts, shows Slab's logos, browses, and launches a game through an emulator set in Settings (the owner's manual test: [manual-tests.md](manual-tests.md#linux-the-appimage-on-cachyos-kde)).
+
+**After L1**, in order:
+1. **L2, emulators on Linux** (what makes it usable): per-OS built-in profiles and `[variables]`, from ES-DE's Linux `es_find_rules.xml` (PATH, Flatpak exports, AppImages in `~/Applications`; cores in `~/.config/retroarch/cores`, `/usr/lib/libretro`, `/usr/lib/x86_64-linux-gnu/libretro`); Linux extensions for `desktop`, `ports` and `steam` (`.desktop`, `.sh`, `.AppImage`).
+2. **L3, parity on KDE:** the foreground back after a game (X11's `_NET_ACTIVE_WINDOW`, or Godot's `WindowMoveToForeground`, if KWin doesn't give it); the power menu through logind; the battery and Wi-Fi bars from sysfs and `/proc/net/wireless`; `/run/media` and `/mnt` in the pickers; stub launchers followed by their process group; Steam from `registry.vdf`; Vita3K's XDG folders; `rom_dirs` that differ only in case.
+3. **L4, media:** videos (FFmpeg or GStreamer) and manuals (PDFium or Poppler), each a native library for the owner to choose.
+4. **L5, release:** a Linux job in release.yml (the export on the Windows runner, the AppImage made and checked on ubuntu-24.04, one job creating the release); AppStream metadata; updates that replace the `.AppImage` file (appimagetool can embed zsync's update information); Ubuntu 24.04 and Mint 22 checks; the wiki and CHANGELOG.
+
 ## Progress
 
 Update this at the end of every milestone: the status, the date, and the evidence (commit, bench JSON and captures).
@@ -310,6 +330,7 @@ Update this at the end of every milestone: the status, the date, and the evidenc
 | M5 3D navigation | Done (p99 and fullscreen hitches not met, the same without the launcher's work; handheld, 4K and PresentMon still to do) | 2026-09-28 | [perf/m5-navigation.md](perf/m5-navigation.md), bench JSON in [perf/m5/](perf/m5/), [captures](perf/m5/captures.jpg); 259 tests, including the model spec check; see the log below |
 | M6 Theming and custom models | Done (the working set is at the target with 300 per-game models; p99 and fullscreen hitches not met, as in M5; a Blender model on the real display is the owner's manual test) | 2026-09-30 | Part 1: [perf/m6-themes.md](perf/m6-themes.md), [perf/m6/](perf/m6/), [captures](perf/m6/captures.jpg). Part 2: [perf/m6-models.md](perf/m6-models.md), [perf/m6/part2/](perf/m6/part2/), [captures](perf/m6/part2/captures.jpg), [THEMING.md](THEMING.md); 427 tests; see the log below |
 | M7 Settings UI | Done (a real pad on the panels and live scrapes are the owner's manual test; manual matching moved out) | 2026-10-01 | Part 1: [perf/m7-settings.md](perf/m7-settings.md), bench JSON in [perf/m7/](perf/m7/), [captures](perf/m7/captures.jpg); 477 tests. Part 2: [perf/m7-items.md](perf/m7-items.md), bench JSON in [perf/m7/part2/](perf/m7/part2/), [captures](perf/m7/part2/captures.jpg); 523 tests; see the log below |
+| L1 Linux AppImage (local) | Done (a run on a CachyOS KDE desktop is the owner's manual test: [manual-tests.md](manual-tests.md#linux-the-appimage-on-cachyos-kde)) | 2026-11-02 | [captures](perf/linux-l1/captures.jpg) (the AppImage in WSLg on software Vulkan); on Windows 1,334 tests (1,333 pass, 1 skipped), on Linux 1,331 without the benchmarks (1,270 pass, 61 skipped); see the log below |
 
 ### Log
 
@@ -998,3 +1019,34 @@ Update this at the end of every milestone: the status, the date, and the evidenc
     - The first frame a grid with labels shows takes about 11 ms longer (28–29 ms), once a session: its labels are made and laid out and their glyphs drawn. Making them during the warm-up would move that out of sight, at a cost to everyone's start-up.
     - With set columns of wide boxes (SNES, 4 across), the focused box's growth reaches the heading's subtitle, as in the grid; the labels' room raises the row a little more.
     - A label is the item's title on up to two lines, then an ellipsis; nothing scrolls a longer one.
+- **2026-11-02: L1, a Linux AppImage built locally** (the owner's request: "start making progress towards a Linux AppImage build", accepted on a CachyOS KDE desktop first, Ubuntu and Mint later; built on this PC, the release workflow unchanged).
+  - **What was added:**
+    - `tools/linux/`:
+      - `setup.sh` installs the pinned tools into the WSL distro, with no sudo: .NET in `~/.dotnet`, PowerShell 7.6.9, appimagetool 1.9.1 and the type2 runtime 20251108 (the last three by version and GitHub's SHA-256, in `common.sh`).
+      - `test.sh` builds and tests on Linux from a copy of the tree, so the checkout's Windows `bin/` and `obj/` stay as they are.
+      - `make-appimage.sh` packs an export into `OdysseyLauncher-<version>-linux-x86_64.AppImage` (AppRun, `odyssey-launcher.desktop`, and the 256-pixel icon that `tools/app-icon/make_icon.py` now writes too) and its `.sha256`.
+      - `smoke.sh` checks it headless. `make-appimage.ps1` is the one command on Windows: the export, then the rest in WSL's `OdysseyLinux` distro.
+    - The "Linux" export preset (`godot/export_presets.cfg`).
+    - Core:
+      - `PlatformPaths`: the XDG folders (the cache in `~/.cache`), and `portable.txt` beside the `.AppImage` file.
+      - `Files/Volumes`: one volume or two, by mount points off Windows, for the media folder's move and the theme downloader's.
+      - `PortableProcessRunner` leaves the AppImage runtime's variables out of the emulator's environment.
+      - `MediaFolder.FullPath` reads `\` on Linux too, as it says it does; `ObjConverter` finds a texture that an OBJ made on Windows names with `\`.
+      - `[SupportedOSPlatform("windows")]` on `NativeMethods` and `WindowsUpdateInstaller`, with `ToolProcess`'s guards made plain to the analyser.
+    - App:
+      - `Textures/GodotImageDecoder`, Core's image decoder through Godot off Windows, given by `AppServices.CreateImageDecoder` (the themes' logos, scraping's placeholder check, model textures).
+      - Settings > Graphics shows Vulkan, the only driver on Linux, with no choice and no `override.cfg` written.
+      - Wording that was Windows' on every OS (drives and shares in the pickers, `retroarch.exe`, a shortcut's store, the clock's format, a battery that Linux doesn't read yet) says what's true on each.
+    - Tests: `TestPaths.OnDrive` for the config tests that use a folder on another drive; the built-in Windows paths asserted on Windows only; Linux's hidden files are dot-names; Windows-only tests skip rather than return. New tests cover the XDG and AppImage paths, mount points and the runner's environment.
+    - `tools/launch-smoke.ps1` runs under PowerShell 7 on Linux; `tools/verify.ps1` runs it with its own PowerShell.
+  - **Verification:**
+    - Windows: `dotnet build`, 0 errors; `dotnet test`, 1,334 tests: 1,333 pass and 1 is skipped. The launch smoke test passes.
+    - Linux (WSL, Ubuntu 24.04): the first run failed 21 tests, all assuming Windows but two that were Linux bugs (an OBJ's `textures\art.png`, a stored `media\...` path). Now 1,331 tests without the benchmarks: 1,270 pass and 61 skip (Windows-only, or no video or PDF decoder), in 14 s.
+    - The export: the PCK is 1.18 MB, so the shaders were baked (Vulkan's SPIR-V; Direct3D 12's PCK is 2.2 MB). `objdump` puts the floor at glibc 2.34, from SQLite's `libe_sqlite3.so` (Godot's binary needs 2.28). The AppImage is 117 MB.
+    - The AppImage, mounted through FUSE in WSL: the smoke run prints `.NET 8.0.32 | mobile/vulkan`, and the launch smoke test passes (the fake emulator's arguments exact, its Unicode folder included). The folders are the XDG ones, or `userdata/` beside the `.AppImage` file with the marker there.
+    - Windowed in WSLg on lavapipe (software Vulkan): Godot's decoder baked Slab's 173 logos in 9.3 s, none failing, and Settings > Graphics shows Vulkan ([captures](perf/linux-l1/captures.jpg)). On Windows the Graphics page is unchanged.
+  - **Not done:**
+    - The run on a CachyOS KDE desktop is the owner's manual test ([manual-tests.md](manual-tests.md#linux-the-appimage-on-cachyos-kde)), and so are the first Linux bench numbers: lavapipe's say nothing about a GPU.
+    - The built-in emulator profiles are still Windows programs (L2): on Linux each system needs its emulator set in Settings, and the install check warns about `C:/` paths under ConfigDir.
+    - The `tools/linux` scripts and AppRun need their executable bit in git (`git add --chmod=+x`) when they're committed.
+    - The rest is listed under L1, "After L1".

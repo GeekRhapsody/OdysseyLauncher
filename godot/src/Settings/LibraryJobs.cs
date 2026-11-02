@@ -10,7 +10,6 @@ using Launcher.App.Ui;
 using Launcher.Core.Diagnostics;
 using Launcher.Core.Importing;
 using Launcher.Core.Library;
-using Launcher.Core.Platform;
 using Launcher.Core.Scraping;
 
 namespace Launcher.App.Settings;
@@ -675,7 +674,7 @@ public sealed class LibraryJobs : IDisposable
             Paths = _services.Paths,
             Accounts = accounts.Accounts,
             Log = GodotLog.Instance,
-            ImageDecoder = PlatformServices.CreateImageDecoder(),
+            ImageDecoder = AppServices.CreateImageDecoder(),
             SkipDerivatives = true,
             SaveResponses = _services.SaveResponses,
             LaunchBox = LaunchBox,

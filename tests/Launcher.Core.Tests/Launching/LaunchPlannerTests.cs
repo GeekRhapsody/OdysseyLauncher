@@ -144,11 +144,19 @@ public class LaunchPlannerTests
     [Fact]
     public void The_built_in_RetroArch_profiles_pass_their_core_with_L()
     {
-        var plan = LaunchPlanner.Plan(Config(), Game()).Plan!;
+        var config = Config();
+        var plan = LaunchPlanner.Plan(config, Game()).Plan!;
 
-        Assert.Equal(Path.GetFullPath("C:/RetroArch-Win64/retroarch.exe"), plan.Executable);
-        Assert.Equal(["-L", Path.GetFullPath("C:/RetroArch-Win64/cores/genesis_plus_gx_libretro.dll"), "--fullscreen", Rom], plan.Arguments);
-        Assert.Equal(Path.GetFullPath("C:/RetroArch-Win64/cores/genesis_plus_gx_libretro.dll"), plan.Core);
+        var profile = config.Emulators["retroarch-genesis-plus-gx"];
+        Assert.Equal(profile.Executable, plan.Executable);
+        Assert.Equal(["-L", profile.Core!, "--fullscreen", Rom], plan.Arguments);
+        Assert.Equal(profile.Core, plan.Core);
+        if (OperatingSystem.IsWindows())
+        {
+            // The built-in programs are Windows' until Linux has its own.
+            Assert.Equal(Path.GetFullPath("C:/RetroArch-Win64/retroarch.exe"), plan.Executable);
+            Assert.Equal(Path.GetFullPath("C:/RetroArch-Win64/cores/genesis_plus_gx_libretro.dll"), plan.Core);
+        }
     }
 
     [Theory]

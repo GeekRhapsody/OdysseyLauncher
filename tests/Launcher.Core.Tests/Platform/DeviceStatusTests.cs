@@ -1,5 +1,6 @@
 using System.Net.NetworkInformation;
 using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
 using Launcher.Core.Platform;
 using Launcher.Core.Platform.Windows;
 
@@ -93,12 +94,10 @@ public sealed class DeviceStatusTests
     }
 
     [Fact]
+    [SupportedOSPlatform("windows")]
     public void The_windows_interface_table_is_read_at_the_right_offsets()
     {
-        if (!OperatingSystem.IsWindows())
-        {
-            return;
-        }
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "Windows-only.");
 
         Assert.Equal(1352, WindowsDeviceStatus.RowSize);
         Assert.Equal(8, (int)Marshal.OffsetOf<NativeMethods.MibIfRow2>(nameof(NativeMethods.MibIfRow2.InterfaceIndex)));
@@ -126,12 +125,10 @@ public sealed class DeviceStatusTests
     }
 
     [Fact]
+    [SupportedOSPlatform("windows")]
     public void The_windows_reads_never_throw()
     {
-        if (!OperatingSystem.IsWindows())
-        {
-            return;
-        }
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "Windows-only.");
 
         using var status = new WindowsDeviceStatus();
         var battery = status.ReadBattery();

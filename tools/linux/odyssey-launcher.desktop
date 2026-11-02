@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Odyssey Launcher
+Comment=A 3D game launcher
+Exec=OdysseyLauncher
+Icon=odyssey-launcher
+Categories=Game;
+Keywords=emulator;frontend;games;
+Terminal=false
+StartupWMClass=Odyssey Launcher

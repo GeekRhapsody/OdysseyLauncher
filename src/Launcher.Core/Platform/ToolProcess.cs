@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime.Versioning;
 using static Launcher.Core.Platform.Windows.NativeMethods;
 
 namespace Launcher.Core.Platform;
@@ -30,7 +31,8 @@ public static class ToolProcess
         try
         {
             using var process = Process.Start(start) ?? throw new InvalidOperationException($"{start.FileName} didn't start.");
-            if (job != 0 && !AssignProcessToJobObject(job, process.Handle))
+            // job is 0 off Windows; the analyser is told so by each check.
+            if (job != 0 && OperatingSystem.IsWindows() && !AssignProcessToJobObject(job, process.Handle))
             {
                 // Not in the job (a parent's job that forbids nesting): it still runs, and leftovers may linger.
                 CloseHandle(job);
@@ -46,7 +48,7 @@ public static class ToolProcess
             }
 
             // Before reading to the end: a leftover holding the pipes would keep them open.
-            if (job != 0)
+            if (job != 0 && OperatingSystem.IsWindows())
             {
                 TerminateJobObject(job, 1);
             }
@@ -56,7 +58,7 @@ public static class ToolProcess
         }
         finally
         {
-            if (job != 0)
+            if (job != 0 && OperatingSystem.IsWindows())
             {
                 CloseHandle(job);
             }
@@ -64,6 +66,7 @@ public static class ToolProcess
     }
 
     /// <summary>A job that ends its processes when its last handle closes (if this process dies first, too); 0 if none could be made.</summary>
+    [SupportedOSPlatform("windows")]
     private static unsafe nint CreateKillJob()
     {
         var job = CreateJobObject(0, 0);

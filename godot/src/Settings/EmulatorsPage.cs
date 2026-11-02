@@ -173,7 +173,7 @@ public sealed partial class EmulatorsPage : ListPanel
                 check: () => ConfigInput.CheckFolder(folder)),
             Start: current,
             Subtitle: variable == "retroarch"
-                ? "Open the folder with retroarch.exe, then press X or choose Use this folder"
+                ? $"Open the folder with {(OperatingSystem.IsWindows() ? "retroarch.exe" : "RetroArch's program")}, then press X or choose Use this folder"
                 : "Open the folder that holds a folder per emulator, then press X or choose Use this folder"));
     }
 
