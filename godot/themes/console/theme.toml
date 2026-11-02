@@ -100,7 +100,8 @@ model = "models/systems/megadrive.glb"        # built by tools/console-models/me
 model = "models/systems/sega32x.glb"           # built by tools/console-models/sega32x.py: the Mega Drive 32X plugged into the first Mega Drive (mega_drive.py's); its focused clip hops it off and back on with a turn in the air, then drops a cartridge into its slot through the dust flaps, and later takes it out
 
 [systems.windows]
-model = "models/systems/windows.glb"          # built by tools/console-models/windows_pc.py: a gaming PC with a glass side and RGB fans, and its monitor
+model = "models/systems/windows.glb"          # built by tools/console-models/windows_pc.py: a gaming PC of the 2020s (a black mid-tower, its open side showing its lit insides, three lit fans in its front), a 27-inch monitor, an RGB keyboard and a mouse on a lit mat; its focused clip spins the fans and moves the mouse with the screen's pointer: it double-clicks the game, clicks Continue, looks round and thrusts twice, then clicks Quit to Desktop, the keys going down with the play
+video = "videos/windows.mp4"                  # drawn by tools/console-models/windows_pc_video.py: the screen through the clip (the desktop, Wyrmspire's splash, title and loading screen, its play and its pause menu, the desktop again), played on the glass's video material
 
 [systems.desktop]
 model = "models/systems/desktop.glb"           # built by tools/console-models/desktop.py: Desktop Apps has no hardware, so an unbranded laptop showing a made-up desktop of shortcuts; its focused clip double-clicks the game's shortcut, plays it in its window, then closes it
@@ -145,13 +146,16 @@ model = "models/systems/coco.glb"              # built by tools/console-models/c
 model = "models/systems/trs-80.glb"            # built by tools/console-models/computer.py (trs80_layout.py, its file renamed): Tandy's TRS-80 Model I, its Video Display and a cassette recorder (unbranded); its focused clip drops a cassette (a made-up game) into the recorder, presses PLAY, loads it from Level II BASIC and plays it, then takes the cassette out
 
 [systems.dos]
-model = "models/systems/dos.glb"              # built by tools/console-models/retro_pc.py: a late-80s 386 desktop with a 14-inch VGA monitor on it
+model = "models/systems/dos.glb"              # built by tools/console-models/retro_pc.py (dos_layout.py): a 386 desktop of about 1991, a 14-inch VGA monitor on it and a 101-key keyboard; its focused clip slides a floppy (a made-up game) into drive A, types a: and rotor, plays the game on the arrows and the space bar, ejects the floppy and types c:
+video = "videos/dos.mp4"                      # drawn by tools/console-models/retro_pc_video.py (dos_screens.py): the screen through the clip (a file commander, the game's loader, its VGA title and play, its goodbye), played on the glass's video material
 
 [systems.windows3x]
-model = "models/systems/windows3x.glb"        # built by tools/console-models/retro_pc.py: an early-90s 486 desktop with a 14-inch SVGA monitor on it
+model = "models/systems/windows3x.glb"        # built by tools/console-models/retro_pc.py (windows3x_layout.py): a 486 desktop of about 1993, a 14-inch SVGA monitor on it, a 101-key keyboard and a mouse on its pad; its focused clip moves the mouse with the screen's pointer: it opens the Games group and a made-up game, plays it, and closes them
+video = "videos/windows3x.mp4"                # drawn by tools/console-models/retro_pc_video.py (windows3x_screens.py): the screen through the clip (Program Manager, the Games group, the game in its window, its menu), played on the glass's video material
 
 [systems.windows9x]
-model = "models/systems/windows9x.glb"        # built by tools/console-models/retro_pc.py: a late-90s mini tower with a 15-inch monitor beside it
+model = "models/systems/windows9x.glb"        # built by tools/console-models/retro_pc.py (windows9x_layout.py): a mini tower of about 1998 with a 15-inch monitor beside it, a 104-key keyboard and a mouse on its pad; its focused clip slides the CD-ROM's tray out, puts a CD (a made-up game) in, plays it on the arrows and the mouse, then takes the CD out
+video = "videos/windows9x.mp4"                # drawn by tools/console-models/retro_pc_video.py (windows9x_screens.py): the screen through the clip (the desktop, the game's AutoPlay window, its loading screen and its race), played on the glass's video material
 
 [systems.wiiu]
 model = "models/systems/wiiu.glb"              # built by tools/console-models/wiiu.py: the Wii U in black and its GamePad in its cradle, the Wii U Menu on its screen; its focused clip slides a disc in, starts it from the menu and plays on the GamePad, then ejects it
@@ -343,7 +347,8 @@ model = "models/systems/msx2.glb"              # built by tools/console-models/m
 model = "models/systems/msxturbor.glb"         # built by tools/console-models/msxturbor.py: a Panasonic FS-A1GT, its glossy black band with A1GT and the lights; its focused clip slides a disk into the drive in its right end, flickers FDD IN USE, lights R800 mode, plays the cursor keys and the space bar, pushes the autofire slider up and back, presses RESET and ejects the disk
 
 [systems.flash]
-model = "models/systems/flash.glb"             # built by tools/console-models/flash.py: Flash has no hardware, so a 2000s LCD monitor playing a Flash game in a browser, and its mouse; its focused clip fills the preloader, clicks PLAY, plays, and right-clicks the Flash Player's menu
+model = "models/systems/flash.glb"             # built by tools/console-models/flash.py: Flash has no hardware, so a 2000s LCD monitor playing a Flash game in a browser, and its mouse; its focused clip moves the mouse with the screen's pointer: it clicks PLAY, steers the ship and fires, right-clicks the Flash Player's menu and clicks Go
+video = "videos/flash.mp4"                    # drawn by tools/console-models/flash_video.py: the screen through the clip (the preloader, Odyssey's title, the game, the right-click menu, the page loading again), played on the glass's video material
 
 [systems.pico8]
 model = "models/systems/pico8.glb"             # built by tools/console-models/pico8.py: PICO-8 has no hardware, so its cartridge made solid, its label a screen; its focused clip hops it round once and boots its label into a game

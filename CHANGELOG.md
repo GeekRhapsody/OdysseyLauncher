@@ -10,6 +10,11 @@ it releases, and the Release workflow puts it on the release page (tools/release
 
 ## Unreleased
 
+### Changed
+
+- The Console theme's DOS, Windows 3.x, Windows 9x and Windows cards are new, each a PC of its time whose monitor plays a game as a video when you focus it, in step with its keyboard, mouse and drives: DOS loads a helicopter game from a floppy, Windows 3.x opens a brick breaker from Program Manager, Windows 9x runs a racing game from its CD, and the Windows gaming PC's fans spin while it plays an adventure from the desktop. Before, those cards didn't move.
+- The Console theme's Flash card plays smoothly. Its monitor shows the game as a video, in step with the mouse beside it: the loading bar filling, the title, PLAY clicked, the ship flown with the mouse and firing at each click, and the right-click menu. Before, it swapped a few still pictures in and out.
+
 ## 0.21.0 (2026-11-01)
 
 ### New

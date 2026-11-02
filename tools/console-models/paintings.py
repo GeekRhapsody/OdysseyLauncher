@@ -46,7 +46,54 @@ HD_POSES = ("Four poses of one original character from a fictional 2010s high-de
             "the side as the game's camera sees the fighters, detailed modern 3D rendering lit by cyan and red neon. "
             "Every panel's background is the same plain flat pure green (#00FF00), with no floor, shadow, scenery or "
             "lines between the panels, so the figures can be cut out. The character: ")
+VGA_GAME = ("From a fictional 1992 DOS side-scrolling helicopter action game for VGA PCs, painted in the style of the "
+            "256-colour VGA game art of the time (rich painted pixels, a slightly limited palette, crisp edges): ")
+ON_GREEN = (" Every panel's background is the same plain flat pure green (#00FF00), with no floor, shadow, scenery or "
+            "lines between the panels, so they can be cut out.")
+RACER_98 = "From a fictional 1998 3D open-wheel racing game for Windows PCs, in the pre-rendered 3D style of the time: "
 PAINTINGS = {
+    # The DOS card's game, Rotorstorm: its layers and sprites (dos_screens.py).
+    "dos_rotor_sky": VGA_GAME + "the far background layer: a stormy dusk sky over a jungle river valley, dark purple "
+    "and teal clouds lit orange along the horizon, one distant fork of lightning, jungle-covered mountains far away "
+    "and a small island fortress with searchlights on a crag in the far distance; the lowest fifth is the river's far "
+    "bank and a band of distant jungle. Seen side-on, nothing near. Landscape, three times as wide as it is tall.",
+    "dos_rotor_ground": VGA_GAME + "the near layer, seen side-on: a strip of dense jungle along a muddy riverbank "
+    "across the bottom third only, palm trees and broad-leaved bushes, a wooden hut on stilts, a sandbagged gun "
+    "emplacement and a red oil drum standing along it; everything above the jungle is plain flat pure green "
+    "(#00FF00), no other colour, so it can be cut out. Landscape, four times as wide as it is tall.",
+    "dos_rotor_sprites": "Four sprites " + VGA_GAME.lower() + "in a 2x2 grid of four equal square panels, each whole "
+    "with a margin round it, seen exactly side-on. Top left: the player's grey attack helicopter of an original "
+    "design flying to the right, rocket pods under its stub wings, its main rotor a thin blurred disc seen edge-on. "
+    "Top right: an enemy olive-green helicopter flying to the left. Bottom left: a small olive military jeep with a "
+    "mounted gun, facing left. Bottom right: a fiery orange explosion with black smoke." + ON_GREEN,
+    # The Windows 3.x card's game, Spellbrick (windows3x_screens.py).
+    "w3x_spell_title": "The title painting of a fictional 1993 brick-breaking game for Windows 3.1, in the style of "
+    "the dithered 256-colour VGA art of the time: a little wizard in a starry purple robe and a pointed hat stands on "
+    "a floating grey stone slab, a glowing white orb bouncing above him towards a wall of glowing coloured enchanted "
+    "bricks built into the shape of a castle with two towers, a purple night sky with sparkles. Keep the top third "
+    "plain night sky: a title will be written there later. Landscape 4:3.",
+    "w3x_spell_sprites": "Four sprites from a fictional 1993 brick-breaking game for Windows 3.1, in the style of the "
+    "256-colour VGA art of the time, in a 2x2 grid of four equal square panels, each whole with a margin round it, "
+    "seen side-on. Top left: a little wizard in a starry purple robe and a pointed hat standing on a long, flat, "
+    "floating grey stone slab, as wide as four of him, his arms raised. Top right: a glowing white orb with a pale "
+    "blue halo. Bottom left: a small round potion bottle of glowing green liquid with a cork. Bottom right: a small "
+    "round potion bottle of glowing red liquid with a cork." + ON_GREEN,
+    # The Windows 9x card's game, Apex Circuit (windows9x_screens.py).
+    "w9x_apex_horizon": RACER_98 + "the distant backdrop the track is drawn against: a sunny Mediterranean coast, a "
+    "blue sea with a few white sailing boats at the left, a hillside town of pastel houses with terracotta roofs and "
+    "a church tower in the middle, green hills and grey mountains behind, a bright blue sky with a few white clouds; "
+    "the lowest tenth a band of distant green trees. Flat and side-on, no road, no cars, no people. Landscape, four "
+    "times as wide as it is tall, its left and right edges matching so that it wraps round.",
+    "w9x_apex_cars": "Four sprites " + RACER_98.lower() + "in a 2x2 grid of four equal square panels, each car whole "
+    "with a margin round it, no sponsors' names, badges or numbers. Top left: a red-and-white open-wheel racing car "
+    "of an original design seen exactly from behind, a little from above, as the player's car is seen in the game: "
+    "its rear wing, its fat rear tyres. Top right: the same car from behind and above, steering left. Bottom left: a "
+    "blue-and-white rival car from behind and above. Bottom right: a yellow-and-black rival car from behind and "
+    "above." + ON_GREEN,
+    "w9x_apex_props": "Four roadside objects " + RACER_98.lower() + "in a 2x2 grid of four equal square panels, each "
+    "whole with a margin round it, seen from the front at eye level, no lettering. Top left: a tall palm tree. Top "
+    "right: a dark green cypress tree. Bottom left: a stack of black tyres, a crash barrier. Bottom right: a small "
+    "white-and-blue spectators' grandstand with a canopy." + ON_GREEN,
     # Daphne's card: its screen plays the laserdisc's frames.
     "daphne_frame1": LASERDISC + "a brave, slightly clumsy young knight in bright silver armour with a red plume leaps "
     "across a crumbling stone bridge in a cavernous castle dungeon, glowing orange lava far below, the arch behind him "
@@ -109,6 +156,35 @@ PAINTINGS = {
     "short red energy blades on her forearms. Holographic billboards of abstract shapes behind them, rain and neon "
     "reflections. Keep the fighters in the lower two thirds and the top third dark and open: a title will be printed "
     "there later. Landscape 3:2.",
+    # The Windows card's game, Wyrmspire, remastered (windows_pc_print.py).
+    "win_title": "Key art for the title screen of a fictional 2020s high-definition remaster of a 3D fantasy action "
+    "adventure, as glossy and detailed as modern game key art: an impossibly tall stone spire rising out of a misty "
+    "forested valley at dawn, a huge emerald dragon asleep coiled round it, waterfalls, a griffin far off, golden "
+    "light breaking through the clouds. No people. Keep the spire and the dragon in the right half and the left third "
+    "darker and calm: a title and a menu will be printed there later. Landscape 3:2.",
+    "win_vale": "A screenshot from a fictional 2020s high-definition remaster of a 3D fantasy action adventure, "
+    "exactly as it runs on a modern PC: detailed modern 3D rendering, soft volumetric morning light, and no interface "
+    "and no people at all: the camera low behind a winding grassy path that runs from the bottom middle of the "
+    "picture into a vast green valley of forests, waterfalls and ruined stone temples, an impossibly tall stone spire "
+    "far off in the middle with a huge emerald dragon asleep coiled round it, blue mountains and soft clouds behind. "
+    "Keep the bottom middle clear: the hero will be drawn there later. Landscape 3:2.",
+    "win_hero": "Four poses of one original character from a fictional 2020s high-definition 3D fantasy action "
+    "adventure, in a 2x2 grid of four equal square panels, each pose whole from head to feet with a margin round it, "
+    "seen from behind and a little above as the game's camera follows her, detailed modern 3D rendering in warm "
+    "morning light. Every panel's background is the same plain flat pure green (#00FF00), with no floor, shadow, "
+    "scenery or lines between the panels, so the figures can be cut out. The character: a young woman with a long "
+    "brown braid in a dark blue travelling cloak, a leather satchel and boots, carrying a long spear. Top left: "
+    "running away from the camera, her left foot forward. Top right: running away from the camera, her right foot "
+    "forward. Bottom left: standing ready, her back to the camera, her spear held across her body. Bottom right: "
+    "lunging away from the camera into a spear thrust, the spear driving forward past her right shoulder.",
+    "win_beast": "Four poses of one original creature from a fictional 2020s high-definition 3D fantasy action "
+    "adventure, in a 2x2 grid of four equal square panels, each pose whole with a margin round it, facing the camera, "
+    "detailed modern 3D rendering in warm morning light. Every panel's background is the same plain flat pure green "
+    "(#00FF00), with no floor, shadow, scenery or lines between the panels, so the figures can be cut out. The "
+    "creature: a hulking wolf-like beast as big as a horse, its back covered in moss and plates of grey stone, "
+    "glowing amber eyes. Top left: prowling towards the camera, its head low. Top right: rearing up with a roar, its "
+    "front paws raised. Bottom left: reeling back from a blow, its head thrown aside, a burst of light where it was "
+    "struck. Bottom right: collapsed on its side on the ground, beaten.",
 }
 
 

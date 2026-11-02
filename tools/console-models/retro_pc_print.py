@@ -1,19 +1,23 @@
-"""The retro PCs' printing, for the console theme's DOS, Windows 3.x and Windows 9x models (retro_pc.py).
-retro_pc_layout.py has the faces, their parts and where each is in the atlas.
+"""The retro PC cards' printing and their screens' stills, for the console theme's DOS, Windows 3.x and Windows 9x
+models (retro_pc.py). Each card's set is its own layout's (dos_layout.py, windows3x_layout.py, windows9x_layout.py), the
+parts they share retro_pc_layout.py's; its screens are its own module's (dos_screens.py, ...), which its video draws
+with too.
 
-Writes two images per set into a folder:
-- <set>_print.png: the printed faces. The case's front (its drives, badge, turbo display, lights, buttons and
-  keylock, power switch and vents) and back (the power supply's fan and sockets, the ports and expansion cards), and
-  the monitor's band under its screen (its badge, knobs or buttons and power light), the vents on its top, and the
-  label on its back.
-- <set>_screen.png: the CRT's glass, its raster showing the era's desktop: for DOS a two-panel file commander, for
-  Windows 3.x a Program Manager, for Windows 9x a desktop with a game in a window and the taskbar.
+Writes three images for a set into a folder:
+- <set>_print.png: the keyboard seen from above (the ledges, the well's floor, every key's top in its colour with its
+  legends, the lights and the badge on the ledge behind the keys), the media (the floppy's two sides: its label with the
+  made-up game, its shutter and hub; the CD's label) and the swatches.
+- <set>_devices.png: the case's front (its drives' faces, the badge, the turbo display, the lights, the buttons, the
+  keylock, the vents), its back (the power supply's fan and sockets, the ports and the expansion cards), the monitor's
+  front (its bezel, the badge, the knobs, the power light and button under the screen) and the swatches.
+- <set>_screen.png: the glass, GLASS_PX: the video's first frame, its still.
 
-The brand (Odyssey), the games and the programs on the screens are made up. Run it with the system Python (Pillow):
+The brand (Odyssey) and the games are made up. Run it with the system Python (Pillow, numpy):
 
-    python tools/console-models/retro_pc_print.py <out folder>
+    python tools/console-models/retro_pc_print.py <set> <made-up games folder> <out folder>
 """
 
+import importlib
 import math
 import os
 import sys
@@ -21,8 +25,8 @@ import sys
 from PIL import Image, ImageDraw, ImageFilter
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import retro_pc_layout as L  # noqa: E402
-from windows_pc_print import Region, gradient, mix  # noqa: E402
+import retro_pc_layout as K  # noqa: E402
+from windows_pc_print import Region, mix  # noqa: E402
 
 
 def rgb(hex_colour):
@@ -67,6 +71,7 @@ def seven_segment(reg, digit, x, y, w, h, colour):
     """A seven-segment digit in the box (x, y, w, h), its segments slanted a little."""
     t = w * 0.16
     slant = w * 0.12
+
     def p(px, py):
         return (x + px + slant * (1 - (py - y) / h), py)
     segs = {"a": ((t, y), (w - t, y)), "g": ((t, y + h / 2), (w - t, y + h / 2)), "d": ((t, y + h), (w - t, y + h))}
@@ -88,19 +93,16 @@ TEXT = (92, 88, 78)
 DARK = (22, 22, 22)
 
 
-def drive_face(reg, x, y, w, h, base):
-    raised(reg, x, y, x + w, y + h, shade(base, -0.06), r=0.8)
-
-
 def floppy35(reg, x, y, w, h, base):
-    """A 3.5-inch drive's face: the slot behind its door, the eject button and the light."""
+    """A 3.5-inch drive's face (101.6 x 25.4): the slot behind its flap (wide enough for a disk's 90 mm), the light and
+    the eject button. The model cuts the slot and stands the button out of it (the layout's SLOT and EJECT)."""
     face = shade(base, -0.06)
     raised(reg, x, y, x + w, y + h, face, r=0.8)
-    sunken(reg, x + 10, y + 6.5, x + w - 10, y + 12.5, shade(face, -0.12), r=1.0)
-    reg.rect_(x + 13, y + 9, x + w - 13, y + 10.4, DARK, r=0.6)
-    raised(reg, x + w - 22, y + 16, x + w - 9, y + 21, shade(face, -0.04), r=1.0)
-    reg.rect_(x + 11, y + 17.5, x + 17, y + 19.5, (58, 110, 52), r=0.5)
-    reg.text("1.44 MB", "arialbd.ttf", 2.8, x + w / 2, y + 18.5, shade(face, -0.42))
+    sunken(reg, x + 3.8, y + 6.6, x + w - 3.8, y + 13.0, shade(face, -0.1), r=1.2)
+    reg.rect_(x + 4.8, y + 7.6, x + w - 4.8, y + 12.0, DARK, r=0.8)
+    raised(reg, x + 78.0, y + 15.5, x + 95.0, y + 21.0, shade(face, -0.04), r=1.0)
+    reg.rect_(x + 8.0, y + 17.0, x + 14.0, y + 19.5, (40, 70, 36), r=0.5)
+    reg.text("1.44 MB", "arialbd.ttf", 2.8, x + 46.0, y + 18.5, shade(face, -0.42))
 
 
 def floppy525(reg, x, y, w, h, base):
@@ -152,7 +154,7 @@ def cdrom(reg, x, y, w, h, base):
     reg.circle(x + 27, y + 32, 2.2, shade(face, -0.05))
     reg.rect_(x + 74, y + 31, x + 82, y + 33.5, (58, 110, 52), r=0.5)
     raised(reg, x + w - 34, y + 28.5, x + w - 10, y + 35.5, shade(face, -0.05), r=1.5)
-    reg.text("\u25b2", "arial.ttf", 2.6, x + w - 22, y + 32, shade(face, -0.45))
+    reg.text("▲", "arial.ttf", 2.6, x + w - 22, y + 32, shade(face, -0.45))
 
 
 def blank525(reg, x, y, w, h, base):
@@ -197,11 +199,12 @@ def display(reg, x, y, w, h, text):
 
 
 def leds(reg, x, y, w, h, text, base):
+    """Lights in a row, each name:colour, or name:colour:off printed unlit (the model lights it when it's on)."""
     items = [t.split(":") for t in text.split("|")]
-    for k, (name, colour) in enumerate(items):
+    for k, item in enumerate(items):
         cx = x + w * (k + 0.5) / len(items)
-        led(reg, cx, y + h * 0.36, 2.0, colour)
-        reg.text(name, "arialbd.ttf", 3.0, cx, y + h * 0.8, shade(base, -0.5))
+        led(reg, cx, y + h * 0.36, 2.0, item[1], lit=len(item) < 3)
+        reg.text(item[0], "arialbd.ttf", 3.0, cx, y + h * 0.8, shade(base, -0.5))
 
 
 def button(reg, x, y, w, h, text, base):
@@ -269,7 +272,7 @@ def brand(reg, x, y, w, h, text, base):
 
 def osd(reg, x, y, w, h, base):
     """The 90s monitor's on-screen menu buttons."""
-    marks = ("MENU", "\u25c4", "\u25ba", "\u25b2", "\u25bc")
+    marks = ("MENU", "◄", "►", "▲", "▼")
     bw = w / len(marks)
     for k, mark in enumerate(marks):
         x0 = x + k * bw + 1
@@ -442,395 +445,298 @@ def tower_back(atlas, rect, w, h):
     reg.paste(atlas)
 
 
-def monitor_vents(atlas, rect, colour):
-    reg = Region(rect, 100.0, 100.0, colour)
-    for row in range(12):
-        y = 6 + row * 7.6
-        for col in range(2):
-            x0 = 8 + col * 44
-            sunken(reg, x0, y, x0 + 40, y + 3.2, shade(colour, -0.55), r=1.4, edge=0.35)
+# -- The keyboard from above -----------------------------------------------------------------------------------------
+
+INK = (44, 42, 40)
+
+
+def window_glyph(reg, cx, cy, s, ink):
+    """A small four-paned window, the Windows keys' sign (a made-up one, not Microsoft's)."""
+    g = s * 0.08
+    for qx in (-1, 1):
+        for qy in (-1, 1):
+            x0, y0 = cx + (g if qx > 0 else -s / 2), cy + (g if qy > 0 else -s / 2)
+            reg.poly([(x0, y0), (x0 + s / 2 - g, y0 - s * 0.05), (x0 + s / 2 - g, y0 + s / 2 - g - s * 0.05),
+                      (x0, y0 + s / 2 - g)], ink)
+
+
+def legend(reg, key, a0, b0, a1, b1):
+    """A key's legend on its top (a0..a1 across, b0..b1 down), as the Model M's were printed: a letter at its top left,
+    a pair of characters one over the other, a word small at its top left, an arrow in its middle."""
+    text = key["legend"]
+    lines = text.split("\n")
+    w = a1 - a0
+    if not text:
+        return
+    if text in ("WIN", "MENU"):
+        if text == "WIN":
+            window_glyph(reg, (a0 + a1) / 2, (b0 + b1) / 2, 6.0, INK)
+        else:
+            reg.rect_((a0 + a1) / 2 - 2.6, (b0 + b1) / 2 - 3.0, (a0 + a1) / 2 + 2.6, (b0 + b1) / 2 + 3.0, None,
+                      outline=INK, width=0.5)
+            for k in range(3):
+                y = (b0 + b1) / 2 - 1.4 + k * 1.4
+                reg.line([((a0 + a1) / 2 - 1.5, y), ((a0 + a1) / 2 + 1.5, y)], INK, 0.4)
+        return
+    if all(ch in "←↑→↓" for ch in text) and key["name"] != "backspace":
+        reg.text(text, "seguisym.ttf", 5.4, (a0 + a1) / 2, (b0 + b1) / 2, INK)
+        return
+    if key["name"] == "backspace":
+        reg.text("←", "seguisym.ttf", 5.0, a0 + 4.0, b0 + 4.2, INK)
+        return
+    if len(lines) == 2 and len(lines[0]) == 1 and (len(lines[1]) == 1 or lines[0].isdigit()):
+        big = lines[0].isdigit() and len(lines[1]) > 1          # a keypad key: the digit large, its word small
+        reg.text(lines[0], "arial.ttf", 4.0, a0 + 2.0, b0 + 1.6, INK, anchor="lt")
+        reg.text(lines[1], "arial.ttf", 2.2 if big else 4.0, a0 + 2.0, b1 - (1.8 if big else 5.6), INK, anchor="lt")
+        return
+    if len(text) == 1 or (text.startswith("F") and text[1:].isdigit()) or text in ("+", "-", "*", "/"):
+        reg.text(text, "arial.ttf", 4.2 if len(text) == 1 else 3.2, a0 + 2.0, b0 + 1.6, INK, anchor="lt")
+        return
+    size = 2.3 if w < 20 else 2.6
+    for k, line in enumerate(lines):
+        reg.text(line, "arial.ttf", size, a0 + 1.8, b0 + 1.8 + k * size * 1.25, INK, anchor="lt")
+
+
+def keyboard_top(atlas, spec):
+    """The keyboard seen from above, its back at the region's top: the ledges, the well's floor, the keys' tops."""
+    W, D = K.KB["width"], K.KB["depth"]
+    C = {n: rgb(v) for n, v in spec.COLOURS.items()}
+    case = C["kbcase"]
+    reg = Region(spec.PRINT_REGIONS["kb_top"], W, D, case)
+
+    def at(x, y):
+        return x + W / 2, D - y
+    wy0, wy1 = K.deck(2.5, 0.0)[0], K.deck(K.WELL_LENGTH - 2.5, 0.0)[0]
+    a0, b1 = at(K.KEYS_X0 - 5.0, wy0)
+    a1, b0 = at(K.KEYS_X0 + 23 * K.U + 5.0, wy1)
+    reg.rect_(a0, b0, a1, b1, shade(case, -0.42))
+    by = K.BACK_LEDGE[0]                                 # the ledge behind the well, a little lighter
+    reg.rect_(0.0, 0.0, W, D - by, shade(case, 0.05))
+    tops = K.key_tops(spec.KEYBOARD["windows"])
+    for key in K.keys(spec.KEYBOARD["windows"]):
+        x0, y0, x1, y1 = tops[key["name"]]
+        a0, b1 = at(x0, y0)
+        a1, b0 = at(x1, y1)
+        colour = C[key["colour"]]
+        reg.rect_(a0 - 0.8, b0 - 0.8, a1 + 0.8, b1 + 0.8, shade(colour, -0.06), r=1.4)
+        reg.rect_(a0, b0, a1, b1, colour, r=1.0)
+        reg.rect_(a0 + 0.6, b0 + 0.4, a1 - 0.6, b0 + 2.0, shade(colour, 0.08), r=0.8)     # the dish's back lip lit
+        legend(reg, key, a0, b0, a1, b1)
+    # The lights over the keypad, on the ledge: Num Lock on, as the machine starts.
+    lx = K.LIGHTS_X + W / 2
+    for k, (name, label) in enumerate(K.LIGHTS):
+        cx = lx + (k + 0.5) * 4 * K.U / 3
+        reg.rect_(cx - 3.4, 8.0, cx + 3.4, 11.6, (30, 30, 30), r=0.6)
+        reg.rect_(cx - 2.8, 8.5, cx + 2.8, 11.1, (90, 255, 110) if name == "num" else (26, 60, 30), r=0.5)
+        for j, word in enumerate(label.split()):
+            reg.text(word, "arial.ttf", 2.0, cx, 15.0 + j * 2.6, INK)
+    bx0, bx1 = K.BADGE                                   # the badge
+    reg.rect_(bx0 + W / 2, 7.0, bx1 + W / 2, 17.0, (52, 54, 60), r=1.2)
+    reg.text("ODYSSEY", "arialbd.ttf", 4.6, (bx0 + bx1) / 2 + W / 2, 12.0, (214, 216, 220))
     reg.paste(atlas)
 
 
-def monitor_label(atlas, rect, colour, model):
-    reg = Region(rect, 120.0, 90.0, colour)
-    reg.rect_(20, 18, 100, 72, (236, 234, 226), r=1.5)
-    reg.text("ODYSSEY", "arialbd.ttf", 6.0, 60, 26, (30, 30, 30))
-    reg.text(model, "arial.ttf", 4.0, 60, 33, (40, 40, 40))
-    for k in range(6):
-        reg.line([(26, 40 + k * 4.5), (94 - (k * 13) % 30, 40 + k * 4.5)], (130, 130, 130), 1.2)
-    reg.rect_(76, 56, 94, 68, None, outline=(40, 40, 40), width=0.6)
-    reg.text("FCC", "arialbd.ttf", 4.5, 85, 62, (40, 40, 40))
+# -- The media -------------------------------------------------------------------------------------------------------
+
+def floppy_sides(atlas, spec, made_up):
+    """The 3.5-inch floppy's two sides, its shutter at the regions' top: its top (the shutter, the arrow, the label with
+    the made-up game's logo) and its underside (the shutter, the hub)."""
+    (w, length) = K.FLOPPY["size"]
+    C = {n: rgb(v) for n, v in spec.COLOURS.items()}
+    body, metal = C["disk"], C["shutter"]
+    top = Region(spec.PRINT_REGIONS["floppy"], w, length, body)
+    top.rect_(0.6, 0.6, w - 0.6, length - 0.6, shade(body, 0.06), r=2.0)
+    top.rect_(w * 0.5 - 30.0, 0.0, w * 0.5 + 21.0, 40.0, shade(metal, -0.05))           # the shutter
+    top.rect_(w * 0.5 - 30.0, 0.0, w * 0.5 + 21.0, 40.0, None, outline=shade(metal, -0.3), width=0.5)
+    top.rect_(w * 0.5 - 17.0, 4.0, w * 0.5 - 4.0, 34.0, (40, 30, 26))                   # its window: the disk
+    top.poly([(6.0, 8.0), (11.0, 14.0), (8.0, 14.0), (8.0, 22.0), (4.0, 22.0), (4.0, 14.0), (1.0, 14.0)],
+             shade(body, 0.4))                                                         # insert this way
+    label = spec.FLOPPY_LABEL
+    top.rect_(5.0, 44.0, w - 5.0, length - 1.0, (244, 242, 234), r=1.0)
+    top.rect_(5.0, 44.0, w - 5.0, 51.0, rgb(label["band"]), r=1.0)
+    top.text(label["publisher"], "arialbd.ttf", 3.6, w / 2, 47.6, (255, 255, 255))
+    logo = Image.open(os.path.join(made_up, "library", "media", label["system"], "logos", label["stem"] + ".png"))
+    logo = logo.convert("RGBA")
+    k = min((w - 16.0) / logo.width, 22.0 / logo.height)
+    lw, lh = logo.width * k, logo.height * k
+    layer = top.layer()
+    scaled = logo.resize((max(1, round(lw * top.sx)), max(1, round(lh * top.sy))), Image.LANCZOS)
+    layer.alpha_composite(scaled, (round((w / 2 - lw / 2) * top.sx), round((63.5 - lh / 2) * top.sy)))
+    top.over(layer)
+    for k, line in enumerate(label["lines"]):
+        top.text(line, "arialbd.ttf" if k == 0 else "arial.ttf", 3.4 if k == 0 else 2.8, w / 2, 80.0 + k * 4.4,
+                 (40, 40, 40))
+    top.rect_(w - 9.0, length - 9.0, w - 4.0, length - 4.0, (14, 14, 16))               # the write-protect window
+    top.paste(atlas)
+    under = Region(spec.PRINT_REGIONS["floppy_under"], w, length, body)
+    under.rect_(0.6, 0.6, w - 0.6, length - 0.6, shade(body, 0.06), r=2.0)
+    under.rect_(w * 0.5 - 21.0, 0.0, w * 0.5 + 30.0, 40.0, shade(metal, -0.05))
+    under.rect_(w * 0.5 + 4.0, 4.0, w * 0.5 + 17.0, 34.0, (40, 30, 26))
+    under.circle(w / 2, 59.0, 12.5, shade(metal, -0.12))                               # the hub
+    under.circle(w / 2, 59.0, 5.0, shade(metal, -0.4))
+    under.rect_(w / 2 + 3.0, 52.0, w / 2 + 7.0, 56.0, (14, 14, 16))
+    under.paste(atlas)
+
+
+def cd_label(atlas, spec, made_up):
+    """The CD's label side, printed all over as the 1990s' games' discs were: the game's key art, its logo, the line
+    round its edge; the clear hub and the hole in the middle."""
+    r = K.CD["radius"]
+    label = spec.CD_LABEL
+    reg = Region(spec.PRINT_REGIONS["cd"], 2 * r, 2 * r, rgb(spec.COLOURS["disc"]))
+    art = Image.open(os.path.join(made_up, "paintings", label["art"], "keyart.png")).convert("RGB")
+    k = 2 * r * reg.sx / min(art.width, art.height)
+    art = art.resize((round(art.width * k), round(art.height * k)), Image.LANCZOS)
+    art = art.crop(((art.width - round(2 * r * reg.sx)) // 2, (art.height - round(2 * r * reg.sy)) // 2,
+                    (art.width - round(2 * r * reg.sx)) // 2 + round(2 * r * reg.sx),
+                    (art.height - round(2 * r * reg.sy)) // 2 + round(2 * r * reg.sy))).convert("RGBA")
+    mask = Image.new("L", art.size, 0)
+    ImageDraw.Draw(mask).ellipse([1, 1, art.width - 2, art.height - 2], fill=255)
+    layer = reg.layer()
+    layer.paste(art, (0, 0), mask)
+    reg.over(layer)
+    logo = Image.open(os.path.join(made_up, "library", "media", label["system"], "logos", label["stem"] + ".png"))
+    logo = logo.convert("RGBA")
+    k = min(2 * r * 0.62 / logo.width, 26.0 / logo.height)
+    layer = reg.layer()
+    scaled = logo.resize((max(1, round(logo.width * k * reg.sx)), max(1, round(logo.height * k * reg.sy))),
+                         Image.LANCZOS)
+    layer.alpha_composite(scaled, (round((r - logo.width * k / 2) * reg.sx), round((r * 0.42 - logo.height * k / 2)
+                                                                                    * reg.sy)))
+    reg.over(layer)
+    reg.rect_(r - 34.0, 2 * r - 26.0, r + 34.0, 2 * r - 18.0, (20, 20, 24), r=2.0)
+    reg.text(label["line"], "arialbd.ttf", 3.6, r, 2 * r - 22.0, (240, 240, 240))
+    reg.circle(r, r, 17.0, (214, 218, 224))                     # the clear hub
+    reg.circle(r, r, 11.0, (190, 194, 200))
+    reg.circle(r, r, K.CD["hole"], (16, 16, 18))
     reg.paste(atlas)
 
 
-def print_atlas(set_id, spec, out):
-    case, mon, regions = spec["case"], spec["monitor"], spec["atlas"]
-    atlas = Image.new("RGB", (L.ATLAS, L.ATLAS), (120, 120, 120))
-    tower = case["kind"] == "tower"
-    w, h = case["width"], case["height"] - case["feet"]
-    bezel = rgb(case["bezel_colour"])
-    front = Region(regions["front"], w, h, bezel)
-    if tower:                                            # the bays' surround, a shade darker
-        front.rect_(18, 16, w - 18, 152, shade(bezel, -0.05), r=3.0)
-    draw_parts(front, case["front"], bezel, plate_badge=set_id == "dos", tower=tower)
-    front.paste(atlas)
-    if tower:
-        tower_back(atlas, regions["back"], w, h)
-    else:
-        desktop_back(atlas, regions["back"], w, h, sound=set_id != "dos")
-    colour = rgb(mon["colour"])
-    strip = Region(regions["strip"], mon["width"], mon["strip"], colour)
-    draw_parts(strip, mon["parts"], colour, plate_badge=False)
-    strip.paste(atlas)
-    monitor_vents(atlas, regions["vents"], colour)
-    monitor_label(atlas, regions["label"], colour, mon["parts"][0][6].split("|")[1] or "MULTISCAN 15")
-    atlas.save(out, optimize=True)
+def tray_top(atlas, spec):
+    """A CD-ROM drive's tray from above, its front at the region's foot: its two wells (12 and 8 cm) and the
+    spindle's hole."""
+    t = spec.TRAY
+    a0, a1, _b0, _b1 = t["front"]
+    w, d = a1 - a0 - 4.8, t["depth"] - 2.0
+    colour = rgb(spec.COLOURS["tray"])
+    reg = Region(spec.DEVICE_REGIONS["tray_top"], w, d, colour)
+    well = d - t["well"]
+    reg.circle(w / 2, well, K.CD["radius"] + 1.0, shade(colour, 0.12))
+    reg.circle(w / 2, well, K.CD["radius"] - 1.0, shade(colour, -0.2))
+    reg.circle(w / 2, well, 41.0, shade(colour, 0.08))
+    reg.circle(w / 2, well, 39.0, shade(colour, -0.25))
+    reg.rect_(w / 2 - 9.0, 6.0, w / 2 + 9.0, well, (12, 12, 14))     # the laser's slot, towards the back
+    reg.circle(w / 2, well, 8.0, (60, 60, 64))
+    reg.paste(atlas)
 
 
-# -- The screens ---------------------------------------------------------------------------------------------------
-# Each raster is drawn in its 640 x 480 pixels.
+# -- The mouse and its pad -------------------------------------------------------------------------------------------
 
-CGA = {"black": (0, 0, 0), "blue": (0, 0, 170), "cyan": (0, 170, 170), "grey": (170, 170, 170),
-       "white": (255, 255, 255), "bcyan": (85, 255, 255), "yellow": (255, 255, 85)}
-CELL_W, CELL_H = 8.0, 19.2                               # an 80 x 25 text screen
-
-
-def chars(reg, col, row, s, colour, bg=None):
-    if bg is not None:
-        reg.rect_(col * CELL_W, row * CELL_H, (col + len(s)) * CELL_W, (row + 1) * CELL_H, bg)
-    for k, ch in enumerate(s):
-        if ch != " ":
-            reg.text(ch, "lucon.ttf", 14.0, (col + k + 0.5) * CELL_W, (row + 0.5) * CELL_H, colour)
-
-
-def double_box(reg, c0, r0, c1, r1, colour):
-    """A double-lined frame round the cells c0..c1, r0..r1."""
-    x0, y0 = (c0 + 0.5) * CELL_W, (r0 + 0.5) * CELL_H
-    x1, y1 = (c1 + 0.5) * CELL_W, (r1 + 0.5) * CELL_H
-    for d in (-1.5, 1.5):
-        reg.rect_(x0 + d, y0 + d, x1 - d, y1 - d, None, outline=colour, width=1.0)
+def mouse_top(atlas, spec):
+    """The mouse from above, its front (the buttons) at the region's top: the seam behind the buttons and the one
+    between them."""
+    length, (wb, _wf) = K.MOUSE["length"], K.MOUSE["width"]
+    body = rgb(spec.COLOURS["mouse"])
+    reg = Region(spec.PRINT_REGIONS["mouse_top"], wb, length, body)
+    split = K.MOUSE["split"]
+    reg.line([(0.0, split + 3.0), (wb * 0.25, split + 0.8), (wb * 0.5, split), (wb * 0.75, split + 0.8),
+              (wb, split + 3.0)], shade(body, -0.45), 0.7)
+    reg.line([(wb / 2, 0.0), (wb / 2, split)], shade(body, -0.45), 0.7)
+    for a in (wb * 0.25, wb * 0.75):                    # the buttons a shade lighter where the finger rests
+        reg.rect_(a - 9.0, 10.0, a + 9.0, split - 8.0, shade(body, 0.05), r=6.0)
+    reg.text("ODYSSEY", "arialbd.ttf", 3.6, wb / 2, split + 34.0, shade(body, -0.35))
+    reg.paste(atlas)
 
 
-def commander(reg):
-    """A two-panel file commander on DOS: the games folder left, the drive's root right."""
-    reg.rect_(0, 0, 640, 480, CGA["black"])
-    left = [("..", "UP--DIR", "", "")] + [(n, "SUB-DIR", d, t) for n, d, t in (
-        ("ASTRO", "03-14-91", "10:22"), ("CASTLE", "11-02-90", "21:05"), ("DUNGEON", "06-30-92", "18:40"),
-        ("FLIGHT", "01-19-92", "09:12"), ("GOLF", "08-08-91", "14:31"), ("PINBALL", "04-22-93", "20:17"),
-        ("RACER", "02-11-93", "16:58"), ("SOCCER", "09-27-92", "11:03"), ("TANKS", "12-05-91", "22:46"))] + [
-        ("games   bat", "412", "02-11-93", "17:01"), ("menu    exe", "48213", "02-11-93", "17:00"),
-        ("readme  txt", "3907", "02-11-93", "17:00")]
-    right = [(n, "SUB-DIR", d, t) for n, d, t in (("DOS", "06-01-93", "06:00"), ("GAMES", "02-11-93", "16:55"),
-                                                     ("TEMP", "02-14-93", "08:30"), ("UTILS", "07-19-92", "12:12"))] + [
-        ("autoexec bat", "362", "02-11-93", "17:04"), ("command  com", "54645", "06-01-93", "06:00"),
-        ("config   sys", "218", "02-11-93", "17:04")]
-    for c0, title, files, cursor in ((0, " C:\\GAMES ", left, 7), (40, " C:\\ ", right, -1)):
-        reg.rect_(c0 * CELL_W, 0, (c0 + 40) * CELL_W, 23 * CELL_H, CGA["blue"])
-        double_box(reg, c0, 0, c0 + 39, 22, CGA["bcyan"])
-        for col in (13, 23, 32):                         # the columns' dividers
-            x = (c0 + col + 0.5) * CELL_W
-            reg.line([(x, 1.0 * CELL_H), (x, 19.5 * CELL_H)], CGA["bcyan"], 1.0)
-        for d in (-1.5, 1.5):
-            reg.line([((c0 + 0.5) * CELL_W, 19.5 * CELL_H + d), ((c0 + 39.5) * CELL_W, 19.5 * CELL_H + d)],
-                     CGA["bcyan"], 1.0)
-        chars(reg, c0 + 20 - len(title) // 2, 0, title, CGA["black"] if c0 == 0 else CGA["bcyan"],
-              CGA["cyan"] if c0 == 0 else CGA["blue"])
-        for col, head in ((5, "Name"), (16, "Size"), (26, "Date"), (34, "Time")):
-            chars(reg, c0 + col, 1, head, CGA["yellow"])
-        for k, (name, size, date, time) in enumerate(files):
-            row = 2 + k
-            colour = CGA["white"] if size == "SUB-DIR" or name == ".." else CGA["bcyan"]
-            if k == cursor:
-                reg.rect_((c0 + 1) * CELL_W, row * CELL_H, (c0 + 39) * CELL_W, (row + 1) * CELL_H, CGA["cyan"])
-                colour = CGA["black"]
-            chars(reg, c0 + 1, row, name, colour)
-            chars(reg, c0 + 23 - len(size), row, size, colour)
-            chars(reg, c0 + 24, row, date, colour)
-            chars(reg, c0 + 33, row, time, colour)
-        info = "RACER        SUB-DIR  02-11-93 16:58" if c0 == 0 else "54,645 bytes in 3 files"
-        chars(reg, c0 + 2, 20, info, CGA["bcyan"])
-    chars(reg, 0, 23, "C:\\GAMES>", CGA["grey"])
-    reg.rect_(9 * CELL_W, 23.8 * CELL_H, 10 * CELL_W, 24 * CELL_H - 1, CGA["grey"])   # the cursor
-    keys = ("Help", "Menu", "View", "Edit", "Copy", "RenMov", "Mkdir", "Delete", "PullDn", "Quit")
-    col = 0
-    for k, name in enumerate(keys):
-        number = str(k + 1)
-        chars(reg, col, 24, number, CGA["white"], CGA["black"])
-        col += len(number)
-        chars(reg, col, 24, name.ljust(6), CGA["black"], CGA["cyan"])
-        col += 6 if k < 9 else 70 - col + 10
-    reg.rect_(col * CELL_W, 24 * CELL_H, 640, 480, CGA["black"])
-
-
-# Windows' 16 colours.
-W_GREY, W_DARK, W_NAVY, W_WHITE, W_BLACK = (192, 192, 192), (128, 128, 128), (0, 0, 128), (255, 255, 255), (0, 0, 0)
-W_TEAL = (0, 128, 128)
-
-
-def bevel_box(reg, x0, y0, x1, y1, fill=W_GREY, pressed=False):
-    """A Windows 3D box: white and black edges, a grey inner shadow."""
-    light, dark = (W_BLACK, W_WHITE) if pressed else (W_WHITE, W_BLACK)
-    reg.rect_(x0, y0, x1, y1, dark)
-    reg.rect_(x0, y0, x1 - 1, y1 - 1, light)
-    reg.rect_(x0 + 1, y0 + 1, x1 - 1, y1 - 1, W_DARK if not pressed else W_GREY)
-    reg.rect_(x0 + 1, y0 + 1, x1 - 2, y1 - 2, fill)
-
-
-def icon(reg, kind, x, y):
-    """A 32 x 32 icon at (x, y), its top left."""
-    if kind == "files":                                  # a filing cabinet
-        reg.rect_(x + 6, y + 2, x + 26, y + 30, (200, 160, 40), outline=W_BLACK, width=1)
-        for k in range(3):
-            reg.rect_(x + 8, y + 4 + k * 9, x + 24, y + 10 + k * 9, (240, 200, 70), outline=W_BLACK, width=1)
-            reg.rect_(x + 14, y + 6 + k * 9, x + 18, y + 8 + k * 9, W_BLACK)
-    elif kind == "control":                              # a monitor with a slider beside it
-        reg.rect_(x + 2, y + 4, x + 22, y + 20, W_GREY, outline=W_BLACK, width=1)
-        reg.rect_(x + 5, y + 7, x + 19, y + 17, W_TEAL)
-        reg.rect_(x + 8, y + 22, x + 16, y + 26, W_GREY, outline=W_BLACK, width=1)
-        reg.rect_(x + 24, y + 4, x + 30, y + 28, W_GREY, outline=W_BLACK, width=1)
-        reg.rect_(x + 25, y + 14, x + 29, y + 18, (200, 0, 0))
-    elif kind == "printer":
-        reg.rect_(x + 8, y + 4, x + 24, y + 14, W_WHITE, outline=W_BLACK, width=1)
-        reg.rect_(x + 3, y + 13, x + 29, y + 26, W_GREY, outline=W_BLACK, width=1)
-        reg.rect_(x + 6, y + 22, x + 26, y + 28, W_WHITE, outline=W_BLACK, width=1)
-        reg.rect_(x + 23, y + 16, x + 26, y + 18, (0, 200, 0))
-    elif kind == "dos":                                  # a prompt in a window
-        reg.rect_(x + 2, y + 5, x + 30, y + 27, W_BLACK, outline=W_GREY, width=1)
-        reg.rect_(x + 2, y + 5, x + 30, y + 9, W_NAVY)
-        reg.text("C:\\>", "lucon.ttf", 7, x + 12, y + 17, W_WHITE)
-    elif kind == "setup":                                # a computer and a box
-        reg.rect_(x + 2, y + 16, x + 20, y + 28, W_GREY, outline=W_BLACK, width=1)
-        reg.rect_(x + 5, y + 4, x + 19, y + 15, W_GREY, outline=W_BLACK, width=1)
-        reg.rect_(x + 7, y + 6, x + 17, y + 13, W_NAVY)
-        reg.rect_(x + 20, y + 12, x + 30, y + 28, (230, 200, 120), outline=W_BLACK, width=1)
-    elif kind == "notes":                                # a notepad
-        reg.rect_(x + 6, y + 2, x + 26, y + 30, W_WHITE, outline=W_BLACK, width=1)
-        reg.rect_(x + 6, y + 2, x + 26, y + 6, (0, 160, 220))
-        for k in range(5):
-            reg.line([(x + 9, y + 10 + k * 4), (x + 23, y + 10 + k * 4)], W_DARK, 1)
-    elif kind == "cards":                                # two playing cards
-        reg.rect_(x + 3, y + 4, x + 19, y + 26, W_NAVY, outline=W_BLACK, width=1)
-        reg.rect_(x + 12, y + 6, x + 28, y + 28, W_WHITE, outline=W_BLACK, width=1)
-        reg.text("A", "arialbd.ttf", 9, x + 17, y + 11, (200, 0, 0))
-        reg.text("\u2665", "arial.ttf", 11, x + 21, y + 21, (200, 0, 0))
-    elif kind == "mines":                                # a bomb on a grid
-        reg.rect_(x + 2, y + 2, x + 30, y + 30, W_GREY, outline=W_DARK, width=1)
-        reg.circle(x + 16, y + 17, 8, W_BLACK)
-        reg.line([(x + 16, y + 9), (x + 22, y + 4)], (120, 80, 0), 1.5)
-        reg.circle(x + 23, y + 4, 2, (255, 200, 0))
-        reg.circle(x + 13, y + 14, 2, W_WHITE)
-    elif kind == "racer":                                # a red car on a chequered flag
-        for i in range(4):
-            for j in range(4):
-                reg.rect_(x + 2 + i * 7, y + 2 + j * 7, x + 9 + i * 7, y + 9 + j * 7, W_WHITE if (i + j) % 2 else W_BLACK)
-        reg.rect_(x + 3, y + 17, x + 29, y + 25, (220, 0, 0), r=2)
-        reg.rect_(x + 9, y + 13, x + 22, y + 18, (220, 0, 0), r=2)
-        reg.circle(x + 9, y + 26, 3, W_BLACK)
-        reg.circle(x + 23, y + 26, 3, W_BLACK)
-    elif kind == "computer":                             # My Computer
-        reg.rect_(x + 4, y + 2, x + 26, y + 20, (220, 216, 200), outline=W_BLACK, width=1)
-        reg.rect_(x + 7, y + 5, x + 23, y + 16, W_TEAL)
-        reg.rect_(x + 2, y + 22, x + 30, y + 30, (220, 216, 200), outline=W_BLACK, width=1)
-        reg.rect_(x + 18, y + 25, x + 27, y + 27, W_DARK)
-    elif kind == "network":
-        for dx in (0, 14):
-            reg.rect_(x + 1 + dx, y + 4, x + 15 + dx, y + 15, (220, 216, 200), outline=W_BLACK, width=1)
-            reg.rect_(x + 3 + dx, y + 6, x + 13 + dx, y + 13, W_TEAL)
-        reg.line([(x + 8, y + 16), (x + 8, y + 26), (x + 22, y + 26), (x + 22, y + 16)], W_BLACK, 1.2)
-        reg.rect_(x + 11, y + 23, x + 19, y + 29, (220, 216, 200), outline=W_BLACK, width=1)
-    elif kind == "bin":                                  # a wire basket
-        reg.poly([(x + 6, y + 6), (x + 26, y + 6), (x + 23, y + 30), (x + 9, y + 30)], (220, 220, 220))
-        for k in range(5):
-            reg.line([(x + 8 + k * 4, y + 7), (x + 10 + k * 3, y + 29)], W_DARK, 1)
-        reg.rect_(x + 4, y + 4, x + 28, y + 8, (200, 200, 200), outline=W_BLACK, width=1)
-    elif kind == "group":                                # a minimised program group
-        reg.rect_(x + 3, y + 5, x + 29, y + 27, W_WHITE, outline=W_BLACK, width=1)
-        reg.rect_(x + 3, y + 5, x + 29, y + 10, W_NAVY)
-        for k in range(3):
-            reg.rect_(x + 6 + k * 8, y + 14, x + 11 + k * 8, y + 19, (k * 90, 160 - k * 40, 200 - k * 60))
-
-
-def title_31(reg, x0, y0, x1, text, active):
-    """A Windows 3.1 title bar: the control-menu box, the title, minimise and maximise."""
-    h = 18
-    reg.rect_(x0, y0, x1, y0 + h, W_NAVY if active else W_WHITE)
-    reg.rect_(x0, y0, x0 + h, y0 + h, W_GREY, outline=W_BLACK, width=1)
-    reg.rect_(x0 + 4, y0 + 7, x0 + h - 3, y0 + 10, W_WHITE, outline=W_BLACK, width=1)
-    for k, up in enumerate((False, True)):
-        bx = x1 - (2 - k) * h
-        bevel_box(reg, bx, y0, bx + h, y0 + h)
-        cx, cy = bx + h / 2, y0 + h / 2
-        tri = [(cx - 4, cy + 2), (cx + 4, cy + 2), (cx, cy - 2)] if up else [(cx - 4, cy - 2), (cx + 4, cy - 2), (cx, cy + 2)]
-        reg.poly(tri, W_BLACK)
-    reg.text(text, "arialbd.ttf", 11, (x0 + h + x1 - 2 * h) / 2, y0 + h / 2 + 0.5, W_WHITE if active else W_BLACK)
-    reg.line([(x0, y0 + h), (x1, y0 + h)], W_BLACK, 1)
-
-
-def window_31(reg, x0, y0, x1, y1, title, active, frame=4):
-    reg.rect_(x0, y0, x1, y1, W_GREY if active else W_WHITE, outline=W_BLACK, width=1)
-    reg.rect_(x0 + frame, y0 + frame, x1 - frame, y1 - frame, W_WHITE, outline=W_BLACK, width=1)
-    title_31(reg, x0 + frame, y0 + frame, x1 - frame, title, active)
-    return x0 + frame + 1, y0 + frame + 19
-
-
-def icons_31(reg, x, y, items, step=72):
-    for k, (kind, label) in enumerate(items):
-        cx = x + k * step
-        icon(reg, kind, cx - 16, y)
-        reg.text(label, "arial.ttf", 10, cx, y + 41, W_BLACK)
-
-
-def program_manager(reg):
-    """Windows 3.x's Program Manager: the Main and Games groups open, the others minimised."""
-    reg.rect_(0, 0, 640, 480, W_GREY)
-    cx, cy = window_31(reg, 6, 4, 634, 452, "Program Manager", active=True)
-    reg.rect_(cx, cy, 629, cy + 18, W_WHITE)
-    for x, name in ((12, "File"), (46, "Options"), (104, "Window"), (164, "Help")):
-        reg.text(name, "arial.ttf", 11, cx + x, cy + 9.5, W_BLACK, anchor="lm")
-    reg.line([(cx, cy + 18), (629, cy + 18)], W_BLACK, 1)
-    top = cy + 19
-    reg.rect_(cx, top, 629, 447, W_WHITE)
-    gx, gy = window_31(reg, cx + 10, top + 10, cx + 390, top + 182, "Main", active=True)
-    icons_31(reg, gx + 44, gy + 12, [("files", "File Manager"), ("control", "Control Panel"),
-                                     ("printer", "Print Manager"), ("setup", "Setup"), ("dos", "DOS Prompt")])
-    icons_31(reg, gx + 44, gy + 82, [("notes", "Notepad"), ("racer", "Odyssey Racer")])
-    gx, gy = window_31(reg, cx + 300, top + 196, cx + 610, top + 340, "Games", active=False)
-    icons_31(reg, gx + 46, gy + 14, [("cards", "Patience"), ("mines", "Sweeper"), ("racer", "Racer")], step=90)
-    for k, name in enumerate(("Accessories", "StartUp", "Applications")):
-        x = cx + 40 + k * 82
-        icon(reg, "group", x - 16, 370)
-        reg.text(name, "arial.ttf", 10, x, 411, W_BLACK)
-
-
-def title_95(reg, x0, y0, x1, text):
-    reg.rect_(x0, y0, x1, y0 + 18, W_NAVY)
-    icon_small(reg, x0 + 2, y0 + 1)
-    reg.text(text, "tahomabd.ttf", 11, x0 + 22, y0 + 9.5, W_WHITE, anchor="lm")
-    for k, mark in enumerate(("_", "\u25a1", "\u00d7")):
-        bx = x1 - 3 * 16 - 2 + k * 16 + (2 if k == 2 else 0)
-        bevel_box(reg, bx, y0 + 2, bx + 16, y0 + 16)
-        reg.text(mark, "arialbd.ttf", 12 if k else 10, bx + 8, y0 + 8.5 - (3 if k == 0 else 0), W_BLACK)
-
-
-def icon_small(reg, x, y):
-    for i in range(2):
-        for j in range(2):
-            reg.rect_(x + 2 + i * 8, y + 2 + j * 8, x + 9 + i * 8, y + 9 + j * 8, W_WHITE if (i + j) % 2 else W_BLACK)
-    reg.rect_(x + 3, y + 10, x + 16, y + 15, (220, 0, 0), r=1.5)
-
-
-def flag(reg, x, y, s):
-    """The Start button's four-colour flag, waving."""
-    for k, c in enumerate(((240, 40, 30), (40, 180, 60), (30, 90, 230), (250, 200, 20))):
-        i, j = k % 2, k // 2
-        x0, y0 = x + i * s * 0.52, y + j * s * 0.5 + (s * 0.08 if i else 0)
-        reg.poly([(x0, y0), (x0 + s * 0.46, y0 - s * 0.06), (x0 + s * 0.46, y0 + s * 0.38), (x0, y0 + s * 0.44)], c)
-
-
-def racing_scene(reg, x0, y0, x1, y1):
-    """Odyssey Racer's game: a road to the horizon, hills, a car."""
-    w, h = x1 - x0, y1 - y0
-    horizon = y0 + h * 0.42
-    sky = gradient((max(1, round(w * reg.sx)), max(1, round((horizon - y0) * reg.sy))),
-                   [(0, (40, 80, 200)), (1, (150, 200, 255))])
-    reg.img.paste(sky, (round(x0 * reg.sx), round(y0 * reg.sy)))
-    reg.rect_(x0, horizon, x1, y1, (40, 150, 50))
-    reg.poly([(x0, horizon), (x0 + w * 0.2, horizon - 40), (x0 + w * 0.42, horizon - 14), (x0 + w * 0.62, horizon - 52),
-              (x0 + w * 0.85, horizon - 18), (x1, horizon - 30), (x1, horizon)], (70, 110, 150))
-    for k in range(10):                                  # the verge's stripes
-        t0, t1 = k / 10, (k + 1) / 10
-        def edge(t, side):
-            return x0 + w / 2 + side * (6 + t * t * w * 0.4)
-        ya, yb = horizon + (y1 - horizon) * t0 * t0, horizon + (y1 - horizon) * t1 * t1
-        for side in (-1, 1):
-            reg.poly([(edge(t0, side), ya), (edge(t0, side) + side * (1 + t0 * 10), ya),
-                      (edge(t1, side) + side * (1 + t1 * 10), yb), (edge(t1, side), yb)],
-                     (230, 40, 40) if k % 2 else W_WHITE)
-    reg.poly([(x0 + w / 2 - 6, horizon), (x0 + w / 2 + 6, horizon), (x0 + w / 2 + w * 0.4 + 6, y1),
-              (x0 + w / 2 - w * 0.4 - 6, y1)], (90, 90, 96))
+def pad_top(atlas, spec):
+    """The mouse pad: its colour, a few stripes across a corner and the brand."""
+    (w, d) = K.PAD["size"]
+    colour = rgb(spec.COLOURS["pad"])
+    reg = Region(spec.PRINT_REGIONS["pad"], w, d, colour)
     for k in range(5):
-        t0, t1 = (k + 0.3) / 5, (k + 0.6) / 5
-        ya, yb = horizon + (y1 - horizon) * t0 * t0, horizon + (y1 - horizon) * t1 * t1
-        reg.poly([(x0 + w / 2 - 0.5 - t0 * 3, ya), (x0 + w / 2 + 0.5 + t0 * 3, ya), (x0 + w / 2 + 0.5 + t1 * 3, yb),
-                  (x0 + w / 2 - 0.5 - t1 * 3, yb)], W_WHITE)
-    cx, cy = x0 + w / 2 - 20, y1 - 34                     # the player's car, from behind
-    reg.rect_(cx - 42, cy, cx + 42, cy + 22, (210, 20, 20), r=4)
-    reg.rect_(cx - 28, cy - 14, cx + 28, cy + 2, (180, 10, 10), r=4)
-    reg.rect_(cx - 24, cy - 11, cx + 24, cy - 2, (60, 80, 120), r=2)
-    reg.rect_(cx - 46, cy + 4, cx + 46, cy + 9, (30, 30, 30))
-    for side in (-1, 1):
-        reg.rect_(cx + side * 44 - 9, cy + 12, cx + side * 44 + 9, cy + 30, (20, 20, 20), r=3)
-        reg.rect_(cx + side * 30 - 8, cy + 12, cx + side * 30 + 8, cy + 16, (255, 200, 40))
-    reg.text("LAP 2/3", "arialbd.ttf", 14, x0 + 10, y0 + 14, W_WHITE, anchor="lm")
-    reg.text("0:48.20", "arialbd.ttf", 14, x1 - 10, y0 + 14, (255, 230, 60), anchor="rm")
+        reg.poly([(w - 70.0 + k * 14.0, d), (w - 60.0 + k * 14.0, d), (w, d - 60.0 + k * 14.0 - 14.0),
+                  (w, d - 70.0 + k * 14.0 - 14.0)], shade(colour, 0.12 + 0.04 * k))
+    reg.text("ODYSSEY", "arialbd.ttf", 9.0, 40.0, d - 14.0, shade(colour, 0.45), anchor="lm")
+    reg.rect_(1.0, 1.0, w - 1.0, d - 1.0, None, r=K.PAD["radius"], outline=shade(colour, -0.35), width=1.2)
+    reg.paste(atlas)
 
 
-def desktop95(reg):
-    """A 95-style desktop: its icons, Odyssey Racer in a window, and the taskbar."""
-    reg.rect_(0, 0, 640, 480, W_TEAL)
-    for k, (kind, label) in enumerate((("computer", "My Computer"), ("network", "Network"), ("bin", "Recycle Bin"),
-                                       ("racer", "Odyssey Racer"))):
-        x, y = 36, 10 + k * 72
-        icon(reg, kind, x - 16, y)
-        reg.text(label, "tahoma.ttf", 10.5, x, y + 42, W_WHITE)
-    x0, y0, x1, y1 = 120, 40, 600, 420
-    bevel_box(reg, x0, y0, x1, y1)
-    title_95(reg, x0 + 3, y0 + 3, x1 - 3, "Odyssey Racer")
-    for x, name in ((8, "Game"), (50, "Options"), (106, "Help")):
-        reg.text(name, "tahoma.ttf", 11, x0 + x, y0 + 31, W_BLACK, anchor="lm")
-    bevel_box(reg, x0 + 4, y0 + 42, x1 - 4, y1 - 4, pressed=True)
-    racing_scene(reg, x0 + 6, y0 + 44, x1 - 6, y1 - 6)
+# -- The monitor's front ---------------------------------------------------------------------------------------------
 
-    reg.rect_(0, 452, 640, 480, W_GREY)
-    reg.line([(0, 452.5), (640, 452.5)], W_WHITE, 1)
-    bevel_box(reg, 2, 455, 58, 477)
-    flag(reg, 6, 459, 14)
-    reg.text("Start", "tahomabd.ttf", 11, 40, 466.5, W_BLACK)
-    bevel_box(reg, 62, 455, 222, 477, fill=(224, 224, 224), pressed=True)
-    icon_small(reg, 66, 457)
-    reg.text("Odyssey Racer", "tahomabd.ttf", 11, 86, 466.5, W_BLACK, anchor="lm")
-    reg.rect_(560, 455, 638, 477, W_DARK)
-    reg.rect_(561, 456, 638, 477, W_WHITE)
-    reg.rect_(561, 456, 637, 476, W_GREY)
-    reg.poly([(568, 463), (572, 463), (577, 459), (577, 474), (572, 470), (568, 470)], W_BLACK)
-    reg.text("4:20 PM", "tahoma.ttf", 11, 610, 466.5, W_BLACK)
+def monitor_front(atlas, spec):
+    """The monitor's front seen square on: its bezel, the screen's opening (the model cuts it), the strip's parts."""
+    mon = spec.MONITOR
+    colour = rgb(spec.COLOURS["monitor"])
+    w, h = mon["width"], mon["height"]
+    reg = Region(spec.DEVICE_REGIONS["monitor"], w, h, colour)
+    for k in range(6):                                  # the bezel's edge catches the light, its foot falls in shadow
+        reg.rect_(k * 1.2, k * 1.2, w - k * 1.2, h - k * 1.2, None, outline=shade(colour, 0.05 - k * 0.012), width=1.2)
+    ow, oh, orad = mon["opening"]
+    cz = h - mon["screen_z"]
+    reg.rect_(w / 2 - ow / 2, cz - oh / 2, w / 2 + ow / 2, cz + oh / 2, (20, 20, 22), r=orad)
+    draw_parts(reg, [(kind, a, b, pw, ph, depth, text) for kind, a, b, pw, ph, depth, text in mon["strip"]], colour,
+               plate_badge=False)
+    reg.paste(atlas)
 
 
-def screen_image(spec, out):
-    """The glass: dark, its raster centred with rounded corners, a vignette, and a sheen across it."""
-    mon = spec["monitor"]
-    gw, gh = mon["glass"]
-    rw, rh = mon["raster"]
-    iw, ih = L.SCREEN_PX
-    image = Image.new("RGB", L.SCREEN_PX, (26, 30, 29))
-    x0, y0 = round((gw - rw) / 2 / gw * iw), round((gh - rh) / 2 / gh * ih)
-    pw, ph = round(rw / gw * iw), round(rh / gh * ih)
-    raster = Region((0, 0, pw, ph), 640.0, 480.0, (0, 0, 0))
-    {"commander": commander, "program_manager": program_manager, "desktop95": desktop95}[spec["screen"]](raster)
-    lit = raster.img.convert("RGB").resize((pw, ph), Image.LANCZOS)
-    mask = Image.new("L", (pw, ph), 0)
-    ImageDraw.Draw(mask).rounded_rectangle([0, 0, pw - 1, ph - 1], radius=pw * 0.025, fill=255)
-    image.paste(lit, (x0, y0), mask.filter(ImageFilter.GaussianBlur(1.2)))
+# -- The atlases -----------------------------------------------------------------------------------------------------
 
-    # The raster dims towards its edges, and the glass catches a soft light from the top left.
-    vignette = Image.new("L", L.SCREEN_PX, 0)
-    ImageDraw.Draw(vignette).rounded_rectangle([x0 + pw * 0.04, y0 + ph * 0.05, x0 + pw * 0.96, y0 + ph * 0.95],
-                                               radius=pw * 0.12, fill=255)
-    vignette = vignette.filter(ImageFilter.GaussianBlur(pw * 0.06))
-    dark = Image.new("RGB", L.SCREEN_PX, (0, 0, 0))
-    image = Image.composite(image, Image.blend(image, dark, 0.35), vignette)
-    sheen = Image.new("L", L.SCREEN_PX, 0)
-    ImageDraw.Draw(sheen).ellipse([-iw * 0.3, -ih * 0.6, iw * 0.75, ih * 0.42], fill=26)
-    sheen = sheen.filter(ImageFilter.GaussianBlur(iw * 0.08))
-    image = Image.composite(Image.new("RGB", L.SCREEN_PX, (255, 255, 255)), image, sheen)
+def swatch_strip(image, spec):
+    d = ImageDraw.Draw(image)
+    for name, (x, y) in spec.SWATCHES.items():
+        d.rectangle([x - 12, y - 12, x + 11, y + 11], fill=rgb(spec.COLOURS[name]))
+
+
+def print_atlas(spec, made_up, out):
+    image = Image.new("RGB", (K.ATLAS, K.ATLAS), (110, 108, 104))
+    keyboard_top(image, spec)
+    if "floppy" in spec.PRINT_REGIONS:
+        floppy_sides(image, spec, made_up)
+    if "mouse_top" in spec.PRINT_REGIONS:
+        mouse_top(image, spec)
+        pad_top(image, spec)
+    if "cd" in spec.PRINT_REGIONS:
+        cd_label(image, spec, made_up)
+    for extra in getattr(spec, "PRINT_EXTRAS", ()):
+        extra(image, spec, made_up)
+    swatch_strip(image, spec)
     image.save(out, optimize=True)
 
 
+def devices_atlas(spec, out):
+    image = Image.new("RGB", (K.ATLAS, K.ATLAS), (110, 108, 104))
+    case = spec.CASE
+    tower = case["kind"] == "tower"
+    w, h = case["width"], case["height"] - case["feet"]
+    bezel = rgb(spec.COLOURS["bezel"])
+    front = Region(spec.DEVICE_REGIONS["front"], w, h, bezel)
+    if not tower:                                        # a desktop bezel's grooves, across its foot
+        for k in range(3):
+            front.line([(4.0, h - 6.0 - k * 3.0), (w - 4.0, h - 6.0 - k * 3.0)], shade(bezel, -0.12), 0.5)
+    draw_parts(front, spec.FRONT, bezel, plate_badge=case.get("plate", True), tower=tower)
+    front.paste(image)
+    if "back" in spec.DEVICE_REGIONS:
+        if tower:
+            tower_back(image, spec.DEVICE_REGIONS["back"], w, h)
+        else:
+            desktop_back(image, spec.DEVICE_REGIONS["back"], w, h, sound=case.get("sound", False))
+    monitor_front(image, spec)
+    if "tray_top" in spec.DEVICE_REGIONS:
+        tray_top(image, spec)
+    swatch_strip(image, spec)
+    image.save(out, optimize=True)
+
+
+def main(name, made_up, out):
+    os.makedirs(out, exist_ok=True)
+    spec = importlib.import_module(name + "_layout")
+    screens = importlib.import_module(name + "_screens")
+    print_atlas(spec, made_up, os.path.join(out, f"{name}_print.png"))
+    devices_atlas(spec, os.path.join(out, f"{name}_devices.png"))
+    path = os.path.join(out, f"{name}_screen.png")
+    screens.still(made_up).save(path, optimize=True)
+    print(path)
+
+
 if __name__ == "__main__":
-    folder = os.path.abspath(sys.argv[1])
-    os.makedirs(folder, exist_ok=True)
-    for set_id, spec in L.SETS.items():
-        print_atlas(set_id, spec, os.path.join(folder, f"{set_id}_print.png"))
-        screen_image(spec, os.path.join(folder, f"{set_id}_screen.png"))
-        print(f"{set_id}: {spec['name']}")
+    main(sys.argv[1], os.path.abspath(sys.argv[2]), os.path.abspath(sys.argv[3]))
