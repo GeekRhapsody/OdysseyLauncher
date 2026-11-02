@@ -62,7 +62,7 @@ public sealed class LaunchBoxTests : IAsyncLifetime
         var systems = new ConfigLoader().Load(new ConfigSources { HomeDir = "C:/home", ConfigDir = "C:/home/config", FileExists = null }).Config.Systems;
 
         var named = systems.Where(s => s.LaunchBoxPlatforms is { Count: > 0 }).ToList();
-        Assert.Equal(145, named.Count);
+        Assert.Equal(146, named.Count);
         Assert.All(named, s => Assert.All(s.LaunchBoxPlatforms!, p => Assert.True(known.Contains(p), $"{s.Id}: '{p}' isn't a LaunchBox platform")));
     }
 

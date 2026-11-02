@@ -567,6 +567,9 @@ model = "models/systems/saturn.glb"            # built by tools/console-models/s
 [systems.dreamcast]
 model = "models/systems/dreamcast.glb"         # built by tools/console-models/dreamcast.py: the European Dreamcast and its controller with a VMU; its focused clip opens the lid, drops a GD-ROM onto the spindle and shuts it, presses POWER (the light and the VMU come on) and plays on the controller, then takes the GD-ROM out
 
+[systems.dreamcastnajp]
+model = "models/systems/dreamcastnajp.glb"     # built by tools/console-models/dreamcast.py (dreamcastnajp): the same, the North American and Japanese Dreamcast, its swirls orange
+
 # Favourites, Recently played and All games have no console: a Power Star, an alarm clock and a pile of games.
 [systems.favourites]
 model = "models/systems/favourites.glb"       # built by tools/console-models/power_star.py: Super Mario 64's Power Star; its focused clip opens its eyes, hops, spins and wiggles

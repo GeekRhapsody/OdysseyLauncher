@@ -4,7 +4,9 @@ Each image is cropped to what it shows (its transparent border cut off, with a s
 picture itself to the card rather than a mostly empty square, and scaled down to at most 512 pixels on its longer side,
 the size the launcher bakes every image to (TextureDerivatives.Size): anything larger is decoded only to be shrunk.
 
-Only the images of built-in systems are kept (systems.toml), plus the virtual cards' (renamed).
+Only the images of built-in systems are kept (systems.toml), plus the virtual cards' (renamed). A regional variant
+ES-DE has no image for gets its system's (COPIES): Dreamcast (NA/JP) the Dreamcast's, whose controller has the North
+American and Japanese orange swirl.
 Needs Pillow. Run from the repo root:
 
     python tools/slab-logos.py [--source=slab_images]
@@ -14,6 +16,7 @@ It takes about ten minutes: WebP's slowest, smallest compression (method 6).
 
 import os
 import re
+import shutil
 import sys
 
 from PIL import Image
@@ -21,6 +24,7 @@ from PIL import Image
 SOURCE = next((a.split('=', 1)[1] for a in sys.argv[1:] if a.startswith('--source=')), 'slab_images')
 TARGET = 'godot/themes/slab/logos'
 RENAMES = {'auto-favorites': 'favourites', 'auto-lastplayed': 'recently_played', 'auto-allgames': 'all_games'}
+COPIES = {'dreamcastnajp': 'dreamcast'}   # a regional variant's image, and the system whose image it is
 MAX_SIDE = 512
 MARGIN = 0.02          # of the cropped picture's longer side, so soft edges and shadows aren't cut
 ALPHA_THRESHOLD = 4    # alpha at or below this counts as empty
@@ -53,6 +57,13 @@ for name in sorted(os.listdir(SOURCE)):
     before += os.path.getsize(os.path.join(SOURCE, name))
     after += os.path.getsize(out)
     kept += 1
+
+for copy, original in COPIES.items():
+    source, target = os.path.join(TARGET, original + '.webp'), os.path.join(TARGET, copy + '.webp')
+    if copy in ids and os.path.exists(source) and not os.path.exists(target):  # unless ES-DE's set has its own
+        shutil.copyfile(source, target)
+        after += os.path.getsize(target)
+        kept += 1
 
 print(f'{kept} logos written to {TARGET} ({before / 1e6:.1f} MB of source, {after / 1e6:.1f} MB written); '
       f'{len(skipped)} skipped (no built-in system): {", ".join(skipped)}')

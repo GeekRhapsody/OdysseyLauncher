@@ -12,7 +12,8 @@ transparent border cut off, with a small margin), so the launcher fits the logo 
 at most 512 pixels on its longer side, the size the launcher bakes every image to (TextureDerivatives.Size).
 
 Only the images of built-in systems are kept (systems.toml), plus the virtual cards' (renamed: Favourites from the
-UK English variant). Localised variants (auto-favorites-de, ...) are ignored. When a name has both an SVG and a PNG,
+UK English variant). Localised variants (auto-favorites-de, ...) are ignored. A regional variant Carbon has no logo for
+can have another system's in other colours (DERIVED): Dreamcast (NA/JP)'s is the Dreamcast's with an orange swirl. When a name has both an SVG and a PNG,
 the SVG wins. Logos still drawn mostly in dark colours are listed, to check on the card.
 
 Needs Pillow and ImageMagick (magick) with its librsvg delegate. Run from the repo root:
@@ -22,6 +23,7 @@ Needs Pillow and ImageMagick (magick) with its librsvg delegate. Run from the re
 It takes a few minutes: WebP's slowest, smallest compression (method 6).
 """
 
+import colorsys
 import io
 import os
 import re
@@ -45,6 +47,13 @@ NAMES = {
     'n3ds': ['3ds'],
     'naomigd': ['naomi'],
     'type-x': ['typex'],
+}
+# Cards whose logo is another card's with its coloured parts (not its white lettering) turned to another colour, as
+# (the other card, the hue in degrees, the saturation and the brightness its commonest coloured pixel takes): Dreamcast
+# (NA/JP), a regional variant, has the Dreamcast's logo with the North American and Japanese orange swirl for Carbon's
+# PAL blue.
+DERIVED = {
+    'dreamcastnajp': ('dreamcast', 22, 0.85, 0.92),
 }
 RENDER_SIDE = 1024     # an SVG's longer side once rendered, before the crop
 MAX_SIDE = 512
@@ -78,6 +87,24 @@ def load(path):
                              check=True, capture_output=True).stdout
         return Image.open(io.BytesIO(png)).convert('RGBA')
     return Image.open(path).convert('RGBA')
+
+
+def recolour(image, hue, saturation, value):
+    """
+    The image with its coloured pixels (saturation over a third) turned to the hue, at the saturation, and brightened or
+    darkened by what takes their commonest brightness to value, so the colour's shading stays.
+    """
+    data = image.tobytes()
+    pixels = [tuple(data[i:i + 4]) for i in range(0, len(data), 4)]
+    hsv = [colorsys.rgb_to_hsv(r / 255, g / 255, b / 255) for r, g, b, _ in pixels]
+    coloured = sorted(round(v, 2) for (_, s, v), (*_, a) in zip(hsv, pixels) if s > 1 / 3 and a > ALPHA_THRESHOLD)
+    scale = value / coloured[len(coloured) // 2] if coloured else 1.0
+    out = bytearray()
+    for (h, s, v), (r, g, b, a) in zip(hsv, pixels):
+        if s > 1 / 3:
+            r, g, b = (round(c * 255) for c in colorsys.hsv_to_rgb(hue / 360, saturation, min(1.0, v * scale)))
+        out += bytes((r, g, b, a))
+    return Image.frombytes('RGBA', image.size, bytes(out))
 
 
 def mean_luma(image):
@@ -143,8 +170,17 @@ for target, name in sorted(jobs.items()):
     if luma < DARK_LUMA:
         dark.append(f'{target} ({luma:.0f})')
 
-print(f'{len(jobs)} logos written to {TARGET} ({after / 1e6:.1f} MB)')
-missing = sorted(ids - set(jobs))
+derived = []
+for target, (card, hue, saturation, value) in DERIVED.items():
+    if target in ids and card in jobs:
+        out = os.path.join(TARGET, target + '.webp')
+        recolour(Image.open(os.path.join(TARGET, card + '.webp')).convert('RGBA'), hue, saturation, value) \
+            .save(out, 'WEBP', quality=92, alpha_quality=100, method=6)
+        after += os.path.getsize(out)
+        derived.append(target)
+
+print(f'{len(jobs) + len(derived)} logos written to {TARGET} ({after / 1e6:.1f} MB), {len(derived)} derived from another')
+missing = sorted(ids - set(jobs) - set(derived))
 if missing:
     print('built-in systems without a logo:', ', '.join(missing))
 if dark:

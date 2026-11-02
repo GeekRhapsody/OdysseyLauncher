@@ -136,6 +136,29 @@ public sealed class BuiltInModelTests
     }
 
     [Fact]
+    public void The_Dreamcast_jewel_cases_faces_have_the_PAL_scans_proportions()
+    {
+        // Sized by ScreenScraper's PAL scans (a 640 x 640 front, a 784 x 680 back, an 87 x 680 spine), so none of the art
+        // is cropped (A7, "The Dreamcast jewel case").
+        var theme = ThemeFixtures.Load(ThemeFixtures.BaseFolder);
+        var model = Load(ThemeFixtures.BaseFolder, theme.Templates["dreamcast_jewel_case"].Model);
+
+        Assert.Equal(["case", "cover", "back", "spine"], model.Materials);
+        Assert.Equal(640 / 640f, model.Aspects["cover"], 0.001f);
+        Assert.Equal(784 / 680f, model.Aspects["back"], 0.001f);
+        Assert.Equal(87 / 680f, model.Aspects["spine"], 0.001f);
+    }
+
+    [Fact]
+    public void The_Dreamcasts_games_are_in_the_PAL_case_and_its_NA_JP_variants_in_the_CD_jewel_case()
+    {
+        var systems = ThemeFixtures.Load(ThemeFixtures.BaseFolder).Systems;
+
+        Assert.Equal("dreamcast_jewel_case", systems["dreamcast"].GameTemplate);
+        Assert.Equal("jewel_case", systems["dreamcastnajp"].GameTemplate);
+    }
+
+    [Fact]
     public void The_PSPs_games_are_in_its_clamshell()
     {
         Assert.Equal("psp_clamshell", ThemeFixtures.Load(ThemeFixtures.BaseFolder).Systems["psp"].GameTemplate);

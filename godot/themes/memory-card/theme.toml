@@ -45,11 +45,14 @@ game_template = "generic_box_spine"                    # for systems this theme 
 [templates.dvd_case]               # GameCube and other DVD systems: 135 x 190 x 14 mm
 model = "models/templates/dvd_case.glb"
 
-[templates.jewel_case]             # Saturn, Dreamcast, the other CD systems: 142 x 125 x 10.4 mm
+[templates.jewel_case]             # Dreamcast (NA/JP) and the other CD systems: 142 x 125 x 10.4 mm
 model = "models/templates/jewel_case.glb"
 
 [templates.psx_jewel_case]         # PlayStation: the jewel case sized by ScreenScraper's PAL art (1:1 front, 765 x 680 back, 65 x 680 spine): 140.43 x 125 x 13.4 mm
 model = "models/templates/psx_jewel_case.glb"
+
+[templates.dreamcast_jewel_case]   # Dreamcast: the PAL case, its blue tray's band down the front, its art sized by ScreenScraper's PAL scans (1:1 front, 784 x 680 back, 87 x 680 spine): 142 x 125 x 19 mm
+model = "models/templates/dreamcast_jewel_case.glb"  # built by tools/console-models/dreamcast_jewel_case.py
 
 [templates.cartridge_box]          # NES, N64, Game Boy Advance: 135 x 185 x 32 mm
 model = "models/templates/cartridge_box.glb"
@@ -375,7 +378,7 @@ energy = 0.25
 
 [systems.dreamcast]                # Dreamcast
 colour = "#D06A1E"
-game_template = "jewel_case"
+game_template = "dreamcast_jewel_case"
 
 [systems.dreamcast.look.background]
 top_left     = "#4C2D15"
@@ -394,6 +397,31 @@ colour = "#FFC79D"
 energy = 0.55
 
 [[systems.dreamcast.look.lights]]
+direction = [0.0, 0.9, -0.4]
+colour = "#FF9060"
+energy = 0.25
+
+[systems.dreamcastnajp]            # Dreamcast (NA/JP): the Dreamcast's colour and look, in the CD jewel case
+colour = "#D06A1E"
+game_template = "jewel_case"
+
+[systems.dreamcastnajp.look.background]
+top_left     = "#4C2D15"
+top_right    = "#4C2D15"
+bottom_left  = "#0B0603"
+bottom_right = "#211308"
+
+[[systems.dreamcastnajp.look.lights]]
+direction = [-0.5, -0.4, -0.75]
+colour = "#FFFFFF"
+energy = 1.0
+
+[[systems.dreamcastnajp.look.lights]]
+direction = [0.7, -0.2, -0.6]
+colour = "#FFC79D"
+energy = 0.55
+
+[[systems.dreamcastnajp.look.lights]]
 direction = [0.0, 0.9, -0.4]
 colour = "#FF9060"
 energy = 0.25

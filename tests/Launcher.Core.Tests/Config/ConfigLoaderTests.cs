@@ -90,6 +90,25 @@ public class ConfigLoaderTests
     }
 
     [Fact]
+    public void The_Dreamcasts_regional_variant_launches_and_scrapes_as_the_Dreamcast_from_its_own_folder()
+    {
+        // dreamcastnajp is the Dreamcast for North American and Japanese art: only its folder and its name differ, so a
+        // change to the Dreamcast's emulators, extensions or scraping ids must reach it too (systems.toml).
+        var systems = Load().Config.Systems.ToDictionary(s => s.Id);
+        var (dreamcast, variant) = (systems["dreamcast"], systems["dreamcastnajp"]);
+
+        Assert.Equal(dreamcast.Extensions, variant.Extensions);
+        Assert.Equal(dreamcast.Emulator, variant.Emulator);
+        Assert.Equal(dreamcast.AltEmulators, variant.AltEmulators);
+        Assert.Equal(dreamcast.ScreenScraperId, variant.ScreenScraperId);
+        Assert.Equal(dreamcast.IgdbPlatforms, variant.IgdbPlatforms);
+        Assert.Equal(dreamcast.LaunchBoxPlatforms, variant.LaunchBoxPlatforms);
+        Assert.Equal((dreamcast.Manufacturer, dreamcast.Year), (variant.Manufacturer, variant.Year));
+        Assert.Equal(("Dreamcast (NA/JP)", Path.GetFullPath(Path.Combine(Home, "ROMs", "dreamcastnajp"))), (variant.Name, variant.RomDirs[0]));
+        Assert.Empty(variant.Aliases);
+    }
+
+    [Fact]
     public void Built_in_emulator_templates_expand_variables_and_keep_launch_placeholders()
     {
         var emulator = Load().Config.Emulators["retroarch-genesis-plus-gx"];

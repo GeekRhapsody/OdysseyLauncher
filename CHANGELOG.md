@@ -10,8 +10,13 @@ it releases, and the Release workflow puts it on the release page (tools/release
 
 ## Unreleased
 
+### New
+
+- **Dreamcast (NA/JP)**, a second Dreamcast system for collections with North American or Japanese art, shown in the standard CD jewel case those games came in. Put those games in a `dreamcastnajp` folder in your ROMs folder. Its art is whatever your scraping regions pick, as for every system. Every theme has a card for it: in Console, the Dreamcast with its orange swirl.
+
 ### Changed
 
+- Dreamcast games show in the PAL Dreamcast case: deeper than a CD case, with the blue tray's "Dreamcast" band down its left side. It's sized to ScreenScraper's European scans, so their whole front, back and spine show without cropping. If your Dreamcast art is North American or Japanese, move those games to the new Dreamcast (NA/JP) system.
 - The Console theme's DOS, Windows 3.x, Windows 9x and Windows cards are new, each a PC of its time whose monitor plays a game as a video when you focus it, in step with its keyboard, mouse and drives: DOS loads a helicopter game from a floppy, Windows 3.x opens a brick breaker from Program Manager, Windows 9x runs a racing game from its CD, and the Windows gaming PC's fans spin while it plays an adventure from the desktop. Before, those cards didn't move.
 - The Console theme's Flash card plays smoothly. Its monitor shows the game as a video, in step with the mouse beside it: the loading bar filling, the title, PLAY clicked, the ship flown with the mouse and firing at each click, and the right-click menu. Before, it swapped a few still pictures in and out.
 

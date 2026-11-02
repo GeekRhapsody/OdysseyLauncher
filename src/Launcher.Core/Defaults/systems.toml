@@ -39,6 +39,12 @@
 #
 # Each system's game model (a box template) comes from the theme. game_model = "<template id>" picks one of
 # the theme's templates for a system instead, e.g. game_model = "jewel_case" for a new CD system.
+#
+# Regional variants (2026-11-02): a system whose games were packaged differently in some regions can have a variant
+# for the others, with its own folder, the same emulators and scraping ids, and the themes' template for those
+# regions' boxes. dreamcastnajp is the Dreamcast for North American and Japanese art (the CD jewel case), dreamcast's
+# template being the PAL case. Which region's art a scrape picks is still [scraping] regions' (settings.toml), so
+# put a variant's games in its folder when that's the art your scraping prefers. Its description isn't ES-DE's.
 
 format = 1
 
@@ -526,6 +532,18 @@ manufacturer = "Sega"
 year = 1998
 description = "The Dreamcast is a home video game console released by Sega on 27 November 1998 in Japan, 9 September 1999 in North America, and 14 October 1999 in Europe. It was the first in the sixth generation of video game consoles, preceding Sony's PlayStation 2, Nintendo's GameCube, and Microsoft's Xbox. The Dreamcast was Sega's final home console, marking the end of the company's eighteen years in the console market. In contrast to the expensive hardware of the unsuccessful Sega Saturn, the Dreamcast was designed to reduce costs with \"off-the-shelf\" components, including a Hitachi SH-4 CPU and an NEC PowerVR2 GPU. Released in Japan to a subdued reception, the Dreamcast enjoyed a successful U.S. launch backed by a large marketing campaign, but interest in the system steadily declined as Sony built hype for the upcoming PlayStation 2. Sales did not meet Sega's expectations despite several price cuts, and the company continued to incur significant financial losses. After a change in leadership, Sega discontinued the Dreamcast on 31 March 2001, withdrawing from the console business and restructuring itself as a third-party publisher. In total, 9.13 million Dreamcast units were sold worldwide."
 aliases = ["dc"]
+extensions = [".gdi", ".chd", ".cdi", ".cue", ".m3u"]
+emulator = "retroarch-flycast"
+alt_emulators = ["flycast", "flycast-dojo", "redream", "demul-dreamcast"]
+screenscraper_id = 23
+igdb_platforms = [23]
+launchbox_platforms = ["Sega Dreamcast"]
+
+[systems.dreamcastnajp]
+name = "Dreamcast (NA/JP)"
+manufacturer = "Sega"
+year = 1998
+description = "The Dreamcast is a home video game console released by Sega on 27 November 1998 in Japan, 9 September 1999 in North America, and 14 October 1999 in Europe. It was the first in the sixth generation of video game consoles, preceding Sony's PlayStation 2, Nintendo's GameCube, and Microsoft's Xbox. The Dreamcast was Sega's final home console, marking the end of the company's eighteen years in the console market. In contrast to the expensive hardware of the unsuccessful Sega Saturn, the Dreamcast was designed to reduce costs with \"off-the-shelf\" components, including a Hitachi SH-4 CPU and an NEC PowerVR2 GPU. Released in Japan to a subdued reception, the Dreamcast enjoyed a successful U.S. launch backed by a large marketing campaign, but interest in the system steadily declined as Sony built hype for the upcoming PlayStation 2. Sales did not meet Sega's expectations despite several price cuts, and the company continued to incur significant financial losses. After a change in leadership, Sega discontinued the Dreamcast on 31 March 2001, withdrawing from the console business and restructuring itself as a third-party publisher. In total, 9.13 million Dreamcast units were sold worldwide."
 extensions = [".gdi", ".chd", ".cdi", ".cue", ".m3u"]
 emulator = "retroarch-flycast"
 alt_emulators = ["flycast", "flycast-dojo", "redream", "demul-dreamcast"]

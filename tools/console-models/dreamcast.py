@@ -1,5 +1,6 @@
 """The console theme's Dreamcast system model (godot/themes/console/models/systems/dreamcast.glb): the European
-Dreamcast and its controller with a VMU in its slot.
+Dreamcast and its controller with a VMU in its slot. With dreamcastnajp, the North American and Japanese one, the same
+but for its orange swirls (dreamcastnajp.glb, the regional variant's card, from dreamcastnajp_print.png).
 
 Built in Blender (dreamcast_layout.py has the measurements, taken from photographs and published figures). The body is
 its side outline (its top rising a little to the back) extruded across its width and cut round its plan's corners,
@@ -24,6 +25,8 @@ Two materials (case, disc) and one 1024² texture, within the system model budge
 
     python tools/console-models/dreamcast_print.py artifacts/dreamcast
     blender -b --factory-startup --python tools/console-models/dreamcast.py -- artifacts/dreamcast godot/themes/console/models/systems/dreamcast.glb
+    python tools/console-models/dreamcast_print.py artifacts/dreamcast dreamcastnajp
+    blender -b --factory-startup --python tools/console-models/dreamcast.py -- artifacts/dreamcast godot/themes/console/models/systems/dreamcastnajp.glb dreamcastnajp
 """
 
 import math
@@ -304,10 +307,11 @@ def timeline(f):
 def main():
     args = sys.argv[sys.argv.index("--") + 1:]
     images, out = os.path.abspath(args[0]), os.path.abspath(args[1])
+    kind = args[2] if len(args) > 2 else "dreamcast"
     bpy.ops.wm.read_factory_settings(use_empty=True)
     scene = bpy.context.scene
     scene.render.fps = L.FPS
-    atlas = bpy.data.images.load(os.path.join(images, "dreamcast_print.png"))
+    atlas = bpy.data.images.load(os.path.join(images, f"{kind}_print.png"))
     m = {name: material(name, L.COLOURS["print"], r, atlas) for name, r in ROUGHNESS.items()}
 
     body, moving, (exit_at, exit_dir) = controller(m)

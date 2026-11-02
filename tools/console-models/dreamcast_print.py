@@ -1,12 +1,13 @@
 """The Dreamcast card's printing (dreamcast_print.png), for the console theme's model (dreamcast.py).
 
-One image, laid out as dreamcast_layout.REGIONS says: the console from above (the lid's blue swirl and Dreamcast, its
+One image, laid out as dreamcast_layout.REGIONS says: the console from above (the lid's swirl and Dreamcast, its
 arrow, its rim, the two creases to the back corners, POWER and OPEN), its front (SEGA over the ports' panel, A B C D),
 the controller from above (the swirl and Dreamcast, the VMU's face round its screen, the D-pad's and buttons' marks,
 START), the VMU's screens (off, and the made-up game's ship on it), the GD-ROM's label (a made-up game, Odyssey), and
-swatches. Run it with the system Python (Pillow):
+swatches. The swirl and Dreamcast are the European Dreamcast's blue, or with dreamcastnajp the North American and
+Japanese orange (the regional variant's card, dreamcastnajp_print.png). Run it with the system Python (Pillow):
 
-    python tools/console-models/dreamcast_print.py <out folder>
+    python tools/console-models/dreamcast_print.py <out folder> [dreamcast|dreamcastnajp]
 """
 
 import math
@@ -22,7 +23,7 @@ from retro_pc_print import rgb  # noqa: E402
 from windows_pc_print import Region  # noqa: E402
 
 CASE = rgb(L.COLOURS["case"])
-BLUE = (40, 90, 200)
+SWIRL = {"dreamcast": (40, 90, 200), "dreamcastnajp": (236, 104, 34)}  # Europe's blue; North America's and Japan's orange
 GREY = (150, 150, 152)
 INK = (110, 110, 114)
 LCD = (176, 206, 168)
@@ -49,7 +50,7 @@ def badge(reg, x, y, size, ink):
     reg.text("Dreamcast", "timesi.ttf", size * 0.5, x, y + size * 0.42, ink)
 
 
-def top():
+def top(swirl_ink):
     """The console from above: x across (-WIDTH/2 at the left), y down from the back to the front."""
     reg = Region(L.REGIONS["top"], L.WIDTH, L.DEPTH, CASE)
 
@@ -62,7 +63,7 @@ def top():
                  0.6)
     reg.circle(*at(lx, ly), r + 1.2, shade(CASE, -0.18))
     reg.circle(*at(lx, ly), r, shade(CASE, 0.02))
-    badge(reg, *at(0.0, ly + 30.0), 22.0, BLUE)
+    badge(reg, *at(0.0, ly + 30.0), 22.0, swirl_ink)
     reg.poly([at(x, y) for x, y in L.ARROW], shade(CASE, -0.1))
     for name, (x, y) in (("POWER", L.BUTTONS["power"]), ("OPEN", L.BUTTONS["open"])):
         reg.circle(*at(x, y), L.BUTTONS["r"] + 1.0, shade(CASE, -0.1))
@@ -93,7 +94,7 @@ def front():
     return reg
 
 
-def pad():
+def pad(swirl_ink):
     """The controller from above: x across (-80 at the left), y down from its top (80) to its grips' ends."""
     w, h = 160.0, 160.0
     reg = Region(L.REGIONS["pad"], w, h, CASE)
@@ -101,7 +102,7 @@ def pad():
     def at(x, y):
         return x + w / 2, 80.0 - y
 
-    badge(reg, *at(0.0, 66.0), 13.0, BLUE)
+    badge(reg, *at(0.0, 66.0), 13.0, swirl_ink)
     (sx, sy), sw, sh = L.PAD["slot"]
     reg.rect_(*at(sx - sw / 2, sy + sh / 2), *at(sx + sw / 2, sy - sh / 2), (216, 216, 214), r=8.0)
     reg.rect_(*at(sx - sw / 2 + 3.0, sy + sh / 2 - 3.0), *at(sx + sw / 2 - 3.0, sy - sh / 2 + 3.0), (226, 226, 222),
@@ -159,10 +160,10 @@ def disc():
     return reg
 
 
-def main(out):
+def main(out, kind):
     os.makedirs(out, exist_ok=True)
     image = Image.new("RGB", (L.ATLAS, L.ATLAS), CASE)
-    for reg in (top(), front(), pad(), vmu(False), vmu(True), disc()):
+    for reg in (top(SWIRL[kind]), front(), pad(SWIRL[kind]), vmu(False), vmu(True), disc()):
         reg.paste(image)
     d = ImageDraw.Draw(image)
     colours = dict(case=CASE, dark=(30, 30, 32), button=shade(CASE, -0.04), lit=(255, 150, 30), off=(150, 120, 90),
@@ -170,10 +171,10 @@ def main(out):
                    yellow=(240, 200, 40), green=(60, 180, 90), grey=(206, 206, 204))
     for name, (x, y) in L.SWATCHES.items():
         d.rectangle([x - 12, y - 12, x + 11, y + 11], fill=colours[name])
-    path = os.path.join(out, "dreamcast_print.png")
+    path = os.path.join(out, f"{kind}_print.png")
     image.save(path, optimize=True)
     print(path)
 
 
 if __name__ == "__main__":
-    main(sys.argv[1])
+    main(sys.argv[1], sys.argv[2] if len(sys.argv) > 2 else "dreamcast")
