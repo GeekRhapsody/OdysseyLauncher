@@ -130,7 +130,7 @@ public sealed partial class SettingsHome : ListPanel
         var active = services.Theme?.Active;
         _theme.Detail = active is null ? config.Settings.Display.Theme : $"{active.Name} ({active.Id})";
         var display = config.Settings.Display;
-        _layout.Detail = $"Systems: {LayoutPage.SystemsTitle(display.SystemsLayout)}{SizeOf(display.SystemsLayout == SystemsLayout.Grid, display.SystemsGrid)} · Games: {LayoutPage.GamesTitle(display.GamesLayout)}{SizeOf(display.GamesLayout == GamesLayout.Grid, display.GamesGrid)}";
+        _layout.Detail = $"Systems: {LayoutPage.SystemsTitle(display.SystemsLayout)}{SizeOf(Layouts.IsGrid(display.SystemsLayout), display.SystemsGrid)} · Games: {LayoutPage.GamesTitle(display.GamesLayout)}{SizeOf(Layouts.IsGrid(display.GamesLayout), display.GamesGrid)}";
         _graphics.Detail = GraphicsPage.Summary(display);
         var scraping = config.Settings.Scraping;
         _scraping.Detail = scraping.Fallback.Count == 0

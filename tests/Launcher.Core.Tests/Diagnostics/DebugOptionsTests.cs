@@ -131,6 +131,11 @@ public class DebugOptionsTests
         Assert.Equal(GamesLayout.List, applied.GamesLayout);
         Assert.Equal(new GridSize(6, 3), applied.GamesGrid);
 
+        var labelled = DebugOptions.Parse(["--layout=grid_with_labels/grid_with_labels:5x0"]);
+        Assert.True(labelled.IsValid, string.Join("; ", labelled.Errors));
+        Assert.Equal(new LayoutOverride(SystemsLayout.GridWithLabels, null, GamesLayout.GridWithLabels, new GridSize(5, 0)), labelled.Options.Layout);
+        Assert.Equal("grid_with_labels/grid_with_labels:5x0", labelled.Options.Layout!.ToString());
+
         foreach (var bad in (string[])["grid", "list/grid", "grid/single", "grid:4/grid", "grid:10x2/grid", "grid/grid:3x7", "grid:-1x2/grid", "grid/grid/grid"])
         {
             var rejected = DebugOptions.Parse([$"--layout={bad}"]);

@@ -13,6 +13,7 @@ it releases, and the Release workflow puts it on the release page (tools/release
 ### New
 
 - **Dreamcast (NA/JP)**, a second Dreamcast system for collections with North American or Japanese art, shown in the standard CD jewel case those games came in. Put those games in a `dreamcastnajp` folder in your ROMs folder. Its art is whatever your scraping regions pick, as for every system. Every theme has a card for it: in Console, the Dreamcast with its orange swirl.
+- **Grid with labels**, a new layout for systems and for games: the grid, with each system's name or each game's title under it, on up to two lines. Choose it in Settings, Look, Layout (Systems view or Games view), or for one system's games on its own page. Columns and rows work as they do for the grid.
 
 ### Changed
 

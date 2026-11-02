@@ -132,6 +132,14 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
     // A big item (carousel, single, list) comes this far towards the camera when focused, in world units, at most.
     private const float BigFocusLift = 0.45f;
 
+    // A grid with labels (GridLayout.Labels): the room under each row for its items' labels, as a share of the view's
+    // height (two lines of Screens/GridLabels.cs's text in the overlay's 800-pixel base), the same on screen whatever the
+    // items' size; the gap between an item's foot and its label, over the items' height; and the rows' spacing over the
+    // items' height, less than the grid's since the labels' room parts the rows too.
+    public const float LabelRoom = 0.064f;
+    private const float LabelGap = 0.03f;
+    private const float LabelledPitchYFactor = 1.18f;
+
     // The slot-state texture's two columns after the slots: a reshaped box's growth, and its faces' aspects (item.gdshader).
     private const int ShapeColumn = Slots;
     private const int StateColumns = Slots + 2;
@@ -220,6 +228,16 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
     private float _cameraDistance = 6.2f;
     private float _rowsVisible = 3.4f;
     private float _focusLine = 0.5f;
+
+    // The labels under the items (GridLayout.Labels; Screens/GridLabels.cs draws them in the overlay): whether the bound
+    // layout has them, each cell's title, where its label's top middle shows (shares of the view's width and height from
+    // its top left), its scale (1 at rest; the grid's zoom and depth in transitions), and a count that changes whenever
+    // any label's title, place or focus may have.
+    private bool _labels;
+    private readonly string?[] _cellTitle;
+    private readonly Vector2[] _labelAt;
+    private readonly float[] _labelScale;
+    private int _labelsVersion;
 
     private float _scroll;
     private float _scrollVelocity;
@@ -348,6 +366,9 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
         Array.Fill(_cellItem, -1);
         Array.Fill(_cellTemplate, -1);
         Array.Fill(_cellCurve, 1f);
+        _cellTitle = new string?[maxCells];
+        _labelAt = new Vector2[maxCells];
+        _labelScale = new float[maxCells];
         _cellInstance = new int[maxCells];
         _cellDrawn = new Transform3D[maxCells];
         _cellData = new Color[maxCells];
@@ -392,6 +413,31 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
 
     /// <summary>Where the scroll is, in lines (the list of titles beside a <see cref="GridShape.List"/> follows it).</summary>
     public float ScrollPosition => _scroll;
+
+    /// <summary>Whether the bound layout shows each item's title under it (<see cref="GridLayout.Labels"/>).</summary>
+    public bool HasLabels => _labels && _source is not null;
+
+    /// <summary>The pool's cells: the most labels that can show at once.</summary>
+    public int PoolSize => _maxCells;
+
+    /// <summary>Changes whenever a label's title, place or focus may have (each frame the grid moves, and not otherwise).</summary>
+    public int LabelsVersion => _labelsVersion;
+
+    /// <summary>A column's width at rest, as a share of the view's width: a label's.</summary>
+    public float LabelWidth => _pitchX * _scale / (_viewHeight * _viewAspect);
+
+    /// <summary>
+    /// The cell's label, if the layout has labels and the cell is bound: its title, where its top middle shows (shares of
+    /// the view's width and height from its top left), its scale (1 at rest), and whether its item is focused.
+    /// </summary>
+    public bool TryGetLabel(int cell, out string title, out Vector2 at, out float scale, out bool focused)
+    {
+        title = _cellTitle[cell] ?? string.Empty;
+        at = _labelAt[cell];
+        scale = _labelScale[cell];
+        focused = cell == _focusCell;
+        return _labels && _cellItem[cell] >= 0;
+    }
 
     /// <summary>How far LB and RB move the focus: four rows of a grid, a carousel's width, or 5 items.</summary>
     public int PageStep => _layout.Shape switch
@@ -803,8 +849,10 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
 
         _cellWidth = width;
         _itemHeight = height;
+        _labels = _layout.Labels && _layout.Shape == GridShape.Grid;
+        _labelsVersion++;
         _pitchX = width * PitchXFactor;
-        _pitchY = height * PitchYFactor;
+        _pitchY = height * (_labels ? LabelledPitchYFactor : PitchYFactor);
         _horizontal = _layout.Shape is GridShape.Carousel or GridShape.Single;
         _curved = _layout.Shape == GridShape.Carousel;
         _crossOffset = 0;
@@ -839,7 +887,6 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
                 break;
             default:
                 // The focused row sits a little above the middle; the overlay's title is above it and its details below.
-                _linePitch = _pitchY;
                 _focusLine = _viewHeight * 0.12f;
                 linesShown = SizeGrid(viewWidth);
                 break;
@@ -889,39 +936,47 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
     /// sized to fit those columns, and more rows show. Set rows fit between the overlay's heading and its details (the
     /// focused row in the middle one, or the upper of the two middle ones), with as many columns as fit across; set
     /// columns fill the width, unless the set rows leave less room (or, rows automatic, one row wouldn't fit there).
+    /// With labels, a row is its items and their labels' room (<see cref="LabelRoom"/>), which stays the same on screen.
     /// </summary>
     private float SizeGrid(float viewWidth)
     {
         var usableWidth = viewWidth * 0.9f;
         var band = _viewHeight * (1 - RowsBandTop - RowsBandBottom);
+        var room = _labels ? _viewHeight * LabelRoom : 0;
         if (_layout.Columns > 0)
         {
-            _scale = Math.Min(usableWidth / (_layout.Columns * _pitchX),
-                band / (Math.Max(_layout.Rows, 1) * _pitchY));
+            _scale = Math.Min(usableWidth / (_layout.Columns * _pitchX), RowScale(band / Math.Max(_layout.Rows, 1), room));
             _columns = _layout.Columns;
         }
         else if (_layout.Rows > 0)
         {
-            _scale = Math.Min(band / (_layout.Rows * _pitchY), usableWidth / _pitchX);
+            _scale = Math.Min(RowScale(band / _layout.Rows, room), usableWidth / _pitchX);
             _columns = Math.Clamp((int)(usableWidth / (_pitchX * _scale)), 1, MaxColumns);
         }
         else
         {
-            _scale = Math.Min(_viewHeight / (_rowsVisible * _pitchY), usableWidth / (PreferredColumns * _pitchX));
+            _scale = Math.Min(RowScale(_viewHeight / _rowsVisible, room), usableWidth / (PreferredColumns * _pitchX));
             _columns = Math.Clamp((int)(usableWidth / (_pitchX * _scale)), MinColumns, MaxColumns);
         }
+
+        _linePitch = _pitchY + room / _scale;
 
         // A size that was set lays the rows out in the band: the focused one in the middle of those that fit (the upper
         // of the two middle ones).
         if (_layout.Rows > 0 || _layout.Columns > 0)
         {
-            var row = _pitchY * _scale;
+            var row = _linePitch * _scale;
             var fitting = _layout.Rows > 0 ? _layout.Rows : Math.Max(1, (int)(band / row + 0.001f));
             _focusLine = _viewHeight / 2 - _viewHeight * RowsBandTop - ((fitting - 1) / 2 + 0.5f) * row;
         }
 
-        return _viewHeight / (_pitchY * _scale);
+        // The items' middle is on the line, so a row with its labels under it is centred there too.
+        _focusLine += room / 2;
+        return _viewHeight / (_linePitch * _scale);
     }
+
+    /// <summary>The scale at which a row, its labels' room included, is <paramref name="height"/> tall (the items keep a quarter of it at least).</summary>
+    private float RowScale(float height, float room) => Math.Max(height - room, height * 0.25f) / _pitchY;
 
     /// <summary>Main thread: hides every item and drops every media request.</summary>
     public void UnbindAll()
@@ -933,6 +988,7 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
 
         Array.Fill(_boundRow, -1);
         _fadingSlots = 0;
+        _labelsVersion++;
         _source = null;
         _count = 0;
         _focusCell = _previousCell = -1;
@@ -954,6 +1010,8 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
 
         _source.Describe(item, out var info);
         _atlas.SetTitle(cell, info.Title);
+        _cellTitle[cell] = info.Title;
+        _labelsVersion++;
         var template = Math.Clamp(info.Template, 0, _templates.Count - 1);
         var model = info.Model ?? _templates[template];
         if (model != _cellModel[cell])
@@ -1281,6 +1339,7 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
             BindVisibleRows();
             UpdateCurve();
             UpdateFocus(dt);
+            UpdateLabels();
             UpdateVideo(dt);
             UpdateGameVideo(dt);
             UpdateInspectArt(dt);
@@ -1416,8 +1475,11 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
             SetCellTransform(cell, _cellBase[cell]);
             WriteCustom(cell);
             _atlas.SetTitle(cell, info.Title);
+            _cellTitle[cell] = info.Title;
             ResolveSlots(cell, item, refresh: false);
         }
+
+        _labelsVersion++;
     }
 
     // ---- How a cell is drawn ------------------------------------------------------------------------
@@ -2344,6 +2406,80 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
         }
     }
 
+    // ---- Labels ---------------------------------------------------------------------------------
+
+    /// <summary>
+    /// A grid with labels: each bound cell's label goes under its item's foot, as the camera shows it. The focused item
+    /// (and the one it left, easing back) grows and comes nearer, so its label moves down out of its way. Counts a change
+    /// only when a label moved. Allocates nothing.
+    /// </summary>
+    private void UpdateLabels()
+    {
+        if (!_labels)
+        {
+            return;
+        }
+
+        var moved = false;
+        var gap = _itemHeight * LabelGap;
+        for (var cell = 0; cell < _maxCells; cell++)
+        {
+            if (_cellItem[cell] < 0)
+            {
+                continue;
+            }
+
+            var foot = FlatOrigin(cell);
+            foot.Y -= gap;
+            var at = Project(foot, out var nearer);
+            var blend = cell == _focusCell ? _focusBlend : cell == _previousCell ? _previousBlend : 0;
+            if (blend > 0)
+            {
+                var focused = FocusedFoot(cell, blend, cell == _focusCell ? _inspectBlend : _previousInspect);
+                focused.Y -= gap;
+                at.Y = Math.Max(at.Y, Project(focused, out _).Y);
+            }
+
+            var scale = _zoom * nearer;
+            if (at != _labelAt[cell] || scale != _labelScale[cell])
+            {
+                _labelAt[cell] = at;
+                _labelScale[cell] = scale;
+                moved = true;
+            }
+        }
+
+        if (moved)
+        {
+            _labelsVersion++;
+        }
+    }
+
+    /// <summary>
+    /// The foot of a focused item (or of one easing back), as <see cref="FocusTransform"/> draws it but without the
+    /// player's turn or a launch: lower by its growth, and lifted towards the camera.
+    /// </summary>
+    private Vector3 FocusedFoot(int cell, float blend, float inspect)
+    {
+        var eased = blend * blend * (3 - 2 * blend);
+        var inspected = inspect * inspect * (3 - 2 * inspect);
+        var scale = 1 + (FocusScale - 1) * eased * (1 - inspected);
+        var rest = _cellBase[cell].Origin;
+        return new Vector3(rest.X, rest.Y + HalfHeight(cell) * _cellCurve[cell] * (1 - scale), rest.Z + _focusLift * eased * (1 - inspected));
+    }
+
+    /// <summary>
+    /// Where a point in the grid's root shows, as shares of the view's width and height from its top left, through the
+    /// camera (Main's: on the z axis, <see cref="_cameraDistance"/> from the grid's plane, whose height the view's is);
+    /// <paramref name="nearer"/> is how much bigger its depth draws it than the plane would.
+    /// </summary>
+    private Vector2 Project(Vector3 local, out float nearer)
+    {
+        var world = _rootOrigin + local * (_scale * _zoom);
+        nearer = _cameraDistance / Math.Max(_cameraDistance - world.Z, 0.01f);
+        return new Vector2(0.5f + world.X * nearer / (_viewHeight * _viewAspect), 0.5f - world.Y * nearer / _viewHeight);
+    }
+
     // ---- Motion ---------------------------------------------------------------------------------
 
     /// <summary>A critically damped spring towards the target row.</summary>
@@ -2418,6 +2554,7 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
             _focusCell = cell;
             _focusBlend = 0;
             _focusTime = 0;
+            _labelsVersion++;
             if (_previousCell >= 0)
             {
                 WriteCustom(_previousCell);

@@ -130,9 +130,9 @@ public sealed partial class SystemPage : ListPanel
         _view = AddViewRow(system.GamesLayout, display.GamesLayout);
         _columns = AddGridRow("Columns", "games_columns", DisplaySettings.MaxColumns, system.GamesColumns, display.GamesGrid.Columns);
         _rows = AddGridRow("Rows", "games_rows", DisplaySettings.MaxRows, system.GamesRows, display.GamesGrid.Rows);
-        if (display.GamesLayoutFor(system) != GamesLayout.Grid)
+        if (!Layouts.IsGrid(display.GamesLayoutFor(system)))
         {
-            AddNote("Columns and rows are for the grid view.");
+            AddNote("Columns and rows are for the grid views.");
         }
 
         var sortedBy = display.GamesSortFor(system).Sort;
@@ -373,7 +373,7 @@ public sealed partial class SystemPage : ListPanel
 
     /// <summary>
     /// How the system's games are shown: its own <c>games_layout</c>, or the Layout page's when unset (the default).
-    /// A chooses, left and right step through Default, Grid, Carousel and List, Y goes back to the default.
+    /// A chooses, left and right step through Default, Grid, Grid with labels, Carousel and List, Y goes back to the default.
     /// </summary>
     private SettingRow AddViewRow(GamesLayout? own, GamesLayout settings)
     {

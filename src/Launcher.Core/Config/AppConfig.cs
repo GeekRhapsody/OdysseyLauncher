@@ -214,6 +214,9 @@ public enum SystemsLayout
     /// <summary><c>"grid"</c>: rows and columns of cards (the default).</summary>
     Grid,
 
+    /// <summary><c>"grid_with_labels"</c>: the grid, each card's name under it.</summary>
+    GridWithLabels,
+
     /// <summary><c>"carousel"</c>: one row, the focused card in the middle.</summary>
     Carousel,
 
@@ -226,6 +229,9 @@ public enum GamesLayout
 {
     /// <summary><c>"grid"</c>: rows and columns of games (the default).</summary>
     Grid,
+
+    /// <summary><c>"grid_with_labels"</c>: the grid, each game's title under it.</summary>
+    GridWithLabels,
 
     /// <summary><c>"carousel"</c>: one row, the focused game in the middle.</summary>
     Carousel,
@@ -243,13 +249,19 @@ public readonly record struct GridSize(int Columns, int Rows)
 /// <summary>The names config uses for the layouts.</summary>
 public static class Layouts
 {
-    public static IReadOnlyList<string> SystemsNames { get; } = ["grid", "carousel", "single"];
+    public static IReadOnlyList<string> SystemsNames { get; } = ["grid", "grid_with_labels", "carousel", "single"];
 
-    public static IReadOnlyList<string> GamesNames { get; } = ["grid", "carousel", "list"];
+    public static IReadOnlyList<string> GamesNames { get; } = ["grid", "grid_with_labels", "carousel", "list"];
 
     public static string Name(SystemsLayout layout) => SystemsNames[(int)layout];
 
     public static string Name(GamesLayout layout) => GamesNames[(int)layout];
+
+    /// <summary>Whether the layout has rows and columns, so a grid size applies to it.</summary>
+    public static bool IsGrid(SystemsLayout layout) => layout is SystemsLayout.Grid or SystemsLayout.GridWithLabels;
+
+    /// <summary>Whether the layout has rows and columns, so a grid size applies to it.</summary>
+    public static bool IsGrid(GamesLayout layout) => layout is GamesLayout.Grid or GamesLayout.GridWithLabels;
 
     public static bool TryParse(string name, out SystemsLayout layout)
     {

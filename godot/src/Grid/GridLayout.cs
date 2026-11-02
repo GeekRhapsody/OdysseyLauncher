@@ -20,15 +20,15 @@ public enum GridShape
 
 /// <summary>
 /// An <see cref="ItemGrid"/>'s layout: its shape, and for <see cref="GridShape.Grid"/> its columns and the rows that fit
-/// the view's height (0 for either is automatic).
+/// the view's height (0 for either is automatic), and whether each item's title is shown under it (<see cref="Labels"/>).
 /// </summary>
-public readonly record struct GridLayout(GridShape Shape, int Columns = 0, int Rows = 0)
+public readonly record struct GridLayout(GridShape Shape, int Columns = 0, int Rows = 0, bool Labels = false)
 {
     public static GridLayout Systems(DisplaySettings display) => display.SystemsLayout switch
     {
         SystemsLayout.Carousel => new GridLayout(GridShape.Carousel),
         SystemsLayout.Single => new GridLayout(GridShape.Single),
-        _ => new GridLayout(GridShape.Grid, display.SystemsGrid.Columns, display.SystemsGrid.Rows),
+        _ => new GridLayout(GridShape.Grid, display.SystemsGrid.Columns, display.SystemsGrid.Rows, display.SystemsLayout == SystemsLayout.GridWithLabels),
     };
 
     /// <param name="system">The system shown, for its own layout and grid size; null for Favourites, Recently played and All games.</param>
@@ -39,11 +39,15 @@ public readonly record struct GridLayout(GridShape Shape, int Columns = 0, int R
         {
             GamesLayout.Carousel => new GridLayout(GridShape.Carousel),
             GamesLayout.List => new GridLayout(GridShape.List),
-            _ => new GridLayout(GridShape.Grid, size.Columns, size.Rows),
+            var layout => new GridLayout(GridShape.Grid, size.Columns, size.Rows, layout == GamesLayout.GridWithLabels),
         };
     }
 
-    public override string ToString() => Shape == GridShape.Grid && (Columns > 0 || Rows > 0)
-        ? $"grid {(Columns > 0 ? Columns.ToString(System.Globalization.CultureInfo.InvariantCulture) : "auto")}x{(Rows > 0 ? Rows.ToString(System.Globalization.CultureInfo.InvariantCulture) : "auto")}"
-        : Shape.ToString().ToLowerInvariant();
+    public override string ToString()
+    {
+        var name = Labels ? "grid_with_labels" : Shape.ToString().ToLowerInvariant();
+        return Shape == GridShape.Grid && (Columns > 0 || Rows > 0)
+            ? $"{name} {(Columns > 0 ? Columns.ToString(System.Globalization.CultureInfo.InvariantCulture) : "auto")}x{(Rows > 0 ? Rows.ToString(System.Globalization.CultureInfo.InvariantCulture) : "auto")}"
+            : name;
+    }
 }

@@ -261,6 +261,7 @@ public partial class Main : Node3D
         _systemsGrid.Tick(dt);
         _gamesGrid!.VideosSuspended = _ui.IsOpen;
         _gamesGrid.Tick(dt);
+        _overlay!.UpdateLabels(_systemsGrid, _gamesGrid);
         _gamesGrid.PumpTextures(TextureStreamer.DefaultBudgetBytes, _options.UploadCap);
         if (_cardStreamer is { Layout.ChannelCount: > 0 })
         {

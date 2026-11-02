@@ -305,8 +305,8 @@ public sealed partial class Navigator : Node
             _overlay.List.Update(_gamesGrid.ScrollPosition, _gamesGrid.FocusIndex);
         }
 
-        // An inspected game stands in front of the titles (and their highlight), not behind them.
-        _overlay.ListBehind = _overlay.List.Visible && _gamesGrid.InspectShown;
+        // An inspected game stands in front of the titles (and their highlight) and the labels, not behind them.
+        _overlay.TitlesBehind = (_overlay.List.Visible || _overlay.GameLabels.Visible) && _gamesGrid.InspectShown;
 
         if (_titlesDue >= 0 && _clock >= _titlesDue)
         {

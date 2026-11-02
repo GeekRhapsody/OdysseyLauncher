@@ -7,9 +7,9 @@ using Launcher.Core.Config;
 namespace Launcher.App.Settings;
 
 /// <summary>
-/// How the systems and the games are shown (<c>[display]</c> in settings.toml): the systems as a grid, a carousel or one
-/// at a time; the games as a grid, a carousel or a list with the focused game's model beside it; each grid's columns
-/// and rows (automatic, or a number); and the order of each (what they're sorted by, and which way). A changes a row
+/// How the systems and the games are shown (<c>[display]</c> in settings.toml): the systems as a grid, a grid with
+/// labels, a carousel or one at a time; the games as a grid, a grid with labels, a carousel or a list with the focused
+/// game's model beside it; each grid's columns and rows (automatic, or a number); and the order of each (what they're sorted by, and which way). A changes a row
 /// through a list; left and right step through its values. Each change is saved at once, and the grid behind shows
 /// it. A system's own games view, grid size and order are on its page (X on it).
 /// </summary>
@@ -80,10 +80,10 @@ public sealed partial class LayoutPage : ListPanel
         _systems.Detail = SystemsDetail(systems);
         _games.Value = GamesTitle(games);
         _games.Detail = GamesDetail(games);
-        ShowSize(_systemsColumns, Current("systems_columns", display.SystemsGrid.Columns), systems == SystemsLayout.Grid, "columns");
-        ShowSize(_systemsRows, Current("systems_rows", display.SystemsGrid.Rows), systems == SystemsLayout.Grid, "rows");
-        ShowSize(_gamesColumns, Current("games_columns", display.GamesGrid.Columns), games == GamesLayout.Grid, "columns");
-        ShowSize(_gamesRows, Current("games_rows", display.GamesGrid.Rows), games == GamesLayout.Grid, "rows");
+        ShowSize(_systemsColumns, Current("systems_columns", display.SystemsGrid.Columns), Layouts.IsGrid(systems), "columns");
+        ShowSize(_systemsRows, Current("systems_rows", display.SystemsGrid.Rows), Layouts.IsGrid(systems), "rows");
+        ShowSize(_gamesColumns, Current("games_columns", display.GamesGrid.Columns), Layouts.IsGrid(games), "columns");
+        ShowSize(_gamesRows, Current("games_rows", display.GamesGrid.Rows), Layouts.IsGrid(games), "rows");
         var systemsSort = (SystemSort)Current("systems_sort", (int)display.SystemsSort.Sort);
         var systemsOrder = (SortOrder)Current("systems_sort_order", (int)display.SystemsSort.Order);
         _systemsSort.Value = SystemsSortTitle(systemsSort);
@@ -105,7 +105,7 @@ public sealed partial class LayoutPage : ListPanel
         row.Value = SizeText(value);
         row.ValueColour = used ? UiStyle.Accent : UiStyle.Faint;
         row.Detail = !used
-            ? "Only for the grid view"
+            ? "Only for the grid views"
             : value == 0
                 ? $"As many {what} as fit the screen"
                 : what == "rows" ? $"{value} row{(value == 1 ? string.Empty : "s")} fill the screen's height" : $"{value} across";
@@ -115,6 +115,7 @@ public sealed partial class LayoutPage : ListPanel
 
     public static string SystemsTitle(SystemsLayout layout) => layout switch
     {
+        SystemsLayout.GridWithLabels => "Grid with labels",
         SystemsLayout.Carousel => "Carousel",
         SystemsLayout.Single => "One at a time",
         _ => "Grid",
@@ -122,6 +123,7 @@ public sealed partial class LayoutPage : ListPanel
 
     private static string SystemsDetail(SystemsLayout layout) => layout switch
     {
+        SystemsLayout.GridWithLabels => "Rows and columns of systems, each one's name under it",
         SystemsLayout.Carousel => "One row, the focused system in the middle",
         SystemsLayout.Single => "One system fills the screen; left and right go to the next",
         _ => "Rows and columns of systems",
@@ -129,6 +131,7 @@ public sealed partial class LayoutPage : ListPanel
 
     public static string GamesTitle(GamesLayout layout) => layout switch
     {
+        GamesLayout.GridWithLabels => "Grid with labels",
         GamesLayout.Carousel => "Carousel",
         GamesLayout.List => "List",
         _ => "Grid",
@@ -136,6 +139,7 @@ public sealed partial class LayoutPage : ListPanel
 
     public static string GamesDetail(GamesLayout layout) => layout switch
     {
+        GamesLayout.GridWithLabels => "Rows and columns of games, each one's title under it",
         GamesLayout.Carousel => "One row, the focused game in the middle",
         GamesLayout.List => "The titles in a list, the focused game's model beside it",
         _ => "Rows and columns of games",

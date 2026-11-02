@@ -1,4 +1,5 @@
 using Godot;
+using Launcher.App.Grid;
 using Launcher.App.Theming;
 using Launcher.App.Ui;
 using Launcher.Core.Theming;
@@ -26,7 +27,8 @@ public sealed partial class InfoOverlay : CanvasLayer
     private CanvasLayer _behind = null!;
     private Control _behindRoot = null!;
     private int _listIndex;
-    private bool _listBehind;
+    private int _gameLabelsIndex;
+    private bool _titlesBehind;
     private Label _title = null!;
     private Label _subtitle = null!;
     private Label _favourite = null!;
@@ -44,35 +46,53 @@ public sealed partial class InfoOverlay : CanvasLayer
     /// <summary>The games' titles, shown in the list layout (left), with the focused game's model beside them.</summary>
     public TitleList List { get; } = new();
 
+    /// <summary>The systems' names under their cards, in the grid with labels.</summary>
+    public GridLabels SystemLabels { get; } = new("SystemLabels");
+
+    /// <summary>The games' titles under their models, in the grid with labels.</summary>
+    public GridLabels GameLabels { get; } = new("GameLabels");
+
     /// <summary>
-    /// Main thread: whether the list of titles is drawn behind the 3D, on a background canvas layer (<see
-    /// cref="LookStage.BackgroundLayer"/>), so an inspected game stands in front of it; otherwise it's with the rest of
-    /// the overlay's text, in front. Behind, it's drawn through the 3D's buffer, so it's a little softer when the 3D is
-    /// rendered below the window's resolution. Moves it only when the value changes.
+    /// Main thread: whether the games' titles (the list of titles, and the labels under the games) are drawn behind
+    /// the 3D, on a background canvas layer (<see cref="LookStage.BackgroundLayer"/>), so an inspected game stands in
+    /// front of them; otherwise they're with the rest of the overlay's text, in front. Behind, they're drawn through the
+    /// 3D's buffer, so they're a little softer when the 3D is rendered below the window's resolution. Moves them only
+    /// when the value changes.
     /// </summary>
-    public bool ListBehind
+    public bool TitlesBehind
     {
-        get => _listBehind;
+        get => _titlesBehind;
         set
         {
-            if (_listBehind == value)
+            if (_titlesBehind == value)
             {
                 return;
             }
 
-            _listBehind = value;
+            _titlesBehind = value;
             List.GetParent().RemoveChild(List);
+            GameLabels.GetParent().RemoveChild(GameLabels);
             if (value)
             {
+                _behindRoot.AddChild(GameLabels);
                 _behindRoot.AddChild(List);
             }
             else
             {
-                // Back where it was: over the scrims and under the heading.
+                // Back where they were: the labels under the scrims, and the list over them and under the heading.
+                _root.AddChild(GameLabels);
+                _root.MoveChild(GameLabels, _gameLabelsIndex);
                 _root.AddChild(List);
                 _root.MoveChild(List, _listIndex);
             }
         }
+    }
+
+    /// <summary>Main thread, once a frame, after the grids' ticks: the labels under their items, where the grids' layouts have them.</summary>
+    public void UpdateLabels(ItemGrid systems, ItemGrid games)
+    {
+        SystemLabels.Update(systems);
+        GameLabels.Update(games);
     }
 
     /// <summary>0 = hidden, 1 = shown; for transitions.</summary>
@@ -95,11 +115,15 @@ public sealed partial class InfoOverlay : CanvasLayer
         _root.SetAnchorsPreset(Control.LayoutPreset.FullRect);
         AddChild(_root);
 
+        // The labels under the grids' items darken under the scrims, as their items do.
+        _root.AddChild(SystemLabels);
+        _root.AddChild(GameLabels);
+        _gameLabelsIndex = GameLabels.GetIndex();
         _root.AddChild(Scrim(top: true));
         _root.AddChild(Scrim(top: false));
 
         // The games' titles for the list layout, under the heading and the other text. While a game is inspected they go
-        // behind the 3D (ListBehind), on a layer that's shown and hidden with this one.
+        // behind the 3D (TitlesBehind), with the games' labels, on a layer that's shown and hidden with this one.
         _root.AddChild(List);
         _listIndex = List.GetIndex();
         _behind = new CanvasLayer { Layer = LookStage.BackgroundLayer, Name = "OverlayBehind" };
@@ -234,6 +258,8 @@ public sealed partial class InfoOverlay : CanvasLayer
         _hints.LabelSettings.FontColor = UiStyle.Colour(_palette.Hint);
         _status.LabelSettings.ShadowColor = glow;
         List.Use(_palette);
+        SystemLabels.Use(_palette);
+        GameLabels.Use(_palette);
     }
 
     private Label AddLabel(LabelSettings settings)

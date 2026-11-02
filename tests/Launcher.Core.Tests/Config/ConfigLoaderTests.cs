@@ -1008,6 +1008,38 @@ public class ConfigLoaderTests
     }
 
     [Fact]
+    public void Grids_with_labels_are_read_and_take_a_grid_size()
+    {
+        var result = Load(
+            settings: """
+                [display]
+                systems_layout = "grid_with_labels"
+                systems_columns = 4
+                games_layout = "grid_with_labels"
+                games_rows = 2
+                """,
+            systems: """
+                [systems.snes]
+                games_layout = "grid_with_labels"
+                """);
+
+        Assert.Empty(result.Diagnostics);
+        var config = result.Config;
+        var display = config.Settings.Display;
+        Assert.Equal(SystemsLayout.GridWithLabels, display.SystemsLayout);
+        Assert.Equal(new GridSize(4, 0), display.SystemsGrid);
+        Assert.Equal(GamesLayout.GridWithLabels, display.GamesLayout);
+        Assert.Equal(GamesLayout.GridWithLabels, display.GamesLayoutFor(config.FindSystem("snes")));
+        Assert.Equal(new GridSize(0, 2), display.GamesGridFor(config.FindSystem("snes")));
+        Assert.True(Layouts.IsGrid(display.SystemsLayout));
+        Assert.True(Layouts.IsGrid(display.GamesLayout));
+        Assert.False(Layouts.IsGrid(SystemsLayout.Carousel));
+        Assert.False(Layouts.IsGrid(GamesLayout.List));
+        Assert.Equal("grid_with_labels", Layouts.Name(SystemsLayout.GridWithLabels));
+        Assert.Equal("grid_with_labels", Layouts.Name(GamesLayout.GridWithLabels));
+    }
+
+    [Fact]
     public void A_bad_layout_or_size_is_an_error_and_the_default_is_used()
     {
         var result = Load(settings: """
@@ -1021,7 +1053,7 @@ public class ConfigLoaderTests
         var systems = Assert.Single(result.Diagnostics, d => d.Key == "display.systems_layout");
         Assert.True(systems.IsError);
         Assert.Contains("'list' isn't a layout for this screen", systems.Message, StringComparison.Ordinal);
-        Assert.Contains("grid, carousel, single", systems.Message, StringComparison.Ordinal);
+        Assert.Contains("grid, grid_with_labels, carousel, single", systems.Message, StringComparison.Ordinal);
         var games = Assert.Single(result.Diagnostics, d => d.Key == "display.games_layout");
         Assert.Contains("did you mean 'carousel'?", games.Message, StringComparison.Ordinal);
         Assert.Single(result.Diagnostics, d => d.IsError && d.Key == "display.games_columns");

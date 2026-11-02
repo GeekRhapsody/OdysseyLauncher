@@ -109,7 +109,7 @@ public static class DetailsFormatter
         var display = config.Settings.Display;
         var layout = display.GamesLayoutFor(system);
         Add(rows, "Games view", Own(Settings.LayoutPage.GamesTitle(layout), system.GamesLayout is not null));
-        if (layout == GamesLayout.Grid)
+        if (Layouts.IsGrid(layout))
         {
             var size = display.GamesGridFor(system);
             Add(rows, "Grid size", Own(GridSize(size.Columns, size.Rows), system.GamesColumns is not null || system.GamesRows is not null));
