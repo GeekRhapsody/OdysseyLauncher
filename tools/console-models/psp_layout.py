@@ -13,18 +13,25 @@ back, its battery cover off) and Commons' UMD slot at PSP-1000 rear (a close vie
 wide over nearly the back's whole height) and its brushed ring (its outer edge 0.7 of the door's width, its inner 0.76
 of its outer), and Commons' Psp umd disk.jpg the UMD's label side.
 
-The body's outline (body_outline()): each end one arc of radius END_RADIUS about END_CENTRE (mirrored for the left),
-tangent to the straight top and meeting the straight bottom in a small fillet. Through its depth: the glossy front shell
-from the face (its edge rounded over, FRONT_ROUND) to SEAM, the silver band (BAND), standing a quarter millimetre proud,
-the clear shoulder buttons L and R in its place at the top corners (SHOULDER), and the matte back shell, its edge rounded
-over (BACK_ROUND). On the face: the screen's glass, the D-pad's four buttons in their round well, the analogue nub, the
-four face buttons round their ring, the row along the bottom (HOME, VOL - +, the display and sound buttons, SELECT,
-START), the lights and their legends, the speakers' slits. On the top edge, in the band: the IR window, the USB port
-and the OPEN latch, which slides towards R to release the door. On the right end, in the band: the POWER/HOLD switch,
-which slides up to switch on or off and springs back; on the left end the WLAN switch; under the right end the yellow DC
-IN. On the back: the UMD door (DOOR, hinged along its bottom edge, its outside the brushed ring round the logotype)
-over the bay (BAY: a recess the shape of the door, the spindle and the laser's track printed on its floor), the battery
-cover's outline and the back's printing.
+The body's outline (body_outline()) isn't a bar of soap: the middle, the screen's and the bottom row's, is the full
+height, and each end is a grip, shorter (GRIP), the outline stepping down to it at the top and up to it at the bottom,
+each step a riser at 45 degrees (STEP_TOP, STEP_BOTTOM) between rounded corners (RADII), and each grip's end one flat
+arc of radius END_RADIUS about END_CENTRE (mirrored for the left). Measured from Psp-front's straight view of a white
+PSP-1000 and checked against a trace of the silhouette of a black one's back on light wood (Commons' PSP-1000 rear
+20150930, at 18 px a millimetre: the end's arc is within 0.3 mm of it). Through its depth: the glossy front shell from
+the face (its edge rounded over, FRONT_ROUND) to SEAM, the silver band (BAND), standing a quarter millimetre proud, and
+the matte back shell, its edge rounded over (BACK_ROUND), all three stepped alike. In the steps, in the band's depth:
+at the top, the clear shoulder buttons L and R (SHOULDER: shoulder_outline()), their tops a little under the middle's
+and rounding down onto the grip's end; at the bottom left, the strap's silver loop (LOOP: loop_outline()), a bar
+sloping from the grip's end down to the bottom and the slot between it and the step; at the bottom right, DC IN's
+yellow socket (DC_IN) under the grip, open to the floor. On the face: the screen's glass, the D-pad's four buttons in
+their round well, the analogue nub, the four face buttons round their ring, the row along the bottom (HOME, VOL - +,
+the display and sound buttons, SELECT, START), the lights and their legends, the speakers' slits. On the top edge, in
+the band: the IR window, the USB port and the OPEN latch, which slides towards R to release the door. On the right
+end, in the band: the POWER/HOLD switch, which slides up to switch on or off and springs back; on the left end the WLAN
+switch. On the back: the UMD door (DOOR, hinged along its bottom edge, its outside the brushed ring round the
+logotype) over the bay (BAY: a recess the shape of the door, the spindle and the laser's track printed on its floor),
+the battery cover's seams and the back's printing.
 
 Three textures. `psp_print.png` (ATLAS square, PRINT_REGIONS): `front` (the face seen square on), `rear` (the back seen
 from behind, its x the face's negated: the bay's floor, the battery cover, the legends), `top` (the top edge seen from
@@ -46,14 +53,34 @@ import math
 # ---- The body --------------------------------------------------------------------------------------------------------
 WIDTH, HEIGHT, DEPTH = 170.0, 74.0, 23.0
 BACK = 22.0                                  # the back's flat, the door 1 mm proud of it
-END_RADIUS, END_CENTRE = 42.0, (43.0, 32.0)  # tangent to the top: END_CENTRE[1] + END_RADIUS == HEIGHT
-FILLET = 4.0                                 # where an end meets the bottom
+# The outline's right half (the left's mirrored): the grip's end an arc; its bottom straight, and its top straight
+# through top, falling towards the end; the risers of the steps to it, at 45 degrees through STEP_TOP and STEP_BOTTOM;
+# the corners' radii from the bottom up: where the bottom turns up its step (foot), the step meets the grip's bottom
+# (under), that meets the end (heel), the end meets the grip's top (head), that meets the top's step (inside), and the
+# step turns into the top (brow).
+END_RADIUS, END_CENTRE = 52.0, (33.0, 37.4)
+GRIP = dict(bottom=7.5, top=(62.0, 68.8), fall=1 / 12)
+STEP_TOP, STEP_BOTTOM = (58.5, 71.3), (59.5, 4.0)
+RADII = dict(foot=2.0, under=1.5, heel=3.0, head=3.0, inside=2.0, brow=1.5)
 FRONT_ROUND = 2.0                            # the radius rounding the face's edge over
 SEAM = 7.8                                   # the front shell meets the band
 BAND = (8.1, 14.6)                           # the silver band, front to back
 BAND_OUT = 0.25                              # how far it stands proud
 BACK_ROUND = 4.0                             # the radius rounding the back's edge over
-SHOULDER = dict(x=52.0, z=44.0)              # the band is a shoulder button where |x| and z are both beyond these
+# The back's flat sags towards the face over the grips (from beside the door), more and more towards their ends: none
+# at |x| = x[0], depth at x[1], fading out over fade above and below them. Each grip's back a pillow and the back shell
+# thin at the ends, as Psp-top's view of the top edge shows (about 1.6, 2.9, 4.7 and 7 mm down at 64, 73, 79, 83).
+DOME = dict(x=(40.0, 85.0), depth=6.0, fade=1.5)
+# The shoulder buttons L and R in the top's steps, in the band's depth: their top, from x (where the top edge's silver
+# strip ends) at z = top, falls (fall) towards the end and rounds (corner) down onto it, out proud of the body (out),
+# ending at z = end.
+SHOULDER = dict(x=54.7, top=72.6, fall=0.12, corner=7.0, end=64.0, out=0.35)
+# The strap's loop in the bottom left step, in the band's depth: a bar (its width bar) whose outside slopes at 45
+# degrees through a point (through), from the grip's end, which it leaves at z = top, down to the bottom, out proud of
+# the body (out), and along it to x = foot; the strap's slot between the bar and the step, from its floor to its roof
+# (slot).
+LOOP = dict(through=(-72.4, 3.65), bar=1.4, slot=(1.9, 5.9), top=12.0, foot=-55.0, out=0.35)
+DC_IN = dict(x=(62.5, 67.5), z=(5.8, 7.9))   # the yellow socket in the bottom right step, under the grip
 
 COLOURS = dict(case="#18181C", rear="#222227", buttons="#1C1C21", silver="#8E939B", clear="#A5AAB2", umd="#ECEDEF",
                yellow="#F2C230", lit="#7DFFB0", dark="#0B0B0D", metal="#8C9097")
@@ -69,8 +96,7 @@ ROW = [("HOME", -51.0, "shield"), ("VOL-", -38.6, "oval"), ("VOL+", -27.0, "oval
        ("DISPLAY", 18.3, "oval"), ("SOUND", 26.7, "oval"), ("SELECT", 38.0, "shield"), ("START", 50.0, "shield")]
 SPEAKERS = [(-60.2, 12.0), (60.2, 12.0)]   # the two slits by the screen's lower corners
 GRILLE = dict(x=(-54.0, 54.0), z=70.4, rows=3, pitch=0.82)  # the speaker's holes along the top
-LIGHTS = dict(memory=(-82.2, 23.6), wlan=(-79.4, 15.8), power=(81.2, 24.4), hold=(77.9, 16.3), r=0.5)
-CORNER = dict(x=(-80.0, -66.0), z=(1.2, 7.4))  # the clear piece over the strap's silver loop, the face's lower left
+LIGHTS = dict(memory=(-82.2, 23.6), wlan=(-79.4, 15.8), power=(80.4, 24.4), hold=(77.0, 16.3), r=0.5)
 
 FACE_BUTTONS = [("triangle", 90.0), ("circle", 0.0), ("cross", 270.0), ("square", 180.0)]
 DPAD_BUTTONS = [("up", 90.0), ("right", 0.0), ("down", 270.0), ("left", 180.0)]
@@ -80,7 +106,6 @@ TOP = dict(ir=(-48.8, -36.5), usb=(-4.0, 4.0), screws=(-21.5, 21.5))   # x along
 LATCH = dict(x=(34.0, 48.5), travel=2.6)    # the OPEN latch on the top edge: it slides towards R
 POWER = dict(z=(10.5, 18.5), travel=3.0)    # the POWER/HOLD switch on the right end: up to switch on or off
 WLAN = dict(z=(27.0, 33.0))                 # the WLAN switch on the left end
-DC_IN = dict(x=(62.0, 68.0))                # the yellow plug under the right end
 
 # ---- The back --------------------------------------------------------------------------------------------------------
 DOOR = dict(x=(-36.75, 36.75), z=(7.5, 72.4), thick=2.0, radii=(7.0, 2.0, 2.0, 7.0))  # as rounded_rect() takes them
@@ -166,20 +191,136 @@ def line(a, b, steps):
     return [(a[0] + (b[0] - a[0]) * k / steps, a[1] + (b[1] - a[1]) * k / steps) for k in range(steps)]
 
 
-def body_outline(inset=0.0, arc_steps=28, fillet_steps=6):
-    """The body's outline moved in by inset (out, if negative), anticlockwise from the front: the same number of points
-    at every inset, so outlines can be joined into rings."""
-    r = END_RADIUS - inset
+def meet(p, t, q, u):
+    """Where the line through p along t crosses the line through q along u."""
+    dx, dz = q[0] - p[0], q[1] - p[1]
+    a = (u[0] * dz - u[1] * dx) / (u[0] * t[1] - u[1] * t[0])
+    return p[0] + a * t[0], p[1] + a * t[1]
+
+
+def on_end(p, t, r):
+    """Where the line through p along t (a unit vector) crosses the right end's arc moved to radius r, on its outer
+    side."""
     cx, cz = END_CENTRE
-    f = max(FILLET - inset, 0.4)
-    bottom = inset
-    fx = cx + math.sqrt((r - f) ** 2 - (bottom + f - cz) ** 2)  # the fillet's middle, on its circle and over the bottom
-    meet = math.atan2(bottom + f - cz, fx - cx)                  # where the fillet meets the end's arc
-    right = arc(fx, bottom + f, f, -math.pi / 2, meet, fillet_steps)[:-1] + arc(cx, cz, r, meet, math.pi / 2, arc_steps)
-    left = [(-x, z) for x, z in reversed(right)]
-    top_z = cz + r
-    return (line((-fx, bottom), (fx, bottom), 30) + right[:-1] + line((cx, top_z), (-cx, top_z), 18) + left[:-1]
-            + [left[-1]])
+    fx, fz = p[0] - cx, p[1] - cz
+    b = fx * t[0] + fz * t[1]
+    root = math.sqrt(b * b - (fx * fx + fz * fz - r * r))
+    a = max((-b + root, -b - root), key=lambda a: p[0] + a * t[0])
+    return p[0] + a * t[0], p[1] + a * t[1]
+
+
+def filleted(corners, radii, segments=6):
+    """A closed polygon's outline (its corners in order) with each corner rounded by its radius, whichever way it turns:
+    the same number of points for the same corners and radii (a radius of 0 keeps its corner)."""
+    points = []
+    for i, r in enumerate(radii):
+        (px, pz), (cx, cz), (nx, nz) = corners[i - 1], corners[i], corners[(i + 1) % len(corners)]
+        if r <= 0:
+            points.append((cx, cz))
+            continue
+        ux, uz, wx, wz = px - cx, pz - cz, nx - cx, nz - cz
+        lu, lw = math.hypot(ux, uz), math.hypot(wx, wz)
+        ux, uz, wx, wz = ux / lu, uz / lu, wx / lw, wz / lw
+        half = math.acos(max(-1.0, min(1.0, ux * wx + uz * wz))) / 2
+        t = r / math.tan(half)
+        bx, bz = ux + wx, uz + wz
+        lb = math.hypot(bx, bz)
+        ox, oz = cx + bx / lb * r / math.sin(half), cz + bz / lb * r / math.sin(half)
+        a1 = math.atan2(cz + uz * t - oz, cx + ux * t - ox)
+        a2 = math.atan2(cz + wz * t - oz, cx + wx * t - ox)
+        sweep = (a2 - a1 + math.pi) % (2 * math.pi) - math.pi     # the short way round, back where the corner turns in
+        points += [(ox + r * math.cos(a1 + sweep * k / segments), oz + r * math.sin(a1 + sweep * k / segments))
+                   for k in range(segments + 1)]
+    return points
+
+
+def end_corners(inset, arc_steps):
+    """The outline's right half as corners and their radii, from where the bottom turns up its step round the grip to
+    where the top's step turns into the top, moved in by inset: a corner turning out rounds less as it moves in, one
+    turning in more."""
+    s = math.sqrt(0.5)
+    f = 1 / math.hypot(1.0, GRIP["fall"])
+    along, inwards = (-f, GRIP["fall"] * f), (-GRIP["fall"] * f, -f)      # the grip's top, anticlockwise
+    grip_top = (GRIP["top"][0] + inwards[0] * inset, GRIP["top"][1] + inwards[1] * inset)
+    riser_b = (STEP_BOTTOM[0] - s * inset, STEP_BOTTOM[1] + s * inset)
+    riser_t = (STEP_TOP[0] - s * inset, STEP_TOP[1] - s * inset)
+    foot = meet((0.0, inset), (1.0, 0.0), riser_b, (s, s))
+    under = meet(riser_b, (s, s), (0.0, GRIP["bottom"] + inset), (1.0, 0.0))
+    heel = on_end((0.0, GRIP["bottom"] + inset), (1.0, 0.0), END_RADIUS - inset)
+    head = on_end(grip_top, (-along[0], -along[1]), END_RADIUS - inset)
+    inside = meet(grip_top, along, riser_t, (-s, s))
+    brow = meet(riser_t, (-s, s), (0.0, HEIGHT - inset), (-1.0, 0.0))
+    cx, cz = END_CENTRE
+    a0, a1 = math.atan2(heel[1] - cz, heel[0] - cx), math.atan2(head[1] - cz, head[0] - cx)
+    end = arc(cx, cz, END_RADIUS - inset, a0, a1, arc_steps)[1:-1]
+    runs = [line(foot, under, 2)[1:], line(under, heel, 4)[1:], end, line(head, inside, 4)[1:], line(inside, brow, 2)[1:]]
+    corners, radii = [], []
+    for name, corner, run in zip(("foot", "under", "heel", "head", "inside", "brow"),
+                                 (foot, under, heel, head, inside, brow), runs + [[]]):
+        r = RADII[name]
+        corners += [corner] + run
+        radii += [r + inset if name in ("under", "inside") else max(0.3, r - inset)] + [0.0] * len(run)
+    return corners, radii
+
+
+def body_outline(inset=0.0, arc_steps=24, fillet_steps=6):
+    """The body's outline moved in by inset (out, if negative), anticlockwise from the front, from the right's step up
+    from the bottom: the same number of points at every inset, so outlines can be joined into rings."""
+    corners, radii = end_corners(inset, arc_steps)
+    left = [(-x, z) for x, z in reversed(corners)]
+    (x0, _), (x1, _) = corners[0], corners[-1]
+    top = line((x1, HEIGHT - inset), (-x1, HEIGHT - inset), 8)[1:]
+    bottom = line((-x0, inset), (x0, inset), 8)[1:]
+    return filleted(corners + top + left + bottom,
+                    radii + [0.0] * len(top) + radii[::-1] + [0.0] * len(bottom), fillet_steps)
+
+
+def shoulder_outline(side=1, arc_steps=4):
+    """A shoulder button's outline (side 1 R, the right's; -1 L), clockwise as the face is seen: its top from where the
+    top edge's strip ends, out to the grip's end and rounding down onto it, proud of the body, down it to SHOULDER's
+    end; then back inside the body, where the rest of it is hidden."""
+    sh = SHOULDER
+    cx, cz = END_CENTRE
+    r = END_RADIUS + sh["out"]
+    f = 1 / math.hypot(1.0, sh["fall"])
+    start = (sh["x"], sh["top"])
+    corner = on_end(start, (f, -sh["fall"] * f), r)
+    a0 = math.atan2(corner[1] - cz, corner[0] - cx) - math.radians(4.0)   # the end's first chord long enough to round
+    a1 = math.asin((sh["end"] - cz) / r)
+    corners = [start] + line(start, corner, 3)[1:] + [corner] + arc(cx, cz, r, a0, a1, arc_steps) + [(sh["x"], sh["end"])]
+    radii = [0.0, 0.0, 0.0, sh["corner"]] + [0.0] * (arc_steps + 2)
+    points = filleted(corners, radii, 8)
+    return points if side > 0 else [(-x, z) for x, z in reversed(points)]
+
+
+def loop_outline(arc_steps=3):
+    """The strap's loop's outline at the bottom left, anticlockwise as the face is seen: from inside the body out to the
+    grip's end and down it, proud of the body, down the bar and along the bottom to LOOP's foot; back inside the body
+    to the slot's floor, round the slot to its roof, and inside the body again."""
+    lp = LOOP
+    cx, cz = END_CENTRE
+    s = math.sqrt(0.5)
+    r = END_RADIUS + lp["out"]
+    tx, tz = lp["through"]
+    a0 = math.asin((lp["top"] - cz) / r)
+    jx, jz = on_end((-tx, tz), (s, s), r)                    # where the bar leaves the end, mirrored to the right
+    end = [(-x, z) for x, z in arc(cx, cz, r, a0, math.atan2(jz - cz, jx - cx), arc_steps)]
+    floor, roof = lp["slot"]
+    inner = tx + tz + lp["bar"] / s                           # x + z along the bar's inside (tx + tz along its outside)
+    step = STEP_BOTTOM[1] - STEP_BOTTOM[0] + 0.8              # x + z just inside the body's step
+    corners = ([(-(end_x(lp["top"]) - 1.2), lp["top"])] + end
+               + [(tx + tz + lp["out"], -lp["out"]), (lp["foot"], -lp["out"]), (step - floor, floor),
+                  (inner - floor, floor), (inner - roof, roof), (step - roof, roof), (step - roof, lp["top"])])
+    radii = [0.0] * (arc_steps + 1) + [3.0, 2.0, 0.0, 0.0, 0.8, 0.8, 0.0, 0.0]   # those in the body sharp
+    return filleted(corners, radii, 6)
+
+
+def sag(x, z):
+    """How far the back's flat sags towards the face at (x, z) (DOME)."""
+    x0, x1 = DOME["x"]
+    u = min(1.0, max(0.0, (abs(x) - x0) / (x1 - x0)))
+    w = min(1.0, max(0.0, min(z - GRIP["bottom"], GRIP["top"][1] - z) / DOME["fade"] + 1.0))
+    return DOME["depth"] * u * u * w * w * (3 - 2 * w)
 
 
 def end_x(z, inset=0.0):

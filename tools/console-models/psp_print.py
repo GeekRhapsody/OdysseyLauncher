@@ -4,11 +4,10 @@
 Writes three images into a folder:
 - psp_print.png: the face seen square on (the piano black, the speaker's holes, the glass's edge, the PlayStation mark
   and SONY, the D-pad's well and its buttons' tops, the face buttons' ring and their symbols, the analogue nub's
-  knurled top, the lights and their legends, the bottom row's buttons and the logotype, the speakers' slits, the clear
-  corner over the strap's loop); the back seen from behind (the bay's floor under the door: the spindle and the
-  laser's track; the battery cover and its release, SONY, MAGICGATE, the screws); the top edge seen from above (the
-  silver strip: the IR window, the USB port and its screws, OPEN by the latch's track); and the swatches small parts
-  take their colour from.
+  knurled top, the lights and their legends, the bottom row's buttons and the logotype, the speakers' slits); the back
+  seen from behind (the bay's floor under the door: the spindle and the laser's track; the battery cover, the grip's
+  back, and its release, SONY, MAGICGATE, the screws); the top edge seen from above (the silver strip: the IR window,
+  the USB port and its screws, OPEN by the latch's track); and the swatches small parts take their colour from.
 - psp_media.png: the UMD's label side (a made-up game from tools/made-up-games: its key art and logo on the disc) and
   its other side (the disc's silver under the clear back), and the door's outside (the brushed ring round the
   logotype, UMD).
@@ -274,7 +273,6 @@ def front():
     for x, z in L.SPEAKERS:
         c.rounded(x - 1.6, x + 1.6, z - 0.7, z + 0.7, 0.7, rgb("#050506"))
     bottom_row(c)
-    corner(c)
     return c
 
 
@@ -366,18 +364,30 @@ def bottom_row(c):
     psp_logo(c, 0.0, z - 0.3, 22.0, 0.34, rgb("#B4B8BF"))
 
 
-def corner(c):
-    """The face's lower left: a clear piece over the strap's silver loop."""
-    (x0, x1), (z0, z1) = L.CORNER["x"], L.CORNER["z"]
-    c.rounded(x0, x1, z0, z1, [1.0, 2.0, 2.0, 1.0], rgb("#5E646C"))
-    c.rounded(x0 + 1.2, x1 - 1.4, z0 + 1.6, z1 - 1.6, 1.2, rgb("#34383E"))
-    c.rounded(x0 + 1.6, x1 - 1.8, z0 + 2.0, z1 - 2.0, 0.8, rgb("#8A9098"))
-    sheen = c.layer()
-    ImageDraw.Draw(sheen).rectangle([*c.p(x0, z1), *c.p(x1, z1 - 1.2)], fill=(255, 255, 255, 36))
-    c.over(sheen)
-
-
 # ---- The back and the top edge ---------------------------------------------------------------------------------------
+
+def clip(points, f):
+    """The part of a closed outline where f(x, z) >= 0, f linear: a half-plane."""
+    out = []
+    for a, b in zip(points, points[1:] + points[:1]):
+        fa, fb = f(*a), f(*b)
+        if fa >= 0:
+            out.append(a)
+        if fa * fb < 0:
+            t = fa / (fa - fb)
+            out.append((a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t))
+    return out
+
+
+def grip_back(x0, z0, z1):
+    """The back's flat over a grip, seen from behind (the face's right grip, so on the viewer's left), beside the door
+    from x0 (the face's) and between z0 and z1; its outer edge the body's, past the flat, where the back rounds over and
+    nothing is printed."""
+    flat = L.body_outline()
+    for f in (lambda x, z: x - x0, lambda x, z: z - z0, lambda x, z: z1 - z):
+        flat = clip(flat, f)
+    return [(-x, z) for x, z in flat]
+
 
 def rear():
     """The back, seen from behind (x is the face's, negated): the bay under the door, the battery cover on the viewer's
@@ -400,9 +410,12 @@ def rear():
     (x0, x1), (z0, z1) = L.DOOR["x"], L.DOOR["z"]
     for x in (x0 + 9.0, x1 - 9.0):
         c.rounded(x - 3.0, x + 3.0, z0 + 1.4, z0 + 3.0, 0.5, rgb("#2C2C33"))
-    # The battery cover (the viewer's left), its release; SONY above it.
-    c.rounded(-80.0, -40.5, 9.0, 66.0, [9.0, 4.0, 4.0, 9.0], rgb(REAR, 0.62))
-    c.rounded(-79.6, -40.9, 9.4, 65.6, [8.6, 3.6, 3.6, 8.6], rgb(REAR, 1.04))
+    # The battery cover (the viewer's left): the grip's back, from the door's seam, seamed along the grip's bottom and
+    # top (SONY above it); its release. The other grip's back seamed along its top too.
+    seam, low, high = x1 + 0.6, L.GRIP["bottom"], L.GRIP["top"][1]
+    c.polygon(grip_back(seam, low, high), rgb(REAR, 0.62))
+    c.polygon(grip_back(seam + 0.35, low + 0.35, high - 0.35), rgb(REAR, 1.04))
+    c.line([(seam, high), (L.SHOULDER["x"] + 2.0, high)], 0.25, rgb(REAR, 0.5))
     c.rounded(-79.0, -74.0, 31.0, 43.0, 1.2, rgb(REAR, 0.7))
     c.rounded(-78.6, -74.4, 31.4, 42.6, 1.0, rgb(REAR, 1.12))
     c.text("PUSH", "arialbd.ttf", 0.8, -76.5, 37.0, rgb(REAR, 1.9), degrees=90)

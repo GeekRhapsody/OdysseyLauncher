@@ -2,13 +2,16 @@
 PSP-1000, standing up.
 
 Built in Blender from the real handheld's measurements (psp_layout.py has them, and their sources): the body is its
-face's outline (each end one broad arc) lofted back through its depth: the glossy front shell, its edge rounded over;
-the seam; the silver band standing a quarter millimetre proud, the clear shoulder buttons L and R in its place at the
-top corners; the matte back shell, its edge rounded over a lot; the bay, a recess the door's shape, cut into the back.
-On the face stand the D-pad's four buttons, the analogue nub, the four face buttons and the bottom row (HOME, VOL - +,
-the display and sound buttons, SELECT and START), each a solid domed over; the screen's glass is one flat face over
-the face's printing. In the band: the POWER/HOLD switch on the right end and the OPEN latch on the top edge. On the
-back: the UMD door, a panel standing a millimetre proud, hinged along its bottom edge, and the UMD (a made-up game).
+face's outline lofted back through its depth, the middle the full height and each end a shorter grip, the outline
+stepping down to it at the top and up to it at the bottom (each grip's end one flat arc): the glossy front shell, its
+edge rounded over; the seam; the silver band standing a quarter millimetre proud; the matte back shell, its edge
+rounded over a lot; the bay, a recess the door's shape, cut into the back. In the steps, in the band's depth: the clear
+shoulder buttons L and R at the top; the strap's silver loop at the bottom left, its slot through; DC IN's yellow
+socket at the bottom right. On the face stand the D-pad's four buttons, the analogue nub, the four face buttons and the
+bottom row (HOME, VOL - +, the display and sound buttons, SELECT and START), each a solid domed over; the screen's
+glass is one flat face over the face's printing. In the band: the POWER/HOLD switch on the right end and the OPEN latch
+on the top edge. On the back: the UMD door, a panel standing a millimetre proud, hinged along its bottom edge, and the
+UMD (a made-up game).
 The printing is three textures drawn by psp_print.py: the face, the back and the top edge in one atlas; the UMD's
 two sides and the door's outside in a second; and the glass's own, the screen switched off.
 
@@ -43,7 +46,7 @@ import sys
 
 import bmesh
 import bpy
-from mathutils import Matrix, Vector
+from mathutils import Matrix, Vector, geometry
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import psp_layout as L  # noqa: E402
@@ -101,7 +104,8 @@ def shade(obj, angle=35.0):
 # ---- The body ----------------------------------------------------------------------------------------------------------
 
 def rings():
-    """The body's rings, front to back: (y, inset, what the band after it is)."""
+    """The body's rings, front to back as far as the back shell's foot behind the band: (y, inset, what the band after
+    it is)."""
     out = []
     r = L.FRONT_ROUND
     for k in range(4):
@@ -111,12 +115,50 @@ def rings():
     out += [(L.SEAM - 0.25, 0.0, "front"), (L.SEAM, 0.35, "groove"), (b0 - 0.05, 0.35, "groove"),
             (b0, -L.BAND_OUT + 0.12, "band"), (b0 + 0.25, -L.BAND_OUT, "band"), (b1 - 0.25, -L.BAND_OUT, "band"),
             (b1, -L.BAND_OUT + 0.12, "groove"), (b1 + 0.05, 0.35, "groove"), (b1 + 0.3, 0.0, "back")]
-    r = L.BACK_ROUND
-    out.append((L.BACK - r, 0.0, "back"))
-    for k in range(1, 5):
-        a = math.pi / 2 * k / 4
-        out.append((L.BACK - r + r * math.sin(a), r * (1 - math.cos(a)), "back"))
     return out
+
+
+def back_rings(steps=4):
+    """The back shell's rings on from its foot, as points: each point rounds over to the back's flat at its own depth,
+    the flat sagging over the grips (L.sag), and by a smaller radius where the flat comes near the foot."""
+    r = L.BACK_ROUND
+    foot = L.BAND[1] + 0.3
+    out = [[] for _ in range(steps + 1)]
+    for (x0, z0), (x1, z1) in zip(L.body_outline(0.0), L.body_outline(r)):
+        back = L.BACK - L.sag(x1, z1)
+        rr = max(0.4, min(r, back - foot - 0.3))
+        for k, ring in enumerate(out):
+            a = math.pi / 2 * k / steps
+            t = rr * (1 - math.cos(a)) / r                     # from the outline towards the one moved in by r
+            ring.append((x0 + (x1 - x0) * t, back - rr + rr * math.sin(a), z0 + (z1 - z0) * t))
+    return out
+
+
+def back_cap(bm, ring):
+    """The back's flat inside its last ring (bmesh verts), triangles through points between (finer over the grips,
+    where it sags), so it bends; returns them."""
+    edge = [(v.co.x, v.co.z) for v in ring]
+    sides = list(zip(edge, edge[1:] + edge[:1]))
+
+    def inside(x, z):
+        crossings = sum(1 for (ax, az), (bx, bz) in sides if (az > z) != (bz > z) and x < ax + (z - az) * (bx - ax) / (bz - az))
+        return crossings % 2 == 1
+
+    def clear(x, z):
+        for (ax, az), (bx, bz) in sides:
+            dx, dz = bx - ax, bz - az
+            t = max(0.0, min(1.0, ((x - ax) * dx + (z - az) * dz) / (dx * dx + dz * dz or 1.0)))
+            if math.hypot(ax + t * dx - x, az + t * dz - z) < 1.0:
+                return False
+        return True
+
+    points = [(2.5 * i, 2.0 + 3.0 * j) for i in range(-34, 35) for j in range(24)
+              if abs(i) > 15 or (i % 3 == 0 and j % 3 == 0)]
+    points = [(x, z) for x, z in points if inside(x, z) and clear(x, z)]
+    _, _, faces, orig, _, _ = geometry.delaunay_2d_cdt([Vector(p) for p in edge + points], [], [list(range(len(edge)))],
+                                                       1, 1e-6, True)
+    verts = list(ring) + [bm.verts.new((x, L.BACK - L.sag(x, z), z)) for x, z in points]
+    return [bm.faces.new([verts[orig[i][0]] for i in f]) for f in faces]
 
 
 def body(m):
@@ -124,42 +166,36 @@ def body(m):
     spec = rings()
     bm = bmesh.new()
     loops = [[bm.verts.new((x, y, z)) for x, z in L.body_outline(d)] for y, d, _ in spec]
+    loops += [[bm.verts.new(p) for p in ring] for ring in back_rings()]
+    bands = [kind for _, _, kind in spec] + ["back"] * (len(loops) - len(spec))
     kinds = []
-    for (a, b), (_, _, kind) in zip(zip(loops, loops[1:]), spec):
+    for (a, b), kind in zip(zip(loops, loops[1:]), bands):
         n = len(a)
         for j in range(n):
             bm.faces.new([a[j], a[(j + 1) % n], b[(j + 1) % n], b[j]])
             kinds.append(kind)
     bm.faces.new(loops[0])
-    bm.faces.new(list(reversed(loops[-1])))
+    kinds += ["front_cap"] + ["back_cap"] * len(back_cap(bm, loops[-1]))   # the faces keep the order they were made in
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
-    kinds += ["front_cap", "back_cap"]                      # the faces keep the order they were made in
     obj = new_object("psp", bm, m["case"])
     mesh = obj.data
     # Each face's material and UVs by the band it's in.
-    for mat in (m["rear"], m["silver"], m["clear"]):
+    for mat in (m["rear"], m["silver"]):
         mesh.materials.append(mat)
     names = [mt.name for mt in mesh.materials]
     uv = mesh.uv_layers.new(name="UVMap")
     for p, kind in zip(mesh.polygons, kinds):
         c, n = p.center, p.normal
-        up = n.z > 0.85 and abs(c.x) < L.SHOULDER["x"]
+        up = n.z > 0.85 and abs(c.x) < L.SHOULDER["x"]          # the top edge between the shoulder buttons
         if kind == "front_cap":
             mat, uv_of = "case", FRONT
         elif kind == "back_cap":
             mat, uv_of = "rear", REAR
-        elif kind == "band":
-            if abs(c.x) > L.SHOULDER["x"] and c.z > L.SHOULDER["z"]:
-                mat, uv_of = "clear", None
-            elif up:
-                mat, uv_of = "case", TOP
-            else:
-                mat, uv_of = "silver", None
         elif up:
             mat, uv_of = ("rear" if kind == "back" else "case"), TOP
         else:
             mat, uv_of = {"front": ("case", swatch("case")), "groove": ("case", swatch("dark")),
-                          "back": ("rear", swatch("rear"))}[kind]
+                          "band": ("silver", None), "back": ("rear", swatch("rear"))}[kind]
         p.material_index = names.index(m[mat].name)
         for li in p.loop_indices:
             uv.data[li].uv = uv_of(mesh.vertices[mesh.loops[li].vertex_index].co) if uv_of else (0.0, 0.0)
@@ -173,6 +209,21 @@ def body(m):
     paint(obj, m["rear"], swatch("dark"),
           lambda c, n, kind: L.BACK - depth + 0.05 < c.y < L.BACK - 0.01 and abs(n.y) < 0.5 and kind == "rear")
     return obj
+
+
+def in_band(name, outline, edge, mat):
+    """A part in the band's depth from its outline in (x, z), its front and back edges rounded off by edge."""
+    b0, b1 = L.BAND
+    stack = ((inset(outline, edge), b0), (outline, b0 + edge), (outline, b1 - edge), (inset(outline, edge), b1))
+    return shade(solid(name, [[(x, y, z) for x, z in pts] for pts, y in stack], mat), 40.0)
+
+
+def steps(m):
+    """What stands in the steps, in the band's depth: the clear shoulder buttons L and R in the top's, their tops and
+    their rounding onto the grips' ends out of the body; the strap's silver loop in the bottom left one, its slot
+    through between it and the step. The rest of each is hidden in the body."""
+    shoulders = [in_band("shoulder", L.shoulder_outline(side), 0.4, m["clear"]) for side in (-1, 1)]
+    return shoulders + [in_band("loop", L.loop_outline(), 0.3, m["silver"])]
 
 
 # ---- The controls --------------------------------------------------------------------------------------------------------
@@ -278,7 +329,8 @@ def light(m):
 
 
 def edges(m):
-    """What stands on the ends and the bottom: the WLAN switch (left end) and the yellow DC IN (under the right end)."""
+    """What stands on the ends and in the bottom right step: the WLAN switch (left end) and DC IN's yellow socket under
+    the right grip, its mouth to the floor."""
     parts = []
     z0, z1 = L.WLAN["z"]
     zm = (z0 + z1) / 2
@@ -287,11 +339,14 @@ def edges(m):
     wlan = box("wlan", -xe - 1.0, -xe + 0.6, ym - 1.2, ym + 1.2, z0, z1, m["silver"])
     bevel(wlan, 0.4, segments=2)
     parts.append(wlan)
-    x0, x1 = L.DC_IN["x"]
-    plug = box("dc_in", x0, x1, ym - 2.4, ym + 2.4, -0.5, 0.6, m["case"])
+    (x0, x1), (z0, z1) = L.DC_IN["x"], L.DC_IN["z"]
+    plug = box("dc_in", x0, x1, ym - 2.6, ym + 2.6, z0, z1, m["case"])
+    bevel(plug, 0.3, segments=1)
     paint(plug, m["case"], swatch("yellow"), lambda c, n, kind: True)
-    parts.append(plug)
-    return parts
+    mouth = solid("dc_in_mouth", [[(x, y, z) for x, y in circle((x0 + x1) / 2, ym, 1.1, 16)] for z in (z0 - 0.05, z0 + 0.3)],
+                  m["case"])
+    paint(mouth, m["case"], swatch("dark"), lambda c, n, kind: True)
+    return parts + [plug, mouth]
 
 
 def screen(m):
@@ -458,7 +513,7 @@ def main():
     m = {n: material(n, colours[n], r, textures.get(n)) for n, r in ROUGHNESS.items()}
 
     still_parts, moving = controls(m)
-    whole = join([body(m)] + still_parts + edges(m) + [screen(m)], "psp")
+    whole = join([body(m)] + steps(m) + still_parts + edges(m) + [screen(m)], "psp")
     switch, switch_at, along = power_switch(m)
     lit, lit_at = light(m)
     lid, hinge = door(m)
