@@ -139,7 +139,7 @@ public sealed class BuiltInModelTests
     public void The_Dreamcast_jewel_cases_faces_have_the_PAL_scans_proportions()
     {
         // Sized by ScreenScraper's PAL scans (a 640 x 640 front, a 784 x 680 back, an 87 x 680 spine), so none of the art
-        // is cropped (A7, "The Dreamcast jewel case").
+        // is cropped (tools/console-models/README.md, "The Dreamcast jewel case").
         var theme = ThemeFixtures.Load(ThemeFixtures.BaseFolder);
         var model = Load(ThemeFixtures.BaseFolder, theme.Templates["dreamcast_jewel_case"].Model);
 
@@ -210,7 +210,7 @@ public sealed class BuiltInModelTests
     [Fact]
     public void The_Switch_cases_insert_keeps_the_hand_made_models_proportions()
     {
-        // A 100.6 x 159.8 mm insert on the front and the back, and the spine's art 0.0613 of its height (A7, "The Switch case").
+        // A 100.6 x 159.8 mm insert on the front and the back, and the spine's art 0.0613 of its height (tools/console-models/README.md, "The Switch case").
         var theme = ThemeFixtures.Load(ThemeFixtures.BaseFolder);
         var model = Load(ThemeFixtures.BaseFolder, theme.Templates["switch_case"].Model);
 
