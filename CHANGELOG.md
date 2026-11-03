@@ -10,6 +10,8 @@ it releases, and the Release workflow puts it on the release page (tools/release
 
 ## Unreleased
 
+## 0.22.0 (2026-11-03)
+
 ### New
 
 - **Super Famicom**, a system of its own for Japanese SNES games, shown in the tall box they came in, where SNES games keep the wide European and North American box. Put them in an `sfc` folder in your ROMs folder, as in ES-DE: they appear in the SNES's card. Every theme has a card for it: in Console, the Super Famicom.
