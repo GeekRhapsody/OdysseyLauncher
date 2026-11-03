@@ -75,8 +75,10 @@ public sealed class SteamGameTests : IAsyncLifetime
     {
         var launcher = new LaunchService(config, _runner, _library, _wallClock, steam)
         {
+            // The polls run on real time, so a busy machine can stretch a few of them past a short timeout:
+            // only the test of a game Steam never starts shortens it.
             SteamPollInterval = TimeSpan.FromMilliseconds(10),
-            SteamStartTimeout = TimeSpan.FromMilliseconds(300),
+            SteamStartTimeout = Timeout,
         };
         launcher.Starting += (_, _) => _events.Enqueue("starting");
         launcher.Running += (_, _) => _events.Enqueue("running");
@@ -336,6 +338,7 @@ public sealed class SteamGameTests : IAsyncLifetime
     public async Task A_game_steam_never_starts_is_a_failure_and_not_a_play()
     {
         _steam.Script(Repeat(Idle, 10_000));
+        _launcher.SteamStartTimeout = TimeSpan.FromMilliseconds(300);
         string? reason = null;
         _launcher.Failed += (_, e) => reason = e.Reason;
 
