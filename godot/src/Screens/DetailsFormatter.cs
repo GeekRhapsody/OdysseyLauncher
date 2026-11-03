@@ -80,13 +80,26 @@ public static class DetailsFormatter
     /// </summary>
     /// <param name="cardModel">The model its card uses, as the theme describes it; null if unknown.</param>
     /// <param name="gamesModel">The model its games use, likewise.</param>
+    /// <param name="group">A group's card (A5 Grouped systems): each of its systems, with its games; null for a system's own card.</param>
     public static IReadOnlyList<(string Label, string Value)> SystemFields(
-        SystemConfig system, SystemSummary? summary, AppConfig config, string? cardModel, string? gamesModel, DateTimeOffset now)
+        SystemConfig system, SystemSummary? summary, AppConfig config, string? cardModel, string? gamesModel, DateTimeOffset now,
+        IReadOnlyList<(string Name, int Games)>? group = null)
     {
         var rows = new List<(string, string)>();
         Add(rows, "Made by", system.Manufacturer);
         Add(rows, "Released", system.Year?.ToString(Uk));
         Add(rows, "Games", GamesCount(summary?.GameCount ?? 0));
+        if (group is not null)
+        {
+            var lines = new List<string>(group.Count);
+            foreach (var (name, games) in group)
+            {
+                lines.Add($"{name} · {GamesCount(games)}");
+            }
+
+            Add(rows, "Systems", string.Join("\n", lines));
+        }
+
         Add(rows, "Last scanned", summary?.ScannedAt is { } scanned ? Relative(scanned, now) : "Never");
 
         Add(rows, "Emulator", EmulatorName(config, system.Emulator));

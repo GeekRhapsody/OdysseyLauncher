@@ -594,12 +594,15 @@ public sealed partial class Navigator : Node
 
     // ---- Systems → games ------------------------------------------------------------------------
 
-    /// <summary>Enters a system's games grid (also used by --start-system and the scroll bench).</summary>
+    /// <summary>
+    /// Enters a system's games grid (also used by --start-system and the scroll bench); a grouped system's is its
+    /// group's card (A5 Grouped systems).
+    /// </summary>
     public bool EnterSystem(string id, int? focusIndex = null)
     {
         for (var i = 0; i < _systems.Entries.Count; i++)
         {
-            if (_systems.Entries[i].Id == id)
+            if (_systems.Entries[i].Id == id || (_systems.Entries[i].Members is { } members && IndexOf(members, id) >= 0))
             {
                 _systemsGrid.SetFocus(i);
                 OnFocusChanged();
@@ -652,7 +655,14 @@ public sealed partial class Navigator : Node
             try
             {
                 GamesSource source;
-                if (entry.Virtual == VirtualKind.None)
+                if (entry.Members is { } members)
+                {
+                    // A group's card (A5 Grouped systems): its systems' games in one list, each in its own system's template.
+                    var rows = await library.GetGamesAsync(members, ordering, token).ConfigureAwait(false);
+                    var media = await library.GetGameMediaAsync(members, kinds, token).ConfigureAwait(false);
+                    source = GamesSource.ForVirtual(entry.Id, entry.Name, rows, media, kinds, theme.ColourOf, nameOf, ordering, members);
+                }
+                else if (entry.Virtual == VirtualKind.None)
                 {
                     var list = await library.GetGamesAsync(entry.Id, ordering, token).ConfigureAwait(false);
                     var media = await library.GetGameMediaAsync(entry.Id, kinds, token).ConfigureAwait(false);
@@ -925,6 +935,7 @@ public sealed partial class Navigator : Node
             try
             {
                 var rows = all ? await library.GetAllGameMediaAsync(kinds, token).ConfigureAwait(false)
+                    : source.Members is { } members ? await library.GetGameMediaAsync(members, kinds, token).ConfigureAwait(false)
                     : ids is null ? await library.GetGameMediaAsync(source.Id, kinds, token).ConfigureAwait(false)
                     : await library.GetGameMediaAsync(ids, kinds, token).ConfigureAwait(false);
                 _queue.Post(() =>
@@ -1075,13 +1086,15 @@ public sealed partial class Navigator : Node
             try
             {
                 GameRow[] rows;
-                if (entry.Virtual == VirtualKind.None)
+                if (entry.Virtual == VirtualKind.None && entry.Members is null)
                 {
                     rows = [.. (await library.GetGamesAsync(entry.Id, ordering, token).ConfigureAwait(false)).Games];
                 }
                 else
                 {
-                    var list = await VirtualGamesAsync(library, entry.Virtual, ordering, token).ConfigureAwait(false);
+                    var list = entry.Members is { } members
+                        ? await library.GetGamesAsync(members, ordering, token).ConfigureAwait(false)
+                        : await VirtualGamesAsync(library, entry.Virtual, ordering, token).ConfigureAwait(false);
                     rows = new GameRow[list.Count];
                     for (var i = 0; i < rows.Length; i++)
                     {
@@ -1477,6 +1490,30 @@ public sealed partial class Navigator : Node
             _ => library.GetAllGamesAsync(ordering, token),
         };
 
+    /// <summary>Whether a card's group and the systems its shown list was read from are the same (both null for a plain system).</summary>
+    private static bool SameMembers(IReadOnlyList<string>? card, IReadOnlyList<string>? list)
+    {
+        if (card is null || list is null)
+        {
+            return card is null && list is null;
+        }
+
+        if (card.Count != list.Count)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < card.Count; i++)
+        {
+            if (card[i] != list[i])
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     private SystemEntry? FindEntry(string id)
     {
         foreach (var entry in _systems.Entries)
@@ -1653,7 +1690,7 @@ public sealed partial class Navigator : Node
             OnFocusChanged();
         }
         else if (_screen == Screen.Games && _games is { } games && FindEntry(games.Id) is { Sorted: true } entry
-                 && GamesSort(games.Id) != games.Ordering)
+                 && (GamesSort(games.Id) != games.Ordering || !SameMembers(entry.Members, games.Members)))
         {
             var focusIndex = Math.Max(0, _gamesGrid.FocusIndex);
             LoadGames(entry, null, focusIndex < games.Count ? games.Row(focusIndex).GameId : 0);
@@ -1862,28 +1899,31 @@ public sealed partial class Navigator : Node
         };
         // Only the shown systems' cards are loaded (2026-10-27): a system that just appeared shows the default card until
         // its own is in (ApplyCards), and the cards of those that went are freed then.
-        var shown = ShownSystemIds(summaries, _services.Config);
+        var cards = SystemCards(summaries, _services.Config);
+        var shown = new List<string>(cards.Count);
+        foreach (var card in cards)
+        {
+            shown.Add(card.System.Id);
+        }
+
         _theme.UseShownSystems(shown);
         _pendingTheme?.UseShownSystems(shown);
 
-        var display = _services.Config.Settings.Display;
-        var systems = new List<SystemEntry>(summaries.Count);
         var games = 0;
         foreach (var summary in summaries)
         {
-            if (_services.Config.FindSystem(summary.SystemId) is not { } system)
+            if (_services.Config.FindSystem(summary.SystemId) is not null)
             {
-                continue;
+                games += summary.GameCount;
             }
+        }
 
-            games += summary.GameCount;
-            if (!Shows(summary, display))
-            {
-                continue;
-            }
-
+        var systems = new List<SystemEntry>(cards.Count);
+        foreach (var (system, summary, members) in cards)
+        {
             systems.Add(new SystemEntry(system.Id, system.Name, DetailsFormatter.SystemSubtitle(system, summary.GameCount),
-                _theme.ColourOf(system.Id), system, summary, VirtualKind.None, _theme.CardTemplateOf(system.Id), _theme.LogoOf(system.Id)));
+                _theme.ColourOf(system.Id), system, summary, VirtualKind.None, _theme.CardTemplateOf(system.Id), _theme.LogoOf(system.Id),
+                members));
         }
 
         entries.Add(new(AllGamesId, "All games", DetailsFormatter.GamesCount(games), Palette.AllGames, null, null, VirtualKind.AllGames,
@@ -1898,19 +1938,60 @@ public sealed partial class Navigator : Node
     /// <summary>Whether the systems grid shows a system the config has: one with games, or any while empty ones show.</summary>
     public static bool Shows(SystemSummary summary, DisplaySettings display) => summary.GameCount > 0 || !display.HideEmptySystems;
 
-    /// <summary>The systems the grid shows (<see cref="Shows"/>), whose cards the theme loads (2026-10-27).</summary>
+    /// <summary>The systems the grid shows cards of (<see cref="SystemCards"/>), whose cards the theme loads (2026-10-27).</summary>
     public static List<string> ShownSystemIds(IReadOnlyList<SystemSummary> summaries, AppConfig config)
     {
-        var ids = new List<string>(summaries.Count);
-        foreach (var summary in summaries)
+        var cards = SystemCards(summaries, config);
+        var ids = new List<string>(cards.Count);
+        foreach (var card in cards)
         {
-            if (config.FindSystem(summary.SystemId) is not null && Shows(summary, config.Settings.Display))
-            {
-                ids.Add(summary.SystemId);
-            }
+            ids.Add(card.System.Id);
         }
 
         return ids;
+    }
+
+    /// <summary>
+    /// The systems grid's system cards, in the summaries' order (A5 Grouped systems): every system not grouped under
+    /// another, that <see cref="Shows"/> or has a grouped system that does. A group's card has its members, and its
+    /// summary counts all their games.
+    /// </summary>
+    public static List<SystemCard> SystemCards(IReadOnlyList<SystemSummary> summaries, AppConfig config)
+    {
+        var display = config.Settings.Display;
+        Dictionary<string, (int Games, bool Shows)>? groups = null;
+        foreach (var summary in summaries)
+        {
+            if (config.FindSystem(summary.SystemId) is { } system && config.GroupParentOf(system) is { } parent)
+            {
+                groups ??= new Dictionary<string, (int, bool)>(StringComparer.Ordinal);
+                groups.TryGetValue(parent.Id, out var group);
+                groups[parent.Id] = (group.Games + summary.GameCount, group.Shows || Shows(summary, display));
+            }
+        }
+
+        var cards = new List<SystemCard>(summaries.Count);
+        foreach (var summary in summaries)
+        {
+            if (config.FindSystem(summary.SystemId) is not { } system || config.GroupParentOf(system) is not null)
+            {
+                continue;
+            }
+
+            if (groups is not null && groups.TryGetValue(system.Id, out var group))
+            {
+                if (Shows(summary, display) || group.Shows)
+                {
+                    cards.Add(new SystemCard(system, summary with { GameCount = summary.GameCount + group.Games }, config.GroupMembers(system.Id)));
+                }
+            }
+            else if (Shows(summary, display))
+            {
+                cards.Add(new SystemCard(system, summary, null));
+            }
+        }
+
+        return cards;
     }
 
     /// <summary>The first real system with games (or the first real one), so boot lands on something useful.</summary>

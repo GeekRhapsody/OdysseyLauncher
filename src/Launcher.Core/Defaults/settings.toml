@@ -42,6 +42,9 @@ anisotropic_filtering = 16
 # The systems grid leaves out systems with no games, so the long built-in list only shows what you have.
 # false shows every enabled system, empty or not.
 hide_empty_systems = true
+# A regional variant (Dreamcast (NA/JP)) shows its games inside the card of the system it varies (Dreamcast), each
+# in its own box. false gives every variant a card of its own. A system's own group = "" takes it out of its group.
+group_systems = true
 # How the systems are shown: "grid", "grid_with_labels" (the grid, each system's name under it), "carousel" (one row,
 # the focused system in the middle) or "single" (one at a time, filling the screen; left and right move to the next).
 systems_layout = "grid"

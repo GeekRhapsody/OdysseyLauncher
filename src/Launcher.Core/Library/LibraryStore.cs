@@ -119,11 +119,18 @@ internal static class LibraryStore
     /// Every system's games (All games), each row starting with its system's id, as the virtual lists' rows do; else
     /// one system's (<c>$system</c>).
     /// </param>
-    internal static string GamesSql(GamesOrdering ordering, bool allSystems = false)
+    /// <param name="systemSet">
+    /// More than 0: the games of that many systems (a group's card, A5 Grouped systems), <c>$s0</c> on, each row
+    /// starting with its system's id as in All games.
+    /// </param>
+    internal static string GamesSql(GamesOrdering ordering, bool allSystems = false, int systemSet = 0)
     {
         var direction = ordering.Order == SortOrder.Descending ? " DESC" : string.Empty;
-        var select = $"SELECT {(allSystems ? "g.system_id, " : string.Empty)}{GamesColumns}\n{GamesFrom}";
-        var where = allSystems ? $"WHERE {Visible}" : $"WHERE g.system_id = $system AND {Visible}";
+        var several = allSystems || systemSet > 0;
+        var select = $"SELECT {(several ? "g.system_id, " : string.Empty)}{GamesColumns}\n{GamesFrom}";
+        var where = allSystems ? $"WHERE {Visible}"
+            : systemSet > 0 ? $"WHERE g.system_id IN ({ParameterList(systemSet)}) AND {Visible}"
+            : $"WHERE g.system_id = $system AND {Visible}";
         return ordering.Sort switch
         {
             GameSort.LastPlayed => $"""
@@ -219,6 +226,20 @@ internal static class LibraryStore
         return rows;
     }
 
+    /// <summary>Several systems' media (a group's card), through <c>games_by_system</c> as one system's is.</summary>
+    public static List<GameMediaRow> GetGameMedia(SqliteConnection connection, IReadOnlyList<string> systemIds, IReadOnlyList<string> kinds)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = $"""
+            SELECT {GameMediaColumns} FROM games g JOIN media m ON m.game_id = g.game_id
+            WHERE g.system_id IN ({ParameterList(systemIds.Count)}) AND m.kind IN ({KindParameters(command, kinds)})
+            """;
+        BindSystems(command, systemIds);
+        var rows = new List<GameMediaRow>();
+        ReadGameMedia(command, rows);
+        return rows;
+    }
+
     /// <summary>Every game's media of these kinds (All games), through <c>media</c>'s kind.</summary>
     public static List<GameMediaRow> GetAllGameMedia(SqliteConnection connection, IReadOnlyList<string> kinds)
     {
@@ -303,6 +324,26 @@ internal static class LibraryStore
         return new GameMetadataEdit(key, reader.GetString(0), NullableString(reader, 1), scraped, overrides);
     }
 
+    /// <summary><c>$s0, $s1, ...</c>: the parameters <see cref="BindSystems"/> binds.</summary>
+    private static string ParameterList(int count)
+    {
+        var names = new string[count];
+        for (var i = 0; i < count; i++)
+        {
+            names[i] = "$s" + i.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        }
+
+        return string.Join(", ", names);
+    }
+
+    private static void BindSystems(SqliteCommand command, IReadOnlyList<string> systemIds)
+    {
+        for (var i = 0; i < systemIds.Count; i++)
+        {
+            command.Parameters.AddWithValue("$s" + i.ToString(System.Globalization.CultureInfo.InvariantCulture), systemIds[i]);
+        }
+    }
+
     private static string KindParameters(SqliteCommand command, IReadOnlyList<string> kinds)
     {
         var names = new string[kinds.Count];
@@ -338,13 +379,26 @@ internal static class LibraryStore
     public static List<VirtualGameRow> GetAllGames(SqliteConnection connection, GamesOrdering ordering, AppConfig config) =>
         ReadVirtual(connection, GamesSql(ordering, allSystems: true), null, config, 4096);
 
-    private static List<VirtualGameRow> ReadVirtual(SqliteConnection connection, string sql, int? limit, AppConfig config, int capacityHint = 0)
+    /// <summary>
+    /// Several systems' visible games (a group's card, A5 Grouped systems) in <paramref name="ordering"/>'s order,
+    /// merged as All games is: each row with its own system.
+    /// </summary>
+    public static List<VirtualGameRow> GetGames(SqliteConnection connection, IReadOnlyList<string> systemIds, GamesOrdering ordering, AppConfig config) =>
+        ReadVirtual(connection, GamesSql(ordering, systemSet: systemIds.Count), null, config, 256, systemIds);
+
+    private static List<VirtualGameRow> ReadVirtual(
+        SqliteConnection connection, string sql, int? limit, AppConfig config, int capacityHint = 0, IReadOnlyList<string>? systemIds = null)
     {
         using var command = connection.CreateCommand();
         command.CommandText = sql;
         if (limit is not null)
         {
             command.Parameters.AddWithValue("$limit", limit.Value);
+        }
+
+        if (systemIds is not null)
+        {
+            BindSystems(command, systemIds);
         }
 
         using var reader = command.ExecuteReader();

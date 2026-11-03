@@ -118,6 +118,90 @@ public class ConfigLoaderTests
     }
 
     [Fact]
+    public void Only_regional_variants_are_grouped_by_default_each_under_the_system_it_varies()
+    {
+        // A5 Grouped systems: the built-in groups are the regional variants' alone, so the console theme's cards for
+        // add-ons (Mega-CD, 32X) stay; a variant launches and scrapes as its system, so its group is that system.
+        var config = Load().Config;
+        var grouped = config.Systems.Where(s => s.Group is not null).ToList();
+
+        Assert.Contains(grouped, s => s.Id == "dreamcastnajp");
+        foreach (var variant in grouped)
+        {
+            var parent = config.FindSystem(variant.Group!);
+            Assert.NotNull(parent);
+            Assert.Null(parent.Group);
+            Assert.Equal(variant.Group, variant.DefaultGroup);
+            Assert.Equal(parent.Extensions, variant.Extensions);
+            Assert.Equal((parent.Emulator, parent.ScreenScraperId), (variant.Emulator, variant.ScreenScraperId));
+        }
+
+        Assert.True(config.Settings.Display.GroupSystems);
+        Assert.Equal("dreamcast", config.GroupParentOf(config.FindSystem("dreamcastnajp")!)?.Id);
+        Assert.Equal(["dreamcast", "dreamcastnajp"], config.GroupMembers("dreamcast"));
+        Assert.Equal(["megadrive"], config.GroupMembers("megadrive"));
+    }
+
+    [Fact]
+    public void Grouping_turns_off_for_every_system_with_the_setting_or_for_one_with_an_empty_group()
+    {
+        var off = Load(settings: """
+            [display]
+            group_systems = false
+            """);
+        Assert.Empty(off.Diagnostics);
+        Assert.False(off.Config.Settings.Display.GroupSystems);
+        Assert.Null(off.Config.GroupParentOf(off.Config.FindSystem("dreamcastnajp")!));
+        Assert.Equal(["dreamcast"], off.Config.GroupMembers("dreamcast"));
+
+        var alone = Load(systems: """
+            [systems.dreamcastnajp]
+            group = ""
+            """);
+        Assert.Empty(alone.Diagnostics);
+        var variant = alone.Config.FindSystem("dreamcastnajp")!;
+        Assert.Null(variant.Group);
+        Assert.Equal("dreamcast", variant.DefaultGroup);
+        Assert.Equal(["dreamcast"], alone.Config.GroupMembers("dreamcast"));
+
+        var user = Load(systems: """
+            [systems.segacd]
+            group = "megadrive"
+            """);
+        Assert.Empty(user.Diagnostics);
+        Assert.Equal(["megadrive", "segacd"], user.Config.GroupMembers("megadrive"));
+        Assert.Null(user.Config.FindSystem("segacd")!.DefaultGroup);
+    }
+
+    [Theory]
+    [InlineData("[systems.dreamcastnajp]\ngroup = \"dreamcats\"\n", "unknown system 'dreamcats'")]
+    [InlineData("[systems.dreamcastnajp]\ngroup = \"dreamcastnajp\"\n", "can't be grouped under itself")]
+    [InlineData("[systems.dreamcast]\ngroup = \"saturn\"\n", "groups don't nest")]
+    public void A_group_that_cant_be_used_is_a_warning_and_the_system_keeps_its_own_card(string systems, string problem)
+    {
+        var result = Load(systems: systems);
+
+        var warning = Single(result, Severity.Warning);
+        Assert.Contains(problem, warning.Message, StringComparison.Ordinal);
+        Assert.EndsWith(".group", warning.Key, StringComparison.Ordinal);
+        Assert.Null(result.Config.FindSystem("dreamcastnajp")!.Group);
+        Assert.Contains("dreamcast", result.Config.Systems.Select(s => s.Id));
+    }
+
+    [Fact]
+    public void A_variant_whose_system_is_disabled_has_its_own_card_with_only_a_note()
+    {
+        var result = Load(systems: """
+            [systems.dreamcast]
+            enabled = false
+            """);
+
+        var note = Single(result, Severity.Info);
+        Assert.Equal("systems.dreamcastnajp.group", note.Key);
+        Assert.Null(result.Config.FindSystem("dreamcastnajp")!.Group);
+    }
+
+    [Fact]
     public void Built_in_emulator_templates_expand_variables_and_keep_launch_placeholders()
     {
         var emulator = Load().Config.Emulators["retroarch-genesis-plus-gx"];

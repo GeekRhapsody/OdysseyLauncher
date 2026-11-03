@@ -414,15 +414,12 @@ public partial class Main : Node3D
         DebugHooks.Theme = (theme.Plan.Active.Id, theme.Layout.ToString());
 
         var games = 0;
-        var shownSystems = 0;
         foreach (var system in services.Systems)
         {
             games += system.GameCount;
-            if (Navigator.Shows(system, services.Config.Settings.Display))
-            {
-                shownSystems++;
-            }
         }
+
+        var shownSystems = Navigator.SystemCards(services.Systems, services.Config).Count;
 
         DebugHooks.Library = new BenchLibrary(shownSystems + 2, games, null, 0);
         GCSettings.LatencyMode = GCLatencyMode.SustainedLowLatency;

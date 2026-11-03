@@ -392,6 +392,36 @@ public sealed class LibraryServiceTests : IAsyncLifetime
         Assert.Equal(["Alpha", "Epsilon", "Gamma"], (await _library.GetAllGamesAsync(default, Ct)).Select(r => r.Game.Title));
     }
 
+    [Fact]
+    public async Task A_groups_list_merges_its_systems_visible_games_in_one_order_each_with_its_own_system()
+    {
+        // A5 Grouped systems: the Dreamcast's card shows Dreamcast (NA/JP)'s games too, sorted together.
+        Rom("dreamcast/Gamma.chd");
+        Rom("dreamcast/Hidden.chd");
+        Rom("dreamcastnajp/Alpha.chd");
+        Rom("dreamcastnajp/Delta.chd");
+        Rom("saturn/Beta.chd");
+        Art("dreamcastnajp/covers/Alpha.png", TestImages.Png(700, 700));
+        Art("dreamcast/screenshots/Gamma.png", TestImages.Png(640, 480));
+        Art("saturn/covers/Beta.png", TestImages.Png(700, 1000));
+        await _library.RescanAsync(null, null, Ct);
+        await _library.SetHiddenAsync(new GameKey("dreamcast", "hidden.chd"), true, Ct);
+        UserData("INSERT INTO play_stats (system_id, path_key, play_count, last_played_at) VALUES ('dreamcastnajp', 'delta.chd', 1, 200), ('dreamcast', 'gamma.chd', 1, 100)");
+
+        string[] group = ["dreamcast", "dreamcastnajp"];
+        var games = await _library.GetGamesAsync(group, default, Ct);
+        Assert.Equal([("dreamcastnajp", "Alpha"), ("dreamcastnajp", "Delta"), ("dreamcast", "Gamma")], games.Select(r => (r.SystemId, r.Game.Title)));
+        Assert.Equal("media/dreamcastnajp/covers/Alpha.png", games[0].Game.CoverPath);
+        Assert.Equal(["Delta", "Gamma", "Alpha"],
+            (await _library.GetGamesAsync(group, new GamesOrdering(GameSort.LastPlayed, SortOrder.Descending), Ct)).Select(r => r.Game.Title));
+
+        var media = await _library.GetGameMediaAsync(group, ["cover", "screenshot"], Ct);
+        Assert.Equal([("cover", games[0].Game.GameId), ("screenshot", games[2].Game.GameId)], media.Select(m => (m.Kind, m.GameId)).Order());
+
+        Assert.Empty(await _library.GetGamesAsync([], default, Ct));
+        Assert.Empty(await _library.GetGameMediaAsync(Array.Empty<string>(), ["cover"], Ct));
+    }
+
     // ---- Sorting a system's games ([display] games_sort) ----------------------------------------
 
     private async Task<string[]> Titles(string system, GameSort sort, SortOrder order = SortOrder.Ascending) =>

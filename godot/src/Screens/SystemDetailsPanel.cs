@@ -209,7 +209,8 @@ public sealed partial class SystemDetailsPanel : UiPanel
     {
         if (entry.Virtual == VirtualKind.None)
         {
-            var fields = DetailsFormatter.SystemFields(entry.System!, entry.Summary, services.Config, cardModel, gamesModel, DateTimeOffset.Now);
+            var fields = DetailsFormatter.SystemFields(entry.System!, entry.Summary, services.Config, cardModel, gamesModel, DateTimeOffset.Now,
+                GroupOf(entry, services));
             return new Loaded(entry, entry.System!.Description, fields);
         }
 
@@ -222,6 +223,34 @@ public sealed partial class SystemDetailsPanel : UiPanel
         }
 
         return new Loaded(entry, DetailsFormatter.VirtualDescription(entry.Virtual), DetailsFormatter.VirtualFields(games.Count, systems.Count));
+    }
+
+    /// <summary>A group's card's systems with their own games (A5 Grouped systems); null for a system's own card.</summary>
+    private static List<(string Name, int Games)>? GroupOf(SystemEntry entry, AppServices services)
+    {
+        if (entry.Members is not { } members)
+        {
+            return null;
+        }
+
+        var summaries = services.Systems;
+        var group = new List<(string, int)>(members.Count);
+        foreach (var id in members)
+        {
+            var games = 0;
+            foreach (var summary in summaries)
+            {
+                if (summary.SystemId == id)
+                {
+                    games = summary.GameCount;
+                    break;
+                }
+            }
+
+            group.Add((services.Config.FindSystem(id)?.Name ?? id, games));
+        }
+
+        return group;
     }
 
     /// <summary>What the panel shows, read and formatted off the main thread.</summary>

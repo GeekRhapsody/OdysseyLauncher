@@ -33,7 +33,7 @@ public sealed class ConfigLoader : IConfigLoader
     private static readonly string[] DisplayKeys =
     [
         "theme", "screen_mode", "fullscreen", "render_resolution", "window_size", "rendering_driver", "anisotropic_filtering",
-        "hide_empty_systems",
+        "hide_empty_systems", "group_systems",
         "systems_layout", "systems_columns", "systems_rows", "games_layout", "games_columns", "games_rows",
         "systems_sort", "systems_sort_order", "games_sort", "games_sort_order",
     ];
@@ -46,6 +46,7 @@ public sealed class ConfigLoader : IConfigLoader
         "enabled", "name", "manufacturer", "year", "description", "aliases", "extensions", "emulator", "alt_emulators",
         "game_model", "screenscraper_id", "igdb_platforms", "launchbox_platforms", "steam_store", "rom_dirs", "recursive", "exclude",
         "games_layout", "games_columns", "games_rows", "games_sort", "games_sort_order", "auto_configure_controllers", "swap_ab_xy",
+        "group",
     ];
 
     private static readonly string[] SystemRequiredKeys = ["name", "extensions", "emulator"];
@@ -80,7 +81,9 @@ public sealed class ConfigLoader : IConfigLoader
             var settingsTree = LoadLayered(sources.DefaultSettings, sources.Settings, out _);
             var emulatorsTree = LoadLayered(sources.DefaultEmulators, sources.Emulators, out var builtInEmulators);
             var builtInEmulatorOf = new Dictionary<string, string>(StringComparer.Ordinal);
-            var systemsTree = LoadLayered(sources.DefaultSystems, sources.Systems, out var builtInSystems, defaults => ReadBuiltInEmulators(defaults, builtInEmulatorOf));
+            var builtInGroupOf = new Dictionary<string, string>(StringComparer.Ordinal);
+            var systemsTree = LoadLayered(sources.DefaultSystems, sources.Systems, out var builtInSystems,
+                defaults => ReadBuiltInSystems(defaults, builtInEmulatorOf, builtInGroupOf));
 
             var settings = ReadSettings(settingsTree, settingsDefaults);
             CheckRoot(emulatorsTree, EmulatorsRootKeys);
@@ -88,7 +91,7 @@ public sealed class ConfigLoader : IConfigLoader
 
             var rawEmulators = SubTable(emulatorsTree, "emulators", "emulators");
             var emulators = ReadEmulators(rawEmulators, builtInEmulators);
-            var systems = ReadSystems(SubTable(systemsTree, "systems", "systems"), builtInSystems, builtInEmulatorOf, rawEmulators, emulators);
+            var systems = ReadSystems(SubTable(systemsTree, "systems", "systems"), builtInSystems, builtInEmulatorOf, builtInGroupOf, rawEmulators, emulators);
             if (sources.FileExists is { } fileExists)
             {
                 CheckInstalls(emulators, systems, rawEmulators, fileExists, sources.CheckInstallsFor ?? (_ => true));
@@ -134,7 +137,8 @@ public sealed class ConfigLoader : IConfigLoader
         }
 
         /// <summary>Each built-in system's own <c>emulator</c>, before the user's file can change it.</summary>
-        private static void ReadBuiltInEmulators(TomlTableNode defaults, Dictionary<string, string> emulatorOf)
+        /// <summary>The built-in systems' own <c>emulator</c> and <c>group</c>, before the user's file is merged in.</summary>
+        private static void ReadBuiltInSystems(TomlTableNode defaults, Dictionary<string, string> emulatorOf, Dictionary<string, string> groupOf)
         {
             if (!defaults.TryGet("systems", out var node) || node is not TomlTableNode systems)
             {
@@ -143,10 +147,19 @@ public sealed class ConfigLoader : IConfigLoader
 
             foreach (var id in systems.Keys)
             {
-                if (systems.TryGet(id, out var entry) && entry is TomlTableNode table
-                    && table.TryGet("emulator", out var emulator) && emulator is TomlScalar { Kind: TomlKind.String, Value: string value })
+                if (!systems.TryGet(id, out var entry) || entry is not TomlTableNode table)
+                {
+                    continue;
+                }
+
+                if (table.TryGet("emulator", out var emulator) && emulator is TomlScalar { Kind: TomlKind.String, Value: string value })
                 {
                     emulatorOf[id] = value;
+                }
+
+                if (table.TryGet("group", out var group) && group is TomlScalar { Kind: TomlKind.String, Value: string parent } && parent.Length > 0)
+                {
+                    groupOf[id] = parent;
                 }
             }
         }
@@ -253,6 +266,7 @@ public sealed class ConfigLoader : IConfigLoader
             var renderingDriver = (RenderingDriver)SettingName(tree, defaults, "rendering_driver", DisplayNames.RenderingDrivers, [], "rendering driver", string.Empty);
             var anisotropic = AnisotropicSetting(tree, defaults);
             var hideEmptySystems = SettingBool(tree, defaults, "display", "hide_empty_systems") ?? true;
+            var groupSystems = SettingBool(tree, defaults, "display", "group_systems") ?? true;
             var systemsLayout = SettingLayout(tree, defaults, "systems_layout", Layouts.SystemsNames, Layouts.GamesNames);
             var gamesLayout = SettingLayout(tree, defaults, "games_layout", Layouts.GamesNames, Layouts.SystemsNames);
             var systemsSort = new SystemsOrdering(
@@ -335,6 +349,7 @@ public sealed class ConfigLoader : IConfigLoader
                     GamesGrid = gamesGrid,
                     SystemsSort = systemsSort,
                     GamesSort = gamesSort,
+                    GroupSystems = groupSystems,
                 },
                 new ScrapingSettings(provider, fallback, regions, languages, media, hashLimitMb * 1024 * 1024),
                 new ScanningSettings(_globalExcludes, SettingBool(tree, defaults, "scanning", "scan_at_launch") ?? false),
@@ -1112,6 +1127,7 @@ public sealed class ConfigLoader : IConfigLoader
             TomlTableNode? table,
             HashSet<string> builtIn,
             Dictionary<string, string> builtInEmulatorOf,
+            Dictionary<string, string> builtInGroupOf,
             TomlTableNode? rawEmulators,
             Dictionary<string, EmulatorConfig> emulators)
         {
@@ -1121,6 +1137,7 @@ public sealed class ConfigLoader : IConfigLoader
                 return result;
             }
 
+            var groups = new Dictionary<string, (string Parent, TomlNode Node)>(StringComparer.Ordinal);
             var claimedNames = new Dictionary<string, string>(StringComparer.Ordinal);
             foreach (var id in table.Keys)
             {
@@ -1201,6 +1218,22 @@ public sealed class ConfigLoader : IConfigLoader
                 var autoControllers = Bool(entry, prefix, "auto_configure_controllers") ?? false;
                 var swapFaceButtons = Bool(entry, prefix, "swap_ab_xy") ?? false;
                 var recursive = Bool(entry, prefix, "recursive") ?? true;
+
+                // The system whose card it shows under (A5 Grouped systems); "" (a user's) takes a built-in one out.
+                // Checked once every system is read.
+                var group = String(entry, prefix, "group");
+                if (group is { Length: > 0 } && entry.TryGet("group", out var groupNode))
+                {
+                    if (group == id)
+                    {
+                        Warning(groupNode, prefix + ".group", "a system can't be grouped under itself, so it has its own card");
+                        group = null;
+                    }
+                    else
+                    {
+                        groups[id] = (group, groupNode);
+                    }
+                }
 
                 var aliases = new List<string>();
                 if (entry.TryGet("aliases", out var aliasesNode) && StringArray(aliasesNode, prefix + ".aliases", string.Empty) is { } rawAliases)
@@ -1340,14 +1373,62 @@ public sealed class ConfigLoader : IConfigLoader
                     id, name, manufacturer, (int?)year, aliases, extensions, emulator, altEmulators, gameModel,
                     (int?)screenScraperId, romDirs, romDirSource, recursive, exclude, igdbPlatforms, steamStore, gamesColumns, gamesRows, gamesLayout,
                     gamesSort, gamesSortOrder, string.IsNullOrWhiteSpace(description) ? null : description, autoControllers, swapFaceButtons,
-                    launchBoxPlatforms)
+                    launchBoxPlatforms, string.IsNullOrEmpty(group) ? null : group)
                 {
                     // The built-in definition's own emulator, offered with the alternatives once the user has chosen another.
                     DefaultEmulator = builtInEmulatorOf.TryGetValue(id, out var builtInEmulator) && emulators.ContainsKey(builtInEmulator) ? builtInEmulator : null,
+                    DefaultGroup = builtInGroupOf.GetValueOrDefault(id),
                 });
             }
 
+            CheckGroups(result, groups, table);
             return result;
+        }
+
+        /// <summary>
+        /// Each <c>group</c> must name an enabled system that isn't grouped itself (one level, as in Batocera); otherwise
+        /// it's a warning and the system keeps its own card. A parent that's disabled (or has errors) is only noted: the
+        /// user turned it off, and its variants carry on alone.
+        /// </summary>
+        private void CheckGroups(List<SystemConfig> systems, Dictionary<string, (string Parent, TomlNode Node)> groups, TomlTableNode table)
+        {
+            var enabled = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var system in systems)
+            {
+                enabled.Add(system.Id);
+            }
+
+            for (var i = 0; i < systems.Count; i++)
+            {
+                var system = systems[i];
+                if (system.Group is not { } parent || !groups.TryGetValue(system.Id, out var declared))
+                {
+                    continue;
+                }
+
+                string? problem = null;
+                if (!enabled.Contains(parent) && table.TryGet(parent, out _))
+                {
+                    Info(declared.Node, "systems." + system.Id + ".group", $"'{parent}' is disabled, so this system has its own card");
+                    systems[i] = system with { Group = null };
+                    continue;
+                }
+
+                if (!enabled.Contains(parent))
+                {
+                    problem = $"unknown system '{parent}'{Suggest(parent, enabled)}";
+                }
+                else if (groups.TryGetValue(parent, out var parentsGroup) && enabled.Contains(parentsGroup.Parent))
+                {
+                    problem = $"'{parent}' is grouped under '{parentsGroup.Parent}' itself, and groups don't nest";
+                }
+
+                if (problem is not null)
+                {
+                    Warning(declared.Node, "systems." + system.Id + ".group", problem + ", so this system has its own card");
+                    systems[i] = system with { Group = null };
+                }
+            }
         }
 
         private bool CheckEmulator(

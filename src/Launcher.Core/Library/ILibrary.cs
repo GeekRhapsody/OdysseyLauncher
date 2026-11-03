@@ -227,6 +227,9 @@ public interface ILibrary
     /// <summary>The same for chosen games: a virtual system's, or games whose media just changed.</summary>
     Task<IReadOnlyList<GameMediaRow>> GetGameMediaAsync(IReadOnlyList<long> gameIds, IReadOnlyList<string> kinds, CancellationToken cancellationToken);
 
+    /// <summary>The same for several systems' games: a group's card (A5 Grouped systems).</summary>
+    Task<IReadOnlyList<GameMediaRow>> GetGameMediaAsync(IReadOnlyList<string> systemIds, IReadOnlyList<string> kinds, CancellationToken cancellationToken);
+
     /// <summary>Every game's media of the given kinds (All games): one query on <c>media</c>.</summary>
     Task<IReadOnlyList<GameMediaRow>> GetAllGameMediaAsync(IReadOnlyList<string> kinds, CancellationToken cancellationToken);
 
@@ -239,6 +242,12 @@ public interface ILibrary
     /// <c>games_sort</c>), as a system's list is (A4 Grid queries).
     /// </summary>
     Task<IReadOnlyList<VirtualGameRow>> GetAllGamesAsync(GamesOrdering ordering, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// A group's card (A5 Grouped systems): the visible games of these systems in <paramref name="ordering"/>'s order,
+    /// merged into one list as All games is, each row with its own system.
+    /// </summary>
+    Task<IReadOnlyList<VirtualGameRow>> GetGamesAsync(IReadOnlyList<string> systemIds, GamesOrdering ordering, CancellationToken cancellationToken);
 
     Task<GameDetails?> GetGameAsync(long gameId, CancellationToken cancellationToken);
 

@@ -30,6 +30,7 @@ public sealed partial class SettingsHome : ListPanel
     private readonly SettingRow _theme;
     private readonly SettingRow _layout;
     private readonly SettingRow _emptySystems;
+    private readonly SettingRow _groupSystems;
     private readonly SettingRow _graphics;
     private readonly SettingRow _clock;
     private readonly SettingRow _battery;
@@ -65,6 +66,9 @@ public sealed partial class SettingsHome : ListPanel
         _emptySystems = AddRow("Show systems without games", "A card for every system, even one with nothing in its ROM folders",
             activated: () => SetShowEmptySystems(null));
         _emptySystems.Adjuster = direction => SetShowEmptySystems(direction > 0);
+        _groupSystems = AddRow("Group regional variants", "A variant's games in its console's card, each in its own box (Dreamcast (NA/JP) in Dreamcast)",
+            activated: () => SetGroupSystems(null));
+        _groupSystems.Adjuster = direction => SetGroupSystems(direction > 0);
         _graphics = AddRow("Graphics", activated: () => Layer.Push(new GraphicsPage(_settings)));
 
         AddSection("UI");
@@ -143,6 +147,7 @@ public sealed partial class SettingsHome : ListPanel
         ShowIndicator(_sounds, config.Settings.Ui.NavigationSounds);
         ShowIndicator(_scanAtLaunch, config.Settings.Scanning.ScanAtLaunch);
         ShowIndicator(_emptySystems, !display.HideEmptySystems);
+        ShowIndicator(_groupSystems, display.GroupSystems);
         if (_settings.DeviceStatus?.Current is { Battery.Present: false })
         {
             // Off Windows the battery isn't read yet (PortableDeviceStatus), so none is reported, even on a laptop.
@@ -270,6 +275,20 @@ public sealed partial class SettingsHome : ListPanel
 
         _settings.Save(this, [new ConfigEdit(ConfigFileKind.Settings, ["display", "hide_empty_systems"], !wanted)],
             wanted ? "Every system has a card now, with games or not." : "Systems without games are hidden.");
+    }
+
+    /// <param name="on">Grouped or not; null turns it the other way. It's saved as <c>[display] group_systems</c> (A5 Grouped systems).</param>
+    private void SetGroupSystems(bool? on)
+    {
+        var current = _settings.Services.Config.Settings.Display.GroupSystems;
+        var wanted = on ?? !current;
+        if (current == wanted)
+        {
+            return;
+        }
+
+        _settings.Save(this, [new ConfigEdit(ConfigFileKind.Settings, ["display", "group_systems"], wanted)],
+            wanted ? "Regional variants show in their console's card." : "Every regional variant has a card of its own.");
     }
 
     // ---- Library actions -------------------------------------------------------------------------------

@@ -13,6 +13,10 @@ namespace Launcher.App.Screens;
 /// <summary>One card of the systems grid: a configured system, or Favourites, Recently played or All games.</summary>
 /// <param name="Template">The card's model, as an index into the systems grid's templates.</param>
 /// <param name="Logo">The card's logo from the theme (A6 <c>logos/</c>), for a slot whose chain names <c>logo</c>; null for none.</param>
+/// <param name="Members">
+/// A group's card (A5 Grouped systems): its system, then the systems grouped under it, whose games it shows together;
+/// <see cref="Summary"/> counts them all. Null for a system with nothing grouped under it, and the virtual cards.
+/// </param>
 public sealed record SystemEntry(
     string Id,
     string Name,
@@ -22,7 +26,8 @@ public sealed record SystemEntry(
     SystemSummary? Summary,
     VirtualKind Virtual,
     int Template,
-    MediaRef? Logo = null)
+    MediaRef? Logo = null,
+    IReadOnlyList<string>? Members = null)
 {
     /// <summary>
     /// Its list follows <c>games_sort</c> (a system, and All games) and can be cached; Favourites' and Recently played's
@@ -30,6 +35,12 @@ public sealed record SystemEntry(
     /// </summary>
     public bool Sorted => Virtual is VirtualKind.None or VirtualKind.AllGames;
 }
+
+/// <summary>
+/// A system's card on the systems grid (<see cref="Navigator.SystemCards"/>): the system, its summary (a group's counting
+/// every member's games) and a group's members (A5 Grouped systems), or null.
+/// </summary>
+public readonly record struct SystemCard(SystemConfig System, SystemSummary Summary, IReadOnlyList<string>? Members);
 
 public enum VirtualKind
 {
@@ -227,6 +238,9 @@ public sealed class GamesSource : IGridSource
     /// <summary>The order a system's or All games' list was read in (<c>games_sort</c>); Favourites' and Recently played's own order is fixed.</summary>
     public GamesOrdering Ordering { get; private init; }
 
+    /// <summary>A group's list (A5 Grouped systems): the systems it was read from, as its card's <see cref="SystemEntry.Members"/>; null otherwise.</summary>
+    public IReadOnlyList<string>? Members { get; private init; }
+
     /// <summary>The systems its games come from (one, except in a virtual list).</summary>
     public IReadOnlyList<string> SystemIds => _systemIds;
 
@@ -269,10 +283,11 @@ public sealed class GamesSource : IGridSource
         return new GamesSource(id, name, rows, media, kinds, colourOf, _ => name) { Ordering = ordering };
     }
 
-    /// <param name="ordering">The order All games was read in; the default for Favourites and Recently played.</param>
+    /// <param name="ordering">The order All games or a group was read in; the default for Favourites and Recently played.</param>
+    /// <param name="members">A group's systems (<see cref="Members"/>).</param>
     public static GamesSource ForVirtual(
         string id, string name, IReadOnlyList<VirtualGameRow> list, IReadOnlyList<GameMediaRow> media, IReadOnlyList<string> kinds,
-        Func<string, Color> colourOf, Func<string, string> nameOf, GamesOrdering ordering = default)
+        Func<string, Color> colourOf, Func<string, string> nameOf, GamesOrdering ordering = default, IReadOnlyList<string>? members = null)
     {
         var rows = new (string, GameRow)[list.Count];
         for (var i = 0; i < rows.Length; i++)
@@ -280,7 +295,7 @@ public sealed class GamesSource : IGridSource
             rows[i] = (list[i].SystemId, list[i].Game);
         }
 
-        return new GamesSource(id, name, rows, media, kinds, colourOf, nameOf) { Ordering = ordering };
+        return new GamesSource(id, name, rows, media, kinds, colourOf, nameOf) { Ordering = ordering, Members = members };
     }
 
     /// <summary>

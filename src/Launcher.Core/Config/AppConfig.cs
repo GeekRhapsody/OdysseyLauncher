@@ -21,6 +21,36 @@ public sealed record AppConfig(
 
         return null;
     }
+
+    /// <summary>
+    /// The system whose card a system's games show under (A5 Grouped systems): its <c>group</c>, which the loader has
+    /// checked names an enabled system that isn't grouped itself. Null when it isn't grouped, or <c>group_systems</c> is off.
+    /// </summary>
+    public SystemConfig? GroupParentOf(SystemConfig system) =>
+        Settings.Display.GroupSystems && system.Group is { } parent ? FindSystem(parent) : null;
+
+    /// <summary>
+    /// The systems whose games a system's card shows: the system, then those grouped under it, in systems.toml's order.
+    /// Just the system when nothing is grouped under it (or <c>group_systems</c> is off).
+    /// </summary>
+    public List<string> GroupMembers(string id)
+    {
+        var members = new List<string> { id };
+        if (!Settings.Display.GroupSystems)
+        {
+            return members;
+        }
+
+        foreach (var system in Systems)
+        {
+            if (string.Equals(system.Group, id, StringComparison.Ordinal))
+            {
+                members.Add(system.Id);
+            }
+        }
+
+        return members;
+    }
 }
 
 /// <summary><c>settings.toml</c>.</summary>
@@ -53,6 +83,12 @@ public sealed record ScanningSettings(IReadOnlyList<string> Exclude, bool ScanAt
 /// <param name="HideEmptySystems">The systems grid leaves out systems with no games (like ES-DE), so the built-in catalogue only shows what the user has.</param>
 public sealed record DisplaySettings(string Theme, ScreenMode ScreenMode = ScreenMode.Borderless, bool HideEmptySystems = true)
 {
+    /// <summary>
+    /// <c>group_systems</c> (2026-11-03): a system with a <c>group</c> (a regional variant) shows its games under its
+    /// group's card instead of a card of its own (A5 Grouped systems). On by default.
+    /// </summary>
+    public bool GroupSystems { get; init; } = true;
+
     /// <summary>The anisotropic filtering levels <c>anisotropic_filtering</c> takes; 0 is off.</summary>
     public static IReadOnlyList<int> AnisotropicLevels { get; } = [0, 2, 4, 8, 16];
 
@@ -479,6 +515,10 @@ public enum RomDirSource
 /// <c>swap_ab_xy</c>: with <paramref name="AutoConfigureControllers"/>, a pad not labelled as a Switch's (an Xbox pad)
 /// gets A/B and X/Y switched, so the button labelled A is the Switch's A. False keeps the Switch's positions.
 /// </param>
+/// <param name="Group">
+/// <c>group</c> (2026-11-03): the system whose card this system's games show under while <c>group_systems</c> is on
+/// (A5 Grouped systems); null when it has its own card. Checked by the loader: an enabled system that isn't grouped itself.
+/// </param>
 public sealed record SystemConfig(
     string Id,
     string Name,
@@ -504,13 +544,20 @@ public sealed record SystemConfig(
     string? Description = null,
     bool AutoConfigureControllers = false,
     bool SwapFaceButtons = false,
-    IReadOnlyList<string>? LaunchBoxPlatforms = null)
+    IReadOnlyList<string>? LaunchBoxPlatforms = null,
+    string? Group = null)
 {
     /// <summary>
     /// The built-in definition's <c>emulator</c>, when it's a configured profile; null for a system the user defined, or
     /// one whose built-in emulator is gone. It's <see cref="Emulator"/> unless the user chose another.
     /// </summary>
     public string? DefaultEmulator { get; init; }
+
+    /// <summary>
+    /// The built-in definition's <c>group</c> (a regional variant's system), whether or not the user took it out with
+    /// <c>group = ""</c>; null for a system that isn't grouped by default.
+    /// </summary>
+    public string? DefaultGroup { get; init; }
 
     /// <summary>
     /// The emulators the system offers, each once: its default (the built-in one, else its own), its alternatives,

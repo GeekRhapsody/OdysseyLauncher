@@ -183,6 +183,15 @@ public sealed class LibraryService : ILibrary, IPlayHistory, IDisposable
             : _readers.RunAsync<IReadOnlyList<GameMediaRow>>(c => LibraryStore.GetGameMedia(c, gameIds, kinds), cancellationToken);
     }
 
+    public Task<IReadOnlyList<GameMediaRow>> GetGameMediaAsync(IReadOnlyList<string> systemIds, IReadOnlyList<string> kinds, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(systemIds);
+        ArgumentNullException.ThrowIfNull(kinds);
+        return kinds.Count == 0 || systemIds.Count == 0
+            ? Task.FromResult<IReadOnlyList<GameMediaRow>>([])
+            : _readers.RunAsync<IReadOnlyList<GameMediaRow>>(c => LibraryStore.GetGameMedia(c, systemIds, kinds), cancellationToken);
+    }
+
     public Task<IReadOnlyList<GameMediaRow>> GetAllGameMediaAsync(IReadOnlyList<string> kinds, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(kinds);
@@ -202,6 +211,15 @@ public sealed class LibraryService : ILibrary, IPlayHistory, IDisposable
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(limit);
         var config = Config;
         return _readers.RunAsync<IReadOnlyList<VirtualGameRow>>(c => LibraryStore.GetRecentlyPlayed(c, limit, config), cancellationToken);
+    }
+
+    public Task<IReadOnlyList<VirtualGameRow>> GetGamesAsync(IReadOnlyList<string> systemIds, GamesOrdering ordering, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(systemIds);
+        var config = Config;
+        return systemIds.Count == 0
+            ? Task.FromResult<IReadOnlyList<VirtualGameRow>>([])
+            : _readers.RunAsync<IReadOnlyList<VirtualGameRow>>(c => LibraryStore.GetGames(c, systemIds, ordering, config), cancellationToken);
     }
 
     public Task<IReadOnlyList<VirtualGameRow>> GetAllGamesAsync(GamesOrdering ordering, CancellationToken cancellationToken)

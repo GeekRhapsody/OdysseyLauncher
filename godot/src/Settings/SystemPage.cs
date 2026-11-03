@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Launcher.App.Navigation;
 using Launcher.App.Options;
+using Launcher.App.Screens;
 using Launcher.App.Ui;
 using Launcher.Core.Config;
 using Launcher.Core.Files;
@@ -126,6 +127,7 @@ public sealed partial class SystemPage : ListPanel
         AddControllersRow(config, system);
 
         AddSection("Games view");
+        AddGroupRows(config, system);
         var display = config.Settings.Display;
         _view = AddViewRow(system.GamesLayout, display.GamesLayout);
         _columns = AddGridRow("Columns", "games_columns", DisplaySettings.MaxColumns, system.GamesColumns, display.GamesGrid.Columns);
@@ -370,6 +372,87 @@ public sealed partial class SystemPage : ListPanel
     }
 
     // ---- Games view ------------------------------------------------------------------------------------
+
+    /// <summary>
+    /// The system's group (A5 Grouped systems), both ways. A group's own system (the Dreamcast, X on its card) has a row
+    /// for each system grouped under it, or grouped by default and taken out: "&lt;variant&gt; in this card". A grouped
+    /// system (reached from Settings, ROM folders, as it has no card) has "Show under &lt;its system&gt;". Yes keeps its games
+    /// in that card, No gives it its own (<c>group = ""</c>).
+    /// </summary>
+    private void AddGroupRows(AppConfig config, SystemConfig system)
+    {
+        var grouping = config.Settings.Display.GroupSystems;
+        foreach (var member in config.Systems)
+        {
+            if ((member.Group ?? member.DefaultGroup) != system.Id)
+            {
+                continue;
+            }
+
+            var memberId = member.Id;
+            var detail = grouping
+                ? $"{GamesOf(memberId)}. Yes: its games are in this card, each in its own box. No: a card of its own"
+                : "Settings, Look, Group regional variants is off, so every variant has its own card";
+            var row = AddRow($"{member.Name} in this card", detail, activated: () => SetGrouped(memberId, null));
+            row.Adjuster = direction => SetGrouped(memberId, direction > 0);
+            ShowYesNo(row, member.Group is not null);
+        }
+
+        if ((system.Group ?? system.DefaultGroup) is not { } parentId || config.FindSystem(parentId) is not { } parent)
+        {
+            return;
+        }
+
+        var own = grouping
+            ? $"Yes: its games are in {parent.Name}'s card, each in its own box. No: a card of its own"
+            : "Settings, Look, Group regional variants is off, so every variant has its own card";
+        var shown = AddRow($"Show under {parent.Name}", own, activated: () => SetGrouped(_systemId, null));
+        shown.Adjuster = direction => SetGrouped(_systemId, direction > 0);
+        ShowYesNo(shown, system.Group is not null);
+        if (config.GroupParentOf(system) is not null)
+        {
+            AddNote($"While it's in {parent.Name}'s card, its games are shown and sorted as {parent.Name}'s.");
+        }
+    }
+
+    /// <summary>"1 game", "12 games": a system's games, from the library's summaries.</summary>
+    private string GamesOf(string systemId)
+    {
+        foreach (var summary in _settings.Services.Systems)
+        {
+            if (summary.SystemId == systemId)
+            {
+                return DetailsFormatter.GamesCount(summary.GameCount);
+            }
+        }
+
+        return DetailsFormatter.GamesCount(0);
+    }
+
+    /// <summary>Saves a system's <c>group</c>: its built-in one again (the key removed), or "" to take it out.</summary>
+    /// <param name="systemId">This page's system, or one grouped under it (a row on its group's page).</param>
+    /// <param name="on">Grouped or not; null turns it the other way.</param>
+    private void SetGrouped(string systemId, bool? on)
+    {
+        var config = _settings.Services.Config;
+        if (config.FindSystem(systemId) is not { } system)
+        {
+            return;
+        }
+
+        var wanted = on ?? system.Group is null;
+        if (wanted == system.Group is not null || (system.Group ?? system.DefaultGroup) is not { } parentId)
+        {
+            return;
+        }
+
+        object? value = wanted
+            ? parentId == system.DefaultGroup ? null : parentId
+            : system.DefaultGroup is null ? null : string.Empty;
+        var parent = config.FindSystem(parentId)?.Name ?? parentId;
+        _settings.Save(this, [new ConfigEdit(ConfigFileKind.Systems, ["systems", systemId, "group"], value)],
+            wanted ? $"{system.Name}'s games are in {parent}'s card." : $"{system.Name} has a card of its own.");
+    }
 
     /// <summary>
     /// How the system's games are shown: its own <c>games_layout</c>, or the Layout page's when unset (the default).
