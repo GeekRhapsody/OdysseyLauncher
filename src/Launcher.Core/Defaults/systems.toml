@@ -45,7 +45,8 @@
 # regions' boxes; the system it varies is the European one. dreamcastnajp is the Dreamcast for North American and
 # Japanese art (the CD jewel case), dreamcast's template being the PAL case; segacd (Sega CD, the North American long
 # box) and megacdjp (Mega-CD (JP), the CD jewel case) vary megacd (Mega-CD, the PAL case: 2026-11-03), so ES-DE's
-# megacd, segacd and megacdjp folders are each their own. Which region's art a scrape picks is still [scraping]
+# megacd, segacd and megacdjp folders are each their own; sfc (Super Famicom, the tall box) varies snes (the landscape
+# box of Europe and North America: 2026-11-03). Which region's art a scrape picks is still [scraping]
 # regions' (settings.toml), so put a variant's games in its folder when that's the art your scraping prefers.
 
 format = 1
@@ -1519,7 +1520,21 @@ name = "Super Nintendo Entertainment System"
 manufacturer = "Nintendo"
 year = 1990
 description = "The Super Nintendo Entertainment System (also known as the Super NES, SNES or Super Nintendo) is a 16-bit home video game console developed by Nintendo that was released in 1990 in Japan, 1991 in North America, 1992 in Europe and Australasia (Oceania), and 1993 in South America. In Japan, the system is called the Super Famicom, officially adopting the abbreviated name of its predecessor, the Family Computer, or SFC for short. In South Korea, it is known as the Super Comboy and was distributed by Hyundai Electronics. Although each version is essentially the same, several forms of regional lockout prevent the different versions from being compatible with one another."
-aliases = ["sfc", "superfamicom", "snesna"]
+aliases = ["snesna"]
+extensions = [".sfc", ".smc", ".swc", ".fig", ".bs", ".zip", ".7z"]
+emulator = "retroarch-snes9x"
+alt_emulators = ["retroarch-snes9x2010", "retroarch-snes9x2005-plus", "snes9x", "retroarch-bsnes", "retroarch-bsnes-hd-beta", "retroarch-bsnes-jg", "retroarch-bsnes-mercury-accuracy", "bsnes", "retroarch-beetle-supafaust", "retroarch-mesen-s", "mesen", "retroarch-mesen2", "mednafen-snes", "ares-satellaview", "jgenesis", "superzsnes"]
+screenscraper_id = 4
+igdb_platforms = [19, 58]
+launchbox_platforms = ["Super Nintendo Entertainment System"]
+
+[systems.sfc]
+name = "Super Famicom"
+group = "snes"
+manufacturer = "Nintendo"
+year = 1990
+description = "The Super Nintendo Entertainment System (also known as the Super NES, SNES or Super Nintendo) is a 16-bit home video game console developed by Nintendo that was released in 1990 in Japan, 1991 in North America, 1992 in Europe and Australasia (Oceania), and 1993 in South America. In Japan, the system is called the Super Famicom, officially adopting the abbreviated name of its predecessor, the Family Computer, or SFC for short. In South Korea, it is known as the Super Comboy and was distributed by Hyundai Electronics. Although each version is essentially the same, several forms of regional lockout prevent the different versions from being compatible with one another."
+aliases = ["superfamicom"]
 extensions = [".sfc", ".smc", ".swc", ".fig", ".bs", ".zip", ".7z"]
 emulator = "retroarch-snes9x"
 alt_emulators = ["retroarch-snes9x2010", "retroarch-snes9x2005-plus", "snes9x", "retroarch-bsnes", "retroarch-bsnes-hd-beta", "retroarch-bsnes-jg", "retroarch-bsnes-mercury-accuracy", "bsnes", "retroarch-beetle-supafaust", "retroarch-mesen-s", "mesen", "retroarch-mesen2", "mednafen-snes", "ares-satellaview", "jgenesis", "superzsnes"]

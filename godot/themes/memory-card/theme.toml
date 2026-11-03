@@ -77,7 +77,7 @@ shape = "media"                    # the depth from the spine's height over its 
 [templates.snes_box_horizontal]    # SNES (US, Europe): a landscape cardboard box, its spine on the top and bottom; 190 x 139 x 28 mm
 model = "models/templates/snes_box_horizontal.glb"
 
-[templates.snes_box_vertical]      # Super Famicom: a portrait cardboard box, its spine on both sides; 99.6 x 180 x 29.1 mm. Chosen per game
+[templates.snes_box_vertical]      # Super Famicom: a portrait cardboard box, its spine on both sides; 99.6 x 180 x 29.1 mm
 model = "models/templates/snes_box_vertical.glb"
 
 [templates.generic_box_logo]       # Windows, Steam: the same box, with the game's logo along its spine
@@ -255,6 +255,31 @@ colour = "#D7CBFF"
 energy = 0.55
 
 [[systems.snes.look.lights]]
+direction = [0.0, 0.9, -0.4]
+colour = "#FF9060"
+energy = 0.25
+
+[systems.sfc]                      # Super Famicom: the SNES's colour and look, in the tall box
+colour = "#6C5BA6"
+game_template = "snes_box_vertical"
+
+[systems.sfc.look.background]
+top_left     = "#362F4C"
+top_right    = "#362F4C"
+bottom_left  = "#08070B"
+bottom_right = "#171421"
+
+[[systems.sfc.look.lights]]
+direction = [-0.5, -0.4, -0.75]
+colour = "#FFFFFF"
+energy = 1.0
+
+[[systems.sfc.look.lights]]
+direction = [0.7, -0.2, -0.6]
+colour = "#D7CBFF"
+energy = 0.55
+
+[[systems.sfc.look.lights]]
 direction = [0.0, 0.9, -0.4]
 colour = "#FF9060"
 energy = 0.25

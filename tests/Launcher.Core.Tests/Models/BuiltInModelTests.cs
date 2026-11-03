@@ -185,6 +185,16 @@ public sealed class BuiltInModelTests
     }
 
     [Fact]
+    public void The_SNESs_games_are_in_the_landscape_box_and_the_Super_Famicoms_in_the_tall_one()
+    {
+        // snes_box_vertical is sized by ScreenScraper's Japanese scans (a 478 x 864 front with a 136 x 864 spine).
+        var systems = ThemeFixtures.Load(ThemeFixtures.BaseFolder).Systems;
+
+        Assert.Equal("snes_box_horizontal", systems["snes"].GameTemplate);
+        Assert.Equal("snes_box_vertical", systems["sfc"].GameTemplate);
+    }
+
+    [Fact]
     public void The_PSPs_games_are_in_its_clamshell()
     {
         Assert.Equal("psp_clamshell", ThemeFixtures.Load(ThemeFixtures.BaseFolder).Systems["psp"].GameTemplate);

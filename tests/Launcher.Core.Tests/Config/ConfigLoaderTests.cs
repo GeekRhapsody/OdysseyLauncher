@@ -144,6 +144,27 @@ public class ConfigLoaderTests
     }
 
     [Fact]
+    public void The_Super_Famicom_launches_and_scrapes_as_the_SNES_from_its_own_folders()
+    {
+        // sfc is the SNES for Japanese art (the tall box); snes keeps the North American folder, whose games came in the
+        // European games' landscape box (systems.toml).
+        var systems = Load().Config.Systems.ToDictionary(s => s.Id);
+        var (snes, sfc) = (systems["snes"], systems["sfc"]);
+
+        Assert.Equal(snes.Extensions, sfc.Extensions);
+        Assert.Equal(snes.Emulator, sfc.Emulator);
+        Assert.Equal(snes.AltEmulators, sfc.AltEmulators);
+        Assert.Equal(snes.ScreenScraperId, sfc.ScreenScraperId);
+        Assert.Equal(snes.IgdbPlatforms, sfc.IgdbPlatforms);
+        Assert.Equal(snes.LaunchBoxPlatforms, sfc.LaunchBoxPlatforms);
+        Assert.Equal((snes.Manufacturer, snes.Year), (sfc.Manufacturer, sfc.Year));
+        Assert.Equal(("Super Famicom", Path.GetFullPath(Path.Combine(Home, "ROMs", "sfc"))), (sfc.Name, sfc.RomDirs[0]));
+        Assert.Equal(("snes", "snes"), (sfc.Group, sfc.DefaultGroup));
+        Assert.Equal(["superfamicom"], sfc.Aliases);
+        Assert.Equal(["snesna"], snes.Aliases);
+    }
+
+    [Fact]
     public void Only_regional_variants_are_grouped_by_default_each_under_the_system_it_varies()
     {
         // A5 Grouped systems: the built-in groups are the regional variants' alone, so the console theme's cards for
@@ -167,6 +188,7 @@ public class ConfigLoaderTests
         Assert.Equal("dreamcast", config.GroupParentOf(config.FindSystem("dreamcastnajp")!)?.Id);
         Assert.Equal(["dreamcast", "dreamcastnajp"], config.GroupMembers("dreamcast"));
         Assert.Equal(["megacd", "segacd", "megacdjp"], config.GroupMembers("megacd"));
+        Assert.Equal(["snes", "sfc"], config.GroupMembers("snes"));
         Assert.Equal(["megadrive"], config.GroupMembers("megadrive"));
     }
 
@@ -1462,8 +1484,8 @@ public class ConfigLoaderTests
             rom_root = "{roms}"
             """).Config;
 
-        // genesis, megadrivejp, sfc, snesna, famicom and so on aren't systems of their own.
-        foreach (var twin in (string[])["genesis", "megadrivejp", "sfc", "snesna", "famicom", "saturnjp", "sega32xjp", "tg16", "tg-cd", "videopac", "fba"])
+        // genesis, megadrivejp, snesna, famicom and so on aren't systems of their own.
+        foreach (var twin in (string[])["genesis", "megadrivejp", "snesna", "famicom", "saturnjp", "sega32xjp", "tg16", "tg-cd", "videopac", "fba"])
         {
             Assert.Null(config.FindSystem(twin));
         }

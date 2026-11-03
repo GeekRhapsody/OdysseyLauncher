@@ -1,5 +1,5 @@
-"""The console theme's Super Nintendo and Satellaview system models (godot/themes/console/models/systems/snes.glb and
-satellaview.glb).
+"""The console theme's Super Nintendo, Super Famicom and Satellaview system models
+(godot/themes/console/models/systems/snes.glb, sfc.glb and satellaview.glb).
 
 Built in Blender from the PAL console's proportions (snes_layout.py has the measurements, taken from photographs): the
 light grey body, its corners rounded seen from above and its top's edges rounded over, the shells' seam round its
@@ -26,7 +26,7 @@ Four materials (case, print, dark, cart) and one texture, within the system mode
     python tools/console-models/snes_print.py snes artifacts/snes
     blender -b --factory-startup --python tools/console-models/snes.py -- artifacts/snes snes godot/themes/console/models/systems/snes.glb
 
-and the same with satellaview.
+and the same with sfc (the Super Famicom: the same console, Japan's printing) and satellaview.
 """
 
 import math
