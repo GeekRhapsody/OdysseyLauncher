@@ -42,9 +42,11 @@
 #
 # Regional variants (2026-11-02): a system whose games were packaged differently in some regions can have a variant
 # for the others, with its own folder, the same emulators and scraping ids, and the themes' template for those
-# regions' boxes. dreamcastnajp is the Dreamcast for North American and Japanese art (the CD jewel case), dreamcast's
-# template being the PAL case. Which region's art a scrape picks is still [scraping] regions' (settings.toml), so
-# put a variant's games in its folder when that's the art your scraping prefers. Its description isn't ES-DE's.
+# regions' boxes; the system it varies is the European one. dreamcastnajp is the Dreamcast for North American and
+# Japanese art (the CD jewel case), dreamcast's template being the PAL case; segacd (Sega CD, the North American long
+# box) and megacdjp (Mega-CD (JP), the CD jewel case) vary megacd (Mega-CD, the PAL case: 2026-11-03), so ES-DE's
+# megacd, segacd and megacdjp folders are each their own. Which region's art a scrape picks is still [scraping]
+# regions' (settings.toml), so put a variant's games in its folder when that's the art your scraping prefers.
 
 format = 1
 
@@ -836,6 +838,44 @@ screenscraper_id = 2
 igdb_platforms = [64]
 launchbox_platforms = ["Sega Master System"]
 
+[systems.megacd]
+name = "Mega-CD"
+manufacturer = "Sega"
+year = 1991
+description = "The Sega CD, released as the Mega-CD in most regions outside North America and Brazil, is a CD-ROM accessory for the Mega Drive/Genesis designed and produced by Sega as part of the fourth generation of video game consoles. It was released on 12 December 1991 in Japan, 15 October 1992 in North America, and 2 April 1993 in Europe. The Sega CD plays CD-based games and adds hardware functionality such as a faster central processing unit and graphic enhancements like sprite scaling and rotation. It can also play audio CDs and CD+G discs. The main benefit of CD technology was greater storage, which allowed for games to be nearly 320 times larger than Genesis cartridges. This benefit manifested as full motion video (FMV) games such as the controversial Night Trap, which became a focus of the 1993 congressional hearings on issues of video game violence and ratings. Sega of Japan partnered with JVC to design the Sega CD and refused to consult with Sega of America until the project was complete. Sega of America assembled parts from various \"dummy\" units to obtain a working prototype. It was redesigned several times by Sega and licensed third-party developers."
+extensions = [".68k", ".bms", ".chd", ".cue", ".gen", ".gg", ".iso", ".m3u", ".md", ".mdx", ".sg", ".sgd", ".smd", ".sms", ".7z", ".zip"]
+emulator = "retroarch-genesis-plus-gx"
+alt_emulators = ["retroarch-genesis-plus-gx-wide", "retroarch-picodrive", "retroarch-blastem", "blastem-colecovision", "retroarch-clownmdemu", "ares-segacd", "jgenesis"]
+screenscraper_id = 20
+igdb_platforms = [78]
+launchbox_platforms = ["Sega CD", "Sega CD 32X"]
+
+[systems.segacd]
+name = "Sega CD"
+group = "megacd"
+manufacturer = "Sega"
+year = 1991
+description = "The Sega CD, released as the Mega-CD in most regions outside North America and Brazil, is a CD-ROM accessory for the Mega Drive/Genesis designed and produced by Sega as part of the fourth generation of video game consoles. It was released on 12 December 1991 in Japan, 15 October 1992 in North America, and 2 April 1993 in Europe. The Sega CD plays CD-based games and adds hardware functionality such as a faster central processing unit and graphic enhancements like sprite scaling and rotation. It can also play audio CDs and CD+G discs. The main benefit of CD technology was greater storage, which allowed for games to be nearly 320 times larger than Genesis cartridges. This benefit manifested as full motion video (FMV) games such as the controversial Night Trap, which became a focus of the 1993 congressional hearings on issues of video game violence and ratings. Sega of Japan partnered with JVC to design the Sega CD and refused to consult with Sega of America until the project was complete. Sega of America assembled parts from various \"dummy\" units to obtain a working prototype. It was redesigned several times by Sega and licensed third-party developers."
+extensions = [".68k", ".bms", ".chd", ".cue", ".gen", ".gg", ".iso", ".m3u", ".md", ".mdx", ".sg", ".sgd", ".smd", ".sms", ".7z", ".zip"]
+emulator = "retroarch-genesis-plus-gx"
+alt_emulators = ["retroarch-genesis-plus-gx-wide", "retroarch-picodrive", "retroarch-blastem", "blastem-colecovision", "retroarch-clownmdemu", "ares-segacd", "jgenesis"]
+screenscraper_id = 20
+igdb_platforms = [78]
+launchbox_platforms = ["Sega CD", "Sega CD 32X"]
+
+[systems.megacdjp]
+name = "Mega-CD (JP)"
+group = "megacd"
+manufacturer = "Sega"
+year = 1991
+description = "The Sega CD, released as the Mega-CD in most regions outside North America and Brazil, is a CD-ROM accessory for the Mega Drive/Genesis designed and produced by Sega as part of the fourth generation of video game consoles. It was released on 12 December 1991 in Japan, 15 October 1992 in North America, and 2 April 1993 in Europe. The Sega CD plays CD-based games and adds hardware functionality such as a faster central processing unit and graphic enhancements like sprite scaling and rotation. It can also play audio CDs and CD+G discs. The main benefit of CD technology was greater storage, which allowed for games to be nearly 320 times larger than Genesis cartridges. This benefit manifested as full motion video (FMV) games such as the controversial Night Trap, which became a focus of the 1993 congressional hearings on issues of video game violence and ratings. Sega of Japan partnered with JVC to design the Sega CD and refused to consult with Sega of America until the project was complete. Sega of America assembled parts from various \"dummy\" units to obtain a working prototype. It was redesigned several times by Sega and licensed third-party developers."
+extensions = [".68k", ".bms", ".chd", ".cue", ".gen", ".gg", ".iso", ".m3u", ".md", ".mdx", ".sg", ".sgd", ".smd", ".sms", ".7z", ".zip"]
+emulator = "retroarch-genesis-plus-gx"
+alt_emulators = ["retroarch-genesis-plus-gx-wide", "retroarch-picodrive", "retroarch-blastem", "blastem-colecovision", "retroarch-clownmdemu", "ares-segacd", "jgenesis"]
+screenscraper_id = 20
+igdb_platforms = [78]
+launchbox_platforms = ["Sega CD", "Sega CD 32X"]
+
 [systems.megadrive]
 name = "Mega Drive"
 manufacturer = "Sega"
@@ -1450,19 +1490,6 @@ alt_emulators = ["retroarch-blastem", "blastem-sega32x", "ares-sega32x"]
 screenscraper_id = 19
 igdb_platforms = [30]
 launchbox_platforms = ["Sega 32X"]
-
-[systems.segacd]
-name = "Sega CD / Mega-CD"
-manufacturer = "Sega"
-year = 1991
-description = "The Sega CD, released as the Mega-CD in most regions outside North America and Brazil, is a CD-ROM accessory for the Mega Drive/Genesis designed and produced by Sega as part of the fourth generation of video game consoles. It was released on 12 December 1991 in Japan, 15 October 1992 in North America, and 2 April 1993 in Europe. The Sega CD plays CD-based games and adds hardware functionality such as a faster central processing unit and graphic enhancements like sprite scaling and rotation. It can also play audio CDs and CD+G discs. The main benefit of CD technology was greater storage, which allowed for games to be nearly 320 times larger than Genesis cartridges. This benefit manifested as full motion video (FMV) games such as the controversial Night Trap, which became a focus of the 1993 congressional hearings on issues of video game violence and ratings. Sega of Japan partnered with JVC to design the Sega CD and refused to consult with Sega of America until the project was complete. Sega of America assembled parts from various \"dummy\" units to obtain a working prototype. It was redesigned several times by Sega and licensed third-party developers."
-aliases = ["megacd", "megacdjp"]
-extensions = [".68k", ".bms", ".chd", ".cue", ".gen", ".gg", ".iso", ".m3u", ".md", ".mdx", ".sg", ".sgd", ".smd", ".sms", ".7z", ".zip"]
-emulator = "retroarch-genesis-plus-gx"
-alt_emulators = ["retroarch-genesis-plus-gx-wide", "retroarch-picodrive", "retroarch-blastem", "blastem-colecovision", "retroarch-clownmdemu", "ares-segacd", "jgenesis"]
-screenscraper_id = 20
-igdb_platforms = [78]
-launchbox_platforms = ["Sega CD", "Sega CD 32X"]
 
 [systems.sg-1000]
 name = "SG-1000"

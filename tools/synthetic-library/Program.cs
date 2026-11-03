@@ -74,7 +74,7 @@ File.WriteAllText(Path.Combine(root, ConfigSources.SettingsFileName), $"""
 var extra = new (string Id, string Name, string Model)[]
 {
     ("gamegear", "Game Gear", "cartridge_box"),
-    ("segacd", "Mega-CD", "jewel_case"),
+    ("megacd", "Mega-CD", "jewel_case"),
     ("pcengine", "PC Engine", "cartridge_box"),
     ("neogeo", "Neo Geo", "clamshell"),
     ("wonderswan", "WonderSwan", "cartridge_box"),

@@ -1062,3 +1062,13 @@ Update this at the end of every milestone: the status, the date, and the evidenc
   - **Not done:**
     - A group with no system of its own (Batocera's placeholder groups) and a folder view inside a group.
     - A group's list load isn't timed on a large library: the query is All games' over fewer systems.
+- **2026-11-03: Mega-CD, Sega CD and Mega-CD (JP)** (the owner's request): `segacd` ("Sega CD / Mega-CD", with `megacd` and `megacdjp` as aliases) is split into `megacd`, Mega-CD, and its regional variants `segacd`, Sega CD, and `megacdjp`, Mega-CD (JP), each in its region's box, both variants grouped in the Mega-CD's card (ARCHITECTURE.md A5, "Regional variants"; A7, "The Mega-CD and Sega CD cases"). The European system is the one a variant varies, from now on as a rule.
+  - **What was added:**
+    - Core: the three systems in `Defaults/systems.toml`, the same extensions, emulators and scraping ids, `megacd` where the alias was.
+    - Base theme: `megacd_case` (the PAL double jewel case, 142 × 125 × 16.5 mm) and `segacd_case` (the North American long box, 144 × 207 × 21.5 mm), from `tools/console-models/sega_cd_case.py`, their art sized by ScreenScraper's scans of the owner's library; `megacdjp` in `jewel_case`, which its scans fit.
+    - Console: `megacd.glb` (was `segacd.glb`), `segacd.glb` (the Sega CD on the Genesis) and `megacdjp.glb` (the Japanese Mega Drive), from `mega_cd.py`'s kinds and `mega_drive_print.py`'s Genesis and Japanese tops. Slab: Canvas's controller images for `megacd` and `megacdjp`. Classic View: Carbon's Mega-CD logo and its Japanese one.
+  - **Verification:**
+    - `tools/verify.ps1`: every check passes; `dotnet test`, 1,351 tests: 1,350 pass and 1 is skipped. The new ones check the variants launch and scrape as the Mega-CD from their own folders and are grouped in it, and the cases' faces have their scans' proportions.
+    - Captures (a user folder with 3 European, 2 North American and 1 Japanese game and the owner's scans): one Mega-CD card with 6 games, the PAL cases, the long boxes and the jewel case side by side, the spines read whole when turned; with grouping off, each system's card in Console, Slab and Classic View.
+  - **Not done:**
+    - A game in an ES-DE `megacd` or `megacdjp` folder, `segacd`'s before, keeps its media and user data under `segacd`. Moving a game between a system and its variant doesn't carry them either.

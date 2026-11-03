@@ -118,6 +118,32 @@ public class ConfigLoaderTests
     }
 
     [Fact]
+    public void The_Mega_CDs_regional_variants_launch_and_scrape_as_the_Mega_CD_each_from_its_own_folder()
+    {
+        // megacd is the European Mega-CD (the PAL case); segacd (Sega CD, the North American long box) and megacdjp
+        // (Mega-CD (JP), the CD jewel case) vary it. ES-DE's three folders are each a system's, not aliases (systems.toml).
+        var systems = Load().Config.Systems.ToDictionary(s => s.Id);
+        var megacd = systems["megacd"];
+
+        Assert.Equal(("Mega-CD", Path.GetFullPath(Path.Combine(Home, "ROMs", "megacd"))), (megacd.Name, megacd.RomDirs[0]));
+        Assert.Empty(megacd.Aliases);
+        foreach (var (id, name) in (ReadOnlySpan<(string, string)>)[("segacd", "Sega CD"), ("megacdjp", "Mega-CD (JP)")])
+        {
+            var variant = systems[id];
+            Assert.Equal(megacd.Extensions, variant.Extensions);
+            Assert.Equal(megacd.Emulator, variant.Emulator);
+            Assert.Equal(megacd.AltEmulators, variant.AltEmulators);
+            Assert.Equal(megacd.ScreenScraperId, variant.ScreenScraperId);
+            Assert.Equal(megacd.IgdbPlatforms, variant.IgdbPlatforms);
+            Assert.Equal(megacd.LaunchBoxPlatforms, variant.LaunchBoxPlatforms);
+            Assert.Equal((megacd.Manufacturer, megacd.Year), (variant.Manufacturer, variant.Year));
+            Assert.Equal((name, Path.GetFullPath(Path.Combine(Home, "ROMs", id))), (variant.Name, variant.RomDirs[0]));
+            Assert.Equal(("megacd", "megacd"), (variant.Group, variant.DefaultGroup));
+            Assert.Empty(variant.Aliases);
+        }
+    }
+
+    [Fact]
     public void Only_regional_variants_are_grouped_by_default_each_under_the_system_it_varies()
     {
         // A5 Grouped systems: the built-in groups are the regional variants' alone, so the console theme's cards for
@@ -126,6 +152,7 @@ public class ConfigLoaderTests
         var grouped = config.Systems.Where(s => s.Group is not null).ToList();
 
         Assert.Contains(grouped, s => s.Id == "dreamcastnajp");
+        Assert.Contains(grouped, s => s.Id == "segacd");
         foreach (var variant in grouped)
         {
             var parent = config.FindSystem(variant.Group!);
@@ -139,6 +166,7 @@ public class ConfigLoaderTests
         Assert.True(config.Settings.Display.GroupSystems);
         Assert.Equal("dreamcast", config.GroupParentOf(config.FindSystem("dreamcastnajp")!)?.Id);
         Assert.Equal(["dreamcast", "dreamcastnajp"], config.GroupMembers("dreamcast"));
+        Assert.Equal(["megacd", "segacd", "megacdjp"], config.GroupMembers("megacd"));
         Assert.Equal(["megadrive"], config.GroupMembers("megadrive"));
     }
 
@@ -165,12 +193,12 @@ public class ConfigLoaderTests
         Assert.Equal(["dreamcast"], alone.Config.GroupMembers("dreamcast"));
 
         var user = Load(systems: """
-            [systems.segacd]
+            [systems.sega32x]
             group = "megadrive"
             """);
         Assert.Empty(user.Diagnostics);
-        Assert.Equal(["megadrive", "segacd"], user.Config.GroupMembers("megadrive"));
-        Assert.Null(user.Config.FindSystem("segacd")!.DefaultGroup);
+        Assert.Equal(["megadrive", "sega32x"], user.Config.GroupMembers("megadrive"));
+        Assert.Null(user.Config.FindSystem("sega32x")!.DefaultGroup);
     }
 
     [Theory]
@@ -1435,12 +1463,12 @@ public class ConfigLoaderTests
             """).Config;
 
         // genesis, megadrivejp, sfc, snesna, famicom and so on aren't systems of their own.
-        foreach (var twin in (string[])["genesis", "megadrivejp", "sfc", "snesna", "famicom", "saturnjp", "megacd", "sega32xjp", "tg16", "tg-cd", "videopac", "fba"])
+        foreach (var twin in (string[])["genesis", "megadrivejp", "sfc", "snesna", "famicom", "saturnjp", "sega32xjp", "tg16", "tg-cd", "videopac", "fba"])
         {
             Assert.Null(config.FindSystem(twin));
         }
 
-        Assert.Contains(Path.GetFullPath($"{roms}/megacd"), config.FindSystem("segacd")!.RomDirs);
+        Assert.Contains(Path.GetFullPath($"{roms}/saturnjp"), config.FindSystem("saturn")!.RomDirs);
         Assert.Contains(Path.GetFullPath($"{roms}/tg16"), config.FindSystem("pcengine")!.RomDirs);
         Assert.Contains(Path.GetFullPath($"{roms}/snesna"), config.FindSystem("snes")!.RomDirs);
 
@@ -1576,7 +1604,7 @@ public class ConfigLoaderTests
     {
         var systems = Load().Config.Systems;
 
-        foreach (var id in (string[])["3do", "pcenginecd", "neogeocd", "segacd", "amigacd32", "cdimono1"])
+        foreach (var id in (string[])["3do", "pcenginecd", "neogeocd", "megacd", "segacd", "megacdjp", "amigacd32", "cdimono1"])
         {
             Assert.DoesNotContain(".bin", systems.Single(s => s.Id == id).Extensions);
         }

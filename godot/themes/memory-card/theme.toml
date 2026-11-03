@@ -45,7 +45,7 @@ game_template = "generic_box_spine"                    # for systems this theme 
 [templates.dvd_case]               # GameCube and other DVD systems: 135 x 190 x 14 mm
 model = "models/templates/dvd_case.glb"
 
-[templates.jewel_case]             # Dreamcast (NA/JP) and the other CD systems: 142 x 125 x 10.4 mm
+[templates.jewel_case]             # Dreamcast (NA/JP), Mega-CD (JP) and the other CD systems: 142 x 125 x 10.4 mm
 model = "models/templates/jewel_case.glb"
 
 [templates.psx_jewel_case]         # PlayStation: the jewel case sized by ScreenScraper's PAL art (1:1 front, 765 x 680 back, 65 x 680 spine): 140.43 x 125 x 13.4 mm
@@ -53,6 +53,12 @@ model = "models/templates/psx_jewel_case.glb"
 
 [templates.dreamcast_jewel_case]   # Dreamcast: the PAL case, its blue tray's band down the front, its art sized by ScreenScraper's PAL scans (1:1 front, 784 x 680 back, 87 x 680 spine): 142 x 125 x 19 mm
 model = "models/templates/dreamcast_jewel_case.glb"  # built by tools/console-models/dreamcast_jewel_case.py
+
+[templates.megacd_case]            # Mega-CD: the PAL double jewel case, its front insert covering the face, its art sized by ScreenScraper's PAL scans (801 x 680 front, 799 x 680 back, 73 x 680 spine): 142 x 125 x 16.5 mm
+model = "models/templates/megacd_case.glb"          # built by tools/console-models/sega_cd_case.py (megacd)
+
+[templates.segacd_case]            # Sega CD: the North American long box, its art sized by ScreenScraper's US scans (481 x 680 front, 476 x 680 back, 67 x 680 spine): 144 x 207 x 21.5 mm
+model = "models/templates/segacd_case.glb"          # built by tools/console-models/sega_cd_case.py (segacd)
 
 [templates.cartridge_box]          # NES, N64, Game Boy Advance: 135 x 185 x 32 mm
 model = "models/templates/cartridge_box.glb"
@@ -894,7 +900,15 @@ colour = "#8F5C9E"
 colour = "#5C7C9E"
 game_template = "clamshell"
 
-[systems.segacd]                       # Sega CD / Mega-CD
+[systems.megacd]                       # Mega-CD: the PAL case
+colour = "#5C7D9E"
+game_template = "megacd_case"
+
+[systems.segacd]                       # Sega CD (Mega-CD's North American variant): the long box
+colour = "#5C7D9E"
+game_template = "segacd_case"
+
+[systems.megacdjp]                     # Mega-CD (JP) (Mega-CD's Japanese variant): the CD jewel case
 colour = "#5C7D9E"
 game_template = "jewel_case"
 

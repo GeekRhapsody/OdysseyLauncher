@@ -1,5 +1,7 @@
-"""The console theme's Mega-CD system model (godot/themes/console/models/systems/segacd.glb): the first Mega-CD with
-the Mega Drive sitting on it.
+"""The console theme's Mega-CD system model (godot/themes/console/models/systems/megacd.glb): the first Mega-CD with
+the Mega Drive sitting on it. Its regional variants' cards are the same set as each region printed it (KINDS): segacd
+(segacd.glb), the North American Sega CD with the Genesis on it, and megacdjp (megacdjp.glb), the Japanese Mega-CD with
+the Japanese Mega Drive, its RESET blue.
 
 Built in Blender (mega_cd_layout.py has the measurements, taken from photographs). The Mega-CD is a rounded black box
 on four feet, the glossy panel sunk into its front, the tray's opening behind the door, and the connecting block on its
@@ -20,9 +22,12 @@ tray goes back.
 Seven materials (the Mega Drive's print, gloss, dark and reset; case, cd_print, disc) and two textures, within the
 system model budget. Run from the repo root:
 
-    python tools/console-models/mega_drive_print.py artifacts/segacd
-    python tools/console-models/mega_cd_print.py artifacts/segacd
-    blender -b --factory-startup --python tools/console-models/mega_cd.py -- artifacts/segacd godot/themes/console/models/systems/segacd.glb
+    python tools/console-models/mega_drive_print.py artifacts/megacd
+    python tools/console-models/mega_cd_print.py artifacts/megacd
+    python tools/console-models/mega_cd_print.py artifacts/megacd segacd
+    blender -b --factory-startup --python tools/console-models/mega_cd.py -- artifacts/megacd godot/themes/console/models/systems/megacd.glb
+    blender -b --factory-startup --python tools/console-models/mega_cd.py -- artifacts/megacd godot/themes/console/models/systems/segacd.glb segacd
+    blender -b --factory-startup --python tools/console-models/mega_cd.py -- artifacts/megacd godot/themes/console/models/systems/megacdjp.glb megacdjp
 """
 
 import math
@@ -41,6 +46,14 @@ from mega_drive_cartridge import bevel, boolean, box, export, join, material, tr
 
 TILT_YAW = -25.0     # degrees about the vertical: the right end comes towards the viewer
 TILT_PITCH = 28.0    # degrees about the horizontal: the top tips up towards the viewer
+
+# Each card: the Mega Drive's print (mega_drive_print.py's), the Mega-CD's (mega_cd_print.py's) and the RESET button's
+# colour.
+KINDS = {
+    "megacd": ("megadrive_print.png", "megacd_print.png", "#C4C5BC"),
+    "segacd": ("genesis_print.png", "segacd_print.png", "#C4C5BC"),
+    "megacdjp": ("megadrivejp_print.png", "megacd_print.png", "#2F6BC8"),
+}
 
 
 def atlas_uv(region, w, h):
@@ -173,16 +186,18 @@ def timeline(f):
 def main():
     args = sys.argv[sys.argv.index("--") + 1:]
     images, out_path = os.path.abspath(args[0]), os.path.abspath(args[1])
+    kind = args[2] if len(args) > 2 else "megacd"
+    md_name, cd_name, reset = KINDS[kind]
     bpy.ops.wm.read_factory_settings(use_empty=True)
     scene = bpy.context.scene
     scene.render.fps = L.FPS
-    md_print = bpy.data.images.load(os.path.join(images, "megadrive_print.png"))
-    cd_print = bpy.data.images.load(os.path.join(images, "mega_cd_print.png"))
+    md_print = bpy.data.images.load(os.path.join(images, md_name))
+    cd_print = bpy.data.images.load(os.path.join(images, cd_name))
     m = {
         "print": material("print", "#FFFFFF", 0.55, md_print),
         "gloss": material("gloss", "#FFFFFF", 0.18, md_print),
         "dark": material("dark", "#060607", 0.9),
-        "reset": material("reset", "#C4C5BC", 0.5),
+        "reset": material("reset", reset, 0.5),
         "case": material("case", L.COLOURS["case"], 0.5),
         "cd_print": material("cd_print", "#FFFFFF", 0.25, cd_print),
         "disc": material("disc", "#FFFFFF", 0.2, cd_print),
@@ -193,7 +208,7 @@ def main():
     md.data.transform(Matrix.Translation((0.0, L.MD_BACK, L.MD_LIFT)))
     base = mega_cd(m_cd)
     paint(base, m["cd_print"], swatch("dark"), lambda c, n, name: name == "cd_print" and abs(n.y) < 0.5)
-    whole = join([base, md], "segacd")
+    whole = join([base, md], kind)
     for poly in whole.data.polygons:
         poly.use_smooth = True
     whole.data.set_sharp_from_angle(angle=math.radians(35))
@@ -201,7 +216,7 @@ def main():
     cd = disc(m)
     lights = {"ready": light(m, "ready", "green"), "access": light(m, "access", "red")}
 
-    root = bpy.data.objects.new("segacd_root", None)
+    root = bpy.data.objects.new(f"{kind}_root", None)
     scene.collection.objects.link(root)
     whole.parent = root
     drawer.parent = whole
@@ -223,7 +238,7 @@ def main():
 
     key("focused", nodes, timeline, L.LENGTH)
     meshes = [whole, drawer, cd] + [part for part, _ in lights.values()]
-    print(f"Mega-CD: {sum(triangles(o.data) for o in meshes)} triangles ({triangles(whole.data)} the set), "
+    print(f"{kind}: {sum(triangles(o.data) for o in meshes)} triangles ({triangles(whole.data)} the set), "
           f"{len({mat.name for o in meshes for mat in o.data.materials})} materials, "
           f"size {size.x:.1f} x {size.y:.1f} x {size.z:.1f} mm tilted, before the fit")
     export([root] + meshes, out_path, animations=True)

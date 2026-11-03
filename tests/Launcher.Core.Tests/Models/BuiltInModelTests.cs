@@ -158,6 +158,32 @@ public sealed class BuiltInModelTests
         Assert.Equal("jewel_case", systems["dreamcastnajp"].GameTemplate);
     }
 
+    [Theory]
+    [InlineData("megacd_case", 801, 799, 73)]
+    [InlineData("segacd_case", 481, 476, 67)]
+    public void The_Mega_CD_and_Sega_CD_cases_faces_have_their_scans_proportions(string template, int front, int back, int spine)
+    {
+        // Sized by ScreenScraper's scans, each 680 high: the PAL double jewel case's and the North American long box's
+        // (tools/console-models/sega_cd_case_layout.py), so none of the art is cropped.
+        var theme = ThemeFixtures.Load(ThemeFixtures.BaseFolder);
+        var model = Load(ThemeFixtures.BaseFolder, theme.Templates[template].Model);
+
+        Assert.Equal(["case", "cover", "back", "spine"], model.Materials);
+        Assert.Equal(front / 680f, model.Aspects["cover"], 0.001f);
+        Assert.Equal(back / 680f, model.Aspects["back"], 0.001f);
+        Assert.Equal(spine / 680f, model.Aspects["spine"], 0.001f);
+    }
+
+    [Fact]
+    public void The_Mega_CDs_games_are_in_the_PAL_case_the_Sega_CDs_in_the_long_box_and_the_Japanese_in_the_jewel_case()
+    {
+        var systems = ThemeFixtures.Load(ThemeFixtures.BaseFolder).Systems;
+
+        Assert.Equal("megacd_case", systems["megacd"].GameTemplate);
+        Assert.Equal("segacd_case", systems["segacd"].GameTemplate);
+        Assert.Equal("jewel_case", systems["megacdjp"].GameTemplate);
+    }
+
     [Fact]
     public void The_PSPs_games_are_in_its_clamshell()
     {

@@ -36,7 +36,8 @@ SOURCES = next((a.split('=', 1)[1] for a in sys.argv[1:] if a.startswith('--sour
                'system_logos_all,system_logos').split(',')
 TARGET = 'godot/themes/classic-view/logos'
 # The names a card's logo is looked for by, after its own id, in order: the virtual cards' (Favourites in UK English),
-# and Batocera's names for systems whose id differs.
+# and Batocera's names for systems whose id differs. A name with a folder is in that subfolder of a source: Carbon's
+# regional logos (jp/, us/, br/), for a regional variant whose region Carbon draws its own way.
 NAMES = {
     'favourites': ['auto-favorites-engb', 'auto-favorites'],
     'recently_played': ['auto-lastplayed'],
@@ -45,6 +46,7 @@ NAMES = {
     'cdimono1': ['cdi'],
     'cdtv': ['amigacdtv'],
     'n3ds': ['3ds'],
+    'megacdjp': ['jp/megacd'],
     'naomigd': ['naomi'],
     'type-x': ['typex'],
 }
@@ -128,10 +130,15 @@ ids = set(re.findall(r'^\[systems\.([A-Za-z0-9_-]+)\]', toml, re.M))
 folders = []
 for source in SOURCES:
     files = {}
-    for name in os.listdir(source):
-        stem, ext = os.path.splitext(name)
-        if ext.lower() in ('.svg', '.png') and (stem not in files or ext.lower() == '.svg'):
-            files[stem] = os.path.join(source, name)
+    for sub in ('', 'jp', 'us', 'br'):
+        folder = os.path.join(source, sub)
+        if not os.path.isdir(folder):
+            continue
+        for name in os.listdir(folder):
+            stem, ext = os.path.splitext(name)
+            stem = f'{sub}/{stem}' if sub else stem
+            if ext.lower() in ('.svg', '.png') and (stem not in files or ext.lower() == '.svg'):
+                files[stem] = os.path.join(folder, name)
     folders.append(files)
 
 

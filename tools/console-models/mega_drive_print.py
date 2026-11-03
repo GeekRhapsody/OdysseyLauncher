@@ -1,11 +1,16 @@
 """The Mega Drive's printing and its cartridge label, for the console theme's models (mega_drive.py,
 mega_drive_cartridge.py).
 
-Writes five images into a folder: - megadrive_print.png: the console's top, as the model's planar UVs map it (x
+Writes seven images into a folder: - megadrive_print.png: the console's top, as the model's planar UVs map it (x
 -140..140 left to right, y -106..106 front to back, seen from above): the black body, the glossier black ring (plain, as
 on the European console, whose ring has no legend), the slot's black lip, the 16-BIT plate and its cream POWER strip,
 the volume, power and reset legends in the control panel, and MEGA DRIVE SEGA on the front slope; the faces that aren't
 printed take the body's or the ring's colour from a spot of it (mega_drive.py's BODY_AT and BLACK_AT). -
+genesis_print.png and megadrivejp_print.png: the same top as the North American and Japanese first models print it
+(TOPS), for the console theme's Sega CD and Mega-CD (JP) cards (mega_cd.py): the Genesis with the SEGA GENESIS badge
+on the disc, a silver 16-BIT, a red POWER strip, HIGH DEFINITION GRAPHICS round the ring and nothing on the front
+slope; the Japanese Mega Drive with a magenta strip and, in red round the ring's front either side of it, AV
+INTELLIGENT TERMINAL and HIGH GRADE MULTIPURPOSE USE (from Evan-Amos's photographs on Wikimedia Commons). -
 megadrive_label.png: mega_drive_label.png (the cartridge label) as plain RGB, for the inserted cartridge. -
 megadrive_band.png: the label's bottom band (the grid and the MEGA DRIVE logo under the grey border), for the cartridge
 template, whose art shows above it. What's above the border's curve is painted the border's grey, so filtering never
@@ -46,6 +51,15 @@ RING_CENTRE, RING_INNER, RING_OUTER = (34.0, 17.4), 74.0, 88.0
 LIP = (34.0, 38.0, 134.0, 23.0)          # the slot's lip: centre, length, width
 PLATE = (1.6, 65.4, -1.6)                # the 16-BIT plate: left, right, back edge
 PANEL = (-121.0, -50.0, -98.0, -37.5)    # the control panel's recess: left, right, front, back
+
+# What each region's first model prints differently on its top: the 16-BIT's colour, the POWER strip's and its legend's,
+# and its own marks (top_print).
+TOPS = {
+    "megadrive": dict(digits=GOLD, strip=STRIP, strip_ink="#3A3A3A"),
+    "genesis": dict(digits="#E2E3E6", strip="#9A2233", strip_ink="#1A1A1A"),
+    "megadrivejp": dict(digits=GOLD, strip="#B3245E", strip_ink="#1A1A1A"),
+}
+RING_LEGEND = (RING_INNER + RING_OUTER) / 2   # the radius the ring's legends are set on
 
 # The label's grey border, in the label's pixels (600 x 500): straight at its sides, with a bump under the SEGA badge.
 LABEL_SIZE = (600, 500)
@@ -113,7 +127,45 @@ def text(canvas, s, font, cap_mm, x, y, fill, anchor="centre", shear=0.0, stretc
     canvas.alpha_composite(layer, (int(left_px), int(cy - layer.height / 2)))
 
 
-def top_print(out):
+def arc_text(canvas, s, font, cap_mm, start, fill, outward=True):
+    """
+    Text round the ring at RING_LEGEND, from the angle start (degrees anticlockwise from the right, seen from above):
+    outward, its letters' tops away from the centre, reading clockwise; else their tops to the centre, reading
+    anticlockwise. Each letter is set on its own, turned to the ring.
+    """
+    f = face(font, cap_mm)
+    angle = math.radians(start)
+    sign = -1 if outward else 1
+    for ch in s:
+        step = f.getlength(ch) / SCALE / RING_LEGEND
+        mid = angle + sign * step / 2
+        if ch != " ":
+            x, y = RING_CENTRE[0] + RING_LEGEND * math.cos(mid), RING_CENTRE[1] + RING_LEGEND * math.sin(mid)
+            text(canvas, ch, font, cap_mm, x, y, fill, degrees=math.degrees(mid) + (-90 if outward else 90))
+        angle += sign * step
+
+
+def genesis_badge(canvas, draw):
+    """The SEGA GENESIS badge across the disc between the slot and the plate: GENESIS in black on a silver plate with
+    cut corners and a black rule inside its edge, SEGA on a tab at its top."""
+    silver, x, y, w, h, cut = "#D4D5D8", 39.0, 11.0, 108.0, 17.0, 5.0
+    tab_w, tab_h = 30.0, 5.5
+
+    def plate(inset):
+        x0, x1, y0, y1, c = x - w / 2 + inset, x + w / 2 - inset, y - h / 2 + inset, y + h / 2 - inset, cut - inset * 0.4
+        tx = tab_w / 2 - inset
+        return [px(*p) for p in ((x0 + c, y0), (x1 - c, y0), (x1, y0 + c), (x1, y1 - c), (x1 - c, y1), (x + tx + 2.5, y1),
+                                 (x + tx, y1 + tab_h - inset), (x - tx, y1 + tab_h - inset), (x - tx - 2.5, y1),
+                                 (x0 + c, y1), (x0, y1 - c), (x0, y0 + c))]
+    draw.polygon(plate(0.0), fill=BLACK)
+    draw.polygon(plate(0.7), fill=silver)
+    draw.line(plate(1.6) + plate(1.6)[:1], fill=BODY, width=int(0.35 * SCALE))
+    text(canvas, "GENESIS", "ariblk.ttf", 10.0, x, y - 0.6, BODY, stretch=1.32, shear=0.12)
+    text(canvas, "SEGA", "ariblk.ttf", 3.4, x, y + h / 2 + 1.6, BODY, stretch=1.1)
+
+
+def top_print(out, kind="megadrive"):
+    look = TOPS[kind]
     canvas = Image.new("RGBA", (int(WIDTH_MM * SCALE), int(DEPTH_MM * SCALE)), BODY)
     draw = ImageDraw.Draw(canvas)
 
@@ -140,13 +192,23 @@ def top_print(out):
     r = RING_INNER * SCALE
     ImageDraw.Draw(black).ellipse([cx - r, cy - r, cx + r, cy + r], fill=255)
     canvas.paste(BLACK, mask=ImageChops.multiply(plate_mask, black))
-    canvas.paste(STRIP, mask=ImageChops.multiply(plate_mask, strip))
-    text(canvas, "16-BIT", "arialbd.ttf", 6.6, 33.6, -34.6, GOLD, stretch=1.08)
-    text(canvas, "POWER", "arial.ttf", 1.7, 24.4, -64.2, "#3A3A3A", degrees=-6)
+    canvas.paste(look["strip"], mask=ImageChops.multiply(plate_mask, strip))
+    text(canvas, "16-BIT", "arialbd.ttf", 6.6, 33.6, -34.6, look["digits"], stretch=1.08)
+    ink = look["strip_ink"]
+    text(canvas, "POWER", "arial.ttf", 1.7, 24.4, -64.2, ink, degrees=-6)
     circle(draw, 33.4, -65.2, 1.35, "#2A2A2A")
     circle(draw, 33.4, -65.2, 0.75, RED)
-    draw.line([px(37.0, -65.0), px(44.0, -64.4)], fill="#3A3A3A", width=int(0.3 * SCALE))
-    text(canvas, "ON", "arial.ttf", 1.7, 47.6, -64.0, "#3A3A3A", degrees=6)
+    draw.line([px(37.0, -65.0), px(44.0, -64.4)], fill=ink, width=int(0.3 * SCALE))
+    text(canvas, "ON", "arial.ttf", 1.7, 47.6, -64.0, ink, degrees=6)
+
+    # Each region's own marks: the Genesis's badge and its ring's legend; the Japanese console's legends either side of
+    # the strip.
+    if kind == "genesis":
+        genesis_badge(canvas, draw)
+        arc_text(canvas, "HIGH DEFINITION GRAPHICS", "arial.ttf", 2.2, 80.0, "#9C9EA3")
+    elif kind == "megadrivejp":
+        arc_text(canvas, "AV INTELLIGENT TERMINAL", "arialbd.ttf", 2.2, 203.0, RED, outward=False)
+        arc_text(canvas, "HIGH GRADE MULTIPURPOSE USE", "arialbd.ttf", 2.2, -62.0, RED, outward=False)
 
     # The control panel: the volume slider's and power switch's slots, their knobs' red stripes, and the legends.
     rect(draw, -110.0, -92.5, -96.0, -45.5, SLOT, 0.8)
@@ -174,10 +236,11 @@ def top_print(out):
         draw.line([px(x0, y), px(-78.6, y)], fill=LEGEND, width=int(0.25 * SCALE))
         draw.line([px(-65.4, y), px(x1, y)], fill=LEGEND, width=int(0.25 * SCALE))
 
-    # MEGA DRIVE and SEGA on the front slope, right.
-    text(canvas, "MEGA DRIVE", "bahnschrift.ttf", 4.0, 56.4, -97.0, WHITE, anchor="left", shear=0.32, stretch=1.35,
-         variation="Bold")
-    text(canvas, "SEGA", "ariblk.ttf", 4.8, 104.4, -96.8, WHITE, anchor="left", shear=0.2, stretch=1.05)
+    # MEGA DRIVE and SEGA on the front slope, right (the Genesis has its name on the disc instead).
+    if kind != "genesis":
+        text(canvas, "MEGA DRIVE", "bahnschrift.ttf", 4.0, 56.4, -97.0, WHITE, anchor="left", shear=0.32, stretch=1.35,
+             variation="Bold")
+        text(canvas, "SEGA", "ariblk.ttf", 4.8, 104.4, -96.8, WHITE, anchor="left", shear=0.2, stretch=1.05)
 
     canvas.convert("RGB").resize(OUT, Image.LANCZOS).save(out, optimize=True)
 
@@ -267,7 +330,8 @@ def pad_print(out):
 if __name__ == "__main__":
     folder = os.path.abspath(sys.argv[1])
     os.makedirs(folder, exist_ok=True)
-    top_print(os.path.join(folder, "megadrive_print.png"))
+    for kind in TOPS:
+        top_print(os.path.join(folder, f"{kind}_print.png"), kind)
     label_images(os.path.join(folder, "megadrive_label.png"), os.path.join(folder, "megadrive_band.png"))
     odyssey_label(os.path.join(folder, "megadrive_odyssey.png"))
     pad_print(os.path.join(folder, "megadrive_pad.png"))
