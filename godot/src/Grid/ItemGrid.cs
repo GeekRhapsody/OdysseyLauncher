@@ -623,14 +623,8 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
         MultiMeshInstance3D? instance = null;
         if (!template.AlwaysNodes)
         {
-            multiMesh = new MultiMesh
-            {
-                TransformFormat = MultiMesh.TransformFormatEnum.Transform3D,
-                UseCustomData = true,
-                Mesh = template.Mesh,
-                InstanceCount = _maxCells,
-                VisibleInstanceCount = 0,
-            };
+            multiMesh = GridMultiMesh.Create(template.Mesh, _maxCells);
+            multiMesh.VisibleInstanceCount = 0;
             for (var cell = 0; cell < _maxCells; cell++)
             {
                 multiMesh.SetInstanceTransform(cell, Hidden);
@@ -1273,13 +1267,7 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
             _materials[_templateMaterial[t]].SetShaderParameter(ShaderParams.GridFade, 1.0f);
             if (_multiMeshes[t] is not null)
             {
-                var multiMesh = new MultiMesh
-                {
-                    TransformFormat = MultiMesh.TransformFormatEnum.Transform3D,
-                    UseCustomData = true,
-                    Mesh = _templates[t].Mesh,
-                    InstanceCount = 1,
-                };
+                var multiMesh = GridMultiMesh.Create(_templates[t].Mesh, 1);
                 multiMesh.SetInstanceTransform(0, new Transform3D(Basis.Identity, new Vector3(t * 0.3f, 0, -2)));
                 multiMesh.SetInstanceCustomData(0, new Color(0, 0, 0, 0));
                 var warm = new MultiMeshInstance3D
