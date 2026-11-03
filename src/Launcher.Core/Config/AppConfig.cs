@@ -611,6 +611,15 @@ public sealed record SystemConfig(
 /// so the emulator installs it and then runs it. Only with <paramref name="Installs"/>; null when the profile has none,
 /// and then such a game can't be launched until it's installed.
 /// </param>
+/// <param name="Programs">
+/// Every place <c>executable</c> lists, expanded, when it lists more than one (a list, or a list variable such as
+/// Linux's <c>{retroarch}</c>); null for one place.
+/// </param>
+/// <param name="Cores">Every place <c>core</c> lists, as <paramref name="Programs"/>.</param>
+/// <param name="ProgramVariable">
+/// The list variable <c>executable</c> is made of when it's a single entry using one (Linux's <c>{retroarch}</c>), so
+/// the settings can point every profile sharing it at another program by changing the variable.
+/// </param>
 public sealed record EmulatorConfig(
     string Id,
     string Name,
@@ -621,10 +630,25 @@ public sealed record EmulatorConfig(
     bool RunFile = false,
     string? Controllers = null,
     string? Installs = null,
-    IReadOnlyList<string>? InstallArgs = null)
+    IReadOnlyList<string>? InstallArgs = null,
+    IReadOnlyList<string>? Programs = null,
+    IReadOnlyList<string>? Cores = null,
+    string? ProgramVariable = null)
 {
+    /// <summary>
+    /// Where the program is looked for, in order (A5 Finding programs): <see cref="Programs"/> when
+    /// <c>executable</c> lists more than one place, else <see cref="Executable"/> alone. <see cref="Executable"/> is the
+    /// first place until <see cref="Launching.ProgramSearch"/> has found the program.
+    /// </summary>
+    public IReadOnlyList<string> ProgramPlaces => Programs ?? [Executable];
+
+    /// <summary>Where the core is looked for, as <see cref="ProgramPlaces"/>; null without a core.</summary>
+    public IReadOnlyList<string>? CorePlaces => Cores ?? (Core is null ? null : [Core]);
+
     /// <summary>What the settings screens show where a profile's program goes.</summary>
-    public string ProgramText => RunFile ? "Runs the game's own file" : Executable;
+    public string ProgramText => RunFile
+        ? "Runs the game's own file"
+        : Programs is { Count: > 1 } places ? $"{places[0]}, or {places.Count - 1} more places" : Executable;
 }
 
 public sealed record ConfigLoadResult(AppConfig Config, IReadOnlyList<Diagnostic> Diagnostics)

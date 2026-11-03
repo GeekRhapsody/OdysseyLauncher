@@ -20,7 +20,8 @@ scan_at_launch = false
 
 [variables]
 # Expanded when config loads. Values may use {home} and other variables.
-# The built-in emulator profiles use these; point them at your installs.
+# The built-in emulator profiles use these; point them at your installs. On Linux they're lists of places to look
+# instead (settings.linux.toml), and a variable can be a list too, for an emulator's executable and core.
 retroarch = "C:/RetroArch-Win64"
 emulators = "C:/Emulators"
 

@@ -8,10 +8,7 @@ public class ConfigLoaderTests
     private static readonly string Home = Path.Combine(Path.GetTempPath(), "odyssey-home");
     private static readonly string ConfigDir = Path.Combine(Home, "config");
 
-    /// <summary>
-    /// The built-in RetroArch folder (C:/RetroArch-Win64) set to one rooted on this OS, for the install check's tests:
-    /// the built-in programs are Windows' (elsewhere C:/... resolves against ConfigDir) until Linux has its own.
-    /// </summary>
+    /// <summary>Windows' built-in RetroArch folder rooted on this OS, for the install check (C:/... isn't rooted elsewhere).</summary>
     private static readonly string RetroArchDir = TestPaths.OnDrive('C', "RetroArch-Win64");
 
     private static readonly string RetroArchSettings = $"[variables]\nretroarch = \"{RetroArchDir}\"\n";
@@ -21,7 +18,7 @@ public class ConfigLoaderTests
         ["gb", "gbc", "gba", "nes", "snes", "n64", "gc", "mastersystem", "megadrive", "saturn", "dreamcast", "psx", "ps2", "psp"],
         StringComparer.Ordinal);
 
-    /// <param name="fileExists">The install check's view of the disk. By default every file exists.</param>
+    /// <param name="fileExists">The install check's view of the disk; by default every file exists. The defaults are Windows'.</param>
     /// <param name="checkFor">Which systems the install check covers. By default all of them.</param>
     private static ConfigLoadResult Load(
         string? settings = null, string? systems = null, string? emulators = null, Func<string, bool>? fileExists = null,
@@ -35,6 +32,9 @@ public class ConfigLoaderTests
             Emulators = emulators is null ? null : new ConfigFile("user/emulators.toml", emulators),
             FileExists = fileExists ?? (_ => true),
             CheckInstallsFor = checkFor,
+            DefaultEmulators = BuiltInDefaults.Read(BuiltInDefaults.WindowsEmulatorsFileName), // Windows' on any OS
+            PlatformSettings = null,
+            PlatformSystems = null,
         });
 
     private static Diagnostic Single(ConfigLoadResult result, Severity severity) =>
@@ -767,7 +767,7 @@ public class ConfigLoaderTests
 
         var gpgx = Assert.Single(result.Diagnostics, d => d.Key == "emulators.retroarch-genesis-plus-gx.executable");
         Assert.Equal(Severity.Warning, gpgx.Severity);
-        Assert.Equal("built-in/emulators.toml", gpgx.Source);
+        Assert.Equal("built-in/emulators.windows.toml", gpgx.Source);
         Assert.True(gpgx.Line > 0);
         Assert.Equal(
             $"the executable '{retroarch}' doesn't exist, so Master System (mastersystem) and Mega Drive (megadrive) can't " +

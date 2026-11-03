@@ -311,6 +311,48 @@ public sealed class LaunchServiceTests : IAsyncLifetime
         Assert.StartsWith($"The game's file is missing: '{_rom}'.", outcome.Reason, StringComparison.Ordinal);
     }
 
+    /// <summary>Changes the <c>fake</c> profile as config can't: places a test makes up.</summary>
+    private void UseFake(Func<EmulatorConfig, EmulatorConfig> change)
+    {
+        var config = _launcher.Config;
+        var emulators = new Dictionary<string, EmulatorConfig>(config.Emulators) { ["fake"] = change(config.Emulators["fake"]) };
+        _launcher.Config = config with { Emulators = emulators };
+    }
+
+    [Fact]
+    public async Task The_program_is_the_first_of_its_places_that_has_it()
+    {
+        var nowhere = _dir.Combine("nowhere", "emu");
+        UseFake(e => e with { Executable = nowhere, Programs = [nowhere, _exe] });
+
+        Assert.Equal(LaunchStatus.Exited, (await Launch()).Status);
+    }
+
+    [Fact]
+    public async Task A_program_in_none_of_its_places_fails_naming_them()
+    {
+        var nowhere = _dir.Combine("nowhere", "emu");
+        UseFake(e => e with { Executable = nowhere, Programs = [nowhere, "no-such-emulator-anywhere"] });
+
+        var outcome = await Launch();
+
+        Assert.Equal(LaunchFailure.MissingFile, outcome.Failure);
+        Assert.Equal(
+            $"Fake Emu wasn't found. It's looked for in '{nowhere}', 'no-such-emulator-anywhere' on the PATH. Install it, or " +
+            "choose its program in Settings > Emulators.",
+            outcome.Reason);
+    }
+
+    [Fact]
+    public async Task A_working_folder_that_isnt_there_yet_is_made()
+    {
+        var folder = _dir.Combine("home", ".emu");
+        UseFake(e => e with { WorkingDir = Template.Escape(folder) });
+
+        Assert.Equal(LaunchStatus.Exited, (await Launch()).Status);
+        Assert.True(Directory.Exists(folder));
+    }
+
     [Fact]
     public async Task A_missing_core_fails_with_its_path()
     {

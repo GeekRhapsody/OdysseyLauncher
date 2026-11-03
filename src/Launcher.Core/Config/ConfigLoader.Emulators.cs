@@ -57,26 +57,35 @@ public sealed partial class ConfigLoader
                 }
 
                 var name = NonEmptyString(entry, prefix, "name") ?? id;
-                string? executable = null;
-                if (!runFile && entry.TryGet("executable", out var exeNode) && String(entry, prefix, "executable") is { } rawExe)
+                // executable and core are each a place to look, or a list of them (A5 Finding programs).
+                List<string>? programs = null;
+                string? programVariable = null;
+                if (!runFile && entry.TryGet("executable", out var exeNode))
                 {
-                    executable = ExpandPath(rawExe, exeNode, prefix + ".executable", allowRomRoot: true);
-                    var extension = executable is null ? string.Empty : Path.GetExtension(executable);
-                    if (extension.Equals(".bat", StringComparison.OrdinalIgnoreCase)
-                        || extension.Equals(".cmd", StringComparison.OrdinalIgnoreCase))
+                    programs = Places(exeNode, prefix + ".executable", out programVariable);
+                    foreach (var program in programs ?? [])
                     {
-                        Error(exeNode, prefix + ".executable",
-                            ".bat and .cmd files can't be emulators: cmd.exe re-parses their arguments, so names like " +
-                            "'Sonic & Knuckles' would break or run commands. Point at the emulator's .exe instead");
+                        var extension = Path.GetExtension(program);
+                        if (extension.Equals(".bat", StringComparison.OrdinalIgnoreCase)
+                            || extension.Equals(".cmd", StringComparison.OrdinalIgnoreCase))
+                        {
+                            Error(exeNode, prefix + ".executable",
+                                ".bat and .cmd files can't be emulators: cmd.exe re-parses their arguments, so names like " +
+                                "'Sonic & Knuckles' would break or run commands. Point at the emulator's .exe instead");
+                            break;
+                        }
                     }
                 }
 
-                string? core = null;
+                List<string>? cores = null;
                 var coreNode = default(TomlNode);
-                if (!runFile && entry.TryGet("core", out coreNode) && String(entry, prefix, "core") is { } rawCore)
+                if (!runFile && entry.TryGet("core", out coreNode))
                 {
-                    core = ExpandPath(rawCore, coreNode, prefix + ".core", allowRomRoot: true);
+                    cores = Places(coreNode, prefix + ".core", out _);
                 }
+
+                var executable = programs?[0];
+                var core = cores?[0];
 
                 var usesCore = false;
                 var argsNode = default(TomlNode);
@@ -155,7 +164,8 @@ public sealed partial class ConfigLoader
                 }
 
                 result[id] = new EmulatorConfig(
-                    id, name, executable ?? string.Empty, args ?? [], workingDir, core, runFile, controllers, installs, installArgs);
+                    id, name, executable ?? string.Empty, args ?? [], workingDir, core, runFile, controllers, installs, installArgs,
+                    programs is { Count: > 1 } ? programs : null, cores is { Count: > 1 } ? cores : null, programVariable);
             }
 
             return result;
@@ -231,7 +241,7 @@ public sealed partial class ConfigLoader
                 }
             }
 
-            // Most built-in profiles share retroarch.exe, so each path is checked once.
+            // Most built-in profiles share RetroArch's program, so each path is checked once.
             var exists = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
             bool Exists(string path)
             {
@@ -244,6 +254,7 @@ public sealed partial class ConfigLoader
                 return found;
             }
 
+            var search = new Launching.ProgramSearch(Exists, Environment.GetEnvironmentVariable("PATH"));
             foreach (var (id, emulator) in emulators)
             {
                 if (emulator.RunFile || !byDefault.TryGetValue(id, out var names))
@@ -253,18 +264,21 @@ public sealed partial class ConfigLoader
 
                 raw.TryGet(id, out var entryNode);
                 var entry = (TomlTableNode)entryNode;
-                foreach (var (key, path, what) in (ReadOnlySpan<(string, string?, string)>)
-                    [("executable", emulator.Executable, "executable"), ("core", emulator.Core, "core")])
+                foreach (var (key, places) in (ReadOnlySpan<(string, IReadOnlyList<string>?)>)
+                    [("executable", emulator.ProgramPlaces), ("core", emulator.CorePlaces)])
                 {
-                    if (path is null || Exists(path))
+                    if (places is null || search.Find(places) is not null)
                     {
                         continue;
                     }
 
                     // A missing install is one problem: its core is missing too, so it isn't reported again.
                     TomlNode at = entry.TryGet(key, out var node) ? node : entry;
+                    var missing = places.Count == 1
+                        ? $"the {key} '{places[0]}' doesn't exist"
+                        : $"the {key} isn't in any of its {places.Count} places ({string.Join(", ", places.Take(3).Select(p => $"'{p}'"))}{(places.Count > 3 ? ", ..." : string.Empty)})";
                     Warning(at, $"emulators.{id}.{key}",
-                        $"the {what} '{path}' doesn't exist, so {JoinNames(names)} can't launch games (it's their emulator). " +
+                        $"{missing}, so {JoinNames(names)} can't launch games (it's their emulator). " +
                         "Install it there, or fix the path here or in the [variables] it uses in settings.toml");
                     break;
                 }

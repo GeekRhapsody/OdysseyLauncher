@@ -1,0 +1,285 @@
+# Linux's own values for the built-in systems, merged over systems.toml on Linux (docs/ARCHITECTURE.md A5, "Built-in
+# emulators on Linux"): a system's emulator and alternatives where Linux's differ (its Windows default where Linux has
+# it), and its extensions without Windows' own file types and with Linux's (.desktop, .sh, .AppImage). A regional
+# variant has its system's.
+
+format = 1
+
+[systems.ags]
+extensions = [".desktop", ".sh"]
+
+[systems.amiga]
+alt_emulators = ["retroarch-puae2021", "fs-uae-amiga", "amiberry-amiga"]
+
+[systems.amigacd32]
+alt_emulators = ["retroarch-puae2021", "fs-uae-amigacd32", "amiberry-amigacd32"]
+
+[systems.android]
+extensions = [".7z", ".zip"]
+
+[systems.apple2]
+emulator = "linapple"
+alt_emulators = ["mednafen-apple2", "retroarch-mame-apple2", "mame-apple2", "izapple2"]
+
+[systems.arcade]
+alt_emulators = ["retroarch-mame2010", "retroarch-mame2003-plus", "retroarch-mame2003", "retroarch-mame2000", "mame-arcade", "retroarch-fbneo", "finalburn-neo", "retroarch-fbalpha2012", "retroarch-geolith", "retroarch-flycast", "flycast", "flycast-dojo", "retroarch-kronos", "retroarch-dice", "supermodel", "run-file"]
+extensions = [".acgame", ".arcadedef", ".cmd", ".gam", ".lindbergh", ".neo", ".7z", ".zip", ".desktop", ".sh"]
+
+[systems.arcadia]
+emulator = "retroarch-mame-arcadia"
+alt_emulators = ["mame-arcadia"]
+
+[systems.atari2600]
+alt_emulators = ["retroarch-stella2014", "retroarch-stella2023", "stella", "gopher2600", "ares-atari2600"]
+
+[systems.atari5200]
+alt_emulators = ["retroarch-atari800", "atari800"]
+
+[systems.atari800]
+alt_emulators = ["atari800"]
+
+[systems.atarijaguarcd]
+emulator = "bigpemu"
+alt_emulators = []
+
+[systems.atarilynx]
+alt_emulators = ["retroarch-beetle-lynx", "mednafen-atarilynx", "retroarch-holani"]
+
+[systems.atarist]
+alt_emulators = ["hatari"]
+
+[systems.atarixe]
+alt_emulators = ["atari800"]
+
+[systems.atomiswave]
+alt_emulators = ["flycast", "flycast-dojo"]
+
+[systems.bbcmicro]
+alt_emulators = ["retroarch-b2"]
+
+[systems.cdtv]
+alt_emulators = ["retroarch-puae2021", "fs-uae-cdtv", "amiberry-cdtv"]
+
+[systems.colecovision]
+alt_emulators = ["retroarch-gearcoleco", "openmsx-colecovision", "ares-colecovision", "mesen", "colem-colecovision"]
+
+[systems.consolearcade]
+alt_emulators = ["mame-consolearcade", "retroarch-flycast", "flycast", "flycast-dojo", "retroarch-kronos", "mednafen-saturn", "play-arcade", "play-disc", "run-file", "triforce", "xemu"]
+extensions = [".acgame", ".arcadedef", ".iso", ".ps3", ".xbe", ".7z", ".zip", ".desktop", ".sh"]
+
+[systems.crvision]
+emulator = "retroarch-mame-crvision"
+alt_emulators = ["mame-crvision"]
+
+[systems.daphne]
+alt_emulators = ["hypseus-singe-daphne-singe", "retroarch-mame", "mame-daphne", "retroarch-dirksimple", "ares-daphne", "mame-daphne-2"]
+
+[systems.desktop]
+extensions = [".AppImage", ".desktop", ".sh"]
+
+[systems.doom]
+extensions = [".ipk3", ".iwad", ".pk3", ".pk4", ".pwad", ".wad", ".desktop", ".sh"]
+
+[systems.dreamcast]
+alt_emulators = ["flycast", "flycast-dojo", "redream"]
+
+[systems.dreamcastnajp]
+alt_emulators = ["flycast", "flycast-dojo", "redream"]
+
+[systems.fds]
+alt_emulators = ["mesen", "retroarch-nestopia", "nestopia-ue", "retroarch-fceumm", "mednafen-fds", "ares-fds"]
+
+[systems.flash]
+alt_emulators = ["lightspark"]
+
+[systems.fpinball]
+alt_emulators = []
+
+[systems.gamegear]
+alt_emulators = ["retroarch-genesis-plus-gx-wide", "retroarch-gearsystem", "retroarch-smsplus", "retroarch-picodrive", "mednafen-gamegear", "mesen", "ares-gamegear", "jgenesis"]
+
+[systems.gb]
+alt_emulators = ["retroarch-sameboy", "sameboy", "retroarch-gearboy", "gearboy", "retroarch-tgbdual", "retroarch-doublecherrygb", "retroarch-mesen-s", "mesen", "retroarch-bsnes", "retroarch-mgba", "mgba", "retroarch-vbam", "vba-m", "mednafen-gb", "ares-gb", "skyemu", "jgenesis"]
+
+[systems.gba]
+alt_emulators = ["mgba", "retroarch-vbam", "vba-m", "retroarch-vba-next", "retroarch-gpsp", "retroarch-noods", "noods", "mednafen-gba", "ares-gba", "skyemu"]
+
+[systems.gbc]
+alt_emulators = ["retroarch-sameboy", "sameboy", "retroarch-gearboy", "gearboy", "retroarch-tgbdual", "retroarch-doublecherrygb", "retroarch-mesen-s", "mesen", "retroarch-bsnes", "retroarch-mgba", "mgba", "retroarch-vbam", "vba-m", "mednafen-gb", "ares-gbc", "skyemu", "jgenesis"]
+
+[systems.j2me]
+alt_emulators = []
+
+[systems.macintosh]
+alt_emulators = ["mame-macintosh-mac-se-boot-disk", "mame-macintosh-mac-plus-bootable", "mame-macintosh-mac-plus-boot-disk", "basiliskii", "sheepshaver"]
+
+[systems.mame]
+alt_emulators = ["retroarch-mame2010", "retroarch-mame2003-plus", "retroarch-mame2003", "retroarch-mame2000", "mame-mame", "retroarch-fbneo", "finalburn-neo", "retroarch-fbalpha2012", "retroarch-geolith", "retroarch-flycast", "flycast", "flycast-dojo", "retroarch-kronos", "retroarch-dice", "supermodel", "run-file", "advancemame"]
+extensions = [".acgame", ".arcadedef", ".cmd", ".gam", ".lindbergh", ".neo", ".7z", ".zip", ".desktop", ".sh"]
+
+[systems.mastersystem]
+alt_emulators = ["retroarch-genesis-plus-gx-wide", "retroarch-smsplus", "retroarch-gearsystem", "retroarch-picodrive", "mednafen-mastersystem", "mesen", "ares-mastersystem", "jgenesis"]
+
+[systems.megacd]
+alt_emulators = ["retroarch-genesis-plus-gx-wide", "retroarch-picodrive", "ares-segacd", "jgenesis"]
+
+[systems.segacd]
+alt_emulators = ["retroarch-genesis-plus-gx-wide", "retroarch-picodrive", "ares-segacd", "jgenesis"]
+
+[systems.megacdjp]
+alt_emulators = ["retroarch-genesis-plus-gx-wide", "retroarch-picodrive", "ares-segacd", "jgenesis"]
+
+[systems.megadrive]
+alt_emulators = ["retroarch-genesis-plus-gx-wide", "retroarch-picodrive", "retroarch-blastem", "blastem-megadrive", "mednafen-megadrive", "ares-megadrive", "jgenesis"]
+
+[systems.model2]
+alt_emulators = ["mame-model2"]
+
+[systems.model3]
+emulator = "supermodel"
+alt_emulators = ["retroarch-mame", "mame-model3"]
+
+[systems.msx]
+alt_emulators = ["retroarch-fmsx", "openmsx-msx", "openmsx-no-machine", "ares-msx"]
+
+[systems.msx1]
+alt_emulators = ["retroarch-fmsx", "openmsx-msx", "openmsx-no-machine", "ares-msx"]
+
+[systems.msx2]
+alt_emulators = ["retroarch-fmsx", "openmsx-msx2", "openmsx-no-machine", "ares-msx2"]
+
+[systems.mugen]
+extensions = [".mugen"]
+
+[systems.n3ds]
+emulator = "azahar"
+alt_emulators = ["run-file", "azaharplus", "retroarch-citra", "retroarch-citra2018", "citra", "mandarine", "lime3ds", "panda3ds"]
+extensions = [".3ds", ".3dsx", ".app", ".axf", ".cci", ".cxi", ".elf", ".z3dsx", ".zcci", ".zcxi", ".7z", ".zip", ".desktop"]
+
+[systems.n64]
+alt_emulators = ["mupen64plus", "retroarch-parallel-n64", "parallel-launcher", "simple64", "rosalies-mupen-gui", "ares-n64", "gopher64", "run-file"]
+extensions = [".z64", ".n64", ".v64", ".zip", ".7z", ".AppImage", ".desktop", ".sh"]
+
+[systems.naomi]
+alt_emulators = ["flycast", "flycast-dojo"]
+
+[systems.naomi2]
+alt_emulators = ["flycast", "flycast-dojo"]
+
+[systems.nds]
+alt_emulators = ["retroarch-melonds", "melonds", "retroarch-desmume", "retroarch-desmume2015", "desmume", "retroarch-noods", "noods", "skyemu"]
+
+[systems.neogeo]
+alt_emulators = ["finalburn-neo", "retroarch-geolith", "mame-neogeo"]
+
+[systems.neogeocd]
+alt_emulators = ["retroarch-fbneo-neogeocd", "finalburn-neo-neogeocd", "mame-neogeocd", "mame-neogeocd-2"]
+
+[systems.nes]
+alt_emulators = ["mesen", "retroarch-nestopia", "nestopia-ue", "retroarch-fceumm", "retroarch-quicknes", "punes", "mednafen-fds", "ares-nes", "ares-fds", "jgenesis", "plastic"]
+
+[systems.openbor]
+extensions = [".AppImage"]
+
+[systems.pcarcade]
+extensions = [".lindbergh", ".AppImage", ".desktop", ".exe", ".sh"]
+
+[systems.pcengine]
+alt_emulators = ["retroarch-beetle-pce-fast", "retroarch-beetle-supergrafx", "retroarch-geargrafx", "mednafen-pcengine", "mesen", "ares-pcengine"]
+
+[systems.pcenginecd]
+alt_emulators = ["retroarch-beetle-pce-fast", "retroarch-beetle-supergrafx", "mednafen-pcengine", "mesen", "ares-pcenginecd"]
+
+[systems.ports]
+alt_emulators = ["retroarch-ecwolf", "retroarch-cannonball", "retroarch-mrboom", "retroarch-nxengine", "retroarch-doukutsu-rs", "retroarch-openlara", "retroarch-superbroswar"]
+extensions = [".exe", ".game", ".phd", ".psx", ".AppImage", ".desktop", ".sh"]
+
+[systems.ps2]
+alt_emulators = ["retroarch-pcsx2", "pcsx2-legacy", "play-disc", "run-file"]
+extensions = [".iso", ".chd", ".cso", ".zso", ".gz", ".cue", ".desktop"]
+
+[systems.ps3]
+extensions = [".iso", ".ps3", ".ps3dir", ".desktop"]
+
+[systems.ps4]
+alt_emulators = ["run-file", "shadps4-gui"]
+extensions = [".bin", ".ps4", ".desktop"]
+
+[systems.ps5]
+alt_emulators = []
+extensions = [".ps5"]
+
+[systems.psx]
+alt_emulators = ["retroarch-beetle-psx", "retroarch-pcsx-rearmed", "retroarch-swanstation", "duckstation", "ares-psx", "mednafen-psx"]
+
+[systems.quake]
+extensions = [".pak", ".pk3", ".desktop", ".sh"]
+
+[systems.satellaview]
+alt_emulators = ["retroarch-snes9x2010", "retroarch-snes9x2005-plus", "snes9x", "retroarch-bsnes", "retroarch-bsnes-hd-beta", "retroarch-bsnes-jg", "retroarch-bsnes-mercury-accuracy", "bsnes", "retroarch-mesen-s", "mesen", "ares-satellaview"]
+
+[systems.saturn]
+alt_emulators = ["retroarch-kronos", "kronos", "retroarch-yabasanshiro", "retroarch-yabause", "ymir", "mednafen-saturn"]
+
+[systems.sega32x]
+alt_emulators = ["ares-sega32x"]
+
+[systems.sg-1000]
+alt_emulators = ["retroarch-genesis-plus-gx-wide", "retroarch-gearsystem", "retroarch-bluemsx", "mesen", "ares-sg-1000"]
+
+[systems.sgb]
+alt_emulators = ["mesen-sgb", "retroarch-sameboy", "retroarch-mgba", "mgba"]
+
+[systems.snes]
+alt_emulators = ["retroarch-snes9x2010", "retroarch-snes9x2005-plus", "snes9x", "retroarch-bsnes", "retroarch-bsnes-hd-beta", "retroarch-bsnes-jg", "retroarch-bsnes-mercury-accuracy", "bsnes", "retroarch-beetle-supafaust", "retroarch-mesen-s", "mesen", "mednafen-snes", "ares-satellaview", "jgenesis"]
+
+[systems.sfc]
+alt_emulators = ["retroarch-snes9x2010", "retroarch-snes9x2005-plus", "snes9x", "retroarch-bsnes", "retroarch-bsnes-hd-beta", "retroarch-bsnes-jg", "retroarch-bsnes-mercury-accuracy", "bsnes", "retroarch-beetle-supafaust", "retroarch-mesen-s", "mesen", "mednafen-snes", "ares-satellaview", "jgenesis"]
+
+[systems.steam]
+extensions = [".desktop", ".sh"]
+
+[systems.supergrafx]
+alt_emulators = ["retroarch-beetle-pce", "retroarch-geargrafx", "mednafen-pcengine", "mesen", "ares-supergrafx"]
+
+[systems.switch]
+alt_emulators = ["ryujinx"]
+extensions = [".nca", ".nro", ".nso", ".nsp", ".xci"]
+
+[systems.triforce]
+emulator = "triforce"
+alt_emulators = []
+
+[systems.type-x]
+extensions = [".AppImage", ".desktop", ".exe", ".sh"]
+
+[systems.vsmile]
+alt_emulators = ["mame-vsmile"]
+
+[systems.wiiu]
+alt_emulators = []
+
+[systems.windows]
+extensions = [".AppImage", ".desktop", ".sh"]
+
+[systems.windows3x]
+extensions = [".bat", ".dosz", ".7z", ".zip", ".AppImage", ".desktop", ".sh"]
+
+[systems.windows9x]
+extensions = [".bat", ".dosz", ".7z", ".zip", ".AppImage", ".desktop", ".sh"]
+
+[systems.wonderswan]
+alt_emulators = ["mednafen-wonderswan", "ares-wonderswan", "ares-wonderswan-benesse-pocket-challenge-v2", "mesen"]
+
+[systems.wonderswancolor]
+alt_emulators = ["mednafen-wonderswan", "ares-wonderswancolor", "mesen"]
+
+[systems.x68000]
+alt_emulators = ["mame-x68000"]
+
+[systems.xbox]
+alt_emulators = []
+extensions = [".iso", ".xiso"]
+
+[systems.xbox360]
+extensions = [".iso", ".xex", ".zar", ".desktop", ".sh"]

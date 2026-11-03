@@ -311,10 +311,23 @@ The owner's request (2026-11-02): the first step towards Linux, accepted on a Ca
 - On a CachyOS KDE desktop the AppImage starts, shows Slab's logos, browses, and launches a game through an emulator set in Settings (the owner's manual test: [manual-tests.md](manual-tests.md#linux-the-appimage-on-cachyos-kde)).
 
 **After L1**, in order:
-1. **L2, emulators on Linux** (what makes it usable): per-OS built-in profiles and `[variables]`, from ES-DE's Linux `es_find_rules.xml` (PATH, Flatpak exports, AppImages in `~/Applications`; cores in `~/.config/retroarch/cores`, `/usr/lib/libretro`, `/usr/lib/x86_64-linux-gnu/libretro`); Linux extensions for `desktop`, `ports` and `steam` (`.desktop`, `.sh`, `.AppImage`).
+1. **L2, emulators on Linux** (what makes it usable): done 2026-11-03, below.
 2. **L3, parity on KDE:** the foreground back after a game (X11's `_NET_ACTIVE_WINDOW`, or Godot's `WindowMoveToForeground`, if KWin doesn't give it); the power menu through logind; the battery and Wi-Fi bars from sysfs and `/proc/net/wireless`; `/run/media` and `/mnt` in the pickers; stub launchers followed by their process group; Steam from `registry.vdf`; Vita3K's XDG folders; `rom_dirs` that differ only in case.
 3. **L4, media:** videos (FFmpeg or GStreamer) and manuals (PDFium or Poppler), each a native library for the owner to choose.
 4. **L5, release:** a Linux job in release.yml (the export on the Windows runner, the AppImage made and checked on ubuntu-24.04, one job creating the release); AppStream metadata; updates that replace the `.AppImage` file (appimagetool can embed zsync's update information); Ubuntu 24.04 and Mint 22 checks; the wiki and CHANGELOG.
+
+## L2: Emulators on Linux
+
+The owner's request (2026-11-03): the next step after L1, with the owner's decisions: one complete built-in emulators file for each OS, each emulator searched for in the places it's installed, every built-in system covered, with the names Windows gives them. The design is in [ARCHITECTURE.md](ARCHITECTURE.md) (A5 Emulator profiles, Finding programs, Built-in emulators on Linux, and the decisions log, 2026-11-03).
+
+**Scope**
+- `emulators.windows.toml` (the old `emulators.toml`) and a complete `emulators.linux.toml`, with Linux's own values for the systems and settings merged over the shared files on Linux.
+- `executable` and `core` as a place or a list of places (the PATH, a `*` in a file name, list variables), found at launch, on the Emulators page and in the install check.
+- A game's own `.desktop` and `.sh` files run on Linux (Desktop, Ports, Steam), and a working folder that isn't there yet is made.
+
+**Acceptance**
+- The Linux defaults load without a diagnostic, keep every system, and offer only Linux profiles; a profile both OSes have has the same id and name; the tests pass on Windows and on Linux.
+- On a Linux desktop, a game launches through RetroArch (a distribution's package or its Flatpak) and through a standalone emulator with no `emulators.toml` of the user's, and the Emulators page shows where each was found (the owner's manual test: [manual-tests.md](manual-tests.md#linux-emulators-found-on-their-own)).
 
 ## Progress
 
@@ -331,6 +344,7 @@ Update this at the end of every milestone: the status, the date, and the evidenc
 | M6 Theming and custom models | Done (the working set is at the target with 300 per-game models; p99 and fullscreen hitches not met, as in M5; a Blender model on the real display is the owner's manual test) | 2026-09-30 | Part 1: [perf/m6-themes.md](perf/m6-themes.md), [perf/m6/](perf/m6/), [captures](perf/m6/captures.jpg). Part 2: [perf/m6-models.md](perf/m6-models.md), [perf/m6/part2/](perf/m6/part2/), [captures](perf/m6/part2/captures.jpg), [THEMING.md](THEMING.md); 427 tests; see the log below |
 | M7 Settings UI | Done (a real pad on the panels and live scrapes are the owner's manual test; manual matching moved out) | 2026-10-01 | Part 1: [perf/m7-settings.md](perf/m7-settings.md), bench JSON in [perf/m7/](perf/m7/), [captures](perf/m7/captures.jpg); 477 tests. Part 2: [perf/m7-items.md](perf/m7-items.md), bench JSON in [perf/m7/part2/](perf/m7/part2/), [captures](perf/m7/part2/captures.jpg); 523 tests; see the log below |
 | L1 Linux AppImage (local) | Done (a run on a CachyOS KDE desktop is the owner's manual test: [manual-tests.md](manual-tests.md#linux-the-appimage-on-cachyos-kde)) | 2026-11-02 | [captures](perf/linux-l1/captures.jpg) (the AppImage in WSLg on software Vulkan); on Windows 1,334 tests (1,333 pass, 1 skipped), on Linux 1,331 without the benchmarks (1,270 pass, 61 skipped); see the log below |
+| L2 Emulators on Linux | Done (the owner's test passed on 2026-11-03: the AppImage in CachyOS and Linux Mint VMs launched a Mega Drive game through the built-in profiles and scraped it) | 2026-11-03 | on Windows 1,380 tests (1,379 pass, 1 skipped), on Linux 1,377 without the benchmarks (1,316 pass, 61 skipped); see the log below |
 
 ### Log
 
@@ -1076,3 +1090,14 @@ Update this at the end of every milestone: the status, the date, and the evidenc
   - **What was added:** `sfc` in `Defaults/systems.toml` (`superfamicom` its alias; `snesna` stays `snes`'s), the base theme's `sfc` (the SNES's colour and look, the tall box), Console's `sfc.glb` (`snes.py`'s `sfc` kind), and Slab's and Classic View's Super Famicom images (Canvas's and Carbon's).
   - **Verification:** `dotnet test`, 1,354 tests: 1,353 pass and 1 is skipped (the new ones check the variant launches and scrapes as the SNES from its folders and gets the tall box); captures with the owner's scans (3 North American and 3 Japanese games: one SNES card, the wide and tall boxes side by side, the tall box's spine whole when turned; with grouping off, the Super Famicom's card in Console, Slab and Classic View).
   - **Not done:** a game in an `sfc` or `superfamicom` folder, `snes`'s before, keeps its media and user data under `snes`.
+- **2026-11-03: L2, emulators on Linux** (the owner's request, and decisions: one built-in emulators file per OS, each emulator searched for where it's installed, every built-in system, Windows' names).
+  - **What was added:**
+    - Core: `ConfigLoader` split into partial files (its own commit: it was 1,667 lines); `emulators.windows.toml` and the Linux files (`BuiltInDefaults`, `ConfigSources.PlatformSettings` and `PlatformSystems`, `ConfigWriter`'s defaults from the OS's file first); `executable` and `core` lists and list variables; `Launching/ProgramSearch` (the PATH, the newest `*` match), used by `LaunchService`, the install check and the Emulators page; `Launching/DesktopEntry` and `PortableProcessRunner`'s `.desktop` and `.sh` games; a missing working folder made.
+    - `Defaults/emulators.linux.toml`, `systems.linux.toml` and `settings.linux.toml`, made from the Windows profiles by a one-off script (not kept: the files are maintained by hand): 428 Linux profiles, all but 5 (DeSmuME, Lightspark, LinApple, Nestopia UE, Plastic) with Windows' ids and names, and 87 systems with Linux values.
+    - App: the Emulators page on Linux has no folder rows, shows each program where it was found, and points every profile sharing `{retroarch}` at a chosen program by changing the variable.
+  - **Verification:**
+    - Windows: `dotnet build`, 0 errors; `dotnet test`, 1,380 tests: 1,379 pass and 1 is skipped. Godot's C# build passes.
+    - Linux (WSL): 1,377 tests without the benchmarks: 1,316 pass and 61 skip. The first run failed 12, the Steam tests, which test Windows' shortcuts and now load Windows' defaults on any OS.
+  - **Not done:**
+    - The owner's test (2026-11-03, CachyOS and Linux Mint VMs): a Mega Drive game launched through the built-in profiles and was scraped. The rest of [manual-tests.md](manual-tests.md#linux-emulators-found-on-their-own) (a standalone emulator, a desktop shortcut) is still to run. Eden's Linux places are a guess (`eden`, `Eden*.AppImage`).
+    - A Steam `.desktop` shortcut starts its game, but the launcher follows Steam's own process, which ends at once (L3). Windows programs through Wine or Proton aren't offered.

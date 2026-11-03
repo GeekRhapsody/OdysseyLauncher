@@ -170,7 +170,7 @@ public sealed class ConfigWriter(string configDir, string homeDir)
 
     private static ConfigSaveResult Refused(string problem) => new(problem, [], null, null);
 
-    private static void Apply(TomlEditor editor, TomlEditor? defaults, ConfigEdit edit)
+    private static void Apply(TomlEditor editor, List<TomlEditor> defaults, ConfigEdit edit)
     {
         if (edit.Value is null)
         {
@@ -185,7 +185,7 @@ public sealed class ConfigWriter(string configDir, string homeDir)
             return;
         }
 
-        var isDefault = defaults is not null && Same(defaults.Get(edit.Path), value);
+        var isDefault = Same(DefaultValue(defaults, edit.Path), value);
         if (isDefault && !present)
         {
             return;
@@ -207,16 +207,39 @@ public sealed class ConfigWriter(string configDir, string homeDir)
         _ => a.Equals(b),
     };
 
-    private static TomlEditor? Defaults(ConfigFileKind kind)
+    /// <summary>The built-in files a kind's defaults come from, the OS's own first (A5: Linux's settings and systems).</summary>
+    private static List<TomlEditor> Defaults(ConfigFileKind kind)
     {
-        var file = kind switch
+        ConfigFile?[] files = kind switch
         {
-            ConfigFileKind.Settings => BuiltInDefaults.Settings,
-            ConfigFileKind.Systems => BuiltInDefaults.Systems,
-            ConfigFileKind.Emulators => BuiltInDefaults.Emulators,
-            _ => null,
+            ConfigFileKind.Settings => [BuiltInDefaults.PlatformSettings, BuiltInDefaults.Settings],
+            ConfigFileKind.Systems => [BuiltInDefaults.PlatformSystems, BuiltInDefaults.Systems],
+            ConfigFileKind.Emulators => [BuiltInDefaults.Emulators],
+            _ => [],
         };
-        return file is null ? null : TomlEditor.Parse(file.Text, file.Source, out _);
+        var editors = new List<TomlEditor>();
+        foreach (var file in files)
+        {
+            if (file is not null && TomlEditor.Parse(file.Text, file.Source, out _) is { } editor)
+            {
+                editors.Add(editor);
+            }
+        }
+
+        return editors;
+    }
+
+    private static object? DefaultValue(List<TomlEditor> defaults, IReadOnlyList<string> path)
+    {
+        foreach (var editor in defaults)
+        {
+            if (editor.Contains(path))
+            {
+                return editor.Get(path);
+            }
+        }
+
+        return null;
     }
 
     private static string NewFileHeader(ConfigFileKind kind) => kind switch

@@ -137,6 +137,10 @@ public sealed class ScrapeBed : IAsyncDisposable
             HomeDir = Dir.Path,
             ConfigDir = Dir.Combine("user"),
             FileExists = null,
+            // Windows' defaults on any OS: the Steam tests use Windows' Steam shortcuts (.url).
+            DefaultEmulators = BuiltInDefaults.Read(BuiltInDefaults.WindowsEmulatorsFileName),
+            PlatformSettings = null,
+            PlatformSystems = null,
             Settings = new ConfigFile("settings.toml", $"[paths]\nrom_root = '{Dir.Combine("ROMs")}'\n\n[scraping]\n{scraping ?? string.Empty}\n"),
         });
         Assert.False(result.HasErrors, string.Join('\n', result.Diagnostics));

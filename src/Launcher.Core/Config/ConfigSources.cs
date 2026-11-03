@@ -27,6 +27,12 @@ public sealed record ConfigSources
 
     public ConfigFile DefaultEmulators { get; init; } = BuiltInDefaults.Emulators;
 
+    /// <summary>The OS's own built-in settings, merged over <see cref="DefaultSettings"/>: Linux's; none on Windows.</summary>
+    public ConfigFile? PlatformSettings { get; init; } = BuiltInDefaults.PlatformSettings;
+
+    /// <summary>The OS's own built-in systems, merged over <see cref="DefaultSystems"/>: Linux's; none on Windows.</summary>
+    public ConfigFile? PlatformSystems { get; init; } = BuiltInDefaults.PlatformSystems;
+
     public ConfigFile? Settings { get; init; }
 
     public ConfigFile? Systems { get; init; }
@@ -65,16 +71,30 @@ public sealed record ConfigSources
         File.Exists(path) ? new ConfigFile(path, File.ReadAllText(path)) : null;
 }
 
-/// <summary>The defaults embedded in Launcher.Core (<c>Defaults/*.toml</c>).</summary>
+/// <summary>
+/// The defaults embedded in Launcher.Core (<c>Defaults/*.toml</c>, ARCHITECTURE.md A5). Each OS has its own complete
+/// emulators file, its programs being other programs in other places; the systems and settings are shared, with
+/// Linux's own values (its systems' emulators, the variables its profiles look in) in a file merged over them.
+/// </summary>
 public static class BuiltInDefaults
 {
-    public static ConfigFile Settings { get; } = Load(ConfigSources.SettingsFileName);
+    public const string WindowsEmulatorsFileName = "emulators.windows.toml";
+    public const string LinuxEmulatorsFileName = "emulators.linux.toml";
+    public const string LinuxSettingsFileName = "settings.linux.toml";
+    public const string LinuxSystemsFileName = "systems.linux.toml";
 
-    public static ConfigFile Systems { get; } = Load(ConfigSources.SystemsFileName);
+    public static ConfigFile Settings { get; } = Read(ConfigSources.SettingsFileName);
 
-    public static ConfigFile Emulators { get; } = Load(ConfigSources.EmulatorsFileName);
+    public static ConfigFile Systems { get; } = Read(ConfigSources.SystemsFileName);
 
-    private static ConfigFile Load(string fileName)
+    public static ConfigFile Emulators { get; } = Read(OperatingSystem.IsWindows() ? WindowsEmulatorsFileName : LinuxEmulatorsFileName);
+
+    public static ConfigFile? PlatformSettings { get; } = OperatingSystem.IsWindows() ? null : Read(LinuxSettingsFileName);
+
+    public static ConfigFile? PlatformSystems { get; } = OperatingSystem.IsWindows() ? null : Read(LinuxSystemsFileName);
+
+    /// <summary>One embedded default by its file name, whatever the OS (the tests read Linux's on Windows).</summary>
+    public static ConfigFile Read(string fileName)
     {
         using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("defaults/" + fileName)
             ?? throw new InvalidOperationException($"The embedded default {fileName} is missing.");

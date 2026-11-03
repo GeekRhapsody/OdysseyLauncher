@@ -6,16 +6,18 @@ using System.Threading.Tasks;
 using Launcher.App.Ui;
 using Launcher.Core.Config;
 using Launcher.Core.Files;
+using Launcher.Core.Launching;
 
 namespace Launcher.App.Settings;
 
 /// <summary>
 /// Emulator profiles and their executables (M7). First the folders the built-in profiles look in, as the ROM root is
 /// for ROMs: the emulators folder (<c>{emulators}</c>, a folder per emulator under it, named as ES-DE names them) and
-/// RetroArch's (<c>{retroarch}</c>), each a variable in settings.toml. Then each profile: whether its program is there
-/// (checked off the main thread); A picks another with the file picker (.exe only: batch files are rejected, A5).
-/// Several profiles sharing one install (every RetroArch core) can be moved together: when they share it through a
-/// variable in settings.toml ({retroarch}), that variable is what changes, so their cores move with it.
+/// RetroArch's (<c>{retroarch}</c>), each a variable in settings.toml. Then each profile: whether its program is in one
+/// of its places (checked off the main thread: A5 Finding programs); A picks another with the file picker (.exe only:
+/// batch files are rejected, A5). Several profiles sharing one install (every RetroArch core) can be moved together:
+/// when they share it through a variable in settings.toml ({retroarch}), that variable is what changes, so their cores
+/// move with it. On Linux those variables are lists of places, not folders, so there are no folder rows.
 /// </summary>
 public sealed partial class EmulatorsPage : ListPanel
 {
@@ -28,6 +30,10 @@ public sealed partial class EmulatorsPage : ListPanel
 
     private readonly SettingsController _settings;
     private readonly Dictionary<string, SettingRow> _rows = new(StringComparer.Ordinal);
+
+    /// <summary>Each profile's program where the check found it among several places, and the systems its row names.</summary>
+    private readonly Dictionary<string, string> _found = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, string> _systemsText = new(StringComparer.Ordinal);
     private int _check;
 
     public EmulatorsPage(SettingsController settings)
@@ -46,6 +52,8 @@ public sealed partial class EmulatorsPage : ListPanel
     {
         ClearRows(out var focused);
         _rows.Clear();
+        _found.Clear();
+        _systemsText.Clear();
         Build();
         FocusRow(focused);
     }
@@ -54,17 +62,24 @@ public sealed partial class EmulatorsPage : ListPanel
     {
         var config = _settings.Services.Config;
 
-        AddSection("Folders");
-        foreach (var (variable, title, detail) in Folders)
+        var folders = Folders.Where(f => config.Settings.Variables.ContainsKey(f.Variable)).ToList();
+        if (folders.Count > 0)
         {
-            if (config.Settings.Variables.TryGetValue(variable, out var folder))
+            AddSection("Folders");
+            foreach (var (variable, title, detail) in folders)
             {
                 var captured = variable;
-                AddRow(title, $"{ExpandedFolder(folder)} · {detail}", "Change", () => ChooseFolder(captured, title));
+                AddRow(title, $"{ExpandedFolder(config.Settings.Variables[variable])} · {detail}", "Change", () => ChooseFolder(captured, title));
             }
-        }
 
-        AddNote("The built-in profiles look for their programs under these folders. A profile given a program of its own keeps it.");
+            AddNote("The built-in profiles look for their programs under these folders. A profile given a program of its own keeps it.");
+        }
+        else
+        {
+            AddNote("The built-in profiles look for each program on the PATH, in Flatpak's apps, and in ~/Applications, " +
+                "~/.local/share/applications, ~/.local/bin and ~/bin ([variables] in settings.toml). A profile " +
+                "given a program of its own keeps it.");
+        }
 
         // The built-in catalogue has hundreds of profiles, so with empty systems hidden only the profiles that
         // systems with games offer (their default and alternatives) are listed.
@@ -118,26 +133,30 @@ public sealed partial class EmulatorsPage : ListPanel
 
             var captured = profile;
             var systems = used.TryGetValue(profile.Id, out var names) ? $" · {string.Join(", ", names.Take(3))}{(names.Count > 3 ? $" and {names.Count - 3} more" : string.Empty)}" : string.Empty;
-            var row = AddRow(profile.Name, profile.Executable + systems, "Checking…", () => ChooseProgram(captured));
+            var row = AddRow(profile.Name, profile.ProgramText + systems, "Checking…", () => ChooseProgram(captured));
             row.ValueColour = UiStyle.Dim;
             _rows[profile.Id] = row;
+            _systemsText[profile.Id] = systems;
         }
 
-        CheckInstalls(profiles.Select(p => (p.Id, p.Executable, p.Core)).ToList());
+        CheckInstalls(profiles);
     }
 
-    /// <summary>Whether each program (and core) exists: file I/O, so on a worker; an unplugged drive can't stall the page.</summary>
-    private void CheckInstalls(List<(string Id, string Executable, string? Core)> profiles)
+    /// <summary>
+    /// Whether each program (and core) is in one of its places: file I/O, so on a worker; an unplugged drive can't
+    /// stall the page. A program found among several places shows where.
+    /// </summary>
+    private void CheckInstalls(List<Launcher.Core.Config.EmulatorConfig> profiles)
     {
         var check = ++_check;
         _ = Task.Run(() =>
         {
-            var results = new List<(string Id, string Value, bool Found)>();
-            foreach (var (id, executable, core) in profiles)
+            var results = new List<(string Id, string Value, bool Found, string? Program)>();
+            foreach (var profile in profiles)
             {
-                var found = File.Exists(executable);
-                var coreFound = core is null || File.Exists(core);
-                results.Add((id, !found ? "Not found" : !coreFound ? "Core missing" : "Found", found && coreFound));
+                var (resolved, found, coreFound) = ProgramSearch.System.Resolve(profile);
+                var program = found && profile.ProgramPlaces.Count > 1 ? resolved.Executable : null;
+                results.Add((profile.Id, !found ? "Not found" : !coreFound ? "Core missing" : "Found", found && coreFound, program));
             }
 
             _settings.Ui.Queue.Post(() =>
@@ -147,12 +166,19 @@ public sealed partial class EmulatorsPage : ListPanel
                     return;
                 }
 
-                foreach (var (id, value, found) in results)
+                foreach (var (id, value, found, program) in results)
                 {
-                    if (_rows.TryGetValue(id, out var row) && IsInstanceValid(row))
+                    if (!_rows.TryGetValue(id, out var row) || !IsInstanceValid(row))
                     {
-                        row.Value = value;
-                        row.ValueColour = found ? UiStyle.Good : UiStyle.Warning;
+                        continue;
+                    }
+
+                    row.Value = value;
+                    row.ValueColour = found ? UiStyle.Good : UiStyle.Warning;
+                    if (program is not null)
+                    {
+                        _found[id] = program;
+                        row.Detail = program + _systemsText.GetValueOrDefault(id);
                     }
                 }
             });
@@ -185,7 +211,7 @@ public sealed partial class EmulatorsPage : ListPanel
             PickerUses.Emulator,
             file => Chosen(profile, file),
             Filter: FileFilter.Executables,
-            Start: profile.Executable,
+            Start: _found.GetValueOrDefault(profile.Id) ?? (ProgramSearch.IsBareName(profile.Executable) ? null : profile.Executable),
             Subtitle: OperatingSystem.IsWindows() ? "The emulator's .exe" : "The emulator's program"));
     }
 
@@ -223,10 +249,20 @@ public sealed partial class EmulatorsPage : ListPanel
     /// <summary>
     /// Moves every profile sharing <paramref name="profile"/>'s program. When they share it through a variable (the
     /// program is <c>{variable}/name.exe</c> and the new one has the same name), the variable moves, and the cores
-    /// under it with it; otherwise each profile gets the new path.
+    /// under it with it; when they share a list of places (Linux's <c>{retroarch}</c>), the list becomes the one program;
+    /// otherwise each profile gets the new path.
     /// </summary>
     private void SaveAll(Launcher.Core.Config.EmulatorConfig profile, List<Launcher.Core.Config.EmulatorConfig> sharing, string file)
     {
+        if (profile.ProgramVariable is { } list && sharing.All(e => e.ProgramVariable == list))
+        {
+            _settings.Save(this,
+                [new ConfigEdit(ConfigFileKind.Settings, ["variables", list], ConfigWriter.PathValue(file))],
+                $"{{{list}}} is now {file}: {sharing.Count + 1} profiles use it.",
+                check: () => ConfigInput.CheckExecutable(file));
+            return;
+        }
+
         var config = _settings.Services.Config;
         var oldFolder = Path.GetDirectoryName(profile.Executable);
         var variable = config.Settings.Variables

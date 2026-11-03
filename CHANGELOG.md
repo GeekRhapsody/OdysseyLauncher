@@ -10,6 +10,16 @@ it releases, and the Release workflow puts it on the release page (tools/release
 
 ## Unreleased
 
+### New
+
+- **Emulators are found on their own on Linux**: a distribution's package, a Flatpak, or an AppImage in `~/Applications`, `~/.local/bin` or `~/bin`, with RetroArch's cores wherever RetroArch keeps them. Every system has its Linux emulators built in, under the same names as on Windows, so on Linux you no longer need to set each one up yourself. Settings, Emulators shows where each program was found.
+- **Desktop shortcuts and scripts as games on Linux:** Desktop Apps, Ports and Steam take `.desktop` files (run as your desktop runs them), `.sh` scripts and AppImages.
+- **An emulator's program can be a list of places to look** in your `emulators.toml`, the first that has it winning: a program name to find on your PATH, or a file name with a `*` for the newest match.
+
+### Changed
+
+- **A launch makes the emulator's working folder if it isn't there yet**, instead of refusing to start.
+
 ### Fixed
 
 - **Black system cards and games on a computer without Vulkan**, such as a Linux virtual machine with no Vulkan driver: the launcher now draws them in their proper colours there too.

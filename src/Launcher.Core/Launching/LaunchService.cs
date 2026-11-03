@@ -230,6 +230,25 @@ public sealed class LaunchService
             return Fail(game, null, LaunchFailure.Config, resolveError!);
         }
 
+        // The program and core are the first of the profile's places that has them (A5 Finding programs). A profile
+        // with one place is checked with the plan, as it always was.
+        var (found, programFound, coreFound) = ProgramSearch.System.Resolve(emulator);
+        if (!programFound && emulator.ProgramPlaces.Count > 1)
+        {
+            return Fail(game, null, LaunchFailure.MissingFile,
+                $"{emulator.Name} wasn't found. It's looked for in {Places(emulator.ProgramPlaces)}. Install it, or choose its " +
+                "program in Settings > Emulators.");
+        }
+
+        if (!coreFound && emulator.CorePlaces is { Count: > 1 } cores)
+        {
+            return Fail(game, null, LaunchFailure.MissingFile,
+                $"The core for {emulator.Name} wasn't found. It's looked for in {Places(cores)}. Install it (in RetroArch: " +
+                "Online Updater, Core Downloader), or fix core in emulators.toml.");
+        }
+
+        emulator = found;
+
         // A folder game is planned with its file of the folder's name, or the folder (FolderGame).
         var target = FolderGame.LaunchTarget(game.RomPath);
         string? titleId = null;
@@ -417,6 +436,10 @@ public sealed class LaunchService
             ? null
             : $"The game's file is missing: '{game.RomPath}'. Reconnect the drive it's on, or rescan the system if it has moved.";
 
+    /// <summary>A profile's places for a message: a bare name is looked for on the PATH.</summary>
+    private static string Places(IReadOnlyList<string> places) =>
+        string.Join(", ", places.Select(p => ProgramSearch.IsBareName(p) ? $"'{p}' on the PATH" : $"'{p}'"));
+
     /// <summary>The first file the launch needs that isn't there, as a message for the user.</summary>
     private static string? MissingFile(GameDetails game, LaunchPlan plan)
     {
@@ -437,9 +460,16 @@ public sealed class LaunchService
                 "Core Downloader), or fix core in emulators.toml.";
         }
 
-        if (!Directory.Exists(plan.WorkingDirectory))
+        // A working folder that isn't there yet is made: Linux's MAME starts in ~/.mame, which nothing may have made yet
+        // (A5 Finding programs). Only one that can't be made stops the launch.
+        try
         {
-            return $"The working folder '{plan.WorkingDirectory}' for {plan.EmulatorName} doesn't exist. Check working_dir in emulators.toml.";
+            Directory.CreateDirectory(plan.WorkingDirectory);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+        {
+            return $"The working folder '{plan.WorkingDirectory}' for {plan.EmulatorName} doesn't exist, and it couldn't be made " +
+                $"({e.Message}). Check working_dir in emulators.toml.";
         }
 
         return null;

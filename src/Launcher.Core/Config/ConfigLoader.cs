@@ -67,6 +67,7 @@ public sealed partial class ConfigLoader : IConfigLoader
     {
         private readonly List<Diagnostic> _diagnostics = [];
         private readonly Dictionary<string, string?> _variables = new(StringComparer.Ordinal);
+        private readonly Dictionary<string, List<string>?> _lists = new(StringComparer.Ordinal);
         private readonly List<TemplatePart> _parts = [];
         private TomlTableNode? _rawVariables;
         private string _romRoot = string.Empty;
@@ -75,12 +76,12 @@ public sealed partial class ConfigLoader : IConfigLoader
         public ConfigLoadResult Execute()
         {
             // Settings keep a pristine copy of the defaults: a bad user value falls back to the default one.
-            var settingsDefaults = ParseDefault(sources.DefaultSettings);
-            var settingsTree = LoadLayered(sources.DefaultSettings, sources.Settings, out _);
-            var emulatorsTree = LoadLayered(sources.DefaultEmulators, sources.Emulators, out var builtInEmulators);
+            var settingsDefaults = ParseDefaults(sources.DefaultSettings, sources.PlatformSettings);
+            var settingsTree = LoadLayered(sources.DefaultSettings, sources.PlatformSettings, sources.Settings, out _);
+            var emulatorsTree = LoadLayered(sources.DefaultEmulators, null, sources.Emulators, out var builtInEmulators);
             var builtInEmulatorOf = new Dictionary<string, string>(StringComparer.Ordinal);
             var builtInGroupOf = new Dictionary<string, string>(StringComparer.Ordinal);
-            var systemsTree = LoadLayered(sources.DefaultSystems, sources.Systems, out var builtInSystems,
+            var systemsTree = LoadLayered(sources.DefaultSystems, sources.PlatformSystems, sources.Systems, out var builtInSystems,
                 defaults => ReadBuiltInSystems(defaults, builtInEmulatorOf, builtInGroupOf));
 
             var settings = ReadSettings(settingsTree, settingsDefaults);
@@ -101,12 +102,13 @@ public sealed partial class ConfigLoader : IConfigLoader
         // ---- Files and layering ------------------------------------------------------------------
 
         /// <summary>
-        /// Parses the default and the user file and merges them. Also returns the ids the default defines;
-        /// <paramref name="readDefaults"/> sees the default tree before the user's file is merged into it.
+        /// Parses the default, the OS's own default over it and the user file, and merges them. Also returns the ids the
+        /// defaults define; <paramref name="readDefaults"/> sees the defaults' tree before the user's file is merged into it.
         /// </summary>
-        private TomlTableNode LoadLayered(ConfigFile defaults, ConfigFile? user, out HashSet<string> builtInIds, Action<TomlTableNode>? readDefaults = null)
+        private TomlTableNode LoadLayered(
+            ConfigFile defaults, ConfigFile? platform, ConfigFile? user, out HashSet<string> builtInIds, Action<TomlTableNode>? readDefaults = null)
         {
-            var merged = ParseDefault(defaults);
+            var merged = ParseDefaults(defaults, platform);
             readDefaults?.Invoke(merged);
 
             // The ids of [section.<id>] tables in the default file: a new id must be complete, a built-in one needn't be.
@@ -160,6 +162,17 @@ public sealed partial class ConfigLoader : IConfigLoader
                     groupOf[id] = parent;
                 }
             }
+        }
+
+        private TomlTableNode ParseDefaults(ConfigFile defaults, ConfigFile? platform)
+        {
+            var tree = ParseDefault(defaults);
+            if (platform is not null)
+            {
+                tree.MergeFrom(ParseDefault(platform));
+            }
+
+            return tree;
         }
 
         private TomlTableNode ParseDefault(ConfigFile defaults) =>

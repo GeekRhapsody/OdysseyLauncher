@@ -1,0 +1,13 @@
+# Linux's own built-in settings, merged over settings.toml on Linux (docs/ARCHITECTURE.md A5, "Built-in emulators on
+# Linux").
+
+format = 1
+
+[variables]
+# Lists of places the built-in Linux profiles look in (A5 Finding programs): the PATH, Flatpak's exports, and the
+# folders AppImages are kept in, each written out (a list can't use another). Set one
+# in your settings.toml to look somewhere else, as a list or as a single path.
+emulators = ["{home}/Applications", "{home}/.local/share/applications", "{home}/.local/bin", "{home}/bin"]
+flatpak = ["/var/lib/flatpak/exports/bin", "{home}/.local/share/flatpak/exports/bin"]
+retroarch = ["retroarch", "org.libretro.RetroArch", "{home}/Applications/RetroArch-Linux*.AppImage", "{home}/.local/share/applications/RetroArch-Linux*.AppImage", "{home}/.local/bin/RetroArch-Linux*.AppImage", "{home}/bin/RetroArch-Linux*.AppImage", "/var/lib/flatpak/exports/bin/org.libretro.RetroArch", "{home}/.local/share/flatpak/exports/bin/org.libretro.RetroArch"]
+retroarch_cores = ["{home}/.config/retroarch/cores", "{home}/.config/retroarch/libretro", "{home}/Applications/RetroArch-Linux-x86_64.AppImage.home/.config/retroarch/cores", "{home}/.local/share/applications/RetroArch-Linux-x86_64.AppImage.home/.config/retroarch/cores", "{home}/.local/bin/RetroArch-Linux-x86_64.AppImage.home/.config/retroarch/cores", "{home}/bin/RetroArch-Linux-x86_64.AppImage.home/.config/retroarch/cores", "{home}/.var/app/org.libretro.RetroArch/config/retroarch/cores", "{home}/snap/retroarch/common/.config/retroarch/cores", "{home}/snap/retroarch/current/.config/retroarch/cores", "/usr/lib/x86_64-linux-gnu/libretro", "/usr/lib64/libretro", "/usr/lib/libretro"]

@@ -66,6 +66,10 @@ public sealed class SteamGameTests : IAsyncLifetime
             ConfigDir = _dir.Combine("config"),
             Settings = new ConfigFile("settings.toml", $"[paths]\nrom_root = '{_dir.Combine("ROMs")}'\n"),
             FileExists = null,
+            // Windows' defaults on any OS: these tests are about Windows' shortcuts (.url, .lnk).
+            DefaultEmulators = BuiltInDefaults.Read(BuiltInDefaults.WindowsEmulatorsFileName),
+            PlatformSettings = null,
+            PlatformSystems = null,
         });
         Assert.False(result.HasErrors, string.Join('\n', result.Diagnostics));
         return result.Config;

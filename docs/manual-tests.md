@@ -697,3 +697,26 @@ This checks what WSL can't: the AppImage on a real Linux desktop, with its GPU, 
 - Your set-up: `echo $XDG_SESSION_TYPE` (wayland or x11), Plasma's version (`plasmashell --version`), the GPU and its driver (step 1's `Vulkan … Using Device` line), and the display's resolution and scale (System Settings > Display).
 - The log lines: `grep -E '^(Launch|Boot|Theme: logos|Vulkan)|ERROR|WARNING' ~/.local/share/godot/app_userdata/"Odyssey Launcher"/logs/godot.log`.
 - The first Linux bench numbers, with nothing else running: `~/Applications/OdysseyLauncher-0.21.0-linux-x86_64.AppImage --resolution 1280x800 -- --bench=$HOME/odyssey-bench-boot.json --bench-frames=600`, and with your library's biggest system, `… -- --bench=$HOME/odyssey-bench-scroll.json --bench-scenario=scroll`. Send both JSON files.
+
+## Linux: emulators found on their own
+
+This checks L2 (ROADMAP.md): the built-in Linux profiles find your emulators where they're installed, with no `emulators.toml` of yours. In a virtual machine, give it a Vulkan driver first (CachyOS: `sudo pacman -S vulkan-swrast`), or the launcher falls back to OpenGL.
+
+**Set-up (once).**
+- Make a new AppImage on the PC (`dotnet build`, then `.\tools\linux\make-appimage.ps1`) and copy `artifacts/linux/OdysseyLauncher-0.22.1-linux-x86_64.AppImage` and its `.sha256` across as in the AppImage test above.
+- Move your own emulators file aside, so only the built-in profiles are used: `mv ~/.config/OdysseyLauncher/emulators.toml ~/.config/OdysseyLauncher/emulators.toml.l1`.
+- RetroArch and a Mega Drive core from the distribution (CachyOS: `sudo pacman -S retroarch libretro-genesis-plus-gx`; Mint: `sudo apt install retroarch libretro-genesisplusgx`), or RetroArch's Flatpak (`flatpak install flathub org.libretro.RetroArch`) with Genesis Plus GX from RetroArch's Online Updater, Core Downloader.
+- A standalone emulator with a game for it: DuckStation's AppImage in `~/Applications` (`chmod +x` it) with a PlayStation game in `~/ROMs/psx`, say, or PCSX2's Flatpak with a PS2 game.
+
+1. **The Emulators page.** Settings > Emulators has no folder rows; its note says where the profiles look. Mega Drive's "RetroArch: Genesis Plus GX" says Found, with the program it found in place of `retroarch, or 7 more places` (`/usr/bin/retroarch`, or the Flatpak's export); the standalone's row too. A profile you haven't installed says Not found.
+2. **RetroArch.** Launch a Mega Drive game: RetroArch starts full screen with Genesis Plus GX. Quit it: the launcher comes back.
+3. **A standalone emulator.** Launch the PlayStation (or PS2) game: DuckStation (or PCSX2) runs it.
+4. **Choosing RetroArch.** On RetroArch: Genesis Plus GX's row press A, pick RetroArch's program in the picker, and choose "All": `~/.config/OdysseyLauncher/settings.toml` gets `retroarch = "<that program>"` under `[variables]`, and every RetroArch row uses it. Delete that line afterwards.
+5. **A desktop shortcut.** Copy an application's shortcut into the Desktop system's folder (`mkdir -p ~/ROMs/desktop; cp /usr/share/applications/org.kde.kcalc.desktop ~/ROMs/desktop/`, or GNOME's calculator on Mint), rescan (F5) and launch it from Desktop Apps: the calculator opens, and closing it brings the launcher back.
+6. Put your emulators file back: `mv ~/.config/OdysseyLauncher/emulators.toml.l1 ~/.config/OdysseyLauncher/emulators.toml`.
+
+### Send back
+
+- Anything that differed, above all an emulator that wasn't found (and where it's installed: `which retroarch`, `flatpak list --app`, `ls ~/Applications`), or a launch that failed.
+- The distribution, and how each emulator was installed.
+- The log lines: `grep -E '^Launch|ERROR|WARNING' ~/.local/share/godot/app_userdata/"Odyssey Launcher"/logs/godot.log`.

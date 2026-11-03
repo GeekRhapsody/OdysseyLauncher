@@ -17,12 +17,13 @@ public sealed class PortableProcessRunner : IProcessRunner
     public IRunningProcess Start(LaunchPlan plan)
     {
         ArgumentNullException.ThrowIfNull(plan);
-        var info = new ProcessStartInfo(plan.Executable)
+        var (program, arguments, workingDirectory) = plan.RunFile ? RunFileCommand(plan) : (plan.Executable, plan.Arguments, plan.WorkingDirectory);
+        var info = new ProcessStartInfo(program)
         {
             UseShellExecute = false,
-            WorkingDirectory = plan.WorkingDirectory,
+            WorkingDirectory = workingDirectory,
         };
-        foreach (var argument in plan.Arguments)
+        foreach (var argument in arguments)
         {
             info.ArgumentList.Add(argument);
         }
@@ -48,6 +49,41 @@ public sealed class PortableProcessRunner : IProcessRunner
             process.Dispose();
             throw new ProcessStartException($"The OS couldn't start '{plan.Executable}': {e.Message} (error {e.NativeErrorCode}).", e.NativeErrorCode);
         }
+    }
+
+    /// <summary>
+    /// How a game's own file runs (A5 run_file), as a Linux desktop would run it: a <c>.desktop</c> shortcut by its
+    /// Exec line, in its Path folder if it names one; a <c>.sh</c> script with bash (so it needn't be executable);
+    /// anything else (an AppImage, a program) as it is. Reads the shortcut: never on the main thread.
+    /// </summary>
+    internal static (string Program, IReadOnlyList<string> Arguments, string WorkingDirectory) RunFileCommand(LaunchPlan plan)
+    {
+        var file = plan.Executable;
+        var extension = Path.GetExtension(file);
+        if (extension.Equals(".sh", StringComparison.OrdinalIgnoreCase))
+        {
+            return (ProgramSearch.System.Find(["bash", "sh"]) ?? "/bin/sh", [file], plan.WorkingDirectory);
+        }
+
+        if (!extension.Equals(".desktop", StringComparison.OrdinalIgnoreCase))
+        {
+            return (file, plan.Arguments, plan.WorkingDirectory);
+        }
+
+        string text;
+        try
+        {
+            text = File.ReadAllText(file);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            throw new ProcessStartException($"The shortcut '{file}' couldn't be read: {e.Message}");
+        }
+
+        var command = DesktopEntry.Read(text)
+            ?? throw new ProcessStartException($"The shortcut '{file}' has no command to run (an Exec line in its [Desktop Entry]).");
+        var program = ProgramSearch.IsBareName(command.Program) ? ProgramSearch.System.Find([command.Program]) ?? command.Program : command.Program;
+        return (program, command.Arguments, command.WorkingDirectory ?? plan.WorkingDirectory);
     }
 
     internal static void LeaveOutAppImageVariables(IDictionary<string, string?> environment)

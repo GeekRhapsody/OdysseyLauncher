@@ -57,18 +57,12 @@ public class TomlFastTests
     [Theory]
     [InlineData("settings.toml")]
     [InlineData("systems.toml")]
-    [InlineData("emulators.toml")]
-    public void The_built_in_defaults_parse_to_the_same_tree_as_Tomlyn(string file)
-    {
-        var text = file switch
-        {
-            "settings.toml" => BuiltInDefaults.Settings.Text,
-            "systems.toml" => BuiltInDefaults.Systems.Text,
-            _ => BuiltInDefaults.Emulators.Text,
-        };
-
-        AssertSameTree(text, "built-in/" + file);
-    }
+    [InlineData(BuiltInDefaults.WindowsEmulatorsFileName)]
+    [InlineData(BuiltInDefaults.LinuxEmulatorsFileName)]
+    [InlineData(BuiltInDefaults.LinuxSettingsFileName)]
+    [InlineData(BuiltInDefaults.LinuxSystemsFileName)]
+    public void The_built_in_defaults_parse_to_the_same_tree_as_Tomlyn(string file) =>
+        AssertSameTree(BuiltInDefaults.Read(file).Text, "built-in/" + file);
 
     [Fact]
     public void The_built_in_theme_parses_to_the_same_tree_as_Tomlyn()
