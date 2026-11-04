@@ -313,7 +313,7 @@ The owner's request (2026-11-02): the first step towards Linux, accepted on a Ca
 **After L1**, in order:
 1. **L2, emulators on Linux** (what makes it usable): done 2026-11-03, below.
 2. **L3, parity on KDE:** the power menu through logind; the battery and Wi-Fi bars from sysfs and `/proc/net/wireless`; `/run/media` and `/mnt` in the pickers; stub launchers followed by their process group; `rom_dirs` that differ only in case; the foreground back after a game (it already comes back): done 2026-11-04, below.
-3. **L3b, Steam and Vita3K:** Steam games followed through `registry.vdf`; Vita3K's own folders, so an installed Vita game boots by its title id: below.
+3. **L3b, Steam and Vita3K:** Steam games followed through `registry.vdf`; Vita3K's own folders, so an installed Vita game boots by its title id: done 2026-11-04, below.
 4. **L4, media:** videos (FFmpeg or GStreamer) and manuals (PDFium or Poppler), each a native library for the owner to choose.
 5. **L5, release:** a Linux job in release.yml (the export on the Windows runner, the AppImage made and checked on ubuntu-24.04, one job creating the release); AppStream metadata; updates that replace the `.AppImage` file (appimagetool can embed zsync's update information); Ubuntu 24.04 and Mint 22 checks; the wiki and CHANGELOG.
 
@@ -376,7 +376,7 @@ Update this at the end of every milestone: the status, the date, and the evidenc
 | L1 Linux AppImage (local) | Done (a run on a CachyOS KDE desktop is the owner's manual test: [manual-tests.md](manual-tests.md#linux-the-appimage-on-cachyos-kde)) | 2026-11-02 | [captures](perf/linux-l1/captures.jpg) (the AppImage in WSLg on software Vulkan); on Windows 1,334 tests (1,333 pass, 1 skipped), on Linux 1,331 without the benchmarks (1,270 pass, 61 skipped); see the log below |
 | L2 Emulators on Linux | Done (the owner's test passed on 2026-11-03: the AppImage in CachyOS and Linux Mint VMs launched a Mega Drive game through the built-in profiles and scraped it) | 2026-11-03 | on Windows 1,380 tests (1,379 pass, 1 skipped), on Linux 1,377 without the benchmarks (1,316 pass, 61 skipped); see the log below |
 | L3 Parity on KDE | Done, but for Steam and Vita3K (moved to L3b); the VM checks are the owner's manual test ([manual-tests.md](manual-tests.md#linux-parity-on-kde)) | 2026-11-04 | on Windows 1,412 tests (1,402 pass, 10 skipped), on Linux 1,409 without the benchmarks (1,350 pass, 59 skipped); the AppImage's checks pass; see the log below |
-| L3b Steam and Vita3K on Linux | In progress: Steam done (the VM checks are the owner's manual test: [manual-tests.md](manual-tests.md#linux-steam-and-vita3k)) | | Steam: see the log below |
+| L3b Steam and Vita3K on Linux | Done (the VM checks are the owner's manual test: [manual-tests.md](manual-tests.md#linux-steam-and-vita3k)) | 2026-11-04 | on Windows 1,444 tests (1,433 pass, 11 skipped), on Linux 1,441 without the benchmarks (1,382 pass, 59 skipped); the AppImage's checks pass; see the log below |
 
 ### Log
 
@@ -1153,3 +1153,8 @@ Update this at the end of every milestone: the status, the date, and the evidenc
     - Core `Launching`: `SteamShortcut` reads a `.desktop` shortcut's app id, the first `steam://` argument of its `Exec` line; the "Steam isn't installed" message no longer says Windows.
     - **Verification:** Windows: `dotnet build`, 0 errors; `dotnet test`, 1,441 tests: 1,431 pass and 10 skip. Linux (WSL): 1,438 without the benchmarks: 1,379 pass and 59 skip. The 29 new tests read made-up registries (Steam's layout, case, comments, Flathub's, both, half-written and over-nested files) against a made-up `/proc`, Steam's `.desktop` shortcuts and others, and launch a `.desktop` Steam game with Linux's defaults through a scripted client.
     - **Not done:** whether Linux's Steam saves `Apps/<id>/Running` while a game runs, and Flathub's `SteamPID`, are the owner's test in the VMs ([manual-tests.md](manual-tests.md#linux-steam-and-vita3k)). Linux's `RunningAppID` stays 0 (Valve's issue 9672).
+  - **Vita3K** (its own commit):
+    - Core `Launching`: `Vita3KGames.LinuxStorageFolder`, Vita3K's Linux rules from its source (`app_init.cpp`, `config.cpp`, master `f34f11e`): `portable` beside the AppImage or the real program (links followed), else `pref-path` in `$XDG_CONFIG_HOME/Vita3K/config.yml`, else `$XDG_DATA_HOME/Vita3K/Vita3K`; `LaunchService.LocalApplicationData`, and each OS's rules picked at launch.
+    - **Verification:** Windows: `dotnet test`, 1,444 tests: 1,433 pass and 11 skip (the new one is the linked program, as this Windows user can't make a symbolic link). Linux (WSL): 1,441 without the benchmarks: 1,382 pass and 59 skip. The new tests check the Linux order (the XDG config's `pref-path`, not one beside the program; a relative one; portable beside the AppImage and beside a linked program's target) and a launch booting a game from each OS's preference folder.
+    - `tools/linux/make-appimage.ps1`: the AppImage, its smoke run and its launch smoke run pass.
+    - **Not done:** a real Vita3K and Steam in the VMs ([manual-tests.md](manual-tests.md#linux-steam-and-vita3k)); a Flatpak Vita3K (Flathub has none).

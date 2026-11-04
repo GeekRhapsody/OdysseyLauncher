@@ -71,6 +71,7 @@ public sealed class Vita3KLaunchTests : IAsyncLifetime
         _launcher = new LaunchService(result.Config, PlatformServices.CreateProcessRunner(), _library, _clock)
         {
             ApplicationData = _dir.Combine("Roaming"),
+            LocalApplicationData = _dir.Combine("Local"),
         };
         _launcher.Starting += (_, _) => _events.Enqueue("starting");
         _launcher.Failed += (_, _) => _events.Enqueue("failed");
@@ -124,6 +125,21 @@ public sealed class Vita3KLaunchTests : IAsyncLifetime
         await Launch("Gravity Rush (Europe) [PCSF00024].vpk");
 
         Assert.Equal(["-r", "PCSF00024"], LoggedArgs());
+    }
+
+    [Fact]
+    public async Task Without_a_portable_folder_the_games_are_in_the_oss_preference_folder()
+    {
+        Directory.Delete(Path.GetDirectoryName(Path.GetDirectoryName(Path.GetDirectoryName(_apps))!)!, recursive: true);
+        // Windows: %APPDATA%; Linux: $XDG_DATA_HOME, Vita3K's rules on each.
+        var preferences = OperatingSystem.IsWindows() ? _dir.Combine("Roaming") : _dir.Combine("Local");
+        Directory.CreateDirectory(Path.Combine(preferences, "Vita3K", "Vita3K", "ux0", "app", "PCSF00024"));
+
+        await Launch("Gravity Rush (Europe) [PCSF00024].vpk");
+        Assert.Equal(["-r", "PCSF00024"], LoggedArgs());
+
+        await Launch("Infected Wars (Europe) [PCSB00842].vpk");
+        Assert.Equal([Path.Combine(Roms, "Infected Wars (Europe) [PCSB00842].vpk")], LoggedArgs());
     }
 
     [Fact]

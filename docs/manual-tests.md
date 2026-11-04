@@ -749,7 +749,7 @@ This checks L3 (ROADMAP.md) on both virtual machines, CachyOS (KDE) and Linux Mi
 
 ## Linux: Steam and Vita3K
 
-This checks L3b (ROADMAP.md) in a VM: Steam games followed through Steam's `registry.vdf`, which nothing but a real Steam writes. Give the VM a Vulkan driver first (CachyOS: `sudo pacman -S vulkan-swrast`), as most games need one.
+This checks L3b (ROADMAP.md) in a VM: Steam games followed through Steam's `registry.vdf`, which nothing but a real Steam writes, and Vita games booted from where a real Vita3K installed them. Give the VM a Vulkan driver first (CachyOS: `sudo pacman -S vulkan-swrast`), as most games need one.
 
 **Set-up (once).**
 - Make a new AppImage on the PC (`dotnet build`, then `.\tools\linux\make-appimage.ps1`) and copy `artifacts/linux/OdysseyLauncher-<version>-linux-x86_64.AppImage` and its `.sha256` across as in the AppImage test above.
@@ -761,9 +761,16 @@ This checks L3b (ROADMAP.md) in a VM: Steam games followed through Steam's `regi
 3. **A game that isn't installed.** In Steam, uninstall the game, launch it from the launcher, and close Steam's install dialog without installing: after two minutes the launcher says Steam didn't start the game, and that Steam says it isn't installed. Reinstall it afterwards if you like.
 4. **Flathub's Steam (optional, on one VM).** With only Flathub's Steam installed (`flatpak install flathub com.valvesoftware.Steam`), make the shortcut the same way and repeat step 1. Its shortcut runs `steam`, which only Steam's own package installs, so the launch should fail at once saying the program wasn't found; edit the copied shortcut's `Exec=` line to `flatpak run com.valvesoftware.Steam steam://rungameid/<id>` and launch it again: it should be followed as in step 1.
 
+**Vita3K's set-up.** Vita3K's AppImage from its GitHub releases (a build from 2026-10-09 or later, for `--frontend=sdl`) in `~/Applications` (`chmod +x` it). Start it once on its own, install the firmware it asks for, and quit it. Copy a small game's `.vpk` into `~/ROMs/psvita/` with its title id in its name (`Age of Zombies [PCSE00362].vpk`), and rescan (F5). Settings > Emulators shows the PlayStation Vita's Vita3K found in `~/Applications`.
+
+5. **A Vita game, installed once.** Launch the game: the running screen stays while Vita3K installs it, then it starts full screen. Quit it (close Vita3K's window): the launcher comes back. The log's `Launch` line has the package's path as Vita3K's only game argument, and `~/.local/share/Vita3K/Vita3K/ux0/app/PCSE00362` now exists.
+6. **Booted by its title id.** Launch it again: it starts within a few seconds, without installing, and the `Launch` line ends with `-r PCSE00362`.
+7. **Portable Vita3K (optional).** Quit, make `~/Applications/portable` (`mkdir ~/Applications/portable`), start Vita3K on its own once (it now keeps everything in `portable/`; install the firmware again) and quit. Launch the game: it's installed again, into `~/Applications/portable/fs/ux0/app/`, and its next launch boots it with `-r` as in step 6. Delete `~/Applications/portable` afterwards.
+
 ### Send back
 
 - Anything that differed, above all a game the launcher came back from at once, or one it kept waiting for after it had ended, with the distribution and how Steam was installed.
 - While the game runs (step 1), what Steam has saved about it: `grep -iE '"(SteamPID|RunningAppID)"' ~/.steam/registry.vdf; grep -A6 '"<id>"' ~/.steam/registry.vdf` (Flathub's: `~/.var/app/com.valvesoftware.Steam/.steam/registry.vdf`), and Steam's processes: `ps -eo pid,args | grep -iE 'steamlaunch|ubuntu12_32/steam ' | grep -v grep`. Then the same once the game has ended. Don't send the whole file: it names your Steam account (`AutoLoginUser`).
 - The shortcut Steam made: `cat ~/ROMs/steam/<game>.desktop`.
+- For Vita3K: its version (its window's title), how long the first launch's install took, and, if a game was installed again on its second launch, `ls ~/.local/share/Vita3K/Vita3K/ux0/app ~/.config/Vita3K` and the `pref-path` line of `~/.config/Vita3K/config.yml`.
 - The log lines: `grep -E '^Launch|ERROR|WARNING' ~/.local/share/godot/app_userdata/"Odyssey Launcher"/logs/godot.log`.

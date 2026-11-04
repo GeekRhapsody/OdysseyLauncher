@@ -6,9 +6,8 @@ namespace Launcher.Core.Launching;
 /// or a game's folder given on its command line is installed first, every time, over the copy already there (a copy of
 /// up to a few gigabytes). So the launcher boots a game that's installed by its title id, and hands over only one that
 /// isn't. Where Vita3K keeps them is worked out as its own start-up does (its <c>app/src/app_init.cpp</c>,
-/// <c>config/src/config.cpp</c> and <c>config/include/config/config.h</c>, read on 2026-10-28). Windows' rules: a Linux
-/// Vita3K's XDG folders aren't looked at yet, so there every game is handed over to be installed. Does file I/O: never
-/// on the main thread.
+/// <c>config/src/config.cpp</c> and <c>config/include/config/config.h</c>, read on 2026-10-28 for Windows and on
+/// 2026-11-04 for Linux), which differs by OS. Does file I/O: never on the main thread.
 /// </summary>
 public static class Vita3KGames
 {
@@ -16,7 +15,7 @@ public static class Vita3KGames
     public const string Kind = "vita3k";
 
     /// <summary>
-    /// The folder of Vita3K's emulated storage (it holds <c>ux0</c>, the memory card): <c>portable/fs</c> when a
+    /// Windows: the folder of Vita3K's emulated storage (it holds <c>ux0</c>, the memory card): <c>portable/fs</c> when a
     /// <c>portable</c> folder is beside the executable; else the <c>pref-path</c> set in <c>config.yml</c> beside the
     /// executable; else SDL's preference folder, <c>%APPDATA%\Vita3K\Vita3K</c>.
     /// </summary>
@@ -26,26 +25,56 @@ public static class Vita3KGames
         ArgumentNullException.ThrowIfNull(executable);
         ArgumentNullException.ThrowIfNull(applicationData);
         var folder = Path.GetDirectoryName(executable) ?? executable;
-        var portable = Path.Combine(folder, "portable");
+        return Storage(
+            Path.Combine(folder, "portable"), Path.Combine(folder, "config.yml"), folder, Path.Combine(applicationData, "Vita3K", "Vita3K"));
+    }
+
+    /// <summary>
+    /// Linux: the folder of Vita3K's emulated storage: <c>portable/fs</c> when a <c>portable</c> folder is beside the
+    /// program, its links followed (an AppImage's is beside the <c>.AppImage</c> file, which Vita3K reads from
+    /// <c>$APPIMAGE</c>; any other build's beside its real program, SDL's base folder); else the <c>pref-path</c> set in
+    /// <c>config.yml</c> in its XDG config folder, <c>$XDG_CONFIG_HOME/Vita3K</c>; else its XDG data folder's,
+    /// <c>$XDG_DATA_HOME/Vita3K/Vita3K</c>.
+    /// </summary>
+    /// <param name="configHome"><c>$XDG_CONFIG_HOME</c>, else <c>~/.config</c> (<c>Environment.SpecialFolder.ApplicationData</c> on Linux).</param>
+    /// <param name="dataHome"><c>$XDG_DATA_HOME</c>, else <c>~/.local/share</c> (<c>Environment.SpecialFolder.LocalApplicationData</c> on Linux).</param>
+    public static string LinuxStorageFolder(string executable, string configHome, string dataHome)
+    {
+        ArgumentNullException.ThrowIfNull(executable);
+        ArgumentNullException.ThrowIfNull(configHome);
+        ArgumentNullException.ThrowIfNull(dataHome);
+        var folder = Path.GetDirectoryName(executable) ?? executable;
+        // The program a link (a vita3k on the PATH) leads to, as /proc/self/exe names it to SDL. The launch found the
+        // program, so the link resolves.
+        var program = File.ResolveLinkTarget(executable, returnFinalTarget: true)?.FullName ?? executable;
+        return Storage(
+            Path.Combine(Path.GetDirectoryName(program) ?? program, "portable"),
+            Path.Combine(configHome, "Vita3K", "config.yml"),
+            folder,
+            Path.Combine(dataHome, "Vita3K", "Vita3K"));
+    }
+
+    /// <param name="relativeTo">Where a relative <c>pref-path</c> starts: Vita3K's working folder, by default its executable's.</param>
+    private static string Storage(string portable, string config, string relativeTo, string preferences)
+    {
         if (Directory.Exists(portable))
         {
             return Path.Combine(portable, "fs");
         }
 
-        var config = Path.Combine(folder, "config.yml");
         try
         {
             if (File.Exists(config) && PrefPath(File.ReadAllText(config)) is { } prefPath)
             {
-                return Path.GetFullPath(prefPath, folder);
+                return Path.GetFullPath(prefPath, relativeTo);
             }
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
         {
-            // Unreadable, or a path Windows can't use: Vita3K won't start with it either, and says why.
+            // Unreadable, or a path the OS can't use: Vita3K won't start with it either, and says why.
         }
 
-        return Path.Combine(applicationData, "Vita3K", "Vita3K");
+        return preferences;
     }
 
     /// <summary>Whether the game <paramref name="titleId"/> is installed in the storage at <paramref name="storageFolder"/>.</summary>

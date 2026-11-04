@@ -27,6 +27,7 @@ it releases, and the Release workflow puts it on the release page (tools/release
 
 ### Fixed
 
+- **On Linux, a PlayStation Vita game Vita3K has installed starts straight away**, instead of being installed again on every launch: the launcher now looks where Vita3K keeps its games on Linux (its portable folder, the folder its settings name, or `~/.local/share/Vita3K`).
 - **On Linux, ROM folders whose names differ only in case** (`snes` and `SNES`) are both scanned: they're separate folders there, and only the first was.
 - **Black system cards and games on a computer without Vulkan**, such as a Linux virtual machine with no Vulkan driver: the launcher now draws them in their proper colours there too.
 

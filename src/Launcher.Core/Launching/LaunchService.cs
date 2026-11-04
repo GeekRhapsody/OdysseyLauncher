@@ -167,6 +167,9 @@ public sealed class LaunchService
     /// <summary>The user's roaming application data, where an emulator keeps its config (Eden's, for its controllers).</summary>
     public string ApplicationData { get; set; } = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
 
+    /// <summary>The user's local application data; on Linux <c>$XDG_DATA_HOME</c>, where Vita3K keeps its games.</summary>
+    public string LocalApplicationData { get; set; } = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+
     /// <inheritdoc cref="LaunchAsync(GameDetails, string?, IReadOnlyList{Gamepad}?, CancellationToken)"/>
     public Task<LaunchOutcome> LaunchAsync(GameDetails game, string? emulatorOverride, CancellationToken cancellationToken) =>
         LaunchAsync(game, emulatorOverride, null, cancellationToken);
@@ -263,7 +266,7 @@ public sealed class LaunchService
 
             titleId = TitleId.Read(target);
             if (emulator.Installs == Vita3KGames.Kind
-                && (titleId is null || !Vita3KGames.IsInstalled(Vita3KGames.StorageFolder(emulator.Executable, ApplicationData), titleId)))
+                && (titleId is null || !Vita3KGames.IsInstalled(Vita3KStorage(emulator.Executable), titleId)))
             {
                 if (NotInstallable(emulator, target, titleId) is { } notInstalled)
                 {
@@ -403,6 +406,12 @@ public sealed class LaunchService
             return (null, $"The controllers couldn't be set up in {emulator.Name}'s config: {e.Message}");
         }
     }
+
+    /// <summary>Where Vita3K keeps its games, by its rules for this OS (A5 Vita3K's games).</summary>
+    private string Vita3KStorage(string executable) =>
+        OperatingSystem.IsWindows()
+            ? Vita3KGames.StorageFolder(executable, ApplicationData)
+            : Vita3KGames.LinuxStorageFolder(executable, ApplicationData, LocalApplicationData);
 
     /// <summary>
     /// Why a game that isn't installed in its emulator (<c>installs</c>) can't be installed by this launch, for the user;
