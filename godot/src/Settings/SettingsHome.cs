@@ -150,8 +150,7 @@ public sealed partial class SettingsHome : ListPanel
         ShowIndicator(_groupSystems, display.GroupSystems);
         if (_settings.DeviceStatus?.Current is { Battery.Present: false })
         {
-            // Off Windows the battery isn't read yet (PortableDeviceStatus), so none is reported, even on a laptop.
-            _battery.Detail = OperatingSystem.IsWindows() ? "This PC has no battery, so it never shows" : "The battery isn't read on Linux yet, so it never shows";
+            _battery.Detail = "This PC has no battery, so it never shows";
         }
 
         var problems = services.Diagnostics.Count(d => d.Severity != Severity.Info);

@@ -728,6 +728,7 @@ This checks L3 (ROADMAP.md) on both virtual machines, CachyOS (KDE) and Linux Mi
 **Set-up (once).** Make a new AppImage on the PC (`dotnet build`, then `.\tools\linux\make-appimage.ps1`) and copy `artifacts/linux/OdysseyLauncher-<version>-linux-x86_64.AppImage` and its `.sha256` across as in the AppImage test above.
 
 1. **The power menu.** Press View in the grids: Restart system, Shut down system and Sleep system each show their usual description, not a reason they're unavailable. Choose Sleep: the VM sleeps (or, if its hypervisor can't wake it, note that), and once it's woken (KDE and Mint show their lock screen first) the launcher is where you left it. Then Restart: the launcher quits and the VM restarts. Then Shut down: the VM turns off. On one VM, also log a second user in (Switch User), switch back and open the menu: Restart and Shut down may now say they need an administrator's password, and aren't offered.
+2. **The status indicators.** Top right, a VM shows no battery and the cable icon. Disconnect the VM's network (the hypervisor's network cable setting): within ten seconds the icon shows no connection; reconnect it and the cable comes back. If you can, also try a laptop (the AppImage from a USB stick) or a USB Wi-Fi adapter passed through to a VM: the battery's percentage and charging icon follow the charger being plugged and unplugged, and the Wi-Fi icon's bars follow the signal (compare KDE's or Mint's own network icon). A paired controller's battery doesn't show as the computer's.
 
 ### Send back
 

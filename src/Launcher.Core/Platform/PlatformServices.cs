@@ -27,7 +27,7 @@ public static class PlatformServices
 
     /// <summary>The battery and the network, for the status indicators.</summary>
     public static IDeviceStatus CreateDeviceStatus() =>
-        OperatingSystem.IsWindows() ? new WindowsDeviceStatus() : new PortableDeviceStatus();
+        OperatingSystem.IsWindows() ? new WindowsDeviceStatus() : new LinuxDeviceStatus("/");
 
     /// <summary>The drives and quick-access folders the pickers start from (M7).</summary>
     public static IFileLocations CreateFileLocations(string homeDir) =>
