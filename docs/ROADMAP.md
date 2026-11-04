@@ -312,7 +312,7 @@ The owner's request (2026-11-02): the first step towards Linux, accepted on a Ca
 
 **After L1**, in order:
 1. **L2, emulators on Linux** (what makes it usable): done 2026-11-03, below.
-2. **L3, parity on KDE:** the foreground back after a game (X11's `_NET_ACTIVE_WINDOW`, or Godot's `WindowMoveToForeground`, if KWin doesn't give it); the power menu through logind; the battery and Wi-Fi bars from sysfs and `/proc/net/wireless`; `/run/media` and `/mnt` in the pickers; stub launchers followed by their process group; Steam from `registry.vdf`; Vita3K's XDG folders; `rom_dirs` that differ only in case.
+2. **L3, parity on KDE:** the power menu through logind; the battery and Wi-Fi bars from sysfs and `/proc/net/wireless`; `/run/media` and `/mnt` in the pickers; stub launchers followed by their process group; `rom_dirs` that differ only in case; the foreground back after a game (it already comes back): done 2026-11-04, below. Steam from `registry.vdf` and Vita3K's XDG folders are proposed for a later milestone (the owner's decision is pending).
 3. **L4, media:** videos (FFmpeg or GStreamer) and manuals (PDFium or Poppler), each a native library for the owner to choose.
 4. **L5, release:** a Linux job in release.yml (the export on the Windows runner, the AppImage made and checked on ubuntu-24.04, one job creating the release); AppStream metadata; updates that replace the `.AppImage` file (appimagetool can embed zsync's update information); Ubuntu 24.04 and Mint 22 checks; the wiki and CHANGELOG.
 
@@ -328,6 +328,23 @@ The owner's request (2026-11-03): the next step after L1, with the owner's decis
 **Acceptance**
 - The Linux defaults load without a diagnostic, keep every system, and offer only Linux profiles; a profile both OSes have has the same id and name; the tests pass on Windows and on Linux.
 - On a Linux desktop, a game launches through RetroArch (a distribution's package or its Flatpak) and through a standalone emulator with no `emulators.toml` of the user's, and the Emulators page shows where each was found (the owner's manual test: [manual-tests.md](manual-tests.md#linux-emulators-found-on-their-own)).
+
+## L3: Parity on KDE
+
+The owner's request (2026-11-04): what Windows does that Linux didn't, tested on CachyOS (KDE) and Linux Mint VMs, in the owner's order, with their decisions: logind for the power menu, not the desktop's session manager; an action logind would ask a password for isn't offered; the default ROM folders' names match exactly, as ES-DE's; no fix for the foreground after a game, which already comes back. The design is in [ARCHITECTURE.md](ARCHITECTURE.md) (A1 `Platform`, A4 ROM folders, and the decisions log, 2026-11-04).
+
+**Scope**
+- Restart, shut down and sleep through logind (`LinuxPowerControl`).
+- The battery and the Wi-Fi bars from the kernel's files (`LinuxDeviceStatus`).
+- USB drives and shares mounted under `/run/media/<user>`, `/media/<user>` and `/mnt` in the pickers (`LinuxFileLocations`).
+- Stub launchers followed through their process group (`PortableProcessRunner`, with `setsid`).
+- `rom_dirs` that differ only in case kept apart.
+- The launcher back in front after a game: recorded as working, with a manual check.
+- **Proposed for later:** Steam games followed through Steam's `registry.vdf` (a Steam `.desktop` game still ends at once), and Vita3K's XDG folders (every Vita game is still handed over to be installed).
+
+**Acceptance**
+- The new tests pass on Windows and on Linux; the stub-launcher tests, Windows-only until now, run on Linux too.
+- In both VMs the power menu restarts, shuts down and sleeps; the status indicators, the pickers, a stub launcher and folders that differ in case behave as [manual-tests.md](manual-tests.md#linux-parity-on-kde) says (the owner's manual test).
 
 ## Progress
 
@@ -345,6 +362,7 @@ Update this at the end of every milestone: the status, the date, and the evidenc
 | M7 Settings UI | Done (a real pad on the panels and live scrapes are the owner's manual test; manual matching moved out) | 2026-10-01 | Part 1: [perf/m7-settings.md](perf/m7-settings.md), bench JSON in [perf/m7/](perf/m7/), [captures](perf/m7/captures.jpg); 477 tests. Part 2: [perf/m7-items.md](perf/m7-items.md), bench JSON in [perf/m7/part2/](perf/m7/part2/), [captures](perf/m7/part2/captures.jpg); 523 tests; see the log below |
 | L1 Linux AppImage (local) | Done (a run on a CachyOS KDE desktop is the owner's manual test: [manual-tests.md](manual-tests.md#linux-the-appimage-on-cachyos-kde)) | 2026-11-02 | [captures](perf/linux-l1/captures.jpg) (the AppImage in WSLg on software Vulkan); on Windows 1,334 tests (1,333 pass, 1 skipped), on Linux 1,331 without the benchmarks (1,270 pass, 61 skipped); see the log below |
 | L2 Emulators on Linux | Done (the owner's test passed on 2026-11-03: the AppImage in CachyOS and Linux Mint VMs launched a Mega Drive game through the built-in profiles and scraped it) | 2026-11-03 | on Windows 1,380 tests (1,379 pass, 1 skipped), on Linux 1,377 without the benchmarks (1,316 pass, 61 skipped); see the log below |
+| L3 Parity on KDE | Done, but for Steam and Vita3K (proposed for a later milestone, the owner's decision pending); the VM checks are the owner's manual test ([manual-tests.md](manual-tests.md#linux-parity-on-kde)) | 2026-11-04 | on Windows 1,412 tests (1,402 pass, 10 skipped), on Linux 1,409 without the benchmarks (1,350 pass, 59 skipped); the AppImage's checks pass; see the log below |
 
 ### Log
 
@@ -1101,3 +1119,17 @@ Update this at the end of every milestone: the status, the date, and the evidenc
   - **Not done:**
     - The owner's test (2026-11-03, CachyOS and Linux Mint VMs): a Mega Drive game launched through the built-in profiles and was scraped. The rest of [manual-tests.md](manual-tests.md#linux-emulators-found-on-their-own) (a standalone emulator, a desktop shortcut) is still to run. Eden's Linux places are a guess (`eden`, `Eden*.AppImage`).
     - A Steam `.desktop` shortcut starts its game, but the launcher follows Steam's own process, which ends at once (L3). Windows programs through Wine or Proton aren't offered.
+- **2026-11-04: L3, parity on KDE** (the owner's request and order, and decisions: logind for the power menu, no password prompts, the default ROM folders' names matched exactly, no fix for the foreground after a game).
+  - **What was added:**
+    - Core `Platform/Linux`: `LinuxNativeMethods` (libc's `kill`, libsystemd's sd-bus), `LinuxPowerControl` (logind's `Reboot`, `PowerOff`, `Suspend`, offered where `CanReboot`, `CanPowerOff`, `CanSuspend` say "yes"), `LinuxDeviceStatus` (`/sys/class/power_supply`, `/sys/class/net`, `/proc/net/route`, `/proc/net/wireless`) and `LinuxFileLocations` (`/proc/self/mountinfo`), replacing `PortableDeviceStatus` and `PortableFileLocations`.
+    - `PortableProcessRunner`: the game in a process group of its own (`setsid`), followed until the group is empty and killed whole; the program checked before `setsid` is given it.
+    - `ConfigLoader`: `rom_dirs` compared as `MediaFolder` compares folders (ignoring case on Windows only).
+    - App: the power control built and asked on a worker in the warm-up; the settings' battery row no longer says Linux doesn't read it.
+  - **Verification:**
+    - Windows: `dotnet build`, 0 errors; `dotnet test`, 1,412 tests: 1,402 pass and 10 skip (the Linux-only ones, and the placeholder images' real folder). A capture of the power menu after the warm-up change.
+    - Linux (WSL): 1,409 tests without the benchmarks: 1,350 pass and 59 skip. The stub-launcher tests run there now; logind is asked for real (its `Can*` only); the battery and network readers run against made-up `/sys` and `/proc` on both OSes and against WSL's own. A launch test timed the same before and after (5.1 s), so following the group adds no wait.
+    - `tools/linux/make-appimage.ps1`: `OdysseyLauncher-0.22.1-linux-x86_64.AppImage`, its smoke run and its launch smoke run (now through `setsid`) pass.
+  - **Not done:**
+    - The owner's test in the VMs ([manual-tests.md](manual-tests.md#linux-parity-on-kde)).
+    - Steam games followed through `registry.vdf`, and Vita3K's XDG folders: proposed for a later milestone.
+    - A drive that isn't mounted isn't listed in the pickers; a program that makes a session of its own escapes the game's process group.
