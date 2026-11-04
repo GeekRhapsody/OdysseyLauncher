@@ -359,6 +359,20 @@ The owner's request (2026-11-04): what L3 left out, with the owner's decisions: 
 - The new tests pass on Windows and on Linux.
 - In the VMs, a free Steam game launched from its desktop shortcut keeps the launcher on its running screen until the game is quit, with Steam closed and with it open; a Vita game installed on its first launch boots by its title id on its second (the owner's manual test: [manual-tests.md](manual-tests.md#linux-steam-and-vita3k)).
 
+## L4: Videos and manuals on Linux
+
+The owner's request (2026-11-04): what L1 left out, with the owner's decisions: videos by FFmpeg, a decode-only LGPL build made in WSL from its source tarball pinned by version and SHA-256, with only the codecs the media folders need, as shared libraries in the AppImage; manuals by PDFium, bblanchon/pdfium-binaries' build pinned by release and SHA-256; both behind Core's existing interfaces, bound by hand with `LibraryImport` (no package), and loaded from the AppImage, never the system; their licences in the AppImage and the README's credits. The owner accepted the proposals for the rest: the C build tools from Ubuntu's packages, committed test videos made with Ubuntu's ffmpeg, and no Matroska or WebM demuxer (the media folders take MP4s only). The design is in [ARCHITECTURE.md](ARCHITECTURE.md) (A1 `Platform`, and the decisions log, 2026-11-04).
+
+**Scope**
+- `FfmpegVideoDecoder`: FFmpeg 9.0.2, built by `tools/linux/setup.sh` (H.264 with its 4:4:4 profiles, HEVC, VP9, AAC, MP3 and Opus; MP4), in the AppImage's `usr/lib`, every ELF file in the AppImage checked against the glibc floor, 2.34.
+- `PdfiumRenderer`: PDFium from pdfium-binaries, in `usr/lib`.
+- The video and PDF tests that skipped on Linux run there, the videos from committed files (`tools/linux/make-test-videos.sh`); FFmpeg's struct offsets checked against its headers.
+
+**Acceptance**
+- `tools/linux/test.sh` passes with the video and PDF tests run, not skipped; the tests pass on Windows.
+- `tools/linux/make-appimage.ps1` makes the AppImage, its ELF files within glibc 2.34, and its checks pass.
+- In both VMs a game's video plays with its sound (a 4:4:4 arcade video too), the Console theme's card videos play, and a manual opens, turns its pages, zooms and scrolls, with FFmpeg and PDFium loaded from the AppImage (the owner's manual test: [manual-tests.md](manual-tests.md#linux-videos-and-manuals)).
+
 ## Progress
 
 Update this at the end of every milestone: the status, the date, and the evidence (commit, bench JSON and captures).

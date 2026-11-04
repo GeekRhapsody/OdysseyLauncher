@@ -46,9 +46,14 @@ public static class PlatformServices
     public static Media.IImageDecoder? CreateImageDecoder() =>
         OperatingSystem.IsWindows() ? new WicImageDecoder() : null;
 
-    /// <summary>Plays a game's videos in its details screen; null where no decoder exists yet (Linux), so videos are listed but not played.</summary>
+    /// <summary>
+    /// Plays a game's videos in its details screen and a theme's card videos: Media Foundation on Windows, the FFmpeg
+    /// the AppImage carries on Linux (loaded by the first video opened, so this does no I/O).
+    /// </summary>
     public static Media.IVideoDecoder? CreateVideoDecoder() =>
-        OperatingSystem.IsWindows() ? new MediaFoundationVideoDecoder() : null;
+        OperatingSystem.IsWindows() ? new MediaFoundationVideoDecoder()
+        : OperatingSystem.IsLinux() ? new FfmpegVideoDecoder()
+        : null;
 
     /// <summary>Shows a game's manual; null where no renderer exists yet (Linux), so manuals are listed but not shown.</summary>
     public static Media.IPdfRenderer? CreatePdfRenderer() =>

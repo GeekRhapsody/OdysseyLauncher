@@ -8,7 +8,6 @@ namespace Launcher.Core.Tests.TestSupport;
 /// Writes small MP4s with Media Foundation's own encoders (H.264 and AAC ship with Windows), so the video tests need no
 /// fixture file: the picture's top half is red and its bottom half blue, and the sound a 440 Hz tone.
 /// </summary>
-[SupportedOSPlatform("windows")]
 internal static unsafe class TestVideos
 {
     public const int Width = 128;
@@ -16,6 +15,7 @@ internal static unsafe class TestVideos
     public const int FramesPerSecond = 30;
     public const int SampleRate = 48_000;
 
+    [SupportedOSPlatform("windows")]
     public static void WriteMp4(string path, int frames, double soundSeconds)
     {
         if (Startup() is { } problem)
@@ -78,6 +78,7 @@ internal static unsafe class TestVideos
         }
     }
 
+    [SupportedOSPlatform("windows")]
     private static int MFCreateSinkWriterFromURLChecked(string path, nint* writer)
     {
         fixed (char* url = path)
@@ -86,6 +87,7 @@ internal static unsafe class TestVideos
         }
     }
 
+    [SupportedOSPlatform("windows")]
     private static uint AddStream(nint writer, nint output, nint input)
     {
         try
@@ -102,6 +104,7 @@ internal static unsafe class TestVideos
         }
     }
 
+    [SupportedOSPlatform("windows")]
     private static nint VideoType(Guid subtype, bool output)
     {
         var type = NewType(MediaFoundation.Video, subtype);
@@ -113,6 +116,7 @@ internal static unsafe class TestVideos
         return type;
     }
 
+    [SupportedOSPlatform("windows")]
     private static nint AudioType(Guid subtype, bool output)
     {
         var type = NewType(MediaFoundation.Audio, subtype);
@@ -128,6 +132,7 @@ internal static unsafe class TestVideos
         return type;
     }
 
+    [SupportedOSPlatform("windows")]
     private static nint NewType(Guid major, Guid subtype)
     {
         nint type;
@@ -137,6 +142,7 @@ internal static unsafe class TestVideos
         return type;
     }
 
+    [SupportedOSPlatform("windows")]
     private static void WriteSample(nint writer, uint stream, long time, long duration, int bytes, Action<nint> fill)
     {
         nint buffer = 0, sample = 0;
@@ -162,6 +168,7 @@ internal static unsafe class TestVideos
         }
     }
 
+    [SupportedOSPlatform("windows")]
     private static void Check(int hr, string what)
     {
         if (hr < 0)
