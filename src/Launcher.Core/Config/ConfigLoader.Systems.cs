@@ -1,3 +1,4 @@
+using Launcher.Core.Media;
 using Launcher.Core.Scanning;
 
 namespace Launcher.Core.Config;
@@ -210,8 +211,9 @@ public sealed partial class ConfigLoader
                     romDirSource = RomDirSource.Configured;
                     foreach (var rawDir in rawDirs)
                     {
+                        // The same folder twice is listed once; folders that differ only in case are separate on Linux.
                         if (ExpandPath(rawDir, dirsNode, prefix + ".rom_dirs", allowRomRoot: true) is { } dir
-                            && !romDirs.Contains(dir, StringComparer.OrdinalIgnoreCase))
+                            && !romDirs.Exists(listed => MediaFolder.Same(listed, dir)))
                         {
                             romDirs.Add(dir);
                         }

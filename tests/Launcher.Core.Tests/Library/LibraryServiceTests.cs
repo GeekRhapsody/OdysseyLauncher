@@ -191,6 +191,21 @@ public sealed class LibraryServiceTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Folders_that_differ_only_in_case_are_both_scanned_on_Linux()
+    {
+        Assert.SkipUnless(OperatingSystem.IsLinux(), "Windows' folders ignore case: there's one folder.");
+        _dir.File("roms/snes/Super Mario World (USA).sfc");
+        _dir.File("roms/SNES/Yoshi's Island (USA).sfc");
+        _library.Config = LoadConfig($"[systems.snes]\nrom_dirs = ['{_dir.Combine("roms", "snes")}', '{_dir.Combine("roms", "SNES")}']\n");
+
+        await _library.RescanAsync("snes", null, Ct);
+
+        Assert.Equal(["Super Mario World", "Yoshi's Island"], await Titles("snes"));
+        var details = await _library.GetGameAsync((await Game("snes", "Yoshi's Island")).GameId, Ct);
+        Assert.Equal(_dir.Combine("roms", "SNES", "Yoshi's Island (USA).sfc"), details!.RomPath);
+    }
+
+    [Fact]
     public async Task A_full_rescan_drops_systems_that_are_now_disabled()
     {
         Rom("snes/A.sfc");

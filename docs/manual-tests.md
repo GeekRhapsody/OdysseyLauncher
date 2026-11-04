@@ -731,6 +731,14 @@ This checks L3 (ROADMAP.md) on both virtual machines, CachyOS (KDE) and Linux Mi
 2. **The status indicators.** Top right, a VM shows no battery and the cable icon. Disconnect the VM's network (the hypervisor's network cable setting): within ten seconds the icon shows no connection; reconnect it and the cable comes back. If you can, also try a laptop (the AppImage from a USB stick) or a USB Wi-Fi adapter passed through to a VM: the battery's percentage and charging icon follow the charger being plugged and unplugged, and the Wi-Fi icon's bars follow the signal (compare KDE's or Mint's own network icon). A paired controller's battery doesn't show as the computer's.
 3. **The pickers.** Pass a USB stick through to the VM. On CachyOS, KDE doesn't mount it until you open it (in Dolphin, or the device notifier in the panel); Mint mounts it as it's plugged in. Then Settings > ROM folders, add a folder: the picker lists the stick by its name after File system (its detail `/run/media/<you>/<name>` on CachyOS, `/media/<you>/<name>` on Mint), and opens it. Mount a share under `/mnt` (the NAS: `sudo mkdir -p /mnt/nas && sudo mount -t cifs //<nas>/<share> /mnt/nas -o username=<user>,uid=$(id -u)`; CachyOS needs `cifs-utils`): the picker lists `nas` with the share as its detail, and opens it. Unplug the stick or `sudo umount /mnt/nas`, go back to the places, and it's gone.
 4. **A stub launcher.** Make a Ports game that starts RetroArch and exits at once: `mkdir -p ~/ROMs/ports`, then `~/ROMs/ports/Stub.sh` holding `retroarch -L <core path> "<a Mega Drive ROM's path>" &` (the core as in L2's test: `/usr/lib/libretro/genesis_plus_gx_libretro.so` on CachyOS, `/usr/lib/x86_64-linux-gnu/libretro/genesis_plus_gx_libretro.so` on Mint). Rescan (F5) and launch it from Ports: RetroArch runs the game, and the launcher's "Running Stub" screen stays until you quit RetroArch, then the launcher comes back. Make the script not executable (`chmod -x`): it still launches (scripts run with bash). Then a game whose program isn't executable: copy any file to `~/ROMs/desktop/Broken.AppImage`, rescan, and launch it: the launcher says it couldn't start it ("Permission denied"), rather than coming straight back.
+5. **Folders that differ only in case.** Make `~/ROMs/snes` and `~/ROMs/SNES`, each with a different SNES game, and add to `~/.config/OdysseyLauncher/systems.toml`:
+
+   ```toml
+   [systems.snes]
+   rom_dirs = ["{rom_root}/snes", "{rom_root}/SNES"]
+   ```
+
+   Rescan (Shift+F5): the SNES card shows both games, and each launches. Take the lines out afterwards.
 
 ### Send back
 

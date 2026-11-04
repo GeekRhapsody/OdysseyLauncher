@@ -362,6 +362,22 @@ public class ConfigLoaderTests
     }
 
     [Fact]
+    public void Rom_folders_that_differ_only_in_case_are_one_folder_on_Windows_and_two_on_Linux()
+    {
+        var roms = TestPaths.OnDrive('E', "ROMs");
+        var result = Load(systems: $$"""
+            [systems.snes]
+            rom_dirs = ["{{roms}}/snes", "{{roms}}/SNES", "{{roms}}/snes"]
+            """);
+
+        Assert.Empty(result.Diagnostics);
+        string[] expected = OperatingSystem.IsWindows()
+            ? [Path.GetFullPath($"{roms}/snes")]
+            : [Path.GetFullPath($"{roms}/snes"), Path.GetFullPath($"{roms}/SNES")];
+        Assert.Equal(expected, result.Config.FindSystem("snes")!.RomDirs);
+    }
+
+    [Fact]
     public void A_user_file_changes_only_the_keys_it_sets()
     {
         var result = Load(systems: """

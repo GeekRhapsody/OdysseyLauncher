@@ -26,6 +26,7 @@ it releases, and the Release workflow puts it on the release page (tools/release
 
 ### Fixed
 
+- **On Linux, ROM folders whose names differ only in case** (`snes` and `SNES`) are both scanned: they're separate folders there, and only the first was.
 - **Black system cards and games on a computer without Vulkan**, such as a Linux virtual machine with no Vulkan driver: the launcher now draws them in their proper colours there too.
 
 ## 0.22.1 (2026-11-03)
