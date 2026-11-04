@@ -12,6 +12,7 @@ it releases, and the Release workflow puts it on the release page (tools/release
 
 ### New
 
+- **Restart, shut down and sleep from the power menu on Linux** (View), as on Windows. An option your system would ask a password for, such as when another user is logged in, isn't offered.
 - **Emulators are found on their own on Linux**: a distribution's package, a Flatpak, or an AppImage in `~/Applications`, `~/.local/bin` or `~/bin`, with RetroArch's cores wherever RetroArch keeps them. Every system has its Linux emulators built in, under the same names as on Windows, so on Linux you no longer need to set each one up yourself. Settings, Emulators shows where each program was found.
 - **Desktop shortcuts and scripts as games on Linux:** Desktop Apps, Ports and Steam take `.desktop` files (run as your desktop runs them), `.sh` scripts and AppImages.
 - **An emulator's program can be a list of places to look** in your `emulators.toml`, the first that has it winning: a program name to find on your PATH, or a file name with a `*` for the newest match.

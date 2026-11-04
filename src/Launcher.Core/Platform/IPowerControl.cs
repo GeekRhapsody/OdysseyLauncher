@@ -14,7 +14,10 @@ public enum PowerAction
 /// </summary>
 public interface IPowerControl
 {
-    /// <summary>Null when <paramref name="action"/> can be asked for here; otherwise why not, for the menu to say.</summary>
+    /// <summary>
+    /// Null when <paramref name="action"/> can be asked for here; otherwise why not, for the menu to say. The first
+    /// call may ask the system (logind, on Linux): make it on a worker.
+    /// </summary>
     string? Unavailable(PowerAction action);
 
     /// <summary>
@@ -24,7 +27,7 @@ public interface IPowerControl
     string? Request(PowerAction action);
 }
 
-/// <summary>Linux, until it's worth doing: nothing is available.</summary>
+/// <summary>An OS with no power control of ours: nothing is available.</summary>
 public sealed class NullPowerControl : IPowerControl
 {
     public static NullPowerControl Instance { get; } = new();

@@ -542,6 +542,7 @@ public partial class Main : Node3D
                 _glyphWarmUp = null;
                 BuildStatusBar();
                 BuildSounds();
+                BuildPowerControl();
                 _stage = Stage.Running;
                 DebugHooks.Timeline.Mark(BootMarks.WarmUpDone);
                 AfterWarmUp();
@@ -895,8 +896,33 @@ public partial class Main : Node3D
         });
     }
 
-    private void OpenPowerMenu() =>
-        _ui!.Push(new PowerMenu(_power ??= PlatformServices.CreatePowerControl(), _queue, () => GetTree().Quit()));
+    /// <summary>
+    /// The power menu's system calls, built on the thread pool and asked there what they can do (on Linux that's
+    /// logind, over D-Bus), so the menu opens with the answers known and no I/O on the main thread.
+    /// </summary>
+    private void BuildPowerControl() =>
+        _ = Task.Run(() =>
+        {
+            var power = PlatformServices.CreatePowerControl();
+            foreach (var action in (ReadOnlySpan<PowerAction>)[PowerAction.Restart, PowerAction.ShutDown, PowerAction.Sleep])
+            {
+                _ = power.Unavailable(action);
+            }
+
+            _queue.Post(() => _power = power);
+        });
+
+    private void OpenPowerMenu()
+    {
+        // Until the warm-up has asked the system what it can do (a moment after start-up), View does nothing.
+        if (_power is null)
+        {
+            GD.Print("Power: not ready yet.");
+            return;
+        }
+
+        _ui!.Push(new PowerMenu(_power, _queue, () => GetTree().Quit()));
+    }
 
     /// <summary>
     /// The nav script's input steps: real events through <see cref="Input.ParseInputEvent"/>, as the mouse and

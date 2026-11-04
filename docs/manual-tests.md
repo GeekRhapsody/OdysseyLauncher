@@ -720,3 +720,17 @@ This checks L2 (ROADMAP.md): the built-in Linux profiles find your emulators whe
 - Anything that differed, above all an emulator that wasn't found (and where it's installed: `which retroarch`, `flatpak list --app`, `ls ~/Applications`), or a launch that failed.
 - The distribution, and how each emulator was installed.
 - The log lines: `grep -E '^Launch|ERROR|WARNING' ~/.local/share/godot/app_userdata/"Odyssey Launcher"/logs/godot.log`.
+
+## Linux: parity on KDE
+
+This checks L3 (ROADMAP.md) on both virtual machines, CachyOS (KDE) and Linux Mint: what Windows does that Linux now does too.
+
+**Set-up (once).** Make a new AppImage on the PC (`dotnet build`, then `.\tools\linux\make-appimage.ps1`) and copy `artifacts/linux/OdysseyLauncher-<version>-linux-x86_64.AppImage` and its `.sha256` across as in the AppImage test above.
+
+1. **The power menu.** Press View in the grids: Restart system, Shut down system and Sleep system each show their usual description, not a reason they're unavailable. Choose Sleep: the VM sleeps (or, if its hypervisor can't wake it, note that), and once it's woken (KDE and Mint show their lock screen first) the launcher is where you left it. Then Restart: the launcher quits and the VM restarts. Then Shut down: the VM turns off. On one VM, also log a second user in (Switch User), switch back and open the menu: Restart and Shut down may now say they need an administrator's password, and aren't offered.
+
+### Send back
+
+- Anything that differed, with the distribution.
+- logind's answers: `busctl call org.freedesktop.login1 /org/freedesktop/login1 org.freedesktop.login1.Manager CanSuspend` (and `CanReboot`, `CanPowerOff`).
+- The log lines: `grep -E '^(Power|Launch)|ERROR|WARNING' ~/.local/share/godot/app_userdata/"Odyssey Launcher"/logs/godot.log`.

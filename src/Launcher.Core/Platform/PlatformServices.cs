@@ -1,3 +1,4 @@
+using Launcher.Core.Platform.Linux;
 using Launcher.Core.Platform.Windows;
 
 namespace Launcher.Core.Platform;
@@ -15,9 +16,14 @@ public static class PlatformServices
     public static ISteamClient? CreateSteamClient() =>
         OperatingSystem.IsWindows() ? new WindowsSteamClient() : null;
 
-    /// <summary>Restart, shutdown and sleep, for the power menu.</summary>
+    /// <summary>
+    /// Restart, shutdown and sleep, for the power menu. On Linux the first <see cref="IPowerControl.Unavailable"/> asks
+    /// logind over D-Bus, so make it on a worker.
+    /// </summary>
     public static IPowerControl CreatePowerControl() =>
-        OperatingSystem.IsWindows() ? new WindowsPowerControl() : NullPowerControl.Instance;
+        OperatingSystem.IsWindows() ? new WindowsPowerControl()
+        : OperatingSystem.IsLinux() ? new LinuxPowerControl()
+        : NullPowerControl.Instance;
 
     /// <summary>The battery and the network, for the status indicators.</summary>
     public static IDeviceStatus CreateDeviceStatus() =>
