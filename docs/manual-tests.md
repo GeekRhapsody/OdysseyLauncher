@@ -739,6 +739,7 @@ This checks L3 (ROADMAP.md) on both virtual machines, CachyOS (KDE) and Linux Mi
    ```
 
    Rescan (Shift+F5): the SNES card shows both games, and each launches. Take the lines out afterwards.
+6. **Back in front after a game.** Nothing on Linux asks for the foreground: until now the launcher has always come back by itself. After each launch above, check it's in front with the focus (the pad and the keyboard work at once, without a click or Alt+Tab). Note which emulator and session (`echo $XDG_SESSION_TYPE`) if it ever doesn't.
 
 ### Send back
 
