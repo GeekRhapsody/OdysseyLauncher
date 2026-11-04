@@ -244,7 +244,7 @@ alt_emulators = ["retroarch-beetle-pce", "retroarch-geargrafx", "mednafen-pcengi
 
 [systems.switch]
 alt_emulators = ["ryujinx"]
-extensions = [".nca", ".nro", ".nso", ".nsp", ".xci"]
+extensions = [".nca", ".nro", ".nso", ".nsp", ".xci", ".nsz", ".xcz" ]
 
 [systems.triforce]
 emulator = "triforce"
