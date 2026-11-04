@@ -779,7 +779,7 @@ This checks L3b (ROADMAP.md) in a VM: Steam games followed through Steam's `regi
 
 This checks L4 (ROADMAP.md) in both VMs: videos decoded by the FFmpeg the AppImage carries, and manuals rendered by its PDFium, on a real desktop with sound, where WSL's tests can't look or listen.
 
-**Set-up (once).** Copy the AppImage and its `.sha256` across as in the AppImage test above. Use a library with scraped videos (ScreenScraper's), including an arcade game whose video Windows can't play: its details screen on Windows says "its H.264 is the 4:4:4 profile". Close other programs, so CPU figures mean something.
+**Set-up (once).** Copy the AppImage and its `.sha256` across as in the AppImage test above. Use a library with scraped videos (ScreenScraper's), including an arcade game whose video Windows can't play: its details screen on Windows says "its H.264 is the 4:4:4 profile", and with scraped manuals, at least one a long scanned one (50 pages or more). Close other programs, so CPU figures mean something.
 
 1. **A game's video.** On a game with a video, press Y for its details, and play the video card: the picture is the right shape, the sound is in step with it, and it plays to the end without stalls. Back out half-way: it stops at once. Play it again from the start.
 2. **A 4:4:4 arcade video.** Do the same with the arcade game Windows can't play: it plays, with colours that match its screenshot.
@@ -787,9 +787,11 @@ This checks L4 (ROADMAP.md) in both VMs: videos decoded by the FFmpeg the AppIma
 4. **The Console theme's cards.** In Settings, choose the Console theme, and move across the systems: the cards with a video (the Game Boy's, the PSP's or the Vita's, say) play it while focused, in step with the card's movement, without sound.
 5. **Its cost.** While a video plays (step 1), run `top -p "$(pgrep -f OdysseyLauncher.x86_64 | head -n 1)"` in a terminal and note the launcher's CPU percentage; in the grid, note any stutter while a card video plays.
 6. **From the AppImage only.** While a video plays: `grep -E 'libav|libsw' /proc/"$(pgrep -f OdysseyLauncher.x86_64 | head -n 1)"/maps | awk '{print $6}' | sort -u`. Every line is under `/tmp/.mount_Odysse...` (the AppImage's mount), ending in `usr/lib/<library>`, never `/usr/lib`.
+7. **A manual.** On a game with a manual, press Y for its details: its Manual card shows its first page and its number of pages. Open it (A): the first page shows, sharp. Turn pages both ways (right and left), zoom in (A), scroll the zoomed page (up and down), and back out. Then the long scanned manual: note how long its first page takes to show, and whether turning pages quickly keeps up.
+8. **PDFium from the AppImage.** With a manual open: `grep pdfium /proc/"$(pgrep -f OdysseyLauncher.x86_64 | head -n 1)"/maps | awk '{print $6}' | sort -u` shows one line, under the AppImage's mount.
 
 ### Send back
 
-- Anything that differed, above all a video that didn't play: the message the details screen showed, the game and its system.
+- Anything that differed, above all a video that didn't play or a manual that didn't open: the message the details screen showed, the game and its system.
 - The CPU percentages from step 5, with each VM's number of processors (`nproc`).
-- The output of step 6.
+- The output of steps 6 and 8, and the long manual's first-page time from step 7.

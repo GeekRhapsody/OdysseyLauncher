@@ -55,7 +55,12 @@ public static class PlatformServices
         : OperatingSystem.IsLinux() ? new FfmpegVideoDecoder()
         : null;
 
-    /// <summary>Shows a game's manual; null where no renderer exists yet (Linux), so manuals are listed but not shown.</summary>
+    /// <summary>
+    /// Shows a game's manual: Windows.Data.Pdf on Windows, the PDFium the AppImage carries on Linux (loaded by the first
+    /// manual opened, so this does no I/O).
+    /// </summary>
     public static Media.IPdfRenderer? CreatePdfRenderer() =>
-        OperatingSystem.IsWindows() ? new WindowsPdfRenderer() : null;
+        OperatingSystem.IsWindows() ? new WindowsPdfRenderer()
+        : OperatingSystem.IsLinux() ? new PdfiumRenderer()
+        : null;
 }

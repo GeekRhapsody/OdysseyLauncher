@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Packages a Linux export into an AppImage (docs/ARCHITECTURE.md decisions log, 2026-11-02): the export's binary, PCK,
-# .NET data folder and themes in usr/bin, the FFmpeg setup.sh builds in usr/lib (L4) with its licence and how to get
-# its source in usr/share/licenses/ffmpeg, with AppRun, the desktop entry and the icon, squashed by appimagetool with
+# .NET data folder and themes in usr/bin, the FFmpeg setup.sh builds and PDFium in usr/lib (L4), with FFmpeg's licence
+# and how to get its source in usr/share/licenses/ffmpeg and PDFium's licences in usr/share/licenses/pdfium, with AppRun, the desktop entry and the icon, squashed by appimagetool with
 # the static type2 runtime, so the AppImage needs no libfuse2. Every ELF file in it is checked against the glibc
 # floor (GLIBC_FLOOR in common.sh). Run tools/linux/setup.sh first. On Windows,
 # tools/linux/make-appimage.ps1 does the export, then this and the smoke test through WSL.
@@ -33,7 +33,7 @@ for needed in "$export_dir/OdysseyLauncher.x86_64" "$export_dir/OdysseyLauncher.
 done
 
 ffmpeg_libs=("${FFMPEG_LIBS[@]/#/$FFMPEG_DIR/lib/}")
-for needed in "${ffmpeg_libs[@]}" "$FFMPEG_DIR/COPYING.LGPLv2.1" "$FFMPEG_DIR/recipe.txt"; do
+for needed in "${ffmpeg_libs[@]}" "$FFMPEG_DIR/COPYING.LGPLv2.1" "$FFMPEG_DIR/recipe.txt" "$PDFIUM_DIR/lib/libpdfium.so" "$PDFIUM_DIR/licenses/pdfium.txt"; do
     if [[ ! -f $needed ]]; then
         echo "error: there's no $needed: run tools/linux/setup.sh" >&2
         exit 1
@@ -66,6 +66,18 @@ Configured with: ${FFMPEG_CONFIGURE[*]} --extra-cflags="-include glibc-floor.h"
 
 glibc-floor.h holds one line, which binds an older glibc symbol so the libraries run on glibc $GLIBC_FLOOR:
 $(grep '^__asm__' "$here/glibc-floor.h")
+EOF
+
+# PDFium, with the licences of PDFium and of what it's built from, and pdfium-binaries' own (its build scripts).
+mkdir -p "$app_dir/usr/share/licenses/pdfium"
+cp "$PDFIUM_DIR/lib/libpdfium.so" "$app_dir/usr/lib/"
+cp "$PDFIUM_DIR"/licenses/* "$app_dir/usr/share/licenses/pdfium/"
+cp "$PDFIUM_DIR/LICENSE" "$app_dir/usr/share/licenses/pdfium/pdfium-binaries.txt"
+cat > "$app_dir/usr/share/licenses/pdfium/README.txt" << EOF
+usr/lib/libpdfium.so is PDFium (https://pdfium.googlesource.com/pdfium/), as built by pdfium-binaries
+(https://github.com/bblanchon/pdfium-binaries), release chromium/$PDFIUM_BUILD, unmodified. pdfium.txt is PDFium's
+licence (BSD 3-clause); each other file here is the licence of a library built into it, and pdfium-binaries.txt that
+of pdfium-binaries' build scripts.
 EOF
 
 # Folders and programs (every ELF file, the .NET runtime's included) 755, everything else 644.

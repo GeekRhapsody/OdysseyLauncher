@@ -1,15 +1,15 @@
 using System.Runtime.Versioning;
 using Launcher.Core.Media;
 using Launcher.Core.Platform;
+using Launcher.Core.Platform.Linux;
 using Launcher.Core.Tests.TestSupport;
 
 namespace Launcher.Core.Tests.Media;
 
 /// <summary>
-/// The platform's PDF renderer (Windows.Data.Pdf on Windows), on PDFs <see cref="TestPdfs"/> writes. Each test starts
-/// with <see cref="Renderer"/>, which skips it elsewhere.
+/// The platform's PDF renderer (Windows.Data.Pdf on Windows, the bundled PDFium on Linux), on PDFs
+/// <see cref="TestPdfs"/> writes. Each test starts with <see cref="Renderer"/>, which skips it where there's none.
 /// </summary>
-[SupportedOSPlatform("windows")]
 public sealed class PdfRendererTests : IDisposable
 {
     private static readonly TestPdfs.Page Red = new(300, 400, (220, 30, 30));
@@ -95,6 +95,24 @@ public sealed class PdfRendererTests : IDisposable
         Assert.True(reader is not null, error);
         Assert.False(reader.TryRender(2, 10, 10, new byte[400], out error));
         Assert.Equal("there's no page 3", error);
+    }
+
+    [Fact]
+    [SupportedOSPlatform("linux")]
+    public void PDFium_is_loaded_from_beside_Launcher_Core_only()
+    {
+        Assert.SkipUnless(OperatingSystem.IsLinux(), "The bundled PDFium (Linux).");
+        using (var reader = Renderer().Open(Manual(), out var error))
+        {
+            Assert.True(reader is not null, error);
+        }
+
+        var mapped = File.ReadAllLines("/proc/self/maps")
+            .Select(line => line.Split(' ', 6, StringSplitOptions.RemoveEmptyEntries))
+            .Where(parts => parts.Length == 6 && parts[5].Contains("pdfium", StringComparison.Ordinal))
+            .Select(parts => parts[5].Trim())
+            .Distinct(StringComparer.Ordinal);
+        Assert.Equal([Path.Combine(AppContext.BaseDirectory, BundledLibraries.Pdfium[0])], mapped);
     }
 
     [Fact]

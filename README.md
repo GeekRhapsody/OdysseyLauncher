@@ -199,6 +199,7 @@ The system logos in the **Classic View** theme (`godot/themes/classic-view/logos
 - [ES-DE](https://es-de.org), whose systems catalogue, folder names, emulator commands, release years and descriptions are the basis of the built-in systems.
 - [Lucide](https://lucide.dev) for the status indicator icons (ISC licence).
 - [FFmpeg](https://ffmpeg.org) (LGPL 2.1 or later), which decodes videos in the Linux AppImage. It's FFmpeg 9.0.2, unmodified, built from its source tarball as shared libraries by `tools/linux/setup.sh`; the AppImage carries its licence and says where its exact source is and how it was built (`usr/share/licenses/ffmpeg/`).
+- [PDFium](https://pdfium.googlesource.com/pdfium/) (BSD 3-clause and Apache 2.0, with the licences of the libraries built into it), which renders manuals in the Linux AppImage, as built by [pdfium-binaries](https://github.com/bblanchon/pdfium-binaries) (MIT licence), unmodified; the AppImage carries their licences (`usr/share/licenses/pdfium/`).
 - [LibGit2Sharp](https://github.com/libgit2/libgit2sharp) (MIT licence) and [libgit2](https://libgit2.org) (GPLv2 with a linking exception), with which the theme downloader clones and updates themes.
 - [ScreenScraper](https://www.screenscraper.fr), [LaunchBox's Games DB](https://gamesdb.launchbox-app.com), [IGDB](https://www.igdb.com), [SteamGridDB](https://www.steamgriddb.com) and Steam for game metadata and art.
 
@@ -206,4 +207,4 @@ The system logos in the **Classic View** theme (`godot/themes/classic-view/logos
 
 Odyssey Launcher is released under the [MIT licence](LICENSE). That covers its code, tools and documentation, and the models, images, videos and sounds made for it.
 
-What comes from others keeps its own licence: the Slab and Classic View themes' system logos (CC BY-NC-SA, as described under [Credits](#credits)), the Lucide icons (ISC), and the libraries the release ships (LibGit2Sharp and libgit2, the .NET runtime, and Godot, each under its own licence, and in the Linux AppImage FFmpeg, under the LGPL 2.1 or later). Console makers' names, logos and products are their owners' trademarks.
+What comes from others keeps its own licence: the Slab and Classic View themes' system logos (CC BY-NC-SA, as described under [Credits](#credits)), the Lucide icons (ISC), and the libraries the release ships (LibGit2Sharp and libgit2, the .NET runtime, and Godot, each under its own licence, and in the Linux AppImage FFmpeg, under the LGPL 2.1 or later, and PDFium, under BSD 3-clause and Apache 2.0). Console makers' names, logos and products are their owners' trademarks.

@@ -14,6 +14,8 @@
 #                                                 how it was configured (recipe.txt), and ffmpeg-abi.txt, the struct
 #                                                 offsets FfmpegAbiTests checks; built from its source tarball, in
 #                                                 about a minute and a half, only when the recipe changes
+#   ~/.cache/odyssey-linux/native/pdfium-<build>/ PDFium for manuals (L4): pdfium-binaries' libpdfium.so (lib/),
+#                                                 its licences and its VERSION
 #
 # The downloads are pinned in tools/linux/common.sh. What's already there is kept, so run it again at any time.
 #
@@ -91,6 +93,17 @@ check_glibc_floor "$FFMPEG_DIR"/lib/*
 mkdir -p "$ODYSSEY_LINUX_CACHE/build"
 gcc -Wall -Werror -I"$FFMPEG_DIR/include" "$here/ffmpeg-abi.c" -o "$ODYSSEY_LINUX_CACHE/build/ffmpeg-abi"
 "$ODYSSEY_LINUX_CACHE/build/ffmpeg-abi" > "$FFMPEG_DIR/ffmpeg-abi.txt"
+
+echo "==> PDFium $PDFIUM_BUILD into $PDFIUM_DIR"
+tarball="$TOOLS_DIR/pdfium-$PDFIUM_BUILD-linux-x64.tgz"
+fetch "https://github.com/bblanchon/pdfium-binaries/releases/download/chromium%2F$PDFIUM_BUILD/pdfium-linux-x64.tgz"     "$PDFIUM_SHA256" "$tarball"
+if [[ ! -f $PDFIUM_DIR/lib/libpdfium.so ]]; then
+    rm -rf "$PDFIUM_DIR"
+    mkdir -p "$PDFIUM_DIR"
+    tar -xzf "$tarball" -C "$PDFIUM_DIR" lib/libpdfium.so LICENSE licenses VERSION
+fi
+
+check_glibc_floor "$PDFIUM_DIR/lib/libpdfium.so"
 
 dotnet --list-sdks
 dotnet --list-runtimes | grep Microsoft.NETCore.App

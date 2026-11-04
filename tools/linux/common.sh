@@ -33,6 +33,12 @@ FFMPEG_CONFIGURE=(
 FFMPEG_LIBS=(libavutil.so.61 libswresample.so.7 libavcodec.so.63 libavformat.so.63 libswscale.so.10)
 FFMPEG_DIR="$ODYSSEY_LINUX_CACHE/native/ffmpeg-$FFMPEG_VERSION"
 
+# PDFium for manuals (L4): bblanchon/pdfium-binaries' build, by its release (chromium/<build>) and the SHA-256 GitHub
+# gives for its pdfium-linux-x64.tgz.
+PDFIUM_BUILD=8138
+PDFIUM_SHA256=d6b1e28950a0392590d79bbdbb7eb19686872b688f8a36f170acb19e41473113
+PDFIUM_DIR="$ODYSSEY_LINUX_CACHE/native/pdfium-$PDFIUM_BUILD"
+
 PWSH="$TOOLS_DIR/powershell-$POWERSHELL_VERSION/pwsh"
 APPIMAGETOOL="$TOOLS_DIR/appimagetool-$APPIMAGETOOL_VERSION-x86_64.AppImage"
 APPIMAGE_RUNTIME="$TOOLS_DIR/runtime-$RUNTIME_VERSION-x86_64"
