@@ -14,10 +14,16 @@ namespace Launcher.Core.Platform;
 /// <param name="Updating">Steam is downloading or installing the app.</param>
 public readonly record struct SteamAppState(bool ClientRunning, bool Installed, bool Running, bool Current, bool Updating);
 
-/// <summary>Reads the Steam client's state. Cheap, with no network; any thread, but not the main thread (Windows: the registry).</summary>
+/// <summary>
+/// Reads the Steam client's state. Cheap, with no network; any thread, but not the main thread (Windows: the registry;
+/// Linux: the file Steam keeps it in).
+/// </summary>
 public interface ISteamClient
 {
-    /// <summary>The Steam client's program, or null if Steam isn't installed for this user.</summary>
+    /// <summary>
+    /// Where the Steam client is (Windows: its program; Linux: its <c>registry.vdf</c>), or null if Steam isn't installed
+    /// for this user.
+    /// </summary>
     string? ClientPath { get; }
 
     /// <summary>What Steam says about <paramref name="appId"/> right now.</summary>

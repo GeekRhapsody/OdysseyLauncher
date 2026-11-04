@@ -12,9 +12,11 @@ public static class PlatformServices
     public static IWindowFocus CreateWindowFocus() =>
         OperatingSystem.IsWindows() ? new WindowsWindowFocus() : NullWindowFocus.Instance;
 
-    /// <summary>The Steam client's state, for following Steam games; null where it isn't read yet (Linux).</summary>
-    public static ISteamClient? CreateSteamClient() =>
-        OperatingSystem.IsWindows() ? new WindowsSteamClient() : null;
+    /// <summary>The Steam client's state, for following Steam games: the registry on Windows, <c>registry.vdf</c> on Linux.</summary>
+    public static ISteamClient CreateSteamClient() =>
+        OperatingSystem.IsWindows()
+            ? new WindowsSteamClient()
+            : new LinuxSteamClient(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "/proc");
 
     /// <summary>
     /// Restart, shutdown and sleep, for the power menu. On Linux the first <see cref="IPowerControl.Unavailable"/> asks

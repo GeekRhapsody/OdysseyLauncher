@@ -291,7 +291,7 @@ public sealed class LaunchService
             if (_steam!.ClientPath is null)
             {
                 return Fail(game, plan, LaunchFailure.MissingFile,
-                    $"'{game.RomPath}' is a Steam game's shortcut, and Steam isn't installed for this Windows user. " +
+                    $"'{game.RomPath}' is a Steam game's shortcut, and Steam isn't installed for this user. " +
                     "Install Steam and sign in, then launch the game again.");
             }
 

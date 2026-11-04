@@ -3,10 +3,14 @@ using System.Globalization;
 namespace Launcher.Core.Launching;
 
 /// <summary>
-/// Reads a Steam game's app id from the internet shortcut (<c>.url</c>) Steam makes for it:
+/// Reads a Steam game's app id from the shortcut Steam makes for it: on Windows an internet shortcut (<c>.url</c>), on
+/// Linux a desktop shortcut (<c>.desktop</c>, whose <c>Exec</c> line hands Steam the same URL):
 /// <code>
 /// [InternetShortcut]
 /// URL=steam://rungameid/1260320
+///
+/// [Desktop Entry]
+/// Exec=steam steam://rungameid/1260320
 /// </code>
 /// <c>steam://run/&lt;id&gt;</c> and <c>steam://launch/&lt;id&gt;</c> are read too. A non-Steam game added to Steam
 /// has a 64-bit game id in its shortcut, not an app id, and Steam doesn't report its state, so it isn't one.
@@ -19,13 +23,15 @@ public static class SteamShortcut
     private static readonly string[] Prefixes = ["steam://rungameid/", "steam://run/", "steam://launch/"];
 
     /// <summary>
-    /// The app id in the <c>.url</c> file at <paramref name="path"/>, or null if it isn't a Steam game's shortcut
-    /// (another extension, another URL, or a file that can't be read). Reads the file: not on the main thread.
+    /// The app id in the <c>.url</c> or <c>.desktop</c> file at <paramref name="path"/>, or null if it isn't a Steam
+    /// game's shortcut (another extension, another URL, or a file that can't be read). Reads the file: not on the main thread.
     /// </summary>
     public static uint? ReadAppId(string path)
     {
         ArgumentNullException.ThrowIfNull(path);
-        if (!Path.GetExtension(path).Equals(".url", StringComparison.OrdinalIgnoreCase))
+        var extension = Path.GetExtension(path);
+        var desktop = extension.Equals(".desktop", StringComparison.OrdinalIgnoreCase);
+        if (!desktop && !extension.Equals(".url", StringComparison.OrdinalIgnoreCase))
         {
             return null;
         }
@@ -33,7 +39,13 @@ public static class SteamShortcut
         try
         {
             var file = new FileInfo(path);
-            return file.Exists && file.Length <= MaxBytes ? ParseAppId(File.ReadAllText(path)) : null;
+            if (!file.Exists || file.Length > MaxBytes)
+            {
+                return null;
+            }
+
+            var text = File.ReadAllText(path);
+            return desktop ? ParseDesktopAppId(text) : ParseAppId(text);
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
@@ -46,6 +58,24 @@ public static class SteamShortcut
     {
         ArgumentNullException.ThrowIfNull(text);
         return Url(text) is { } url ? AppIdOf(url) : null;
+    }
+
+    /// <summary>
+    /// The app id in a desktop shortcut's text: the first argument of its <c>Exec</c> line that is a <c>steam://</c> URL,
+    /// whatever program it's handed to (<c>steam</c>, or Flathub's Steam through <c>flatpak run</c>).
+    /// </summary>
+    public static uint? ParseDesktopAppId(string text)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        foreach (var argument in DesktopEntry.Read(text)?.Arguments ?? [])
+        {
+            if (argument.StartsWith("steam://", StringComparison.OrdinalIgnoreCase))
+            {
+                return AppIdOf(argument);
+            }
+        }
+
+        return null;
     }
 
     /// <summary>The app id in a <c>steam://</c> URL that runs a game, or null.</summary>

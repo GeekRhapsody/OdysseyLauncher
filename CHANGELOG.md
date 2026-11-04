@@ -12,6 +12,7 @@ it releases, and the Release workflow puts it on the release page (tools/release
 
 ### New
 
+- **Steam games are followed until you quit them on Linux**, as on Windows: a game's desktop shortcut made by Steam (Manage, Add desktop shortcut) in the Steam system's folder keeps the launcher on its running screen while Steam updates and runs the game, and brings it back when the game ends, instead of coming straight back.
 - **Games started by a launcher script are followed until the game ends on Linux**, as on Windows: a `.sh` script or program that starts the emulator and exits no longer brings the launcher straight back.
 - **USB drives and mounted shares in the file and folder pickers on Linux**: whatever your desktop has mounted (under `/run/media` or `/media`), and anything mounted under `/mnt`, such as a NAS's share.
 - **The battery and the Wi-Fi signal in the status indicators on Linux**, top right, as on Windows. A controller's battery isn't mistaken for the computer's.

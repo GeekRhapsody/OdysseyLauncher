@@ -746,3 +746,24 @@ This checks L3 (ROADMAP.md) on both virtual machines, CachyOS (KDE) and Linux Mi
 - Anything that differed, with the distribution.
 - logind's answers: `busctl call org.freedesktop.login1 /org/freedesktop/login1 org.freedesktop.login1.Manager CanSuspend` (and `CanReboot`, `CanPowerOff`).
 - The log lines: `grep -E '^(Power|Launch)|ERROR|WARNING' ~/.local/share/godot/app_userdata/"Odyssey Launcher"/logs/godot.log`.
+
+## Linux: Steam and Vita3K
+
+This checks L3b (ROADMAP.md) in a VM: Steam games followed through Steam's `registry.vdf`, which nothing but a real Steam writes. Give the VM a Vulkan driver first (CachyOS: `sudo pacman -S vulkan-swrast`), as most games need one.
+
+**Set-up (once).**
+- Make a new AppImage on the PC (`dotnet build`, then `.\tools\linux\make-appimage.ps1`) and copy `artifacts/linux/OdysseyLauncher-<version>-linux-x86_64.AppImage` and its `.sha256` across as in the AppImage test above.
+- Steam from the distribution (CachyOS: `sudo pacman -S steam`; Mint: `sudo apt install steam-installer`, or Valve's own package), signed in, with one small free game installed that runs in the VM. Note its app id: its store page's URL has it (`store.steampowered.com/app/<id>/`).
+- In Steam, the game's Manage, Add desktop shortcut, then copy the shortcut from the desktop into the Steam system's folder: `mkdir -p ~/ROMs/steam; cp ~/Desktop/<game>.desktop ~/ROMs/steam/` (on Mint, `~/Desktop` may be `~/Bureau` or another name in your language). Rescan (F5).
+
+1. **Steam open.** With Steam running, launch the game from the Steam card: Steam starts it, and the launcher's running screen stays while it runs. Play a minute, then quit the game from its own menu: within a few seconds the launcher comes back with the focus, and the game's details show one play with about the time you played.
+2. **Steam closed.** Quit Steam (its menu, Exit), wait for it to go, and launch the game again: Steam opens (it may update first), then starts the game, and the launcher waits for it as in step 1. Quit the game: the launcher comes back; Steam stays open.
+3. **A game that isn't installed.** In Steam, uninstall the game, launch it from the launcher, and close Steam's install dialog without installing: after two minutes the launcher says Steam didn't start the game, and that Steam says it isn't installed. Reinstall it afterwards if you like.
+4. **Flathub's Steam (optional, on one VM).** With only Flathub's Steam installed (`flatpak install flathub com.valvesoftware.Steam`), make the shortcut the same way and repeat step 1. Its shortcut runs `steam`, which only Steam's own package installs, so the launch should fail at once saying the program wasn't found; edit the copied shortcut's `Exec=` line to `flatpak run com.valvesoftware.Steam steam://rungameid/<id>` and launch it again: it should be followed as in step 1.
+
+### Send back
+
+- Anything that differed, above all a game the launcher came back from at once, or one it kept waiting for after it had ended, with the distribution and how Steam was installed.
+- While the game runs (step 1), what Steam has saved about it: `grep -iE '"(SteamPID|RunningAppID)"' ~/.steam/registry.vdf; grep -A6 '"<id>"' ~/.steam/registry.vdf` (Flathub's: `~/.var/app/com.valvesoftware.Steam/.steam/registry.vdf`), and Steam's processes: `ps -eo pid,args | grep -iE 'steamlaunch|ubuntu12_32/steam ' | grep -v grep`. Then the same once the game has ended. Don't send the whole file: it names your Steam account (`AutoLoginUser`).
+- The shortcut Steam made: `cat ~/ROMs/steam/<game>.desktop`.
+- The log lines: `grep -E '^Launch|ERROR|WARNING' ~/.local/share/godot/app_userdata/"Odyssey Launcher"/logs/godot.log`.

@@ -58,7 +58,8 @@ public sealed class SteamGameTests : IAsyncLifetime
         return ValueTask.CompletedTask;
     }
 
-    private AppConfig LoadConfig()
+    /// <param name="linux">Linux's defaults (a <c>.desktop</c> shortcut) rather than Windows' (<c>.url</c>, <c>.lnk</c>), on any OS.</param>
+    private AppConfig LoadConfig(bool linux = false)
     {
         var result = new ConfigLoader().Load(new ConfigSources
         {
@@ -66,10 +67,9 @@ public sealed class SteamGameTests : IAsyncLifetime
             ConfigDir = _dir.Combine("config"),
             Settings = new ConfigFile("settings.toml", $"[paths]\nrom_root = '{_dir.Combine("ROMs")}'\n"),
             FileExists = null,
-            // Windows' defaults on any OS: these tests are about Windows' shortcuts (.url, .lnk).
-            DefaultEmulators = BuiltInDefaults.Read(BuiltInDefaults.WindowsEmulatorsFileName),
-            PlatformSettings = null,
-            PlatformSystems = null,
+            DefaultEmulators = BuiltInDefaults.Read(linux ? BuiltInDefaults.LinuxEmulatorsFileName : BuiltInDefaults.WindowsEmulatorsFileName),
+            PlatformSettings = linux ? BuiltInDefaults.Read(BuiltInDefaults.LinuxSettingsFileName) : null,
+            PlatformSystems = linux ? BuiltInDefaults.Read(BuiltInDefaults.LinuxSystemsFileName) : null,
         });
         Assert.False(result.HasErrors, string.Join('\n', result.Diagnostics));
         return result.Config;
@@ -336,6 +336,25 @@ public sealed class SteamGameTests : IAsyncLifetime
 
         Assert.Equal(LaunchStatus.Exited, outcome.Status);
         Assert.True(Assert.Single(_runner.Plans).Detached);
+    }
+
+    [Fact]
+    public async Task A_steam_desktop_shortcut_on_linux_is_handed_to_steam_and_followed_too()
+    {
+        _dir.File("ROMs/steam/Portal.desktop", $"[Desktop Entry]\nName=Portal\nExec=steam steam://rungameid/{AppId}\nType=Application\n");
+        var config = LoadConfig(linux: true);
+        using var library = await LibraryService.OpenAsync(config, _dir.Combine("data-linux"), _wallClock, Ct);
+        await library.RescanAsync("steam", null, Ct);
+        var launcher = new LaunchService(config, _runner, library, _wallClock, _steam) { SteamPollInterval = TimeSpan.FromMilliseconds(10) };
+        _steam.Script(Repeat(Idle, 2), Repeat(Playing, 3), Repeat(Idle, 1));
+
+        var outcome = await launcher.LaunchAsync((await library.GetGameAsync(Key("steam", "Portal.desktop"), Ct))!, null, Ct);
+
+        Assert.Equal(LaunchStatus.Exited, outcome.Status);
+        var plan = Assert.Single(_runner.Plans);
+        Assert.True(plan.Detached);
+        Assert.Equal("Steam", plan.EmulatorName);
+        Assert.True(_steam.PollCount >= 6, $"polled {_steam.PollCount} times");
     }
 
     [Fact]

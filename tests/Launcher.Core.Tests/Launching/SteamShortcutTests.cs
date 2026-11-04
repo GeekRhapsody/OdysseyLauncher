@@ -74,6 +74,50 @@ public sealed class SteamShortcutTests : IDisposable
         Assert.Null(SteamShortcut.ReadAppId(_dir.Combine("steam", "gone.url")));
     }
 
+    /// <summary>As Steam writes it on Linux (Manage, Add desktop shortcut).</summary>
+    private const string SteamMadeDesktop =
+        "#!/usr/bin/env xdg-open\n[Desktop Entry]\nName=Portal\nComment=Play this game on Steam\n" +
+        "Exec=steam steam://rungameid/400\nIcon=steam_icon_400\nTerminal=false\nType=Application\nCategories=Game;\n";
+
+    [Fact]
+    public void The_desktop_shortcut_steam_makes_names_its_app_id()
+    {
+        Assert.Equal(400u, SteamShortcut.ParseDesktopAppId(SteamMadeDesktop));
+    }
+
+    [Theory]
+    [InlineData("[Desktop Entry]\nExec=flatpak run com.valvesoftware.Steam steam://rungameid/400\n", 400u)]
+    [InlineData("[Desktop Entry]\nExec=xdg-open \"steam://run/400\"\n", 400u)]
+    [InlineData("[Desktop Entry]\nExec=steam -silent steam://rungameid/400 %U\n", 400u)]
+    public void Any_program_handed_a_steam_url_runs_a_steam_game(string text, uint appId)
+    {
+        Assert.Equal(appId, SteamShortcut.ParseDesktopAppId(text));
+    }
+
+    [Theory]
+    [InlineData("[Desktop Entry]\nExec=steam steam://rungameid/12000845423472672768\n")]   // a non-Steam game added to Steam
+    [InlineData("[Desktop Entry]\nExec=steam steam://store/400\n")]
+    [InlineData("[Desktop Entry]\nExec=retroarch -L core.so game.sfc\n")]
+    [InlineData("[Desktop Action Play]\nExec=steam steam://rungameid/400\n")]
+    [InlineData("[Desktop Entry]\nName=steam://rungameid/400\n")]
+    [InlineData("")]
+    public void Other_desktop_shortcuts_arent_steam_games(string text)
+    {
+        Assert.Null(SteamShortcut.ParseDesktopAppId(text));
+    }
+
+    [Fact]
+    public void A_desktop_shortcut_is_read_as_one_whatever_its_contents()
+    {
+        var desktop = _dir.File("steam/Portal.desktop", SteamMadeDesktop);
+        var desktopNamedUrl = _dir.File("steam/Portal.url", SteamMadeDesktop);
+        var urlNamedDesktop = _dir.File("steam/Party Animals.desktop", SteamMade);
+
+        Assert.Equal(400u, SteamShortcut.ReadAppId(desktop));
+        Assert.Null(SteamShortcut.ReadAppId(desktopNamedUrl));
+        Assert.Null(SteamShortcut.ReadAppId(urlNamedDesktop));
+    }
+
     [Fact]
     public void A_file_too_big_to_be_a_shortcut_isnt_read()
     {
