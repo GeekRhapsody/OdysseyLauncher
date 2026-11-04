@@ -20,8 +20,8 @@ public interface IRunningProcess : IDisposable
     int ProcessId { get; }
 
     /// <summary>
-    /// Completes when the game has ended. On Windows that's when every process in its job has exited, so a stub
-    /// launcher that starts the real emulator and quits is followed to the end. Never faults.
+    /// Completes when the game has ended. On Windows that's when every process in its job has exited, and on Linux
+    /// every process in its process group, so a stub launcher that starts the real emulator and quits is followed to the end. Never faults.
     /// </summary>
     Task<ProcessOutcome> Completion { get; }
 

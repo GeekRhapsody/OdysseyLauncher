@@ -425,7 +425,6 @@ public sealed class LaunchServiceTests : IAsyncLifetime
     [Fact]
     public async Task A_stub_launcher_is_followed_until_the_process_it_started_exits()
     {
-        Assert.SkipUnless(OperatingSystem.IsWindows(), "Job objects are Windows-only; the portable runner follows the stub only.");
         UseArgs($"{LogArg}, '--fake-spawn=1500'");
 
         var outcome = await Launch();
@@ -442,7 +441,6 @@ public sealed class LaunchServiceTests : IAsyncLifetime
     [Fact]
     public async Task A_stub_that_starts_another_program_with_its_own_arguments_is_followed_too()
     {
-        Assert.SkipUnless(OperatingSystem.IsWindows(), "Job objects are Windows-only.");
         var child = Log + ".started";
         UseArgs($"{LogArg}, {Literal("--fake-start=" + Template.Escape(_exe))}, '--', '--fake-sleep=1200', {Literal("--fake-log=" + Template.Escape(child))}, \"{{rom}}\"");
 
@@ -451,6 +449,20 @@ public sealed class LaunchServiceTests : IAsyncLifetime
         Assert.Equal(LaunchStatus.Exited, outcome.Status);
         Assert.InRange(outcome.Duration, TimeSpan.FromMilliseconds(1200), TimeSpan.FromSeconds(20));
         Assert.Equal(["--fake-sleep=1200", $"--fake-log={child}", _rom, "-L", _core], FakeEmulator.ReadLog(child).Args);
+    }
+
+    [Fact]
+    public async Task Cancelling_a_stub_launchers_game_ends_the_process_it_started()
+    {
+        UseArgs($"{LogArg}, '--fake-spawn=30000'");
+        using var cancel = new CancellationTokenSource();
+        _launcher.Running += (_, _) => cancel.CancelAfter(1000);
+
+        var outcome = await Launch(cancellationToken: cancel.Token);
+
+        Assert.Equal(LaunchStatus.Exited, outcome.Status);
+        Assert.True(outcome.Terminated);
+        Assert.InRange(outcome.Duration, TimeSpan.FromMilliseconds(1000), TimeSpan.FromSeconds(20));
     }
 
     // ---- Emulator choice ----------------------------------------------------------------------------

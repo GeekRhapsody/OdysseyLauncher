@@ -62,4 +62,18 @@ public class PortableProcessRunnerTests
         Assert.Empty(none);
         Assert.Equal("/games", workingDirectory);
     }
+
+    [Fact]
+    public void A_file_that_is_not_executable_fails_the_launch_rather_than_exiting_at_once()
+    {
+        Assert.SkipUnless(OperatingSystem.IsLinux(), "setsid and file modes are Linux's.");
+        using var dir = new TempDir();
+        var game = dir.File("Game.AppImage", "not a program");
+        var plan = new LaunchPlan("run-file", "Run file", game, [], dir.Path, null, RunFile: true);
+
+        var e = Assert.Throws<ProcessStartException>(() => new PortableProcessRunner().Start(plan));
+
+        Assert.Equal(13, e.NativeErrorCode);
+        Assert.Contains(game, e.Message, StringComparison.Ordinal);
+    }
 }
