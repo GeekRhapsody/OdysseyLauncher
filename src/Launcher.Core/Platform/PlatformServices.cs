@@ -31,7 +31,7 @@ public static class PlatformServices
 
     /// <summary>The drives and quick-access folders the pickers start from (M7).</summary>
     public static IFileLocations CreateFileLocations(string homeDir) =>
-        OperatingSystem.IsWindows() ? new WindowsFileLocations(homeDir) : new PortableFileLocations(homeDir);
+        OperatingSystem.IsWindows() ? new WindowsFileLocations(homeDir) : new LinuxFileLocations(homeDir, Environment.UserName, "/proc/self/mountinfo");
 
     /// <summary>Installs a downloaded update once the launcher has quit; on Linux, nothing (it can't update itself yet).</summary>
     public static IUpdateInstaller CreateUpdateInstaller() =>

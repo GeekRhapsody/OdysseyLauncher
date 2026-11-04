@@ -12,6 +12,7 @@ it releases, and the Release workflow puts it on the release page (tools/release
 
 ### New
 
+- **USB drives and mounted shares in the file and folder pickers on Linux**: whatever your desktop has mounted (under `/run/media` or `/media`), and anything mounted under `/mnt`, such as a NAS's share.
 - **The battery and the Wi-Fi signal in the status indicators on Linux**, top right, as on Windows. A controller's battery isn't mistaken for the computer's.
 - **Restart, shut down and sleep from the power menu on Linux** (View), as on Windows. An option your system would ask a password for, such as when another user is logged in, isn't offered.
 - **Emulators are found on their own on Linux**: a distribution's package, a Flatpak, or an AppImage in `~/Applications`, `~/.local/bin` or `~/bin`, with RetroArch's cores wherever RetroArch keeps them. Every system has its Linux emulators built in, under the same names as on Windows, so on Linux you no longer need to set each one up yourself. Settings, Emulators shows where each program was found.

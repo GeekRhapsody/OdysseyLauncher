@@ -27,7 +27,7 @@ public sealed record FileLocation(string Path, string Label, LocationKind Kind, 
 /// </summary>
 public interface IFileLocations
 {
-    /// <summary>Every drive letter (Windows) or the file system's root (Linux), with its type, and a mapped drive's share. Fast.</summary>
+    /// <summary>Every drive letter (Windows) or the file system's root and the USB drives and shares mounted (Linux), with its type, and a mapped drive's share. Fast.</summary>
     IReadOnlyList<FileLocation> Drives();
 
     /// <summary>A drive's volume label, or null. May block: call it on a worker, and don't wait on it.</summary>
@@ -35,27 +35,4 @@ public interface IFileLocations
 
     /// <summary>The user's folder, Desktop and Downloads, those that exist. Fast.</summary>
     IReadOnlyList<FileLocation> QuickAccess();
-}
-
-/// <summary>The Linux stub: the file system's root, and the home folder's usual places.</summary>
-public sealed class PortableFileLocations(string homeDir) : IFileLocations
-{
-    public IReadOnlyList<FileLocation> Drives() => [new FileLocation("/", "File system", LocationKind.Fixed, null)];
-
-    public string? VolumeLabel(string root) => null;
-
-    public IReadOnlyList<FileLocation> QuickAccess()
-    {
-        var places = new List<FileLocation> { new(homeDir, "Home", LocationKind.Folder, null) };
-        foreach (var name in (ReadOnlySpan<string>)["Desktop", "Downloads"])
-        {
-            var folder = Path.Combine(homeDir, name);
-            if (Directory.Exists(folder))
-            {
-                places.Add(new FileLocation(folder, name, LocationKind.Folder, null));
-            }
-        }
-
-        return places;
-    }
 }
