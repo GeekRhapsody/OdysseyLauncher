@@ -73,11 +73,24 @@ public sealed record PlatformPaths(string ConfigDir, string DataDir, string Cach
         return new PlatformPaths(root, root, Path.Combine(root, "cache"), homeDir);
     }
 
-    /// <summary>
-    /// The folder holding the <c>.AppImage</c> file when the launcher runs from one: its runtime sets <c>APPIMAGE</c> to
-    /// the file and <c>APPDIR</c> to the mount the executable is in. Null otherwise.
-    /// </summary>
+    /// <summary>The folder holding the <c>.AppImage</c> file when the launcher runs from one (<see cref="AppImageFile"/>). Null otherwise.</summary>
     internal static string? AppImageDir(string executableDir, Func<string, string?> environment)
+    {
+        var file = AppImageFile(executableDir, environment);
+        if (file is null)
+        {
+            return null;
+        }
+
+        var slash = file.LastIndexOf('/');
+        return slash == 0 ? "/" : file[..slash];
+    }
+
+    /// <summary>
+    /// The <c>.AppImage</c> file the launcher runs from: its runtime sets <c>APPIMAGE</c> to the file and <c>APPDIR</c>
+    /// to the mount (or the folder it was unpacked in) the executable is in. Null otherwise.
+    /// </summary>
+    internal static string? AppImageFile(string executableDir, Func<string, string?> environment)
     {
         var file = environment("APPIMAGE");
         var mount = environment("APPDIR")?.TrimEnd('/');
@@ -86,13 +99,7 @@ public sealed record PlatformPaths(string ConfigDir, string DataDir, string Cach
             return null;
         }
 
-        if (executableDir != mount && !executableDir.StartsWith(mount + "/", StringComparison.Ordinal))
-        {
-            return null;
-        }
-
-        var slash = file.LastIndexOf('/');
-        return slash == 0 ? "/" : file[..slash];
+        return executableDir == mount || executableDir.StartsWith(mount + "/", StringComparison.Ordinal) ? file : null;
     }
 
     /// <summary>An XDG base folder: the variable when it's an absolute path (the spec ignores a relative one), else its default under home.</summary>

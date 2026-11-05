@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The AppImage's AppStream metadata (docs/ARCHITECTURE.md decisions log, 2026-11-05): tools/linux/make-appimage.sh
+     puts it in usr/share/metainfo, appimagetool checks it with the desktop entry of the same id, and the Release
+     workflow validates it with appstreamcli. -->
+<component type="desktop-application">
+  <id>io.github.geekrhapsody.OdysseyLauncher</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <name>Odyssey Launcher</name>
+  <summary>Browse and launch your games in 3D</summary>
+  <developer id="io.github.geekrhapsody">
+    <name>GeekRhapsody</name>
+  </developer>
+  <description>
+    <p>
+      Odyssey Launcher is a fully 3D launcher for your emulators and PC games. Every system and every game is a
+      floating 3D model: systems appear as their own consoles, as slabs with their logos or as flat logo cards, and
+      games come in their boxes, cases and cabinets, wrapped in their cover art. Pick a system, pick a game, and it
+      starts in your emulator. When you quit the game, you're back where you left off.
+    </p>
+    <ul>
+      <li>Finds your games in ES-DE's ROM folders, and your emulators where they're installed: a distribution's package, a Flatpak or an AppImage</li>
+      <li>Downloads covers, screenshots, logos, videos and manuals from ScreenScraper, LaunchBox's Games DB, IGDB and SteamGridDB</li>
+      <li>Plays a game's video and opens its manual</li>
+      <li>Runs Steam games and your own desktop shortcuts and scripts</li>
+      <li>Can be driven entirely with a controller, including its settings</li>
+      <li>Themes to choose from and download, and your own 3D models for systems and games</li>
+    </ul>
+    <p>
+      Odyssey Launcher includes no games, BIOS files or emulators.
+    </p>
+  </description>
+  <launchable type="desktop-id">io.github.geekrhapsody.OdysseyLauncher.desktop</launchable>
+  <url type="homepage">https://github.com/GeekRhapsody/OdysseyLauncher</url>
+  <url type="bugtracker">https://github.com/GeekRhapsody/OdysseyLauncher/issues</url>
+  <url type="vcs-browser">https://github.com/GeekRhapsody/OdysseyLauncher</url>
+  <screenshots>
+    <screenshot type="default">
+      <caption>The systems screen in the Slab theme</caption>
+      <image>https://raw.githubusercontent.com/GeekRhapsody/OdysseyLauncher/main/docs/readme/systems-slab.jpg</image>
+    </screenshot>
+    <screenshot>
+      <caption>Mega Drive games in their cases</caption>
+      <image>https://raw.githubusercontent.com/GeekRhapsody/OdysseyLauncher/main/docs/readme/games-megadrive.jpg</image>
+    </screenshot>
+    <screenshot>
+      <caption>The systems screen in the Console theme</caption>
+      <image>https://raw.githubusercontent.com/GeekRhapsody/OdysseyLauncher/main/docs/readme/systems-console.jpg</image>
+    </screenshot>
+    <screenshot>
+      <caption>Arcade games as cabinets</caption>
+      <image>https://raw.githubusercontent.com/GeekRhapsody/OdysseyLauncher/main/docs/readme/games-arcade.jpg</image>
+    </screenshot>
+    <screenshot>
+      <caption>A game's details, with its description and play history</caption>
+      <image>https://raw.githubusercontent.com/GeekRhapsody/OdysseyLauncher/main/docs/readme/game-details.jpg</image>
+    </screenshot>
+    <screenshot>
+      <caption>The Classic View theme, with flat logo cards over a wallpaper</caption>
+      <image>https://raw.githubusercontent.com/GeekRhapsody/OdysseyLauncher/main/docs/readme/systems-classic-view.jpg</image>
+    </screenshot>
+  </screenshots>
+  <categories>
+    <category>Game</category>
+  </categories>
+  <keywords>
+    <keyword>emulator</keyword>
+    <keyword>frontend</keyword>
+    <keyword>launcher</keyword>
+    <keyword>retro</keyword>
+  </keywords>
+  <supports>
+    <control>gamepad</control>
+    <control>keyboard</control>
+    <control>pointing</control>
+  </supports>
+  <content_rating type="oars-1.1">
+    <content_attribute id="social-info">mild</content_attribute>
+  </content_rating>
+</component>

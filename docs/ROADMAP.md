@@ -315,7 +315,7 @@ The owner's request (2026-11-02): the first step towards Linux, accepted on a Ca
 2. **L3, parity on KDE:** the power menu through logind; the battery and Wi-Fi bars from sysfs and `/proc/net/wireless`; `/run/media` and `/mnt` in the pickers; stub launchers followed by their process group; `rom_dirs` that differ only in case; the foreground back after a game (it already comes back): done 2026-11-04, below.
 3. **L3b, Steam and Vita3K:** Steam games followed through `registry.vdf`; Vita3K's own folders, so an installed Vita game boots by its title id: done 2026-11-04, below.
 4. **L4, media:** videos by FFmpeg and manuals by PDFium, both carried in the AppImage (the owner's choices): done 2026-11-04, below.
-5. **L5, release:** a Linux job in release.yml (the export on the Windows runner, the AppImage made and checked on ubuntu-24.04, one job creating the release); AppStream metadata; updates that replace the `.AppImage` file (appimagetool can embed zsync's update information); Ubuntu 24.04 and Mint 22 checks; the wiki and CHANGELOG.
+5. **L5, release:** a Linux job in release.yml (the export on the Windows runner, the AppImage made and checked on ubuntu-24.04, one job creating the release); AppStream metadata; updates that replace the `.AppImage` file (appimagetool can embed zsync's update information); Ubuntu 24.04 and Mint 22 checks; the wiki and CHANGELOG: done 2026-11-05, below, but for the first run on GitHub and the VM checks.
 
 ## L2: Emulators on Linux
 
@@ -373,6 +373,21 @@ The owner's request (2026-11-04): what L1 left out, with the owner's decisions: 
 - `tools/linux/make-appimage.ps1` makes the AppImage, its ELF files within glibc 2.34, and its checks pass.
 - In both VMs a game's video plays with its sound (a 4:4:4 arcade video too), the Console theme's card videos play, and a manual opens, turns its pages, zooms and scrolls, with FFmpeg and PDFium loaded from the AppImage (the owner's manual test: [manual-tests.md](manual-tests.md#linux-videos-and-manuals)).
 
+## L5: The Linux release
+
+The owner's request (2026-11-05), with the owner's decisions: the Windows runner makes both exports, an ubuntu-24.04 job makes and checks the AppImage with `tools/linux/`'s scripts (FFmpeg's build cached by its recipe), and one job makes the release; the glibc floor proved by a headless run in a glibc 2.34 container; updates both ways, the app's "Check for updates" and zsync's update information; AppStream metadata with the id `io.github.geekrhapsody.OdysseyLauncher`; FFmpeg's source given by its URL only. The design is in [ARCHITECTURE.md](ARCHITECTURE.md) (A1 `Updates` and `Platform`, and the decisions log, 2026-11-05).
+
+**Scope**
+- `.github/workflows/release.yml`: the `version`, `windows`, `linux` and `release` jobs; a tag without notes stops in the first.
+- `tools/linux/setup.sh` as a user with sudo; `zsyncmake`, `appstreamcli` and `fusermount3` from Ubuntu's packages.
+- `make-appimage.sh`: the AppStream metadata and the desktop entry under the id, validated; the update information and the `.zsync`.
+- `LinuxUpdateInstaller` and an AppImage package in Core's `Updates`.
+
+**Acceptance**
+- The tests pass on Windows and on Linux; the AppImage's checks pass, and its metadata validates.
+- A Linux AppImage updates itself to a newer one through `--update-feed`, keeps its name and user data, and restarts with its arguments, with nothing of the old version left mounted.
+- The workflow, run by hand and on a tag, keeps or releases both builds (its first run is on GitHub); in the Ubuntu 24.04 and Mint 22 VMs, a released AppImage runs and updates itself both ways (the owner's manual test: [manual-tests.md](manual-tests.md#linux-the-release)).
+
 ## Progress
 
 Update this at the end of every milestone: the status, the date, and the evidence (commit, bench JSON and captures).
@@ -392,6 +407,7 @@ Update this at the end of every milestone: the status, the date, and the evidenc
 | L3 Parity on KDE | Done, but for Steam and Vita3K (moved to L3b); the VM checks are the owner's manual test ([manual-tests.md](manual-tests.md#linux-parity-on-kde)) | 2026-11-04 | on Windows 1,412 tests (1,402 pass, 10 skipped), on Linux 1,409 without the benchmarks (1,350 pass, 59 skipped); the AppImage's checks pass; see the log below |
 | L3b Steam and Vita3K on Linux | Done (the VM checks are the owner's manual test: [manual-tests.md](manual-tests.md#linux-steam-and-vita3k)) | 2026-11-04 | on Windows 1,444 tests (1,433 pass, 11 skipped), on Linux 1,441 without the benchmarks (1,382 pass, 59 skipped); the AppImage's checks pass; see the log below |
 | L4 Videos and manuals on Linux | Done (the VM checks are the owner's manual test: [manual-tests.md](manual-tests.md#linux-videos-and-manuals)) | 2026-11-04 | [captures](perf/linux-l4/captures.jpg) (the AppImage in WSLg on software Vulkan: a 4:4:4 video playing, a manual); on Windows 1,452 tests (1,433 pass, 19 skipped), on Linux 1,449 without the benchmarks (1,403 pass, 46 skipped); the AppImage's checks pass; see the log below |
+| L5 The Linux release | Done, but for the workflow's first run on GitHub and the VM checks (the owner's: [manual-tests.md](manual-tests.md#linux-the-release)) | 2026-11-05 | on Windows 1,457 tests (1,434 pass, 23 skipped), on Linux 1,457 without the benchmarks (1,411 pass, 46 skipped); the AppImage's checks pass, its AppStream metadata validates, and 0.22.1 updated itself to 0.22.2 in WSLg; see the log below |
 
 ### Log
 
@@ -1182,3 +1198,18 @@ Update this at the end of every milestone: the status, the date, and the evidenc
     - `setup.sh` fetches pdfium-binaries' `chromium/8138` (glibc 2.16; 8.3 MB). Core `Platform/Linux`: `PdfiumRenderer` and `PdfiumNativeMethods`, every call under one lock. PDFium's sizes are already turned by a page's `/Rotate` (a 300 × 400 page turned 90° is 400 × 300), as Windows' are.
     - **Verification:** Windows: 1,452 tests, 1,433 pass and 19 skip. Linux (WSL): 1,449 without the benchmarks, 1,403 pass and 46 skip; the PDF tests run there now, with PDFium mapped only from beside the tests. `tools/linux/make-appimage.ps1`: the AppImage (130.1 MB, 6.8 MB more than L3b's), its 23 ELF files within glibc 2.34, its smoke run and launch smoke run pass. Windowed in WSLg on lavapipe, the AppImage played a 640 × 480 H.264 4:4:4 video (its sound is the tests' to check, and the VMs'), and showed a manual's pages (opened in 36 ms, a page drawn in 23 ms) and both cards' thumbnails ([captures](perf/linux-l4/captures.jpg)).
     - **Not done:** the VMs: real videos and manuals, the sound, the CPU a video costs, and FFmpeg and PDFium mapped from the AppImage's mount ([manual-tests.md](manual-tests.md#linux-videos-and-manuals)). L5, the release job, wasn't started.
+- **2026-11-05: L5, the Linux release** (the owner's request, and decisions: both exports on the Windows runner, the AppImage made and checked on ubuntu-24.04 with FFmpeg's build cached, one release job; the floor proved in a glibc 2.34 container; updates both ways; AppStream metadata; FFmpeg's source by its URL).
+  - **What was added:**
+    - `.github/workflows/release.yml`: a `version` job (the tag and `CHANGELOG.md`'s notes, before any build), the Linux export on the Windows runner, a `linux` job (`setup.sh`, `test.sh`, `make-appimage.sh`, `smoke.sh`, then a headless run in `almalinux:9` with `APPIMAGE_EXTRACT_AND_RUN=1`), and a `release` job attaching the zip and its `.sha256`, and the AppImage with its `.sha256` and `.zsync`. FFmpeg's build is cached by `ffmpeg_recipe` (`common.sh`), and its tarball fetched only for a build.
+    - `tools/linux/`: `setup.sh` uses sudo when it isn't root and installs `zsync`, `appstream` and `fuse3` where missing; `make-appimage.sh` puts `io.github.geekrhapsody.OdysseyLauncher.appdata.xml` in `usr/share/metainfo` and the desktop entry, renamed to the id, at the root and in `usr/share/applications`, validates them with `appstreamcli validate-tree --no-net` (appimagetool validates them again), and embeds zsync's update information (`latest`, or `latest-all` for a pre-release), writing the `.zsync`.
+    - Core: `UpdatePackage` (`Zip`, `AppImage`), the AppImage found by its exact name as the zip is, downloaded beside the `.AppImage` file and checked for its magic; `IUpdateInstaller.Package` and `Target`; `LinuxUpdateInstaller`; `PlatformPaths.AppImageFile`. App: `AppUpdater` asks the installer what it replaces.
+  - **Verification:**
+    - Windows: 1,457 tests, 1,434 pass and 23 skip. Linux (WSL): 1,457 without the benchmarks, 1,411 pass and 46 skip; the new ones replace a fake AppImage (its name and mode kept), restart it with its arguments and working folder once the stand-in launcher has quit, and leave everything as it was when the rename fails.
+    - `make-appimage.sh`: the metadata validates (two pedantic hints: the id's capitals and no `<releases>`); the `.zsync` names the AppImage by a relative URL; `--appimage-updateinformation` prints the string.
+    - End to end in WSLg: 0.22.1 offered 0.22.2 from a local feed, downloaded and checked it, replaced its own file and restarted as 0.22.2 with `--user-dir`, which found itself the newest. The first try left the old version mounted while the new one ran (the runtime's mount point, fd 1023, inherited down to the new runtime); the restart now closes inherited files, and only the new mount remained.
+    - In an AlmaLinux 9 chroot (glibc 2.34) the AppImage's headless run prints its `Launcher.Core` line in 4 s, unpacked rather than mounted, with `libicu` installed.
+  - **Not done:**
+    - The workflow hasn't run on GitHub: its first run (by hand, then a tag) is the owner's. actionlint wasn't run.
+    - The launch smoke run in the container: PowerShell 7.6.9 found none of its own modules on AlmaLinux 9 (in a chroot), cause not found.
+    - The VMs: a released AppImage, its update through "Check for updates" from one release to the next (the first possible is from the first release with this code), and through AppImageUpdate or Gear Lever ([manual-tests.md](manual-tests.md#linux-the-release)).
+    - The engine's own arguments (`--resolution`, `--quit-after`) don't survive a restart, on either OS: `OS.GetCmdlineArgs` doesn't give them.

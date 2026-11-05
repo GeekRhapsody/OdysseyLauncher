@@ -8,9 +8,17 @@ namespace Launcher.Core.Updates;
 /// <summary>A file a release offers: its name, where to get it, its size in bytes, and its SHA-256 when the feed gives one.</summary>
 public sealed record UpdateAsset(string Name, Uri Url, long Size, string? Sha256);
 
+/// <summary>What a platform's package is: the export zipped (Windows), or an AppImage (Linux), as the release workflow makes them.</summary>
+public enum UpdatePackage
+{
+    Zip,
+    AppImage,
+}
+
 /// <summary>
-/// A release with a package for this platform (<see cref="Package"/>: <c>OdysseyLauncher-&lt;version&gt;-&lt;platform&gt;.zip</c>,
-/// as the release workflow names it) and, when the release has one, its <c>.sha256</c> file (<see cref="Checksum"/>).
+/// A release with a package for this platform (<see cref="Package"/>: <c>OdysseyLauncher-&lt;version&gt;-&lt;platform&gt;.zip</c>
+/// or <c>.AppImage</c>, as the release workflow names it) and, when the release has one, its <c>.sha256</c> file
+/// (<see cref="Checksum"/>).
 /// </summary>
 public sealed record UpdateRelease(
     AppVersion Version,
@@ -32,15 +40,16 @@ public static partial class ReleaseFeed
     private static readonly JsonDocumentOptions Options = new() { MaxDepth = 64 };
 
     /// <summary>The package's file name for <paramref name="version"/> on <paramref name="platform"/> (<c>windows-x86_64</c>).</summary>
-    public static string PackageName(AppVersion version, string platform) =>
-        string.Create(CultureInfo.InvariantCulture, $"OdysseyLauncher-{version}-{platform}.zip");
+    public static string PackageName(AppVersion version, string platform, UpdatePackage package = UpdatePackage.Zip) =>
+        string.Create(CultureInfo.InvariantCulture, $"OdysseyLauncher-{version}-{platform}.{(package == UpdatePackage.AppImage ? "AppImage" : "zip")}");
 
     /// <summary>
-    /// The releases in <paramref name="json"/> that have a package for <paramref name="platform"/>, drafts and tags that
-    /// aren't versions left out. <paramref name="baseUri"/> resolves relative download URLs (a local feed's file
-    /// names); without it, only absolute HTTPS URLs count. Throws <see cref="JsonException"/> if it isn't a JSON array.
+    /// The releases in <paramref name="json"/> that have a package for <paramref name="platform"/>, found by its exact
+    /// name (<see cref="PackageName"/>), drafts and tags that aren't versions left out. <paramref name="baseUri"/>
+    /// resolves relative download URLs (a local feed's file names); without it, only absolute HTTPS URLs count. Throws
+    /// <see cref="JsonException"/> if it isn't a JSON array.
     /// </summary>
-    public static IReadOnlyList<UpdateRelease> Parse(string json, string platform, Uri? baseUri = null)
+    public static IReadOnlyList<UpdateRelease> Parse(string json, string platform, Uri? baseUri = null, UpdatePackage package = UpdatePackage.Zip)
     {
         ArgumentNullException.ThrowIfNull(json);
         ArgumentNullException.ThrowIfNull(platform);
@@ -53,7 +62,7 @@ public static partial class ReleaseFeed
         var releases = new List<UpdateRelease>();
         foreach (var entry in document.RootElement.EnumerateArray())
         {
-            if (Read(entry, platform, baseUri) is { } release)
+            if (Read(entry, platform, package, baseUri) is { } release)
             {
                 releases.Add(release);
             }
@@ -134,7 +143,7 @@ public static partial class ReleaseFeed
     [GeneratedRegex(@"\s+by\s+@\S+\s+in\s+https?://\S+$", RegexOptions.CultureInvariant)]
     private static partial Regex Credit();
 
-    private static UpdateRelease? Read(JsonElement entry, string platform, Uri? baseUri)
+    private static UpdateRelease? Read(JsonElement entry, string platform, UpdatePackage kind, Uri? baseUri)
     {
         if (entry.ValueKind != JsonValueKind.Object || Bool(entry, "draft"))
         {
@@ -152,7 +161,7 @@ public static partial class ReleaseFeed
             return null;
         }
 
-        var packageName = PackageName(version, platform);
+        var packageName = PackageName(version, platform, kind);
         UpdateAsset? package = null;
         UpdateAsset? checksum = null;
         foreach (var asset in assets.EnumerateArray())

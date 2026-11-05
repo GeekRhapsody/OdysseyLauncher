@@ -19,13 +19,11 @@ namespace Launcher.App.Settings;
 /// the first time it's used, so nothing of it loads at boot and the launcher never checks unasked. A check asks GitHub
 /// (or <c>--update-feed</c>'s folder) on the thread pool for the newest release; a newer one is offered in a question,
 /// and yes opens <see cref="UpdatePanel"/>, which downloads it, hands it to the platform's installer and quits so the
-/// installer can replace the files and start the new version. Main thread, except where it says otherwise.
+/// installer can replace the files (on Linux, the <c>.AppImage</c>) and start the new version. Main thread, except where
+/// it says otherwise.
 /// </summary>
 public sealed class AppUpdater
 {
-    /// <summary>The launcher's executable, as the release workflow exports it: a package must have it.</summary>
-    public const string ExecutableName = "OdysseyLauncher.exe";
-
     private readonly SettingsController _settings;
     private readonly string? _feed;
     private readonly IUpdateInstaller _installer = PlatformServices.CreateUpdateInstaller();
@@ -57,7 +55,8 @@ public sealed class AppUpdater
 
     /// <summary>
     /// Null when this run can install an update, else why not, for the user. An editor run can check (for captures)
-    /// but never installs: the executable it would replace is Godot's.
+    /// but never installs: the executable it would replace is Godot's. Nor does a run the platform can't replace
+    /// (a renamed executable, or on Linux a launcher not run from its AppImage).
     /// </summary>
     public string? CantInstall()
     {
@@ -66,13 +65,12 @@ public sealed class AppUpdater
             return "This is an editor run, so it isn't installed: the launcher updates itself only from a release.";
         }
 
-        if (!string.Equals(Path.GetFileName(_executable), ExecutableName, StringComparison.OrdinalIgnoreCase))
-        {
-            return $"The launcher's program has been renamed ({Path.GetFileName(_executable)}), so the update, which brings {ExecutableName}, isn't installed here.";
-        }
-
-        return null;
+        _installer.Target(_executable, out var problem);
+        return problem;
     }
+
+    /// <summary>The file an update replaces and starts again: the executable, or on Linux its <c>.AppImage</c>.</summary>
+    private string Installed => _installer.Target(_executable, out _) ?? _executable;
 
     /// <summary>
     /// Asks for the newest release, showing what it's doing on <paramref name="from"/>, and offers a newer one in a
@@ -220,10 +218,10 @@ public sealed class AppUpdater
         return new UpdateHandover(
             OS.GetProcessId(),
             service.InstallDir,
-            PackageDir: string.Empty,
+            Package: string.Empty,
             BackupDir: string.Empty,
             service.StagingDir,
-            _executable,
+            Installed,
             arguments,
             System.Environment.CurrentDirectory,
             LogFile());
@@ -232,9 +230,9 @@ public sealed class AppUpdater
     /// <summary>Thread pool: starts the installer for <paramref name="staged"/>; null once it runs, else why not.</summary>
     internal string? StartInstaller(UpdateHandover handover, StagedUpdate staged)
     {
-        var problem = _installer.Start(handover with { PackageDir = staged.PackageDir, BackupDir = staged.BackupDir, StagingDir = staged.StagingDir });
+        var problem = _installer.Start(handover with { Package = staged.Package, BackupDir = staged.BackupDir, StagingDir = staged.StagingDir });
         Log().Write(problem is null ? LogLevel.Info : LogLevel.Warning, problem is null
-            ? $"Update: the installer is waiting for the launcher (process {handover.ProcessId}) to quit, to install {staged.Release.Version}."
+            ? $"Update: {staged.Release.Version} is with the installer, and starts once the launcher (process {handover.ProcessId}) has quit."
             : $"Update: the installer couldn't start: {problem}");
         return problem;
     }
@@ -243,7 +241,8 @@ public sealed class AppUpdater
     {
         _client ??= ScraperHttp.CreateClient();
         IReleaseSource source = _feed is null ? new GitHubReleaseSource(_client) : new LocalReleaseSource(_feed);
-        return new UpdateService(source, Path.GetDirectoryName(_executable)!, Path.GetFileName(_executable), platform, Log(), _installer.HelperName);
+        var installed = Installed;
+        return new UpdateService(source, Path.GetDirectoryName(installed)!, Path.GetFileName(installed), platform, Log(), _installer.HelperName, _installer.Package);
     }
 
     private string LogFile() => Path.Combine(_settings.Services.Paths.DataDir, "logs", "update.log");

@@ -23,15 +23,17 @@ public readonly record struct UpdateProgress(UpdateStage Stage, long Done, long 
 
 /// <summary>
 /// A release downloaded, checked and unpacked beside the installed launcher, ready for <see cref="Platform.IUpdateInstaller"/>:
-/// <see cref="PackageDir"/> holds the new version's files as the zip's one folder has them.
+/// <see cref="Package"/> is the folder holding the new version's files as the zip's one folder has them, or the new
+/// <c>.AppImage</c> file.
 /// </summary>
-public sealed record StagedUpdate(UpdateRelease Release, string StagingDir, string PackageDir, string BackupDir);
+public sealed record StagedUpdate(UpdateRelease Release, string StagingDir, string Package, string BackupDir);
 
 /// <summary>
 /// Checks for a newer launcher and downloads it (2026-10-18, docs/ARCHITECTURE.md A1 <c>Updates</c>): the releases list
 /// from <see cref="IReleaseSource"/>, the newest release newer than this one with a package for this platform, and that
 /// package downloaded into <c>&lt;install dir&gt;/.odyssey-update/</c> (beside the files it replaces, so the swap is a rename
-/// on one volume), its SHA-256 checked against the release's, and unpacked there. Installing it is the platform's
+/// on one volume), its SHA-256 checked against the release's, and a zip unpacked there (an AppImage is the new version
+/// as it is: L5, docs/ARCHITECTURE.md decisions log, 2026-11-05). Installing it is the platform's
 /// (<see cref="Platform.IUpdateInstaller"/>), as the running files can't be replaced while the launcher runs. Thread pool.
 /// </summary>
 public sealed class UpdateService
@@ -52,16 +54,23 @@ public sealed class UpdateService
     private const string PlatformPathsMarker = Platform.PlatformPaths.PortableMarker;
     private const int BufferSize = 128 * 1024;
 
+    private static ReadOnlySpan<byte> ElfMagic => [0x7F, (byte)'E', (byte)'L', (byte)'F'];
+
+    private static ReadOnlySpan<byte> AppImageMagic => [(byte)'A', (byte)'I', 2];
+
     private readonly IReleaseSource _source;
     private readonly string _platform;
     private readonly ILog _log;
     private readonly string? _helperName;
+    private readonly UpdatePackage _package;
 
-    /// <param name="installDir">The folder the running launcher's executable is in.</param>
-    /// <param name="executableName">Its file name (<c>OdysseyLauncher.exe</c>): a package must have it, and its <c>.pck</c>.</param>
+    /// <param name="installDir">The folder of the file an update replaces: the running launcher's executable, or its <c>.AppImage</c>.</param>
+    /// <param name="executableName">The executable's file name (<c>OdysseyLauncher.exe</c>): a zip must have it, and its <c>.pck</c>.</param>
     /// <param name="platform">The packages' platform (<c>windows-x86_64</c>).</param>
-    /// <param name="helperName">The installer's helper (<c>OdysseyUpdater.exe</c>), which a package must have too; null for none.</param>
-    public UpdateService(IReleaseSource source, string installDir, string executableName, string platform, ILog log, string? helperName = null)
+    /// <param name="helperName">The installer's helper (<c>OdysseyUpdater.exe</c>), which a zip must have too; null for none.</param>
+    /// <param name="package">What the platform's package is.</param>
+    public UpdateService(IReleaseSource source, string installDir, string executableName, string platform, ILog log, string? helperName = null,
+        UpdatePackage package = UpdatePackage.Zip)
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(installDir);
@@ -74,6 +83,7 @@ public sealed class UpdateService
         _platform = platform;
         _log = log;
         _helperName = helperName;
+        _package = package;
     }
 
     public string InstallDir { get; }
@@ -89,7 +99,7 @@ public sealed class UpdateService
         IReadOnlyList<UpdateRelease> releases;
         try
         {
-            releases = ReleaseFeed.Parse(json, _platform, _source.BaseUri);
+            releases = ReleaseFeed.Parse(json, _platform, _source.BaseUri, _package);
         }
         catch (JsonException e)
         {
@@ -124,7 +134,7 @@ public sealed class UpdateService
 
     /// <summary>
     /// Downloads <paramref name="release"/>'s package into the staging folder (what was there from an earlier try goes
-    /// first), checks its SHA-256, and unpacks it. Throws <see cref="UpdateException"/>, or
+    /// first), checks its SHA-256, and unpacks a zip, or checks an AppImage is one. Throws <see cref="UpdateException"/>, or
     /// <see cref="OperationCanceledException"/>; either way, nothing installed is touched.
     /// </summary>
     public async Task<StagedUpdate> DownloadAsync(UpdateRelease release, IProgress<UpdateProgress>? progress = null, CancellationToken token = default)
@@ -149,22 +159,50 @@ public sealed class UpdateService
             throw new UpdateException($"The update couldn't be saved in {InstallDir} ({e.Message}).", e);
         }
 
-        var zip = Path.Combine(StagingDir, release.Package.Name);
-        var hash = await DownloadFileAsync(release.Package, zip, progress, token).ConfigureAwait(false);
+        var download = Path.Combine(StagingDir, release.Package.Name);
+        var hash = await DownloadFileAsync(release.Package, download, progress, token).ConfigureAwait(false);
         progress?.Report(new UpdateProgress(UpdateStage.Verifying, 0, 0));
         if (!string.Equals(hash, expected, StringComparison.Ordinal))
         {
-            TryDelete(zip);
+            TryDelete(download);
             throw new UpdateException($"The download of {release.Version} doesn't match its checksum, so it isn't installed. Try again: it may have been damaged on the way.");
         }
 
         _log.Write(LogLevel.Info, $"Update: downloaded {release.Package.Name}, SHA-256 {hash} as published.");
+        var old = Path.Combine(StagingDir, "old");
+        if (_package == UpdatePackage.AppImage)
+        {
+            await CheckAppImageAsync(download, token).ConfigureAwait(false);
+            return new StagedUpdate(release, StagingDir, download, old);
+        }
+
         var unpacked = Path.Combine(StagingDir, "new");
-        await Task.Run(() => Extract(zip, unpacked, progress, token), token).ConfigureAwait(false);
-        TryDelete(zip);
+        await Task.Run(() => Extract(download, unpacked, progress, token), token).ConfigureAwait(false);
+        TryDelete(download);
         var package = FindPackageRoot(unpacked);
         _log.Write(LogLevel.Info, $"Update: {release.Version} unpacked in {package}.");
-        return new StagedUpdate(release, StagingDir, package, Path.Combine(StagingDir, "old"));
+        return new StagedUpdate(release, StagingDir, package, old);
+    }
+
+    /// <summary>
+    /// Refuses a file that isn't a type 2 AppImage (an ELF file with <c>AI</c> and 2 at offset 8, where the AppImage
+    /// specification puts its magic), as a zip without the launcher is refused.
+    /// </summary>
+    private static async Task CheckAppImageAsync(string path, CancellationToken token)
+    {
+        var head = new byte[11];
+        var file = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 1, useAsync: true);
+        await using (file.ConfigureAwait(false))
+        {
+            var read = await file.ReadAtLeastAsync(head, head.Length, throwOnEndOfStream: false, token).ConfigureAwait(false);
+            if (read == head.Length && head.AsSpan(0, 4).SequenceEqual(ElfMagic) && head.AsSpan(8, 3).SequenceEqual(AppImageMagic))
+            {
+                return;
+            }
+        }
+
+        TryDelete(path);
+        throw new UpdateException("The update isn't an AppImage, so it isn't installed.");
     }
 
     /// <summary>

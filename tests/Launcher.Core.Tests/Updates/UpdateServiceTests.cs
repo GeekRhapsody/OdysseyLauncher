@@ -12,6 +12,7 @@ namespace Launcher.Core.Tests.Updates;
 public sealed class UpdateServiceTests : IDisposable
 {
     private const string Platform = "windows-x86_64";
+    private const string LinuxPlatform = "linux-x86_64";
     private const string Api = "https://api.github.com/repos/GeekRhapsody/OdysseyLauncher/releases";
     private static readonly AppVersion Current = Version("0.16.0");
 
@@ -59,6 +60,30 @@ public sealed class UpdateServiceTests : IDisposable
             }
             """;
     }
+
+    /// <summary>A release as the workflow publishes it from L5: the Windows zip, and the AppImage with its .sha256 and .zsync.</summary>
+    private static string LinuxRelease(string version, string? digest = "")
+    {
+        var download = $"https://github.com/GeekRhapsody/OdysseyLauncher/releases/download/v{version}/";
+        var appImage = $"OdysseyLauncher-{version}-linux-x86_64.AppImage";
+        var zip = $"OdysseyLauncher-{version}-windows-x86_64.zip";
+        var digestJson = digest is null ? string.Empty : $"\"digest\": \"sha256:{(digest.Length == 0 ? new string('a', 64) : digest)}\",";
+        return $$"""
+            {
+              "tag_name": "v{{version}}", "name": "Odyssey Launcher {{version}}", "prerelease": false,
+              "assets": [
+                { "name": "{{zip}}", "size": 1000, "digest": "sha256:{{new string('b', 64)}}", "browser_download_url": "{{download}}{{zip}}" },
+                { "name": "{{appImage}}.zsync", "size": 100, "browser_download_url": "{{download}}{{appImage}}.zsync" },
+                { "name": "{{appImage}}", "size": 1000, {{digestJson}} "browser_download_url": "{{download}}{{appImage}}" },
+                { "name": "{{appImage}}.sha256", "size": 100, "browser_download_url": "{{download}}{{appImage}}.sha256" }
+              ]
+            }
+            """;
+    }
+
+    /// <summary>An AppImage's first bytes, as the type 2 runtime begins: ELF's magic, then AppImage's at offset 8.</summary>
+    private static byte[] AppImage(string version) =>
+        [0x7F, (byte)'E', (byte)'L', (byte)'F', 2, 1, 1, 0, (byte)'A', (byte)'I', 2, .. Encoding.UTF8.GetBytes("new AppImage " + version)];
 
     private static string List(params string[] releases) => "[" + string.Join(",", releases) + "]";
 
@@ -159,6 +184,17 @@ public sealed class UpdateServiceTests : IDisposable
         Assert.Empty(ReleaseFeed.Parse(json, Platform));
         var local = ReleaseFeed.Parse(json, Platform, new Uri(_dir.Path + Path.DirectorySeparatorChar));
         Assert.Equal(Path.Combine(_dir.Path, "OdysseyLauncher-0.17.0-windows-x86_64.zip"), local[0].Package.Url.LocalPath);
+    }
+
+    [Fact]
+    public void Linux_picks_the_releases_AppImage_and_its_checksum_file_by_name_as_Windows_picks_its_zip()
+    {
+        var releases = ReleaseFeed.Parse(List(LinuxRelease("0.17.0", digest: null)), LinuxPlatform, package: UpdatePackage.AppImage);
+
+        var release = Assert.Single(releases);
+        Assert.Equal("OdysseyLauncher-0.17.0-linux-x86_64.AppImage", release.Package.Name);
+        Assert.Equal("OdysseyLauncher-0.17.0-linux-x86_64.AppImage.sha256", release.Checksum?.Name);
+        Assert.Equal("OdysseyLauncher-0.17.0-windows-x86_64.zip", Assert.Single(ReleaseFeed.Parse(List(LinuxRelease("0.17.0")), Platform)).Package.Name);
     }
 
     [Fact]
@@ -294,9 +330,9 @@ public sealed class UpdateServiceTests : IDisposable
         var staged = await service.DownloadAsync(check.Available!, new SyncProgress(progress), TestContext.Current.CancellationToken);
 
         Assert.Equal(Path.Combine(InstallDir, ".odyssey-update"), staged.StagingDir);
-        Assert.Equal(Path.Combine(InstallDir, ".odyssey-update", "new", "OdysseyLauncher-0.17.0-windows-x86_64"), staged.PackageDir);
-        Assert.Equal("new pck 0.17.0", File.ReadAllText(Path.Combine(staged.PackageDir, "OdysseyLauncher.pck")));
-        Assert.True(File.Exists(Path.Combine(staged.PackageDir, "themes", "slab", "theme.toml")));
+        Assert.Equal(Path.Combine(InstallDir, ".odyssey-update", "new", "OdysseyLauncher-0.17.0-windows-x86_64"), staged.Package);
+        Assert.Equal("new pck 0.17.0", File.ReadAllText(Path.Combine(staged.Package, "OdysseyLauncher.pck")));
+        Assert.True(File.Exists(Path.Combine(staged.Package, "themes", "slab", "theme.toml")));
         Assert.False(File.Exists(Path.Combine(staged.StagingDir, "new", "stale.txt")));
         Assert.False(File.Exists(Path.Combine(staged.StagingDir, "OdysseyLauncher-0.17.0-windows-x86_64.zip")));
         Assert.Equal("old pck", File.ReadAllText(Path.Combine(InstallDir, "OdysseyLauncher.pck")));
@@ -317,7 +353,7 @@ public sealed class UpdateServiceTests : IDisposable
 
         var staged = await service.DownloadAsync(check.Available!, null, TestContext.Current.CancellationToken);
 
-        Assert.True(File.Exists(Path.Combine(staged.PackageDir, "OdysseyLauncher.exe")));
+        Assert.True(File.Exists(Path.Combine(staged.Package, "OdysseyLauncher.exe")));
     }
 
     [Fact]
@@ -416,7 +452,7 @@ public sealed class UpdateServiceTests : IDisposable
         var staged = await service.DownloadAsync(releases[1], null, TestContext.Current.CancellationToken);
 
         Assert.Contains("no OdysseyUpdater.exe", e.Message, StringComparison.Ordinal);
-        Assert.True(File.Exists(Path.Combine(staged.PackageDir, "OdysseyUpdater.exe")));
+        Assert.True(File.Exists(Path.Combine(staged.Package, "OdysseyUpdater.exe")));
     }
 
     [Fact]
@@ -436,9 +472,46 @@ public sealed class UpdateServiceTests : IDisposable
         var check = await service.CheckAsync(Current, TestContext.Current.CancellationToken);
         var staged = await service.DownloadAsync(check.Available!, null, TestContext.Current.CancellationToken);
 
-        Assert.Equal("new exe 0.17.0", File.ReadAllText(Path.Combine(staged.PackageDir, "OdysseyLauncher.exe")));
+        Assert.Equal("new exe 0.17.0", File.ReadAllText(Path.Combine(staged.Package, "OdysseyLauncher.exe")));
         Assert.Empty(_http.Requests);
     }
+
+    [Fact]
+    public async Task An_AppImage_is_downloaded_and_checked_beside_the_one_it_replaces_and_not_unpacked()
+    {
+        _dir.File("Applications/Odyssey Launcher.AppImage", "old AppImage");
+        var appImage = AppImage("0.17.0");
+        ServeList(List(LinuxRelease("0.17.0", digest: null)));
+        ServeFile("OdysseyLauncher-0.17.0-linux-x86_64.AppImage", appImage);
+        ServeFile("OdysseyLauncher-0.17.0-linux-x86_64.AppImage.sha256", Encoding.ASCII.GetBytes($"{Sha256(appImage)}  OdysseyLauncher-0.17.0-linux-x86_64.AppImage"));
+        var service = LinuxService();
+        var check = await service.CheckAsync(Current, TestContext.Current.CancellationToken);
+
+        var staged = await service.DownloadAsync(check.Available!, null, TestContext.Current.CancellationToken);
+
+        Assert.Equal(_dir.Combine("Applications", ".odyssey-update", "OdysseyLauncher-0.17.0-linux-x86_64.AppImage"), staged.Package);
+        Assert.Equal(appImage, File.ReadAllBytes(staged.Package));
+        Assert.Equal([staged.Package], Directory.GetFileSystemEntries(staged.StagingDir));
+        Assert.Equal("old AppImage", File.ReadAllText(_dir.Combine("Applications", "Odyssey Launcher.AppImage")));
+    }
+
+    [Fact]
+    public async Task A_download_that_isnt_an_AppImage_is_refused()
+    {
+        var notAppImage = Encoding.UTF8.GetBytes("<html>Not found</html>");
+        ServeList(List(LinuxRelease("0.17.0", digest: Sha256(notAppImage))));
+        ServeFile("OdysseyLauncher-0.17.0-linux-x86_64.AppImage", notAppImage);
+        var service = LinuxService();
+        var check = await service.CheckAsync(Current, TestContext.Current.CancellationToken);
+
+        var e = await Assert.ThrowsAsync<UpdateException>(() => service.DownloadAsync(check.Available!, null, TestContext.Current.CancellationToken));
+
+        Assert.Contains("isn't an AppImage", e.Message, StringComparison.Ordinal);
+        Assert.Empty(Directory.GetFileSystemEntries(service.StagingDir));
+    }
+
+    private UpdateService LinuxService() =>
+        new(new GitHubReleaseSource(_client), _dir.Combine("Applications"), "Odyssey Launcher.AppImage", LinuxPlatform, NullLog.Instance, package: UpdatePackage.AppImage);
 
     [Fact]
     public async Task Old_files_an_update_couldnt_put_back_are_kept_and_block_the_next_update()

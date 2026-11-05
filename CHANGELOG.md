@@ -12,6 +12,8 @@ it releases, and the Release workflow puts it on the release page (tools/release
 
 ### New
 
+- **Odyssey Launcher for Linux**: each release now has an AppImage beside the Windows zip, `OdysseyLauncher-<version>-linux-x86_64.AppImage`. Make it executable and run it: nothing else to install. It needs a 64-bit distribution with glibc 2.34 or later (Ubuntu 22.04, Linux Mint 21, Fedora 35, current Arch, or newer).
+- **Check for updates works on Linux**: it downloads the new AppImage, checks it, puts it in place of yours (keeping its file name) and restarts the launcher with it. Tools that update AppImages, such as AppImageUpdate and Gear Lever, can update it too.
 - **Manuals open on Linux**, as on Windows: a game's manual from its details screen, with its pages' thumbnails, turning, zooming and scrolling.
 - **Videos play on Linux**, as on Windows: a game's video on its details screen and on a television's screen, and the videos on the Console theme's system cards. Arcade videos in H.264's 4:4:4 format, which Windows can't play, play on Linux, as do HEVC and VP9 videos.
 - **Steam games are followed until you quit them on Linux**, as on Windows: a game's desktop shortcut made by Steam (Manage, Add desktop shortcut) in the Steam system's folder keeps the launcher on its running screen while Steam updates and runs the game, and brings it back when the game ends, instead of coming straight back.

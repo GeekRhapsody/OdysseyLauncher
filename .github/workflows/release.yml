@@ -1,11 +1,15 @@
-# Builds the Windows release when a version tag (v1.2.3, or v1.2.3-beta.1 for a pre-release) is pushed, and attaches
-# the zip to that tag's GitHub release (made if it doesn't exist). Run it by hand (Actions > Release > Run workflow)
-# for a test build: the zip is kept as the run's artifact and nothing is released.
+# Builds the Windows and Linux releases when a version tag (v1.2.3, or v1.2.3-beta.1 for a pre-release) is pushed, and
+# attaches them to that tag's GitHub release (made if it doesn't exist): the Windows zip and its .sha256, and the Linux
+# AppImage with its .sha256 and .zsync (docs/ARCHITECTURE.md decisions log, 2026-11-05). Run it by hand (Actions >
+# Release > Run workflow) for a test build: both are kept as the run's artifacts and nothing is released.
+#
+# Jobs, in order: version (the tag and the notes, checked before anything is built), windows (both exports, the zip),
+# linux (the AppImage, made from the Linux export and checked, on Ubuntu and in a glibc 2.34 container), release.
 #
 # The tag must match <Version> in Directory.Build.props and config/version in godot/project.godot, and CHANGELOG.md
 # must have the version's notes (a '## <version>' section: tools/release-notes.ps1), which go on the release.
-# The runner has no GPU. The export still needs a rendering device for the shader baker (a headless export bakes
-# nothing), so Godot runs windowed on D3D12's software adapter (WARP), and the PCK's size shows the bake happened.
+# The Windows runner has no GPU. The exports still need a rendering device for the shader baker (a headless export
+# bakes nothing), so Godot runs windowed on D3D12's software adapter (WARP), and the PCKs' sizes show the bake happened.
 name: Release
 
 on:
@@ -30,13 +34,19 @@ env:
   UseSharedCompilation: false
 
 jobs:
-  windows:
-    name: Windows x86_64
-    runs-on: windows-2025
-    timeout-minutes: 45
+  version:
+    name: Version and notes
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
     defaults:
       run:
         shell: pwsh
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      windows: ${{ steps.version.outputs.windows }}
+      linux: ${{ steps.version.outputs.linux }}
+      appimage: ${{ steps.version.outputs.appimage }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
     steps:
       - uses: actions/checkout@v7
 
@@ -53,7 +63,7 @@ jobs:
           if ($Matches[1] -ne $version) { throw "Directory.Build.props says $version, godot/project.godot says $($Matches[1])." }
           if ($env:REF_TYPE -eq 'tag') {
             if ($env:REF_NAME -ne "v$version") { throw "The tag is $env:REF_NAME, but the version is ${version}: tag v$version, or change the version." }
-            # Checked now, so a release without notes stops before the build rather than after it.
+            # Checked now, so a release without notes stops before any build rather than after it.
             ./tools/release-notes.ps1 -Version $version -Out "$env:RUNNER_TEMP/release-notes.md"
             $label = $version
           }
@@ -61,8 +71,30 @@ jobs:
             $label = "$version-$($env:SHA.Substring(0, 7))"
           }
           "version=$version" >> $env:GITHUB_OUTPUT
-          "package=OdysseyLauncher-$label-windows-x86_64" >> $env:GITHUB_OUTPUT
+          "windows=OdysseyLauncher-$label-windows-x86_64" >> $env:GITHUB_OUTPUT
+          "linux=OdysseyLauncher-$label-linux-x86_64" >> $env:GITHUB_OUTPUT
+          # tools/linux/make-appimage.sh names the AppImage by the version alone.
+          "appimage=OdysseyLauncher-$version-linux-x86_64.AppImage" >> $env:GITHUB_OUTPUT
           "prerelease=$($version.Contains('-').ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
+
+      - uses: actions/upload-artifact@v7
+        if: github.ref_type == 'tag'
+        with:
+          name: release-notes
+          path: ${{ runner.temp }}/release-notes.md
+          if-no-files-found: error
+          retention-days: 1
+
+  windows:
+    name: Windows x86_64, and the Linux export
+    needs: version
+    runs-on: windows-2025
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-dotnet@v6
         with:
@@ -98,7 +130,7 @@ jobs:
           Set-Content (Join-Path $editor 'godot.cmd') "@`"$($console.FullName)`" %*" -Encoding ascii
           $editor >> $env:GITHUB_PATH
 
-          # Only the Windows x86_64 templates, out of about 1 GB for every platform.
+          # Only the Windows and Linux x86_64 templates, out of about 1 GB for every platform.
           Add-Type -AssemblyName System.IO.Compression, System.IO.Compression.FileSystem
           $zip = [IO.Compression.ZipFile]::OpenRead((Join-Path $downloads $templatesTpz))
           try {
@@ -106,7 +138,7 @@ jobs:
             $templates = Join-Path $env:APPDATA "Godot\export_templates\$version"
             New-Item -ItemType Directory -Force $templates | Out-Null
             foreach ($entry in $zip.Entries) {
-              if ($entry.FullName -match '^templates/(version\.txt|windows_(debug|release)_x86_64(_console)?\.exe)$') {
+              if ($entry.FullName -match '^templates/(version\.txt|windows_(debug|release)_x86_64(_console)?\.exe|linux_(debug|release)\.x86_64)$') {
                 [IO.Compression.ZipFileExtensions]::ExtractToFile($entry, (Join-Path $templates $entry.Name), $true)
               }
             }
@@ -164,6 +196,27 @@ jobs:
           # A Native AOT helper is one file of a few MB; a framework-dependent apphost is about 150 KB and needs .NET.
           if ($updater.Length -lt 1MB) { throw "OdysseyUpdater.exe is only $($updater.Length) bytes: it wasn't published with Native AOT." }
 
+      - name: Export for Linux
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $true
+          $out = Join-Path $env:GITHUB_WORKSPACE 'artifacts\export\linux'
+          New-Item -ItemType Directory -Force $out | Out-Null
+          # Not headless either: the baker bakes Vulkan's SPIR-V for it.
+          godot --path godot --export-release 'Linux' (Join-Path $out 'OdysseyLauncher.x86_64')
+          Get-ChildItem $out | Format-Table Name, Length -AutoSize
+          # Baked, this PCK is about 1.2 MB; unbaked, about 50 KB.
+          $pck = Get-Item (Join-Path $out 'OdysseyLauncher.pck')
+          if ($pck.Length -lt 512KB) { throw "The Linux OdysseyLauncher.pck is only $($pck.Length) bytes: the shader baker didn't run." }
+          if (-not (Test-Path (Join-Path $out 'themes\memory-card\theme.toml'))) { throw "The Linux export has no themes folder: the odyssey_export addon didn't run." }
+
+      # For the linux job, which makes the AppImage from it (an artifact keeps no file modes: make-appimage.sh sets them).
+      - uses: actions/upload-artifact@v7
+        with:
+          name: linux-export
+          path: artifacts/export/linux/
+          if-no-files-found: error
+          retention-days: 1
+
       - name: Launch smoke test of the export
         run: |
           $PSNativeCommandUseErrorActionPreference = $true
@@ -171,7 +224,7 @@ jobs:
 
       - name: Package
         env:
-          PACKAGE: ${{ steps.version.outputs.package }}
+          PACKAGE: ${{ needs.version.outputs.windows }}
         run: |
           Add-Type -AssemblyName System.IO.Compression, System.IO.Compression.FileSystem
           $staging = Join-Path $env:RUNNER_TEMP $env:PACKAGE
@@ -188,27 +241,126 @@ jobs:
 
       - uses: actions/upload-artifact@v7
         with:
-          name: ${{ steps.version.outputs.package }}
+          name: ${{ needs.version.outputs.windows }}
           path: artifacts/release/
           if-no-files-found: error
           retention-days: 14
 
+  linux:
+    name: Linux x86_64 AppImage
+    needs: [version, windows]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
+    env:
+      APPIMAGE: ${{ needs.version.outputs.appimage }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: linux-export
+          path: artifacts/export/linux
+
+      # FFmpeg's build (about a minute and a half), kept between runs by its recipe: its version, configure line and
+      # glibc-floor.h's hash (tools/linux/common.sh). setup.sh builds it again only when the recipe changes.
+      - name: FFmpeg's recipe
+        id: ffmpeg
+        run: |
+          source tools/linux/common.sh
+          echo "key=ffmpeg-linux-x86_64-$(ffmpeg_recipe | sha256sum | cut -c 1-16)" >> "$GITHUB_OUTPUT"
+          echo "dir=$FFMPEG_DIR" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/cache@v6
+        with:
+          path: ${{ steps.ffmpeg.outputs.dir }}
+          key: ${{ steps.ffmpeg.outputs.key }}
+
+      # .NET, PowerShell, appimagetool and its runtime, PDFium (pinned in tools/linux/common.sh), and what's missing of
+      # Ubuntu's packages, through sudo: the C tools, zsyncmake, appstreamcli and fusermount3.
+      - name: Linux tools
+        run: bash tools/linux/setup.sh
+
+      - name: Build and test
+        run: bash tools/linux/test.sh
+
+      # Validates the AppStream metadata with appstreamcli, checks every ELF file against glibc 2.34, and writes the
+      # .sha256 and the .zsync.
+      - name: AppImage
+        run: bash tools/linux/make-appimage.sh artifacts/export/linux artifacts/linux
+
+      - name: Smoke runs of the AppImage
+        run: bash tools/linux/smoke.sh "artifacts/linux/$APPIMAGE"
+
+      # The floor proved, not only read from the symbols: AlmaLinux 9 has glibc 2.34. A container has no FUSE, so the
+      # runtime unpacks the AppImage instead of mounting it. The launcher uses the system's ICU (libicu). The launch
+      # smoke run isn't repeated here: it needs PowerShell, which found none of its own modules on AlmaLinux 9.
+      - name: Smoke run on glibc 2.34 (AlmaLinux 9)
+        run: |
+          docker run --rm -e APPIMAGE_EXTRACT_AND_RUN=1 -v "$GITHUB_WORKSPACE/artifacts/linux:/appimage:ro" almalinux:9 bash -c '
+            dnf install -y -q libicu > /dev/null
+            ldd --version | head -n 1
+            if ! output="$("/appimage/$0" --headless --quit-after 10 2>&1)" || ! grep "Launcher.Core" <<< "$output"; then
+              echo "$output"
+              exit 1
+            fi' "$APPIMAGE"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ${{ needs.version.outputs.linux }}
+          path: |
+            artifacts/linux/${{ needs.version.outputs.appimage }}
+            artifacts/linux/${{ needs.version.outputs.appimage }}.sha256
+            artifacts/linux/${{ needs.version.outputs.appimage }}.zsync
+          if-no-files-found: error
+          retention-days: 14
+
+  release:
+    name: Release
+    needs: [version, windows, linux]
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: release-notes
+          path: ${{ runner.temp }}/release
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: ${{ needs.version.outputs.windows }}
+          path: ${{ runner.temp }}/release
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: ${{ needs.version.outputs.linux }}
+          path: ${{ runner.temp }}/release
+
       - name: Release
-        if: github.ref_type == 'tag'
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
           TAG: ${{ github.ref_name }}
-          VERSION: ${{ steps.version.outputs.version }}
-          PRERELEASE: ${{ steps.version.outputs.prerelease }}
+          VERSION: ${{ needs.version.outputs.version }}
+          PRERELEASE: ${{ needs.version.outputs.prerelease }}
+          WINDOWS: ${{ needs.version.outputs.windows }}
+          APPIMAGE: ${{ needs.version.outputs.appimage }}
         run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/release"
+          ls -l
+          files=("$WINDOWS.zip" "$WINDOWS.zip.sha256" "$APPIMAGE" "$APPIMAGE.sha256" "$APPIMAGE.zsync")
           # A release made by hand on GitHub (which pushes the tag) keeps its title and notes; the files are added to it.
           # Otherwise its notes are CHANGELOG.md's for the version, then GitHub's generated ones (the compare link).
-          gh release view $env:TAG *> $null
-          $exists = $LASTEXITCODE -eq 0
-          $PSNativeCommandUseErrorActionPreference = $true
-          if (-not $exists) {
-            $options = @('--verify-tag', '--title', "Odyssey Launcher $env:VERSION", '--notes-file', "$env:RUNNER_TEMP/release-notes.md", '--generate-notes')
-            if ($env:PRERELEASE -eq 'true') { $options += '--prerelease' }
-            gh release create $env:TAG @options
-          }
-          gh release upload $env:TAG (Get-ChildItem artifacts\release).FullName --clobber
+          if ! gh release view "$TAG" > /dev/null 2>&1; then
+            options=(--verify-tag --title "Odyssey Launcher $VERSION" --notes-file release-notes.md --generate-notes)
+            if [[ $PRERELEASE == true ]]; then options+=(--prerelease); fi
+            gh release create "$TAG" "${options[@]}"
+          fi
+          gh release upload "$TAG" "${files[@]}" --clobber

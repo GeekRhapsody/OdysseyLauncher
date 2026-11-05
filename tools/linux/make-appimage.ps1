@@ -8,7 +8,7 @@
     1. Exports the "Linux" preset into artifacts/export/linux, windowed, so the shader baker has a rendering device (it
        bakes Vulkan's shaders). -SkipExport uses the export that's there.
     2. In the WSL distro -Distro (default OdysseyLinux), as root: tools/linux/setup.sh (the pinned tools, once),
-       tools/linux/make-appimage.sh (artifacts/linux/OdysseyLauncher-<version>-linux-x86_64.AppImage and its .sha256),
+       tools/linux/make-appimage.sh (artifacts/linux/OdysseyLauncher-<version>-linux-x86_64.AppImage, its .sha256 and .zsync),
        and tools/linux/smoke.sh against the AppImage, headless. Nothing else in the distro is changed.
 .EXAMPLE
     .\tools\linux\make-appimage.ps1

@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Installs what the Linux build needs, with no sudo (docs/ARCHITECTURE.md decisions log, 2026-11-02):
+# Installs what the Linux build needs (docs/ARCHITECTURE.md decisions log, 2026-11-02), as root in WSL's distro, or as a
+# user with sudo for apt (the Release workflow's runner: decisions log, 2026-11-05):
 #
 #   ~/.dotnet                                     the .NET SDK global.json names (its major.minor, the newest patch)
 #                                                 and the .NET 8 runtime the tests and the fake emulator run on, by
@@ -8,8 +9,10 @@
 #   ~/.cache/odyssey-linux/tools/appimagetool-<v>-x86_64.AppImage, runtime-<v>-x86_64
 #                                                 appimagetool, and the static AppImage runtime it's given, so the
 #                                                 AppImage needs no libfuse2 (tools/linux/make-appimage.sh)
-#   gcc, make, nasm, pkg-config, binutils         Ubuntu's packages, by apt (the distro is used as root): the C tools
-#                                                 for FFmpeg, and objdump for the glibc floor check
+#   gcc, make, nasm, pkg-config, binutils,        Ubuntu's packages, by apt, those missing: the C tools for FFmpeg,
+#   zsync, appstream, fuse3                       objdump for the glibc floor check, zsyncmake for the AppImage's
+#                                                 .zsync file, appstreamcli for its AppStream metadata, and
+#                                                 fusermount3 to mount it in smoke.sh as a user
 #   ~/.cache/odyssey-linux/native/ffmpeg-<v>/     FFmpeg for videos (L4): its libraries (lib/), headers, licence,
 #                                                 how it was configured (recipe.txt), and ffmpeg-abi.txt, the struct
 #                                                 offsets FfmpegAbiTests checks; built from its source tarball, in
@@ -51,22 +54,26 @@ chmod +x "$APPIMAGETOOL"
 fetch "https://github.com/AppImage/type2-runtime/releases/download/$RUNTIME_VERSION/runtime-x86_64" \
     "$RUNTIME_SHA256" "$APPIMAGE_RUNTIME"
 
-echo "==> The C tools (Ubuntu's packages)"
-missing=0
-for tool in gcc make nasm pkg-config objdump; do
-    command -v "$tool" > /dev/null || missing=1
+echo "==> The C and packaging tools (Ubuntu's packages)"
+# Each tool, and the package that has it.
+packages=()
+for pair in gcc:gcc make:make nasm:nasm pkg-config:pkg-config objdump:binutils zsyncmake:zsync appstreamcli:appstream     fusermount3:fuse3; do
+    command -v "${pair%%:*}" > /dev/null || packages+=("${pair#*:}")
 done
 
-if (( missing )); then
-    DEBIAN_FRONTEND=noninteractive apt-get update -qq
-    DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends gcc libc6-dev make nasm pkg-config binutils > /dev/null
+if (( ${#packages[@]} )); then
+    as_root=()
+    (( EUID == 0 )) || as_root=(sudo)
+    "${as_root[@]}" env DEBIAN_FRONTEND=noninteractive apt-get update -qq
+    "${as_root[@]}" env DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends libc6-dev "${packages[@]}" > /dev/null
 fi
 
 echo "==> FFmpeg $FFMPEG_VERSION (LGPL, decoders only) into $FFMPEG_DIR"
-tarball="$TOOLS_DIR/ffmpeg-$FFMPEG_VERSION.tar.xz"
-fetch "https://ffmpeg.org/releases/ffmpeg-$FFMPEG_VERSION.tar.xz" "$FFMPEG_SHA256" "$tarball"
-recipe="$FFMPEG_VERSION ${FFMPEG_CONFIGURE[*]} glibc-floor.h:$(sha256sum "$here/glibc-floor.h" | cut -d ' ' -f 1)"
+recipe="$(ffmpeg_recipe)"
 if [[ ! -f $FFMPEG_DIR/recipe.txt || $(< "$FFMPEG_DIR/recipe.txt") != "$recipe" ]]; then
+    # Fetched only for a build, so a cached build (release.yml) downloads nothing.
+    tarball="$TOOLS_DIR/ffmpeg-$FFMPEG_VERSION.tar.xz"
+    fetch "https://ffmpeg.org/releases/ffmpeg-$FFMPEG_VERSION.tar.xz" "$FFMPEG_SHA256" "$tarball"
     build="$ODYSSEY_LINUX_CACHE/build/ffmpeg-$FFMPEG_VERSION"
     rm -rf "$build" "$FFMPEG_DIR"
     mkdir -p "$build" "$FFMPEG_DIR/lib"

@@ -35,9 +35,11 @@ public static class PlatformServices
     public static IFileLocations CreateFileLocations(string homeDir) =>
         OperatingSystem.IsWindows() ? new WindowsFileLocations(homeDir) : new LinuxFileLocations(homeDir, Environment.UserName, "/proc/self/mountinfo");
 
-    /// <summary>Installs a downloaded update once the launcher has quit; on Linux, nothing (it can't update itself yet).</summary>
+    /// <summary>Installs a downloaded update: on Windows once the launcher has quit, by its helper; on Linux by replacing the <c>.AppImage</c>.</summary>
     public static IUpdateInstaller CreateUpdateInstaller() =>
-        OperatingSystem.IsWindows() ? new WindowsUpdateInstaller() : NullUpdateInstaller.Instance;
+        OperatingSystem.IsWindows() ? new WindowsUpdateInstaller()
+        : OperatingSystem.IsLinux() ? new LinuxUpdateInstaller()
+        : NullUpdateInstaller.Instance;
 
     /// <summary>
     /// Null where Core has no decoder (Linux), so nothing is baked by Core alone there; the app brings Godot's instead

@@ -20,6 +20,9 @@ FFMPEG_SHA256=8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e
 # The AppImage's floor (decisions log, 2026-11-02): every ELF file it carries must run on glibc 2.34.
 GLIBC_FLOOR=2.34
 
+# The AppImage's AppStream id (decisions log, 2026-11-05): its metadata's and desktop entry's file names.
+APP_ID=io.github.geekrhapsody.OdysseyLauncher
+
 # FFmpeg for videos (L4): an LGPL build (no --enable-gpl, --enable-version3 or --enable-nonfree) with only the
 # decoders the media folders need, as shared libraries. FFMPEG_LIBS are its sonames, each after the ones it needs, as
 # Launcher.Core loads them (Platform/Linux/BundledLibraries.cs).
@@ -32,6 +35,14 @@ FFMPEG_CONFIGURE=(
 )
 FFMPEG_LIBS=(libavutil.so.61 libswresample.so.7 libavcodec.so.63 libavformat.so.63 libswscale.so.10)
 FFMPEG_DIR="$ODYSSEY_LINUX_CACHE/native/ffmpeg-$FFMPEG_VERSION"
+
+# How FFmpeg is built: its version, configure line and glibc-floor.h's SHA-256. setup.sh rebuilds it when this changes,
+# and release.yml keys its cache of the build by it.
+ffmpeg_recipe() {
+    local tools
+    tools="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    echo "$FFMPEG_VERSION ${FFMPEG_CONFIGURE[*]} glibc-floor.h:$(sha256sum "$tools/glibc-floor.h" | cut -d ' ' -f 1)"
+}
 
 # PDFium for manuals (L4): bblanchon/pdfium-binaries' build, by its release (chromium/<build>) and the SHA-256 GitHub
 # gives for its pdfium-linux-x64.tgz.

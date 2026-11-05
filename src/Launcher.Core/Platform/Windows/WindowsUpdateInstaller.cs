@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
+using Launcher.Core.Updates;
 using static Launcher.Core.Platform.Windows.NativeMethods;
 
 namespace Launcher.Core.Platform.Windows;
@@ -19,12 +20,30 @@ public sealed class WindowsUpdateInstaller(string? helper = null) : IUpdateInsta
 {
     public const string HelperFileName = "OdysseyUpdater.exe";
 
+    /// <summary>The launcher's executable, as the release workflow exports it: a package must have it.</summary>
+    public const string ExecutableFileName = "OdysseyLauncher.exe";
+
     private const uint CreateNoWindow = 0x0800_0000;
     private const uint CreateBreakawayFromJob = 0x0100_0000;
 
     public string? Platform => RuntimeInformation.ProcessArchitecture == Architecture.X64 ? "windows-x86_64" : null;
 
+    public UpdatePackage Package => UpdatePackage.Zip;
+
     public string? HelperName => HelperFileName;
+
+    public string? Target(string executable, out string? problem)
+    {
+        ArgumentNullException.ThrowIfNull(executable);
+        if (string.Equals(Path.GetFileName(executable), ExecutableFileName, StringComparison.OrdinalIgnoreCase))
+        {
+            problem = null;
+            return executable;
+        }
+
+        problem = $"The launcher's program has been renamed ({Path.GetFileName(executable)}), so the update, which brings {ExecutableFileName}, isn't installed here.";
+        return null;
+    }
 
     /// <summary>The helper's arguments: the handover as options, then <c>--</c> and the launcher's own arguments.</summary>
     public static IReadOnlyList<string> Arguments(UpdateHandover handover)
@@ -34,7 +53,7 @@ public sealed class WindowsUpdateInstaller(string? helper = null) : IUpdateInsta
         {
             "--pid", handover.ProcessId.ToString(CultureInfo.InvariantCulture),
             "--install", Path.GetFullPath(handover.InstallDir),
-            "--package", Path.GetFullPath(handover.PackageDir),
+            "--package", Path.GetFullPath(handover.Package),
             "--backup", Path.GetFullPath(handover.BackupDir),
             "--staging", Path.GetFullPath(handover.StagingDir),
             "--exe", Path.GetFullPath(handover.Executable),

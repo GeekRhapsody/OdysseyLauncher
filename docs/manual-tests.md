@@ -795,3 +795,20 @@ This checks L4 (ROADMAP.md) in both VMs: videos decoded by the FFmpeg the AppIma
 - Anything that differed, above all a video that didn't play or a manual that didn't open: the message the details screen showed, the game and its system.
 - The CPU percentages from step 5, with each VM's number of processors (`nproc`).
 - The output of steps 6 and 8, and the long manual's first-page time from step 7.
+
+## Linux: the release
+
+This checks L5 (ROADMAP.md): the release workflow's Linux job, and a released AppImage updating itself both ways, in both VMs. "Check for updates" needs a release with an AppImage to offer, so steps 3 to 7 wait for the first release made by this workflow; until then, run steps 1 and 2.
+
+1. **The workflow, by hand.** Actions > Release > Run workflow on `main`. The jobs Version and notes, Windows x86_64, and the Linux export, and Linux x86_64 AppImage pass, Release is skipped, and the run keeps two artifacts: the Windows zip with its `.sha256`, and the AppImage with its `.sha256` and `.zsync`. In the Linux job's log: Linux tools builds FFmpeg (about a minute and a half) the first time and not on a second run (the cache), AppImage says "Validation was successful", and Smoke run on glibc 2.34 prints `ldd (GNU libc) 2.34` and the `Launcher.Core` line. Note each job's time.
+2. **The artifact's AppImage.** In each VM, unzip the Linux artifact into `~/Applications`, check it (`sha256sum -c *.sha256`), and run it: it starts as the L1 AppImage does. `./OdysseyLauncher-*.AppImage --appimage-updateinformation` prints `gh-releases-zsync|GeekRhapsody|OdysseyLauncher|latest|OdysseyLauncher-*-linux-x86_64.AppImage.zsync`.
+3. **An "old" AppImage.** On Windows, set `<Version>` in `Directory.Build.props` to `0.0.1` (and `config/version` in `godot/project.godot`), run `.\tools\linux\make-appimage.ps1`, and put the version back (`git checkout -- Directory.Build.props godot/project.godot`). Copy `artifacts/linux/OdysseyLauncher-0.0.1-linux-x86_64.AppImage` into the VM's `~/Applications`, and make it executable.
+4. **Check, Not now and Stop.** Run it, open the settings (Menu) and choose Check for updates: "Update to <latest>?" says you have 0.0.1, with the release's changes and size. B: nothing happens, and `~/Applications/.odyssey-update` doesn't exist. Check again, Update and restart, and B while it downloads: "Update stopped", and `.odyssey-update` is gone.
+5. **Update.** Check again and choose Update and restart: the download counts up, the launcher closes and opens again a few seconds later. Settings, at the bottom, shows the release's version; the file is still `OdysseyLauncher-0.0.1-linux-x86_64.AppImage` (its name is kept) with the release's SHA-256 (`sha256sum`); `.odyssey-update` is gone; your library and settings are there; and `grep -c mount_Odysse /proc/mounts` says 1 (the new version's mount only).
+6. **Where it can't update.** Unpack the 0.0.1 AppImage (`./OdysseyLauncher-0.0.1-linux-x86_64.AppImage --appimage-extract`) and run `squashfs-root/AppRun`: Check for updates offers the release but says the launcher isn't running from an AppImage. Then copy the 0.0.1 AppImage to `/opt/odyssey/` with sudo and run it as yourself: Update and restart says the folder can't be written to, and nothing changes.
+7. **zsync.** Make another 0.0.1 AppImage as in step 3, and update it with AppImageUpdate (`appimageupdatetool`, from its GitHub releases) or Gear Lever (Flathub): it finds the release through the update information, downloads only what differs, and the result's SHA-256 is the release's AppImage's. Note which tool, how much it downloaded, and what it named the new file.
+
+### Send back
+
+- Step 1's job times, and anything that failed, with its step's log.
+- Anything that differed in steps 2 and 4 to 7, with the VM, and `~/.local/share/OdysseyLauncher/logs/update.log` (or `userdata/logs/update.log` beside a portable AppImage).

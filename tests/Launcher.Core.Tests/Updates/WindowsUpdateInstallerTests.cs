@@ -55,7 +55,7 @@ public sealed class WindowsUpdateInstallerTests : IDisposable
     [Fact]
     public async Task An_update_replaces_the_launchers_files_keeps_the_users_and_starts_it_again()
     {
-        Assert.SkipUnless(OperatingSystem.IsWindows(), "The update helper is Windows-only; Linux can't update itself yet.");
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "The update helper is Windows-only (Linux replaces its AppImage: LinuxUpdateInstallerTests).");
 
         InstallOld();
         StageNew();
@@ -89,7 +89,7 @@ public sealed class WindowsUpdateInstallerTests : IDisposable
     [Fact]
     public async Task A_move_that_fails_puts_the_old_version_back_and_starts_it()
     {
-        Assert.SkipUnless(OperatingSystem.IsWindows(), "The update helper is Windows-only; Linux can't update itself yet.");
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "The update helper is Windows-only (Linux replaces its AppImage: LinuxUpdateInstallerTests).");
 
         InstallOld();
         StageNew();
@@ -118,7 +118,7 @@ public sealed class WindowsUpdateInstallerTests : IDisposable
     [Fact]
     public async Task Bad_arguments_change_nothing()
     {
-        Assert.SkipUnless(OperatingSystem.IsWindows(), "The update helper is Windows-only; Linux can't update itself yet.");
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "The update helper is Windows-only (Linux replaces its AppImage: LinuxUpdateInstallerTests).");
 
         InstallOld();
 
@@ -127,6 +127,17 @@ public sealed class WindowsUpdateInstallerTests : IDisposable
         Assert.Equal(2, exit);
         Assert.Contains("bad arguments", File.ReadAllText(LogFile), StringComparison.Ordinal);
         Assert.Equal("old pck", File.ReadAllText(Path.Combine(InstallDir, "OdysseyLauncher.pck")));
+    }
+
+    [Fact]
+    public void Only_OdysseyLauncher_exe_is_updated_as_the_package_brings_no_other()
+    {
+        var installer = new WindowsUpdateInstaller();
+
+        Assert.Equal(Executable, installer.Target(Executable, out var none));
+        Assert.Null(none);
+        Assert.Null(installer.Target(Path.Combine(InstallDir, "Odyssey.exe"), out var problem));
+        Assert.Contains("renamed (Odyssey.exe)", problem, StringComparison.Ordinal);
     }
 
     [Fact]
