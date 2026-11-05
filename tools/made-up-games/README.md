@@ -9,9 +9,10 @@ scripts from the paintings, the same on every run: the logos, each system's pack
 
 ## What there is
 
-44 game concepts and 64 releases: 20 Mega Drive, 15 SNES, 12 N64 and 17 arcade. A concept can come out on several
-systems (Stormfist is on all four), each release with its own box. The arcade spans its eras: three early-1980s 8-bit
-games, twelve of the 1990s, a late-1990s 3D fighter and a 2010s HD one. To list them:
+68 game concepts and 88 releases: 20 Mega Drive, 15 SNES, 12 N64, 23 arcade and 18 PS2. A concept can come out on
+several systems (Stormfist is on four), each release with its own box. The arcade spans its eras: five early-1980s 8-bit
+games, sixteen of the 1990s, a late-1990s 3D fighter and a 2010s HD one. The PS2's are of 2001 to 2005: three
+role-playing games, a first-person shooter, two ninja games and two samurai ones among them. To list them:
 
 ```powershell
 python -c "import tomllib; [print(g['id'], g['genre'], [v['system'] for v in g['versions']]) for g in tomllib.load(open('tools/made-up-games/games.toml','rb'))['games']]"
@@ -23,9 +24,11 @@ python -c "import tomllib; [print(g['id'], g['genre'], [v['system'] for v in g['
 | SNES | 1360 × 994 | 1360 × 994 | 1360 × 194 (top) | 1120 × 700 | 256 × 224 | `snes_box_horizontal` |
 | N64 | 1360 × 994 | 1360 × 994 | 1360 × 194 (top) | 1085 × 700 | 320 × 240 | `generic_box_top_spine` |
 | Arcade | | | | | 320 × 224 (224 × 288 vertical); 8-bit 256 × 224 (224 × 288); 3D 640 × 480; HD 1280 × 720 | `arcade_cabinet` (the logo on the marquee) |
+| PS2 | 972 × 1360 | 966 × 1360 | 110 × 1360 | 1200 × 1200 (the disc) | 640 × 448 | `ps2_clamshell` |
 
 Every release also has a logo (a transparent PNG). The box sizes are twice ScreenScraper's scans, so the art fits the
-templates' faces without cropping. Covers, backs, spines and labels are JPEGs; logos and screenshots PNGs. Not made:
+templates' faces without cropping. Covers, backs, spines and labels are JPEGs, except a PS2 disc's label, a round PNG
+with its corners and hole transparent; logos and screenshots PNGs. Not made:
 heroes (a 1920 × 620 cut of the key art; dropped as not needed), videos and manuals.
 
 ## The process
@@ -35,7 +38,7 @@ heroes (a 1920 × 620 cut of the key art; dropped as not needed), videos and man
 2. **Paint** what's missing: `python tools/made-up-games/codex_art.py` (`--dry-run` lists the runs first). The
    paintings go to `artifacts/made-up-games/paintings/<game>/`, each with its prompt beside it.
 3. **Look at every painting** (below, "Rules"). Repaint any that fails.
-4. **Make** every piece: `python tools/made-up-games/make_games.py` (about 90 s for all 59). It writes the library and
+4. **Make** every piece: `python tools/made-up-games/make_games.py` (about two and a half minutes for all 88). It writes the library and
    the review sheets.
 5. **Review** `artifacts/made-up-games/sheets/<system>-<kind>.jpg` (every game's piece of one kind side by side).
 6. **Bring them into the app**, once, from the repo root (the library's `README.txt` has the exact lines):
@@ -43,10 +46,10 @@ heroes (a 1920 × 620 cut of the key art; dropped as not needed), videos and man
    .\tools\scrape-cli\bin\Debug\net8.0\odyssey-scrape.exe --user-dir=$PWD\artifacts\made-up-games\library scan
    .\tools\scrape-cli\bin\Debug\net8.0\odyssey-scrape.exe --user-dir=$PWD\artifacts\made-up-games\library import-gamelist megadrive
    ```
-   and `import-gamelist` for `snes`, `n64` and `arcade` too. Run `scan` again after making new pieces.
+   and `import-gamelist` for `snes`, `n64`, `arcade` and `ps2` too. Run `scan` again after making new pieces.
 7. **Capture** the README's images: `python tools/made-up-games/readme_captures.py` (about fifteen minutes; leave the
    machine alone while it runs, since a window that loses focus can stop its nav script). It copies the library into
-   `artifacts/made-up-games/readme/library/` with empty ROMs for 24 more systems (named after these games, so the
+   `artifacts/made-up-games/readme/library/` with empty ROMs for 23 more systems (named after these games, so the
    systems screen shows their cards; no capture enters them) and a few favourites and plays (written to `userdata.db`,
    so the Favourites and Recently played cards show without launching anything), maps that folder to `R:` while it
    runs (the system details show `R:\ROMs\megadrive`, not a path with your user name), and records each capture in
@@ -110,10 +113,10 @@ A concept's keys:
 | `logo` | `{ style, title, subtitle, badge, ...the style's options }` (below). |
 | `dialogue` | The dialogue window's text, for `hud = "dialogue"`. |
 | `versions` | The releases (below). |
-| `keyart` | The key art's prompt: every release's cover and label are cut from it. It says its shape: "Landscape, 3:2", with the subject in the middle third, so a Mega Drive cover can be cut from it too; or "Portrait, 2:3" for a game only on portrait boxes. Arcade-only games have none. |
-| `[games.screens]` | A screen prompt per look: `16bit` (Mega Drive, SNES, an arcade game ported from them), `n64`, `arcade` (an arcade-only game), `arcade_v` (a vertical one), `arcade8` and `arcade8_v` (an early-1980s 8-bit game, horizontal or vertical: 3-3-2 colour, 16 on screen, the painting cut to the 4:3 or 3:4 the monitor showed and squeezed into the board's pixels), `arcade3d` (a late-1990s 3D game at 640 × 480) and `arcade_hd` (a 2010s one at 1280 × 720). A release on the arcade picks its look with `screen`. |
+| `keyart` | The key art's prompt: every release's cover and label are cut from it. It says its shape: "Landscape, 3:2", with the subject in the middle third, so a Mega Drive cover can be cut from it too; or "Portrait, 2:3" for a game only on portrait boxes (every PS2 game so far). Arcade-only games have none. |
+| `[games.screens]` | A screen prompt per look: `16bit` (Mega Drive, SNES, an arcade game ported from them), `n64`, `arcade` (an arcade-only game), `arcade_v` (a vertical one), `arcade8` and `arcade8_v` (an early-1980s 8-bit game, horizontal or vertical: 3-3-2 colour, 16 on screen, the painting cut to the 4:3 or 3:4 the monitor showed and squeezed into the board's pixels), `arcade3d` (a late-1990s 3D game at 640 × 480), `arcade_hd` (a 2010s one at 1280 × 720) and `ps2` (an early-2000s 3D game at 640 × 448: 24-bit colour, softened down the screen as the console's flicker filter did). A release on the arcade picks its look with `screen`. |
 
-A release's keys: `system` (`megadrive`, `snes`, `n64`, `arcade`), `released` (YYYY-MM-DD), `hud` and `hud_items`, and
+A release's keys: `system` (`megadrive`, `snes`, `n64`, `arcade`, `ps2`), `released` (YYYY-MM-DD), `hud` and `hud_items`, and
 what it changes: `title`, `logo`, `players`, `file` (an arcade game's ROM: a MAME-style name, `redlnriv.zip`), `screen`
 (its look), `screen_fit = "pad"` (a screen painting widened by mirroring its edges, not cut: Kaleidrop's square one),
 `crop` (a focus for cutting the key art or the screen: `{ cover = [x, y], label = [...], screen = [...] }`, fractions
@@ -126,6 +129,9 @@ drawn bigger. `versus` draws a 3D fighting game's HUD from the release's `versus
 combo, meters }`: chunky and bitmapped under 600 lines, slanted and smooth in a typeface on an HD screen. The rest are
 drawn by `screens.py` for the screens they fit: `dialogue` (a role-playing game's window), `racer`, `shooter`, `puzzle`
 (Kaleidrop's), `flower` (Budling's), `hearts` (Wyrmspire's); `none` draws nothing. A screen prompt leaves a plain band where its HUD will go.
+On a PS2 screen, `text` and `dialogue` are drawn smooth, in a typeface, as its games drew theirs: the items in
+Tw Cen Condensed with a dark edge, the bars rounded, and the dialogue a translucent navy window with the speaker's name
+(the text before `: `) on a tab above it.
 
 **Logos** (`logos.py`; every style takes `subtitle` and `badge`, a "64" or "'94" in red italics):
 
@@ -143,10 +149,12 @@ drawn by `screens.py` for the screens they fit: `dialogue` (a role-playing game'
 | `arcade_pixel` | Early arcade games | `colours` (three) |
 | `retro_flat` | Early-1980s marquees | `font`, `face`, `edge`, `depth` (colours: flat, no gradients) |
 | `modern_edge` | 2010s fighting games | `font`, `accent` |
+| `ink_brush` | Ninja and samurai games | `font` (Mistral; Haettenschweiler and Onyx work too), `ink`, `sun` (a colour, or `none`) |
 
 Fonts are file names in `C:\Windows\Fonts` (Windows' and Office's). Publishers with a mark (`boxes.publisher_mark`):
 Moonquill (role-playing and adventure), Arcwave (racing and arcade), Velvet Comet (puzzles), Quayside (sports),
-Brightmoor (family), Zephyrix (action); a new one needs a branch there. Developers are names only.
+Brightmoor (family), Zephyrix (action), Hanabira (ninja and samurai: a five-petalled blossom); a new one needs a branch
+there. Developers are names only.
 
 ## The boxes
 
@@ -160,7 +168,13 @@ words, an invented publisher, a made-up age badge, and a barcode whose digits do
   "PAL VERSION", the publisher, the seal). The back and the top spine are black.
 - **N64:** a black band down the right (a cube badge, the accessories' icons, the seal, "PAL VERSION"). The back is
   the key art darkened, with a white warnings box; the top spine is black with a red edge.
-- **Labels:** the key art under each system's band, with the logo.
+- **PS2:** a black band across the top ("128-BIT" in light capitals on the left, a disc emblem on the right, a small
+  "PAL" tag under it), the art full bleed below with the age badge and the publisher in its lower corners. The back is
+  the key art darkened, with a black strip of what the game supports over a white foot (a disc mark, the small print,
+  the barcode); the spine is black at the top (the disc, "128-BIT") and white below, the title in black down it, a
+  made-up catalogue number at its foot.
+- **Labels:** the key art under each system's band, with the logo; a PS2 disc is round, the logo across its top, the age
+  badge and the publisher either side of a clear hub, and a black band across its foot.
 - **Backs:** the logo, one screenshot, the copy, and the foot: the age badge, the publisher, the barcode and small print
   saying the game is made up.
 
@@ -171,18 +185,26 @@ words, an invented publisher, a made-up age badge, and a barcode whose digits do
 - **Look at every painting.** Codex drifts towards famous designs, and a painting that resembles one is painted again
   with a prompt that describes something specific and different. So far: Redline Riviera's first car (a Testarossa),
   Stormfist's first fighters (Chun-Li and Zangief), Wyrmspire's first hero (Link), Bubble Barrage's first dragons
-  (Puzzle Bobble's) and Steel Lotus's first fighter (Chun-Li's dress again: name what a fighter wears, and what not). To repaint, move the painting to `paintings/rejected/` (named for why), delete a key art's
+  (Puzzle Bobble's), Steel Lotus's first fighter (Chun-Li's dress again: name what a fighter wears, and what not),
+  Pitch Kings' first kit (a real club's hoops: invent a kit no club wears), Scrapheap Commandos' first commandos (a
+  famous run-and-gun series' look: hide their faces) and Silverstream Heist's first pair (a 1960s spy film poster).
+  Keep the art fit for the README too: Spike Fever's first players, Vesperline's first android and Foxfire Kunoichi's
+  first outfit were too revealing (say what they wear: board shorts and vests, a long coat, loose trousers). To repaint, move the painting to `paintings/rejected/` (named for why), delete a key art's
   `keyart.prompt.txt` or a screen's `screen-<look>.source.txt`, change the prompt in games.toml, and paint again: only
   what's missing is painted.
-- **Check every title** with a web search ("<title>" video game). None of the 39 is a game; two are near: Hoop Heroes
-  (a 2014 mobile game, HoopHero) and Stormfist (an armour set in The Elder Scrolls Online).
+- **Check every title** with a web search ("<title>" video game). None of the 63 is a game; three are near: Hoop
+  Heroes (a 2014 mobile game, HoopHero), Stormfist (an armour set in The Elder Scrolls Online) and Gloamdeep (a
+  tabletop module, Escape from the Gloamingdeep). Rejected as taken: Shadow Sprint, Rust Raiders, Rooftop Rascal (small
+  released games) and Seraph Engine (The Seraph Engine, 2025).
 - **Copy:** UK English, a made-up year in the console's era, and nothing that claims to be real.
 
 ## Codex
 
 - `codex_art.py` runs `codex exec -m gpt-6.1-sol --skip-git-repo-check --ephemeral -s workspace-write` in a work folder,
   the prompt on stdin, and moves the image the built-in tool saves into place. The owner's Codex config defaults to
-  `gpt-5.5`, which a ChatGPT login refuses; `codex debug models` lists the models it offers. A prompt is the preamble
+  `gpt-5.5`, which a ChatGPT login refuses; `codex debug models` lists the models it offers. With no `codex` on PATH,
+  the one in the OpenAI VS Code extension works (on 2026-11-05, `codex-cli 0.164`): put its `bin\windows-x86_64` folder
+  on PATH for the run. A prompt is the preamble
   (save one PNG, no text, original designs only) and the game's prompt.
 - **Grids:** screens are painted four to a 1536 × 1024 painting (two for vertical arcade screens, one for a 3D
   fighter's, which needs the whole painting for 640 × 480 or 1280 × 720) and cut apart, so most screens cost a

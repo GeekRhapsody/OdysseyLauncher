@@ -10,7 +10,11 @@ The designs follow the owner's PAL box scans:
 - SNES: an L of black down the left and along the foot: a red tag at the top, a red italic wordmark over "PAL VERSION",
   the publisher, and a gold seal. The backs and top spines are black.
 - N64: a black band down the right: a white badge with a cube, the accessories' icons, a gold seal and "PAL VERSION".
-  The backs are colourful, with a white box of warnings."""
+  The backs are colourful, with a white box of warnings.
+- PS2: a black band across the top ("128-BIT" on the left, a disc emblem on the right), the art full bleed under it.
+  The backs are the art darkened, with a black strip of what the game supports and a white foot (the small print, a
+  disc mark and the barcode). The spines are black at the top and white below, the title in black down them. The disc
+  label is round, the art on it, a black band across its foot."""
 
 import math
 import zlib
@@ -26,6 +30,7 @@ FORMATS = {
     "megadrive": dict(cover=(968, 1360), back=(962, 1360), spine=(162, 1360), label=(1036, 700)),
     "snes": dict(cover=(1360, 994), back=(1360, 994), spine=(1360, 194), label=(1120, 700)),
     "n64": dict(cover=(1360, 994), back=(1360, 994), spine=(1360, 194), label=(1085, 700)),
+    "ps2": dict(cover=(972, 1360), back=(966, 1360), spine=(110, 1360), label=(1200, 1200)),
 }
 
 HEAD = "GOTHICB.TTF"     # Century Gothic Bold: the era's geometric sans, for headings
@@ -178,12 +183,47 @@ def icons(width):
     return out
 
 
+def disc_mark(size, colour="#ffffff"):
+    """The PS2 band's emblem, made up: an optical disc seen face on, a ring of light across it."""
+    lay = P.layer(size, size)
+    c = (size / 2, size / 2)
+    disc = np.clip(P.disc(size, size, c, size * 0.48) - P.disc(size, size, c, size * 0.13), 0, 1)
+    P.paint(lay, colour, disc)
+    hub = np.clip(P.disc(size, size, c, size * 0.24) - P.disc(size, size, c, size * 0.2), 0, 1)
+    P.paint(lay, "#000000", hub, 0.6)
+    glint = P.mask(size, size, [[c, (size * 0.98, size * 0.22), (size * 0.98, size * 0.4)],
+                                [c, (size * 0.02, size * 0.6), (size * 0.02, size * 0.78)]])
+    P.paint(lay, "#000000", glint * disc, 0.35)
+    return lay
+
+
+def wordmark(height, colour="#ffffff"):
+    """The PS2 boxes' platform word, made up: "128-BIT" in light geometric capitals."""
+    return text_layer("128-BIT", "GOTHIC.TTF", height, colour, tracking=0.06)
+
+
+def haloed(lay, r):
+    """A mark with a soft dark halo round it, so that it reads over art."""
+    h, w = lay.shape[:2]
+    p = int(r * 3)
+    out = P.layer(w + 2 * p, h + 2 * p)
+    a = np.zeros(out.shape[:2], np.float32)
+    a[p:p + h, p:p + w] = lay[..., 3]
+    P.paint(out, "#000000", P.blur(P.dilate(a, r * 0.5), r), 0.7)
+    return P.composite(out, lay, p, p)
+
+
+def catalogue(game):
+    """A made-up catalogue number for a PS2 spine, the same for the same game on every run."""
+    return f"OLE {zlib.crc32(game['id'].encode()) % 90000 + 10000}"
+
+
 def publisher_mark(name, height, colour="#ffffff"):
     """A made-up publisher's mark: a small emblem drawn from primitives and its name."""
     h = int(height)
     e = h
     fonts = {"Moonquill": "PERTIBD.TTF", "Arcwave": "ERASBD.TTF", "Velvet Comet": "COOPBL.TTF", "Quayside": "BRITANIC.TTF",
-             "Brightmoor": "GOTHICB.TTF", "Zephyrix": "AGENCYB.TTF"}
+             "Brightmoor": "GOTHICB.TTF", "Zephyrix": "AGENCYB.TTF", "Hanabira": "BELLB.TTF"}
     word = name if name == "Velvet Comet" else name.upper()
     wm, _ = P.text_mask(word, fonts.get(name, HEAD), h * 0.62, tracking=0.06, pad=int(h * 0.2))
     wm, _ = P.tight(wm, 1)
@@ -216,6 +256,11 @@ def publisher_mark(name, height, colour="#ffffff"):
                 for a in [math.pi * k / 6 for k in range(1, 6)]]
         em = np.maximum(em, P.mask(W, h, rays) * (1 - P.disc(W, h, (c, e * 0.62), e * 0.36)))
         em = np.maximum(em, P.mask(W, h, [[(0, e * 0.72), (e, e * 0.72), (e, e * 0.82), (0, e * 0.82)]]))
+    elif name == "Hanabira":                          # a five-petalled blossom
+        for k in range(5):
+            a = -math.pi / 2 + k * 2 * math.pi / 5
+            em = np.maximum(em, P.disc(W, h, (c + math.cos(a) * e * 0.26, c + math.sin(a) * e * 0.26), e * 0.21))
+        em = np.clip(em - P.disc(W, h, (c, c), e * 0.09), 0, 1)
     else:                                             # Zephyrix: a split diamond
         em = P.mask(W, h, [[(c, e * 0.04), (e * 0.94, c), (c, c)], [(c, e * 0.96), (e * 0.06, c), (c, c)],
                            [(e * 0.06, c - e * 0.04), (c - e * 0.06, e * 0.1), (c - e * 0.06, c - e * 0.04)],
@@ -300,6 +345,18 @@ def cover(game, art, logo):
         put(out, fit_layer(publisher_mark(game["publisher"], foot * 0.26), w * 0.32, foot * 0.3), w * 0.56, h - foot / 2)
         put(out, seal(int(foot * 0.72)), w - foot * 0.55, h - foot / 2)
         area = (left, 0, w, h - foot)
+    elif system == "ps2":                                      # a black band across the top, the art under it
+        band = int(h * 0.085)
+        out[band:] = crop(art, w, h - band, focus)
+        put(out, fit_layer(wordmark(band * 0.6), w * 0.5, band * 0.5), w * 0.035, band / 2, "lm")
+        put(out, disc_mark(int(band * 0.66)), w * 0.965, band / 2, "rm")
+        tag = P.layer(int(band * 0.62), int(band * 0.26))
+        P.paint(tag, "#050506", np.ones(tag.shape[:2], np.float32))
+        put(tag, text_layer("PAL", "arialbd.ttf", band * 0.18, "#ffffff", tracking=0.1), tag.shape[1] / 2, tag.shape[0] / 2)
+        put(out, tag, w * 0.965, band, "rt")
+        put(out, haloed(fit_layer(publisher_mark(game["publisher"], badge * 0.36), w * 0.32, badge * 0.4), badge * 0.12),
+            w - badge * 0.2, h - badge * 0.2, "rb")
+        area = (0, band, w, h)
     else:                                                      # n64: a black band down the right
         band = int(w * 0.14)
         out[:, :w - band] = crop(art, w - band, h, focus)
@@ -314,7 +371,7 @@ def cover(game, art, logo):
         put(out, text_layer("PAL VERSION", "arialbd.ttf", band * 0.085, "#ffffff", tracking=0.08), bx, h * 0.955)
         area = (0, 0, w - band, h)
     _logo_on_art(out, logo, area, game.get("logo_place", "top"))
-    if system in ("megadrive", "n64"):
+    if system in ("megadrive", "n64", "ps2"):
         x0, y0, x1, y1 = area
         put(out, age_badge(badge, game["age"]), x0 + badge * 0.35, y1 - badge * 0.35, "lb")
     return out
@@ -412,6 +469,10 @@ def back(game, art, logo, shot):
     elif system == "snes":
         out[:] = P.rgb("#030303")
         x0, x1, top, bottom = margin, w - margin, 0, h
+    elif system == "ps2":
+        out[:] = P.blur(crop(art, w, h, (0.5, 0.5)), unit * 0.012) * 0.4 + P.rgb("#05060c") * 0.6
+        strip, white = int(h * 0.024), int(h * 0.075)
+        x0, x1, top, bottom = margin, w - margin, 0, h - strip - white
     else:
         bg = crop(art, w, h, (0.5, 0.5))
         out[:] = P.blur(bg, unit * 0.012) * 0.5 + P.rgb("#0a0a14") * 0.5
@@ -465,15 +526,36 @@ def back(game, art, logo, shot):
     put(out, fit_layer(publisher_mark(game["publisher"], badge * 0.42), w * 0.3, badge * 0.42), x0 + badge * 1.35, fy, "lm")
     bw, bh = int(foot * 1.4), int(foot * 0.6)
     bx, by = int(x1 - bw), int(fy - bh / 2)
+    small = (f"© {year} {game['publisher']}. Developed by {game['developer']}. "
+             f"A made-up game, drawn for Odyssey Launcher: it doesn't exist.")
+    if system == "ps2":
+        _ps2_foot(out, game, small, strip, white, margin)
+        return out
     out[by:by + bh, bx:bx + bw] = barcode(bw, bh, zlib.crc32(game["id"].encode()))
     if system != "megadrive":
         put(out, seal(int(foot * 0.55)), bx - foot * 0.45, fy)
-    small = (f"© {year} {game['publisher']}. Developed by {game['developer']}. "
-             f"A made-up game, drawn for Odyssey Launcher: it doesn't exist.")
-    if system != "megadrive":
         small += "  PAL VERSION"
     P.draw_text(out, small, BODY, unit * 0.0135, ((x0 + x1) / 2, bottom - foot * 0.12), "#9a9aa4", anchor="mm")
     return out
+
+
+def _ps2_foot(out, game, small, strip, white, margin):
+    """A PS2 back's foot: a black strip of what the game supports, then white with a disc mark, the small print and the
+    barcode."""
+    h, w = out.shape[:2]
+    out[h - white - strip:h - white] = P.rgb("#000000")
+    support = f"{players_text(game['players'])}  •  MEMORY CARD: 96 KB  •  ANALOGUE CONTROL  •  VIBRATION  •  PAL"
+    P.draw_text(out, support, "arialbd.ttf", strip * 0.5, (margin, h - white - strip / 2), "#ffffff", anchor="lm")
+    out[h - white:] = P.rgb("#f6f6f4")
+    put(out, disc_mark(int(white * 0.5), "#202024"), margin, h - white / 2, "lm")
+    bw, bh = int(white * 1.9), int(white * 0.78)
+    by = h - white + (white - bh) // 2
+    out[by:by + bh, w - int(margin) - bw:w - int(margin)] = barcode(bw, bh, zlib.crc32(game["id"].encode()))
+    size = white * 0.13
+    lines = P.wrap(small + " Only for the made-up 128-BIT system in PAL territories.", BODY, size,
+                   w - 2 * margin - bw - white)
+    for k, line in enumerate(lines[:4]):
+        P.draw_text(out, line, BODY, size, (margin + white * 0.75, h - white * 0.82 + k * size * 1.35), "#3a3a40")
 
 
 # Spines ------------------------------------------------------------------------------------------------------------
@@ -494,6 +576,16 @@ def spine(game, art, logo):
         put(out, rotate90(fit_layer(publisher_mark(game["publisher"], w * 0.32), h * 0.16, w * 0.4)), w / 2, w * 0.2, "mt")
         lay = rotate90(fit_layer(logo, h * 0.5, w * 0.84))
         put(out, lay, w / 2, h * 0.46)
+        return out
+    if system == "ps2":                                       # black at the top, white below, the title down it
+        top = int(h * 0.27)
+        out[:] = P.rgb("#f6f6f4")
+        out[:top] = P.rgb("#050506")
+        put(out, disc_mark(int(w * 0.6)), w / 2, w * 0.16, "mt")
+        put(out, rotate90(fit_layer(wordmark(w * 0.5), top * 0.6, w * 0.46)), w / 2, top - w * 0.2, "mb")
+        title = text_layer(game["title"], "arialbd.ttf", w * 0.4, "#0a0a0c")
+        put(out, rotate90(fit_layer(title, h * 0.6, w * 0.5)), w / 2, top + w * 0.2, "mt")
+        put(out, rotate90(text_layer(catalogue(game), "arial.ttf", w * 0.14, "#4a4a50")), w / 2, h - w * 0.15, "mb")
         return out
     # A top spine: left to right, the front at the image's foot.
     if system == "snes":
@@ -541,3 +633,25 @@ def label(game, art, logo):
     lay = fit_layer(logo, (x1 - x0) * 0.8, (y1 - y0) * 0.42)
     put(out, lay, (x0 + x1) / 2, y0 + (y1 - y0) * 0.06, "mt")
     return out
+
+
+def disc(game, art, logo):
+    """A PS2 disc's label, as a transparent layer: the key art on the disc with the logo across its top, the age badge
+    and the publisher's mark either side of the hub, a black band across its foot with the platform word, and the
+    clear hub and the hole."""
+    w, h = FORMATS[game["system"]]["label"]
+    c = (w / 2, h / 2)
+    lay = P.layer(w, h)
+    face = np.clip(P.disc(w, h, c, w * 0.495) - P.disc(w, h, c, w * 0.19), 0, 1)
+    P.paint(lay, crop(art, w, h, tuple(game.get("crop", {}).get("label", (0.5, 0.5)))), face)
+    rows = np.arange(h, dtype=np.float32)[:, None] * np.ones((1, w), np.float32)
+    P.paint(lay, "#050506", face * np.clip(rows - h * 0.79, 0, 1))
+    put(lay, fit_layer(wordmark(h * 0.06), w * 0.4, h * 0.055), w / 2, h * 0.86)
+    put(lay, fit_layer(haloed(logo, w * 0.01), w * 0.6, h * 0.2), w / 2, h * 0.08, "mt")
+    put(lay, age_badge(int(w * 0.07), game["age"]), w * 0.2, h / 2)
+    put(lay, haloed(fit_layer(publisher_mark(game["publisher"], w * 0.03), w * 0.18, w * 0.04), w * 0.006), w * 0.8, h / 2)
+    hub = np.clip(P.disc(w, h, c, w * 0.19) - P.disc(w, h, c, w * 0.075), 0, 1)
+    P.paint(lay, "#c4c8d0", hub, 0.85)
+    for r in (0.19, 0.12, 0.495):
+        P.paint(lay, "#6a6e78", np.clip(P.disc(w, h, c, w * r) - P.disc(w, h, c, w * r - 3), 0, 1))
+    return lay

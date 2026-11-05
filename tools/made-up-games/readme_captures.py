@@ -3,7 +3,7 @@
     python tools/made-up-games/readme_captures.py [--only=<name>,...] [--setup] [--check] [--keep-frames]
 
 First it builds a capture library (artifacts/made-up-games/readme/library/, again with --setup, or when missing): a copy
-of make_games.py's library (its ROMs, gamelists and media) with empty ROMs for 24 more systems, so that the systems
+of make_games.py's library (its ROMs, gamelists and media) with empty ROMs for 23 more systems, so that the systems
 screen shows their cards (named after the made-up games, never real ones; no capture enters those systems), and a few
 favourites and some play history, written to userdata.db as L3 and playing would, so that the Favourites and Recently
 played cards show without launching anything; then scanned and imported with odyssey-scrape (no network). The folder
@@ -61,7 +61,7 @@ PLACEHOLDERS = {
     "3do": (".chd", 2), "amiga": (".adf", 3), "amstradcpc": (".dsk", 2), "atari2600": (".a26", 2),
     "atarilynx": (".lnx", 2), "c64": (".d64", 3), "dreamcast": (".chd", 4), "gb": (".gb", 3), "gba": (".gba", 4),
     "gbc": (".gbc", 3), "gamegear": (".gg", 2), "gc": (".rvz", 3), "mastersystem": (".sms", 3), "neogeo": (".neo", 2),
-    "nds": (".nds", 3), "nes": (".nes", 4), "pcengine": (".pce", 2), "psx": (".chd", 5), "ps2": (".chd", 4),
+    "nds": (".nds", 3), "nes": (".nes", 4), "pcengine": (".pce", 2), "psx": (".chd", 5),
     "psp": (".cso", 3), "saturn": (".chd", 3), "zxspectrum": (".tzx", 3), "switch": (".xci", 3), "wii": (".rvz", 3),
 }
 
@@ -119,7 +119,7 @@ CAPTURES = [
     Capture("games-megadrive", "console", ["wait", "wait"], after=30,
             args=["--start-system=megadrive", "--start-index=8"]),
     Capture("games-snes", "console", ["wait", "wait"], after=30, args=["--start-system=snes", "--start-index=7"]),
-    Capture("games-arcade", "console", ["wait", "wait"], after=30, args=["--start-system=arcade", "--start-index=2"]),
+    Capture("games-arcade", "console", ["wait", "wait"], after=30, args=["--start-system=arcade", "--start-index=3"]),
     Capture("games-n64", "console", ["wait", "wait"], after=30, args=["--start-system=n64", "--start-index=7"]),
     Capture("layout-carousel", "console", ["wait", "wait"], after=30,
             args=["--start-system=snes", "--start-index=7", "--layout=grid/carousel"]),
@@ -195,7 +195,7 @@ def setup():
 
     map_drive()
     run([SCRAPE, f"--user-dir={USER_DIR}", "scan"])
-    for system in ["megadrive", "snes", "n64", "arcade"]:
+    for system in ["megadrive", "snes", "n64", "arcade", "ps2"]:
         run([SCRAPE, f"--user-dir={USER_DIR}", "import-gamelist", system])
 
     library = sqlite3.connect(LIBRARY / "library.db")

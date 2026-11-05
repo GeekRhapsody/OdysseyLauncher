@@ -776,9 +776,56 @@ def modern_edge(title, subtitle=None, font="seguibl.ttf", accent="#ff2a6a"):
     return lay
 
 
+def ink_brush(title, subtitle=None, font="MISTRAL.TTF", ink="#f6f1e6", sun="#d42a1e"):
+    """A ninja's or a samurai's game's: capitals as if painted with a dry brush (ragged edges, streaks where the ink
+    ran thin, a few spatters), before a red sun (sun = "none" for none), the subtitle small and spaced beneath on a
+    thin rule."""
+    word = _word(_lines(title.upper(), 10), font, S * 1.1, tracking=0.03, italic=0.04)
+    h, w = word.shape
+    W, H = w + int(S * 0.6), h + int(S * (0.75 if subtitle else 0.35))
+    face = _mask_into(word, W, H, int(S * 0.3), int(S * 0.15))
+    rng = np.random.default_rng(sum(map(ord, title)))
+    noise = P.blur(rng.random((H, W)).astype(np.float32), S * 0.01)
+    noise = (noise - noise.min()) / max(noise.max() - noise.min(), 1e-6)
+    rough = np.clip((P.blur(face, S * 0.012) - 0.5 + (noise - 0.5) * 0.5) * 6 + 0.5, 0, 1)
+    # Dry brush: long horizontal streaks with no ink, more of them towards each stroke's end on the right.
+    streaks = P.resize(rng.random((H, 6)).astype(np.float32), W, H)
+    left, right = _cols(face)
+    tail = np.clip((np.arange(W, dtype=np.float32)[None, :] - left) / max(right - left, 1), 0, 1)
+    dry = np.clip((streaks - 0.86 + tail * 0.1) * 12, 0, 1) * np.clip((noise - 0.3) * 4, 0, 1)
+    ink_m = rough * (1 - dry * 0.9)
+    t0, t1 = _span(face)
+    spots = []
+    for _ in range(6):                                           # spatters off the last stroke
+        x = right + rng.random() * S * 0.1
+        y = t0 + (0.2 + rng.random() * 0.6) * (t1 - t0)
+        spots.append(P.disc(W, H, (x, y), S * (0.005 + rng.random() * 0.01)))
+    ink_m = np.maximum(ink_m, np.max(spots, axis=0))
+    lay = P.layer(W, H)
+    if sun != "none":
+        centre = (left + (right - left) * 0.64, (t0 + t1) / 2)    # behind the word, right of its middle
+        r = min((t1 - t0) * 0.72, (right - left) * 0.3)
+        P.paint(lay, P.shade(sun, 1.25), P.blur(P.disc(W, H, centre, r * 1.08), S * 0.04), 0.35)
+        P.paint(lay, sun, P.disc(W, H, centre, r))
+    P.paint(lay, "#000000", P.blur(P.dilate(ink_m, S * 0.035), S * 0.04), 0.75)
+    P.paint(lay, ink, ink_m)
+    if subtitle:
+        sub, _ = P.text_mask(subtitle.upper(), "GOTHICB.TTF", S * 0.2, tracking=0.45, pad=int(S * 0.1))
+        sub, _ = P.tight(sub, 2)
+        sh, sw = sub.shape
+        sx, sy = int((W - sw) / 2), int(t1 + S * 0.16)
+        rule = P.mask(W, H, [[(sx - S * 0.3, sy - S * 0.07), (sx + sw + S * 0.3, sy - S * 0.07),
+                              (sx + sw + S * 0.3, sy - S * 0.055), (sx - S * 0.3, sy - S * 0.055)]])
+        sm = np.maximum(_mask_into(sub, W, H, sx, sy), rule)
+        P.paint(lay, "#000000", P.blur(P.dilate(sm, S * 0.02), S * 0.02), 0.8)
+        P.paint(lay, ink, sm)
+    return lay
+
+
 STYLES = dict(chrome_neon=chrome_neon, gold_serif=gold_serif, steel_flare=steel_flare, candy_gems=candy_gems,
               cartoon_arch=cartoon_arch, sports_block=sports_block, horror_drip=horror_drip, stencil_plate=stencil_plate,
-              fire_brush=fire_brush, arcade_pixel=arcade_pixel, retro_flat=retro_flat, modern_edge=modern_edge)
+              fire_brush=fire_brush, arcade_pixel=arcade_pixel, retro_flat=retro_flat, modern_edge=modern_edge,
+              ink_brush=ink_brush)
 
 
 def logo(spec):

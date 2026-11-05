@@ -1262,3 +1262,474 @@ circuit tattoos down his arms, a cropped black jacket and cargo trousers, lands 
 white armour plating with a red visor and short energy blades on her forearms; sparks and a shockwave where the kick \
 lands; a rain-soaked rooftop arena in a neon megacity at night, holographic billboards of abstract shapes with no \
 lettering, puddles reflecting the lights."""
+
+
+# PlayStation 2 -----------------------------------------------------------------------------------------------------
+# Portrait boxes only, so each key art is "Portrait, 2:3"; screens are the "ps2" look (640 x 448, 24-bit colour), their
+# HUDs drawn in a typeface.
+
+[[games]]
+id = "aetherwake"
+title = "Aetherwake"
+genre = "Role-playing"
+developer = "Moonquill"
+publisher = "Moonquill"
+players = "1"
+rating = 0.91
+age = 12
+description = """The floating isles of Caelmor drift on currents of aether, and the currents are failing. Wren, a deckhand who has never set foot on the ground, inherits a battered airship and a map that ends in a storm no captain has ever crossed. Gather a crew of six and fly the skies between forty islands, in turn-based battles where the crew's skills link together."""
+features = ["Fly your own airship between forty floating islands", "Turn-based battles with linked crew skills", "Over sixty hours of story"]
+logo = { style = "gold_serif", title = "Aetherwake", emblem = "star" }
+dialogue = "CAPTAIN ORLA: The storm wall moves at dusk. Hold her steady, Wren, and don't look down."
+versions = [{ system = "ps2", released = "2002-10-25", hud = "dialogue" }]
+keyart = """Key art for a fictional 2002 fantasy role-playing game, in the style of early-2000s Japanese role-playing game box art: a lush digital painting, soft painterly light, warm golds and sky blues. Portrait, 2:3.
+
+A young deckhand with flying goggles pushed up into windswept auburn hair and a long patched brown coat stands at the wooden wheel of an airship, seen from slightly below, looking out past the viewer; the airship has canvas wings and brass propellers. Behind, a sky of towering golden clouds with floating islands trailing waterfalls into the void, and on the horizon a great storm wall glowing violet. An original character, not any existing one. Keep the top quarter of the picture open sky: a title will be printed there later."""
+
+[games.screens]
+ps2 = """A 3D role-playing game's town on a floating island, seen from a high three-quarter camera: wooden houses on stilts with sailcloth roofs, rope bridges, a moored airship with canvas wings at a wooden dock, clouds far below; a young deckhand with goggles and a patched brown coat and two companions (a tall woman in a long blue captain's coat and a small mechanic boy with a wrench) talking to a townswoman. Leave the bottom third as plain wooden deck: a dialogue window will be drawn over it later."""
+
+[[games]]
+id = "everdusk"
+title = "Lanterns of Everdusk"
+genre = "Role-playing"
+developer = "Hollowbrook"
+publisher = "Moonquill"
+players = "1"
+rating = 0.87
+age = 12
+description = """In Everdusk the sun set three hundred years ago and never rose again. The townsfolk live by lanterns that hold the spirits of their ancestors, and now the lanterns are going out one by one. Sela, a lamplighter's daughter, sets out with her grandmother's lantern to find where the light went, through quiet towns and deep forests."""
+features = ["Lantern spirits that grow and learn new skills", "Turn-based battles where light and shadow change the field", "A hand-painted world of twilight towns"]
+logo = { style = "gold_serif", title = "Lanterns of Everdusk", metal = "silver", emblem = "moon", font = "CENTAUR.TTF" }
+versions = [{ system = "ps2", released = "2004-03-19", hud = "text", hud_items = [["SELA   412 / 460", "bl2"], ["BRAM   655 / 700", "bl"], ["FIGHT   LIGHT   ITEM   FLEE", "br", "#ffd860"]] }]
+keyart = """Key art for a fictional 2004 role-playing game, in the style of early-2000s Japanese role-playing game box art: a soft, luminous digital painting, cool blues and violets against warm amber light. Portrait, 2:3.
+
+A girl of about sixteen in a hooded dark-green travelling cloak holds up a glass lantern in which a small warm spirit of light glows; she stands on a mossy stone bridge in a twilight forest of giant trees, hundreds of floating paper lanterns drifting up into a deep indigo sky with a pale crescent moon, fireflies round her. An original character, not any existing one. Keep the top quarter of the picture open sky: a title will be printed there later."""
+
+[games.screens]
+ps2 = """A 3D role-playing game's turn-based battle in a twilight forest clearing: three heroes on the right (a girl in a green hooded cloak holding up a glowing lantern, a broad-shouldered young man with a spear, an old woman in a shawl) facing three shadowy creatures made of smoke with glowing eyes on the left; a spell of warm golden light swirls round the girl; giant tree roots and floating paper lanterns. Leave the bottom quarter as plain dark forest floor: the battle menu will be drawn over it later."""
+
+[[games]]
+id = "vesperline"
+title = "Vesperline"
+genre = "Role-playing"
+developer = "Copperkite"
+publisher = "Moonquill"
+players = "1"
+rating = 0.86
+age = 12
+description = """A colony ship has circled the dying star Vesper for nine generations, and its crew have forgotten they were ever meant to land. When Kai, an engineer's apprentice, finds a door no one has opened since launch, she wakes an android who still remembers the plan. A science-fiction role-playing game across the ship's twelve decks and the world below it."""
+features = ["Battles on foot and in walking machines", "Twelve decks of a vast colony ship to explore", "Over forty hours of story"]
+logo = { style = "steel_flare", title = "Vesperline", steel = "teal" }
+dialogue = "KAI: That door's been sealed since launch. Whatever's behind it has been waiting for us."
+versions = [{ system = "ps2", released = "2005-06-24", hud = "dialogue" }]
+keyart = """Key art for a fictional 2005 science-fiction role-playing game, in the style of early-2000s science-fiction game box art: a sleek 3D render, clean and cool, teals and whites, a soft lens flare. Portrait, 2:3.
+
+A young woman engineer in a loose white-and-orange jumpsuit with short black hair and a tool belt stands side by side with a slender, pale android, both facing the viewer and seen from the waist up; the android has silver-white hair, wears a long high-collared white coat, and glowing teal lines run along its hands and face; behind them, a vast round window shows a dying orange star and the curved hull of a colony ship ringed with lights. Original characters, not any existing ones. Keep the top quarter of the picture open space: a title will be printed there later."""
+
+[games.screens]
+ps2 = """A 3D science-fiction role-playing game's corridor on a colony ship: curved white walls, glowing teal strips along the floor, hydroponic gardens behind glass, a big round window onto a dying orange star; a young woman engineer in a white-and-orange jumpsuit and a slender android with silver-white hair stand by a sealed round door. Leave the bottom third as plain floor: a dialogue window will be drawn over it later."""
+
+[[games]]
+id = "nightcrane"
+title = "Nightcrane"
+genre = "Stealth action"
+developer = "Hollowbrook"
+publisher = "Hanabira"
+players = "1"
+rating = 0.88
+age = 16
+description = """Japan, 1582. A warlord has taken the castle of Shiragi and holds its young heir prisoner. You are Kaede of the Nightcrane clan: cross the rooftops and gardens unseen, learn the guards' patrols and strike only when you must. Every mission is graded by how quietly you worked."""
+features = ["Ten missions by night in castles, towns and temples", "Hide in shadows, listen at walls and climb anywhere", "Graded by stealth: the fewer who see you, the better"]
+logo = { style = "ink_brush", title = "Nightcrane" }
+versions = [{ system = "ps2", released = "2001-11-23", hud = "text", hud_items = [["BAR 0.75", "tl"], ["HIDDEN", "tr", "#7ad8ff"], ["SHURIKEN  12", "br"]] }]
+keyart = """Key art for a fictional 2001 ninja stealth game, in the style of early-2000s video game box art: a dark, moody digital painting in midnight blues and silver moonlight, with a single red accent. Portrait, 2:3.
+
+A female ninja in a close-fitting charcoal-grey outfit with a dark-red sash and a half-mask crouches on the curved tiled ridge of a castle roof, a short straight sword held reversed along her forearm, looking down; a huge full moon behind her, a white crane flying across it; the castle's tiered roofs and a moonlit town below. An original character, not any existing ninja. Keep the top quarter of the picture open night sky: a title will be printed there later."""
+
+[games.screens]
+ps2 = """A 3D stealth game at night: a female ninja in charcoal grey with a dark-red sash crouches in the shadow of a garden wall in a Japanese castle courtyard while a samurai guard carrying a paper lantern patrols past a koi pond and a stone lantern; moonlight, a cherry tree, tiled roofs. Leave the top eighth and the bottom eighth as plain dark night: the interface will be drawn over them later."""
+
+[[games]]
+id = "foxfire-kunoichi"
+title = "Foxfire Kunoichi"
+genre = "Action"
+developer = "Ninebolt"
+publisher = "Zephyrix"
+players = "1"
+rating = 0.84
+age = 16
+description = """When demons pour through a torn shrine gate and set the capital alight, a fox spirit chooses Tsubaki, an apprentice kunoichi, as its vessel. Dash through burning streets, run along walls and chain blade, kunai and blue fox-fire into combos as she fights her way back to the gate."""
+features = ["Chain blade, kunai and fox-fire into long combos", "Run along walls and dash through the air", "Fifteen stages and eight towering bosses"]
+logo = { style = "ink_brush", title = "Foxfire Kunoichi", font = "HATTEN.TTF", sun = "#2a7cff" }
+versions = [{ system = "ps2", released = "2004-09-17", hud = "text", hud_items = [["BAR 0.85", "tl"], ["FOX-FIRE", "tl2", "#7ac8ff"], ["COMBO 37", "tr", "#ffd040", 1.4], ["SCORE 0048210", "br"]] }]
+keyart = """Key art for a fictional 2004 ninja action game, in the style of early-2000s video game box art: a dynamic 3D render, fire oranges against ghostly blue. Portrait, 2:3.
+
+A young kunoichi with a high black ponytail, a crimson jacket with long sleeves over dark armour plates, loose dark trousers tucked into shin guards, and a white fox mask pushed to the side of her head, leaps towards the viewer, a short sword in one hand and three kunai fanned in the other; ghostly blue fox-fire curls round her in the shape of a fox with many tails; behind her a burning city of wooden houses and a giant torn shrine gate pouring horned demons. An original character, not any existing one. Keep the top quarter of the picture open smoky sky: a title will be printed there later."""
+
+[games.screens]
+ps2 = """A 3D action game: a kunoichi with a black ponytail, a long-sleeved crimson jacket and loose dark trousers, seen from the side, slashing through a group of red-skinned horned demons in a burning street of wooden houses, blue fox-fire trailing from her sword, embers and sparks in the air, a shrine gate in the distance. Leave the top eighth and the bottom eighth as plain smoky dark: the interface will be drawn over them later."""
+
+[[games]]
+id = "ninefold-blade"
+title = "Ninefold Blade"
+genre = "Action"
+developer = "Pebbleglass"
+publisher = "Hanabira"
+players = "1-2"
+rating = 0.86
+age = 16
+description = """Nine masters, nine duels, one road. A masterless samurai walks the old coast road to the capital, and at every post town a swordsman waits for him. Read each rival's stance, parry at the last instant and finish the duel with a single clean stroke, in a game where one cut can end a fight."""
+features = ["Nine duels against nine sword masters", "Parry, counter and the single finishing stroke", "Two-player duels on any stage"]
+logo = { style = "ink_brush", title = "Ninefold Blade", subtitle = "The Coast Road" }
+versions = [{ system = "ps2", released = "2003-05-30", hud = "text", hud_items = [["BAR 0.7", "tl"], ["BAR 0.4", "tr"], ["RYOSUKE", "tl2"], ["MASTER KANZO", "tr2"]] }]
+keyart = """Key art for a fictional 2003 samurai sword-fighting game, in the style of early-2000s video game box art: a painting in ink-wash greys with gold and crimson accents. Portrait, 2:3.
+
+A lone ronin in a weathered indigo kimono and a wide straw hat stands in a field of tall pampas grass in autumn, one hand on the hilt of his sheathed sword, his face half hidden by the hat; red maple leaves blow across the picture; a distant post town and a mountain under a pale sky. An original character, not any existing one. Keep the top quarter of the picture open pale sky: a title will be printed there later."""
+
+[games.screens]
+ps2 = """A 3D sword duel: two samurai face each other on a wooden bridge over a river in autumn, a young one in a weathered indigo kimono and a straw hat on the left and an older master in grey with a topknot on the right, swords drawn; red maple leaves falling, mist on the water, a village of thatched roofs behind. Leave the top eighth as plain pale sky: the health bars will be drawn over it later."""
+
+[[games]]
+id = "thousand-banners"
+title = "Thousand Banners"
+genre = "Action"
+developer = "Hollowbrook"
+publisher = "Hanabira"
+players = "1-2"
+rating = 0.82
+age = 12
+description = """Seven clans, one great plain and a single summer to decide who rules. Lead your general into battles a thousand soldiers strong, cut through the ranks with spear and sword, take the enemy's camps and turn the tide before sunset. Play the story of any of the seven clans, with a friend on a split screen."""
+features = ["Battles of a thousand soldiers", "Seven clans and fourteen generals", "Two players on a split screen"]
+logo = { style = "ink_brush", title = "Thousand Banners", font = "HATTEN.TTF", sun = "#c81e14" }
+versions = [{ system = "ps2", released = "2005-02-25", hud = "text", hud_items = [["BAR 0.9", "tl"], ["KO 512", "tr", "#ffd040", 1.4], ["ENEMY CAMP TAKEN", "tc2", "#ff8a40"]] }]
+keyart = """Key art for a fictional 2005 samurai battlefield action game, in the style of early-2000s video game box art: a bold 3D render, dust and sunset gold. Portrait, 2:3.
+
+A samurai general in black lacquered armour with a gold sunburst crest on his helmet and a red cape charges on foot towards the viewer with a long spear; behind him a vast army with tall coloured back banners in blue, red and gold rises through dust and low sunlight, arrows streaking across the sky. An original character, not any existing one or any real historical figure. Keep the top quarter of the picture open dusty sky: a title will be printed there later."""
+
+[games.screens]
+ps2 = """A 3D battlefield action game: a samurai general in black lacquered armour with a gold sunburst helmet crest sweeps a long spear through a crowd of foot soldiers in blue armour on a dusty plain, dozens more soldiers and tall blue and red banners behind, a wooden fort, sunset. Leave the top eighth as plain sky: the interface will be drawn over it later."""
+
+[[games]]
+id = "cold-meridian"
+title = "Cold Meridian"
+genre = "First-person shooter"
+developer = "Copperkite"
+publisher = "Zephyrix"
+players = "1-4"
+rating = 0.83
+age = 16
+description = """Radio contact with Meridian Station, a research base buried under the Antarctic ice, ended in the middle of a sentence. Sergeant Ada Brandt's team goes in to find out why. Fight through frozen laboratories and ice tunnels in a first-person shooter with a story campaign and split-screen battles for four."""
+features = ["Twelve weapons, from flare pistol to rail rifle", "A campaign through a buried research base", "Split-screen battles for four players"]
+logo = { style = "stencil_plate", title = "Cold Meridian", plate = "steel" }
+versions = [{ system = "ps2", released = "2003-11-14", hud = "text", hud_items = [["OBJECTIVE: RESTORE POWER", "tl", "#ffd040"], ["HEALTH 64", "bl2"], ["BAR 0.64", "bl"], ["24 / 120", "br", "#9fe8ff", 1.4]] }]
+keyart = """Key art for a fictional 2003 first-person shooter, in the style of early-2000s shooter box art: a photo-real 3D render in icy blues with orange emergency light. Portrait, 2:3.
+
+A soldier in white-and-grey arctic combat gear with a fur-lined hood, goggles and a breathing mask holds a bulky rifle with a glowing blue barrel, standing in a frozen corridor of a buried research base; orange emergency lights, frost on the pipes, and something huge and dark moving inside the ice behind the walls. An original design. Keep the top quarter of the picture a plain dark frozen ceiling: a title will be printed there later."""
+
+[games.screens]
+ps2 = """A first-person shooter's view: a gloved hand holding a bulky rifle with a glowing blue barrel in the lower right, aimed down an ice-covered research corridor with frosted pipes, flickering orange emergency lights and an overturned trolley, a pale many-legged shape scuttling across the far end. Leave the top eighth and the bottom sixth plain dark: the interface will be drawn over them later."""
+
+[[games]]
+id = "nightline-gt"
+title = "Nightline GT"
+genre = "Racing"
+developer = "Ninebolt"
+publisher = "Arcwave"
+players = "1-2"
+rating = 0.85
+age = 3
+description = """When the city sleeps, the ring road wakes up. Buy a second-hand coupé, tune it in your garage and take on the crews who rule the expressways after midnight. Over forty made-up cars, a hundred parts and races that run until the sun comes up."""
+features = ["Over forty cars to buy, tune and paint", "A night city of expressways, docks and mountain passes", "Two-player split-screen races"]
+logo = { style = "chrome_neon", title = "Nightline GT", outline = "#2a6aff", neon = "#30e0ff" }
+versions = [{ system = "ps2", released = "2004-11-26", hud = "text", hud_items = [["POS 2/8", "tl", "#ffffff", 1.3], ["LAP 2/3", "tl2"], ["03:41.22", "tr"], ["187 KM/H", "br", "#ffd040", 1.5]] }]
+keyart = """Key art for a fictional 2004 street-racing game, in the style of early-2000s racing game box art: a glossy 3D render, neon violets and blues. Portrait, 2:3.
+
+An original low, wide coupé of no real make (a long bonnet, slim triangular headlights, a big rear wing, deep purple paint with a thin silver stripe) drifts round a bend on a wet elevated expressway at night, tyre smoke and light trails behind it, a city of neon-lit towers under a dark violet sky. The car must not resemble any real car. Keep the top quarter of the picture plain dark sky: a title will be printed there later."""
+
+[games.screens]
+ps2 = """A 3D street-racing game at night, seen from behind the player's car: a low purple coupé with a big rear wing races along a wet expressway of several lanes, two rival cars ahead (a white hatchback and an orange muscle car), streetlights streaking past, neon towers, reflections on the road. No real cars. Leave the top eighth and the bottom eighth plain dark: the interface will be drawn over them later."""
+
+[[games]]
+id = "bolt-and-bramble"
+title = "Bolt & Bramble"
+genre = "Platform"
+developer = "Fernhill"
+publisher = "Brightmoor"
+players = "1"
+rating = 0.87
+age = 3
+description = """Bolt is a wind-up tin frog who can't sit still; Bramble is a sleepy badger who can lift a cottage. When the Rustmonger steals the springs that keep Hollyhock Vale turning, the two set out across eight worlds of meadows, mines and sky-ships, swapping between them to leap, dig, roll and smash."""
+features = ["Swap between two heroes at any time", "Eight worlds and 120 golden springs to find", "Gadgets for Bolt, strength for Bramble"]
+logo = { style = "cartoon_arch", title = "Bolt & Bramble", face = "orange", ribbon = "blue" }
+versions = [{ system = "ps2", released = "2003-10-17", hud = "text", hud_items = [["BAR 0.6", "tl"], ["X 47", "tr", "#ffd040", 1.4], ["SPRINGS 12 / 120", "bl"]] }]
+keyart = """Key art for a fictional 2003 3D platform game, in the style of early-2000s mascot game box art: a bright, glossy 3D render in saturated colours. Portrait, 2:3.
+
+Two original cartoon heroes run towards the viewer across a sunny meadow: a small wind-up tin frog painted green with a brass key in its back and big round eyes, grinning mid-leap, and a big sleepy black-and-white badger in blue dungarees carrying a giant wrench; behind them rolling hills, a windmill, and a rusty flying ship with a grabbing claw in the sky. Original characters, not any existing mascots. Keep the top quarter of the picture open sky: a title will be printed there later."""
+
+[games.screens]
+ps2 = """A 3D platform game in a bright meadow world: a small green wind-up tin frog with a key in its back leaps between floating grassy platforms, a big badger in blue dungarees lifts a boulder below, golden springs float in the air, a windmill and a rusty flying ship in the distance. Leave the top eighth as plain sky: the interface will be drawn over it later."""
+
+[[games]]
+id = "saltmarsh"
+title = "Saltmarsh"
+genre = "Survival horror"
+developer = "Hollowbrook"
+publisher = "Zephyrix"
+players = "1"
+rating = 0.84
+age = 18
+description = """Ellen Marsh comes home to the fishing village where she grew up to bury her father, and finds it empty: the tide out further than it should be, and the lighthouse lit. Search the village's cottages, chapel and drowned mudflats with a torch and little else, solve its puzzles and find out what came in with the fog."""
+features = ["A fog-bound village to explore by torchlight", "Puzzles, scarce supplies and things in the mud", "Three endings"]
+logo = { style = "horror_drip", title = "Saltmarsh" }
+versions = [{ system = "ps2", released = "2002-10-31", hud = "none" }]
+keyart = """Key art for a fictional 2002 survival horror game, in the style of early-2000s horror game box art: a dark, desaturated, almost photographic digital painting in greys and sea-greens, a single warm torch beam. Portrait, 2:3.
+
+A young woman in a dark wax jacket, seen from behind, holds up a torch on a long wooden jetty running out across a foggy grey mudflat; at the far end a lighthouse with its lamp lit; in the fog along the jetty stand several thin, still figures with no faces. An original design. Keep the top quarter of the picture plain fog: a title will be printed there later."""
+
+[games.screens]
+ps2 = """A 3D survival horror game seen from a fixed camera high in a corner: a young woman in a dark wax jacket with a torch walks down a narrow cobbled street of a fishing village in thick fog, boarded-up cottages, lobster pots and nets, her torch beam picking out a thin figure standing at the end of the street. Dark, grainy and desaturated."""
+
+[[games]]
+id = "groove-courier"
+title = "Groove Courier"
+genre = "Rhythm"
+developer = "Velvet Comet"
+publisher = "Velvet Comet"
+players = "1-2"
+rating = 0.86
+age = 3
+description = """Pip delivers parcels across the city of Tempo on roller skates, and the whole city moves to the beat. Press the buttons in time to skate, jump and spin through forty songs of funk, ska and electro, deliver every parcel before the last bar, and win the city's dance-off."""
+features = ["Forty original songs in six styles", "Skate, jump and spin in time to the music", "Two-player dance-offs"]
+logo = { style = "candy_gems", title = "Groove Courier", gem = false }
+versions = [{ system = "ps2", released = "2003-07-11", hud = "text", hud_items = [["SCORE 0284500", "tl"], ["COMBO 64", "tr", "#ff6ad8", 1.3], ["PERFECT!", "tc2", "#ffe040", 1.6], ["BAR 0.8", "bc"]] }]
+keyart = """Key art for a fictional 2003 rhythm game, in the style of early-2000s cel-shaded game box art: bold black outlines and flat pop-art colours (hot pink, cyan, lemon yellow). Portrait, 2:3.
+
+A cheerful courier girl with big headphones, a cap on backwards and a messenger bag stuffed with parcels skates towards the viewer on roller skates, mid-spin, one arm raised; behind her a cartoon city of colourful leaning buildings, giant speakers and floating music notes. No graffiti. An original character, not any existing one. Keep the top quarter of the picture open sky: a title will be printed there later."""
+
+[games.screens]
+ps2 = """A cel-shaded 3D rhythm game: a courier girl with big headphones and a messenger bag spins on roller skates in a colourful cartoon street, pedestrians dancing, giant speakers; a row of big round coloured beat markers sweeps across the lower part of the screen towards a target ring. Leave the top eighth as plain sky: the score will be drawn over it later."""
+
+[[games]]
+id = "pitch-kings"
+title = "Pitch Kings 2004"
+genre = "Football"
+developer = "Hollowbrook"
+publisher = "Quayside"
+players = "1-4"
+rating = 0.82
+age = 3
+description = """Every club, every cup, every last-minute winner. Pitch Kings 2004 has two hundred made-up clubs in twelve leagues, a manager mode that runs for twenty seasons, and new tricks, through balls and headers, with up to four players on one console."""
+features = ["200 clubs in twelve leagues", "Twenty seasons of manager mode", "Up to four players"]
+logo = { style = "sports_block", title = "Pitch Kings", badge = "2004", colours = ["#ffffff", "#1aa04a"] }
+versions = [{ system = "ps2", released = "2003-10-03", hud = "text", hud_items = [["RVR 2 - 1 HLB", "tl", "#ffffff", 1.2], ["67:12", "tl2", "#ffd040"], ["BAR 0.5", "bl"]] }]
+keyart = """Key art for a fictional 2003 football game, in the style of early-2000s football game box art: a photo-real 3D render under floodlights. Portrait, 2:3.
+
+An original footballer in a tangerine shirt with a single navy diagonal sash and navy shorts, seen mid-volley in the rain, the ball leaving his boot in a spray of water; a floodlit stadium crowd blurred behind him, beams of light through the rain. Not any real player, club or kit, and no numbers or letters on the kit. Keep the top quarter of the picture plain dark sky with floodlights: a title will be printed there later."""
+
+[games.screens]
+ps2 = """A 3D football match seen from high in the main stand, as on television: a green pitch with crisp white lines, players in tangerine shirts with a navy diagonal sash against players in plain white, the ball near the penalty area, a packed stand with advertising boards that are plain coloured panels. Leave the top eighth plain dark: the score will be drawn over it later."""
+
+[[games]]
+id = "dirtjump-rebels"
+title = "Dirtjump Rebels"
+genre = "Extreme sports"
+developer = "Fernhill"
+publisher = "Arcwave"
+players = "1-2"
+rating = 0.8
+age = 12
+description = """Twelve riders, nine parks and one rule: land it. Link flips, spins and grinds into combos across dirt tracks, skate parks, a quarry and a ski resort in summer, build a park of your own, and challenge a friend on a split screen."""
+features = ["Over 1,500 tricks to link into combos", "Nine parks and a park builder", "Two-player split screen"]
+logo = { style = "fire_brush", title = "Dirtjump Rebels", colours = "graffiti" }
+versions = [{ system = "ps2", released = "2002-06-21", hud = "text", hud_items = [["SCORE 48,250", "tl"], ["1:32", "tr"], ["X3", "tc", "#ffd040", 1.6], ["BACKFLIP + TAILWHIP", "tc2"]] }]
+keyart = """Key art for a fictional 2002 BMX game, in the style of early-2000s extreme sports box art: a high-energy photo-real 3D render with a slight fisheye feel. Portrait, 2:3.
+
+A BMX rider in a red helmet, goggles and a sleeveless orange jersey flies upside down in a backflip over a huge dirt jump towards the viewer, dust exploding off the lip; a summer quarry with ramps and a small crowd behind, a bright blue sky. Not any real rider or brand, and no logos on the clothes or the bike. Keep the top quarter of the picture open sky: a title will be printed there later."""
+
+[games.screens]
+ps2 = """A 3D BMX game: a rider in a red helmet and an orange jersey in mid-air doing a no-handed trick over a dirt jump in a sandy quarry park, ramps, a half-pipe, wooden fences and a small crowd in bright sunlight. Leave the top eighth as plain sky: the score will be drawn over it later."""
+
+[[games]]
+id = "contrail-aces"
+title = "Contrail Aces"
+genre = "Flight combat"
+developer = "Copperkite"
+publisher = "Arcwave"
+players = "1-2"
+rating = 0.84
+age = 12
+description = """The Free Skies of Aurel have one squadron left, and you fly its lead jet. Dogfight over oceans, deserts and frozen fjords across thirty missions, earn new jets and colour schemes, and bring down the enemy's flying fortress before it reaches the capital."""
+features = ["Thirty missions over five regions", "Twenty-four made-up jets to earn", "Two-player dogfights on a split screen"]
+logo = { style = "steel_flare", title = "Contrail Aces", steel = "blue" }
+versions = [{ system = "ps2", released = "2004-05-28", hud = "text", hud_items = [["SPD 842", "tl", "#7aff9a"], ["ALT 12400", "tr", "#7aff9a"], ["TARGETS 4/9", "bl", "#ffd040"], ["MSL 32", "br", "#7aff9a", 1.3]] }]
+keyart = """Key art for a fictional 2004 flight combat game, in the style of early-2000s flight game box art: a crisp 3D render at sunset. Portrait, 2:3.
+
+An original twin-tailed jet fighter of no real type, white with a blue nose and a single blue stripe, banks hard towards the viewer above the clouds, white contrails streaming from its wingtips and a missile leaving its rail; a squadron of dark-red enemy jets behind and a giant flying fortress silhouetted on the horizon. The aircraft must not resemble any real aircraft, and carry no markings or numbers. Keep the top quarter of the picture open sky: a title will be printed there later."""
+
+[games.screens]
+ps2 = """A 3D flight combat game seen from behind the player's jet: a white jet with a blue nose banks over a sunlit ocean with islands far below, a dark-red enemy jet ahead, missile trails and puffs of flak, towering clouds. Leave the top eighth and the bottom eighth as plain sky: the interface will be drawn over them later."""
+
+[[games]]
+id = "silverstream-heist"
+title = "Silverstream Heist"
+genre = "Stealth action"
+developer = "Fernhill"
+publisher = "Velvet Comet"
+players = "1"
+rating = 0.85
+age = 12
+description = """The Riviera, 1966. Gentleman thief Felix Arden and safecracker Margot Vane have one week to rob the most closely guarded casino on the coast. Plan each job, choose your disguise, distract the guards and swap between the two partners in a stylish caper of gadgets, gowns and getaway cars."""
+features = ["Swap between two thieves at any time", "Disguises, gadgets and distractions", "Seven nights, seven jobs"]
+logo = { style = "retro_flat", title = "Silverstream Heist", font = "BROADW.TTF", face = "#f4f0e0", edge = "#d4a020", depth = "#5a1a3a" }
+versions = [{ system = "ps2", released = "2005-10-14", hud = "text", hud_items = [["SUSPICION", "tl", "#ffd040"], ["BAR 0.3", "tl2"], ["DAY 4   21:40", "tr"], ["LOCKPICK X3", "br"]] }]
+keyart = """Key art for a fictional 2005 stealth caper game, in the style of a 1960s spy film poster reimagined for an early-2000s game box: a graphic painting with flat silhouettes, bold blocks of teal, orange and cream, and a halftone texture. Portrait, 2:3.
+
+A lanky gentleman thief with swept-back ginger hair and a thin moustache, in a cream dinner jacket with a carnation, tips his hat with a grin, and beside him a safecracker woman with a short silver bob in a mint-green trouser suit twirls a stethoscope; a small, boxy two-tone scooter of no real make waits behind them; behind them a casino on a cliff above a moonlit sea, searchlights, and a spiral of playing cards with plain faces. Original characters, comic and stylish rather than a film spy poster, not any famous character. Keep the top quarter of the picture plain: a title will be printed there later."""
+
+[games.screens]
+ps2 = """A 3D stealth game in a 1960s casino: a man in a black dinner suit hides behind a marble pillar while a guard in a red uniform walks past roulette tables, chandeliers overhead, a woman in a silver gown at a wall safe in the background, warm golden light. Leave the top eighth as plain dark ceiling: the interface will be drawn over it later."""
+
+[[games]]
+id = "gloamdeep"
+title = "Gloamdeep"
+genre = "Action RPG"
+developer = "Pebbleglass"
+publisher = "Moonquill"
+players = "1-2"
+rating = 0.86
+age = 16
+description = """Under the mining town of Brackenholt the tunnels go deeper every year, and the miners have stopped coming back up. Choose a warrior, a hunter or a hedge-witch and fight down through twenty-five levels of mines, crypts and forges for treasure, with a friend alongside."""
+features = ["Three heroes, each with forty skills", "Twenty-five levels and thousands of items", "Two players together on one screen"]
+logo = { style = "gold_serif", title = "Gloamdeep", metal = "bronze", emblem = "sword" }
+versions = [{ system = "ps2", released = "2004-02-13", hud = "text", hud_items = [["LEVEL 14", "tl", "#ffd040"], ["GOLD 3,412", "tr"], ["BAR 0.7", "bl"], ["BAR 0.45", "br"]] }]
+keyart = """Key art for a fictional 2004 action role-playing game, in the style of early-2000s fantasy game box art: a dark, fiery painting in oranges and deep browns. Portrait, 2:3.
+
+A broad warrior in battered plate armour with a flaming great axe and a hooded hedge-witch with a staff of green light stand back to back on a stone bridge over a chasm of lava deep underground; a giant horned creature of molten rock rises behind them; mine carts and old timber supports. Original designs. Keep the top quarter of the picture a plain dark cavern roof: a title will be printed there later."""
+
+[games.screens]
+ps2 = """A 3D action role-playing game seen from high above at an angle: a warrior in plate armour and a hooded witch fight skeletons and goblins in a torch-lit mine cavern with timber supports, rails and mine carts, a treasure chest and scattered gold coins, glowing spell effects. Leave the top eighth and the bottom eighth as plain dark rock: the interface will be drawn over them later."""
+
+[[games]]
+id = "scrapyard-smash"
+title = "Scrapyard Smash"
+genre = "Racing"
+developer = "Ninebolt"
+publisher = "Arcwave"
+players = "1-4"
+rating = 0.79
+age = 12
+description = """Banger racing, the Scrapyard Smash way: weld some armour onto a rust bucket, take it into the arena and be the last car running. Twenty arenas, damage that tears off panels and wheels, and four players at once."""
+features = ["Damage that tears off panels, doors and wheels", "Twenty arenas, from mud pits to stadiums", "Four players at once"]
+logo = { style = "stencil_plate", title = "Scrapyard Smash", plate = "mud" }
+versions = [{ system = "ps2", released = "2002-03-15", hud = "text", hud_items = [["01:58", "tl"], ["CARS LEFT 5", "tr", "#ffd040", 1.3], ["DAMAGE", "bl2", "#ff6a40"], ["BAR 0.35", "bl"]] }]
+keyart = """Key art for a fictional 2002 demolition derby game, in the style of early-2000s racing game box art: a gritty 3D render in rust, mud and orange. Portrait, 2:3.
+
+Two battered old saloon cars of no real make, welded with scrap-metal armour and painted with crude stripes, crash head-on in a muddy arena, a door and a wheel flying, sparks and steam; floodlights and a cheering crowd behind a chain-link fence. No real cars, and no numbers or words on them. Keep the top quarter of the picture plain dark sky with floodlights: a title will be printed there later."""
+
+[games.screens]
+ps2 = """A 3D demolition derby: battered old cars with scrap armour smash into each other in a muddy oval arena, a door flying off, steam and sparks, walls of tyres, floodlights and a crowd behind a fence. No real cars. Leave the top eighth plain dark sky: the interface will be drawn over it later."""
+
+# Arcade, more ------------------------------------------------------------------------------------------------------
+
+[[games]]
+id = "ironpetal"
+title = "Ironpetal"
+genre = "Fighting"
+developer = "Copperkite"
+publisher = "Hanabira"
+players = "1-2"
+rating = 0.82
+age = 12
+description = """Twelve sword fighters meet beneath the cherry trees of a castle town, each bound by an oath to cut down the others. Duels where every slash counts, a rage gauge that fills as you are hurt, and a storm of petals for every finishing blow."""
+features = ["Twelve sword fighters, each with a blade of their own", "A rage gauge for devastating blows", "Two players head to head"]
+logo = { style = "ink_brush", title = "Ironpetal", font = "ONYX.TTF" }
+versions = [{ system = "arcade", released = "1995-08-11", file = "ironptl.zip", hud = "text", hud_items = [["BAR 0.85", "tl"], ["60", "tc", "#ffd040", 2], ["BAR 0.3", "tr"], ["SAYO", "bl"], ["GENKURO", "br"]] }]
+
+[games.screens]
+arcade = """A 2D one-on-one sword-fighting game: a slim swordswoman in a pale pink kimono with a long sword on the left, facing a hulking masked samurai in dark armour with a huge two-handed blade on the right, on a castle-town street under blossoming cherry trees, petals blowing, townsfolk watching from behind a fence, a pagoda behind. Large, detailed sprites of original fighters. Leave the top eighth as a plain dark band: the health bars will be drawn over it later."""
+
+[[games]]
+id = "kunai-highway"
+title = "Kunai Highway"
+genre = "Action"
+developer = "Ninebolt"
+publisher = "Arcwave"
+players = "1-2"
+rating = 0.77
+age = 7
+description = """A ninja runs the old highway north with a scroll that the shogun's enemies want back. Sprint up the road, leap carts and rivers, throw kunai at every ambush and call down a smoke bomb when they swarm. Two players run side by side."""
+features = ["Eight stages up the old highway", "Kunai, smoke bombs and a sword for close quarters", "Two players at once"]
+logo = { style = "fire_brush", title = "Kunai Highway", colours = "storm" }
+versions = [{ system = "arcade", released = "1992-04-24", file = "kunaihwy.zip", screen = "arcade_v", hud = "text", hud_items = [["1UP", "tl", "#ff4040"], ["0012300", "tl2"], ["HI 0050000", "tc"], ["X2", "bl"]] }]
+
+[games.screens]
+arcade_v = """A vertically scrolling action game seen from above: a small ninja in dark blue runs up a dirt highway through a pine forest, throwing kunai at enemy ninjas in red who leap from the trees; an overturned rice cart, a stone lantern, and a wooden bridge over a river near the top. Leave the top eighth as plain dark forest: the score will be drawn over it later."""
+
+[[games]]
+id = "scrapheap-commandos"
+title = "Scrapheap Commandos"
+genre = "Run and gun"
+developer = "Ninebolt"
+publisher = "Zephyrix"
+players = "1-2"
+rating = 0.8
+age = 12
+description = """The robots took the junkyards first, then the city. Two commandos in welded scrap armour fight back with whatever they can bolt together: flame-throwers made of drainpipes, rocket launchers made of exhausts, and a walking tank that used to be a crane."""
+features = ["Weapons built from junk", "Ride a walking crane tank", "Two players at once"]
+logo = { style = "stencil_plate", title = "Scrapheap Commandos", plate = "sand" }
+versions = [{ system = "arcade", released = "1996-10-04", file = "scrapcmd.zip", hud = "text", hud_items = [["1P", "tl", "#40a0ff"], ["0045200", "tl2"], ["2P PRESS START", "tr", "#ffd040"], ["BOMB X3", "bl"]] }]
+
+[games.screens]
+arcade = """A 2D side-scrolling run-and-gun game: two commandos whose faces are hidden behind welding masks, in bulky armour patched together from hubcaps, oil drums and road signs with no words on them, fire big home-made guns built from exhaust pipes at clanking robots made of washing machines and car parts in a junkyard at dusk, piles of tyres and crushed cars, a crane, explosions and flying bolts. Original designs with realistic proportions, not cartoon soldiers, no bandanas and no military uniforms. Leave the top eighth as a plain dark band: the score will be drawn over it later."""
+
+[[games]]
+id = "spike-fever"
+title = "Spike Fever"
+genre = "Volleyball"
+developer = "Hollowbrook"
+publisher = "Quayside"
+players = "1-4"
+rating = 0.76
+age = 3
+description = """Sun, sand and a net. Pick a pair from eight teams of beach volleyball players, from lifeguards to surf-shop owners, and dig, set and spike your way along eight beaches round the world, with up to four players, two a side."""
+features = ["Eight teams on eight beaches", "Dig, set, spike and block", "Up to four players, two a side"]
+logo = { style = "sports_block", title = "Spike Fever", colours = ["#ffe040", "#ff4a8a"] }
+versions = [{ system = "arcade", released = "1994-07-15", file = "spikefvr.zip", hud = "text", hud_items = [["11", "tl", "#ffffff", 2], ["SET 2", "tc", "#ffd040"], ["9", "tr", "#ffffff", 2]] }]
+
+[games.screens]
+arcade = """A 2D beach volleyball game seen from the side, a little from above, the players small in a wide view of the whole court: two teams of two, men in loose knee-length board shorts and sleeveless sports vests in team colours (orange against teal) and sun visors, on golden sand; one leaps high at the net to spike the ball while the other team dives to dig it; palm trees, a turquoise sea, beach huts and a small cheering crowd under parasols. Sporty and cheerful. Leave the top eighth as plain blue sky: the score will be drawn over it later."""
+
+[[games]]
+id = "lunar-driller"
+title = "Lunar Driller"
+genre = "Action"
+developer = "Copperkite"
+publisher = "Arcwave"
+players = "1-2"
+rating = 0.72
+age = 3
+description = """Drill down through the moon's crust for its crystals, but mind the gas pockets and the burrowing moon worms. Tunnel, collect and fly back up before your fuel runs out; every shaft goes deeper than the last. Two players take turns."""
+features = ["Drill your own shafts", "Crystals, gas pockets and moon worms", "Two players take turns"]
+logo = { style = "arcade_pixel", title = "Lunar Driller", colours = ["#c0f0ff", "#40a0ff", "#3020a0"] }
+versions = [{ system = "arcade", released = "1982-02-19", file = "lundrill.zip", screen = "arcade8", hud = "text", hud_items = [["1UP", "tl", "#ff4040"], ["004250", "tl2"], ["HIGH SCORE", "tc", "#ff4040"], ["020000", "tc2"], ["FUEL", "bl", "#40ff40"]] }]
+
+[games.screens]
+arcade8 = """A cross-section of the moon's crust in grey and brown horizontal layers below a black sky with a few white stars and a small blue Earth; a small white lunar lander with a drill under it bores straight down, its shaft a black line behind it; cyan crystals in the rock; two green worms in tunnels of their own; a yellow pocket of gas. Leave the top eighth and the bottom eighth plain black: the score will be drawn over them later."""
+
+[[games]]
+id = "chimney-charlie"
+title = "Chimney Charlie"
+genre = "Platform"
+developer = "Copperkite"
+publisher = "Arcwave"
+players = "1-2"
+rating = 0.73
+age = 3
+description = """Charlie the sweep has every chimney in town to clean by dawn. Climb the drainpipes and window ledges, dodge the falling flowerpots and the angry cats, and pop down each chimney before the clock strikes six. Two players take turns."""
+features = ["Climb sixteen ever-taller houses", "Flowerpots, cats and pigeons in the way", "Two players take turns"]
+logo = { style = "retro_flat", title = "Chimney Charlie", font = "COOPBL.TTF", face = "#40c0ff", edge = "#ffffff", depth = "#102060" }
+versions = [{ system = "arcade", released = "1983-05-13", file = "chimchrl.zip", screen = "arcade8_v", hud = "text", hud_items = [["1UP", "tl", "#ff4040"], ["001800", "tl2"], ["HIGH SCORE", "tc", "#ff4040"], ["015000", "tc2"], ["CREDIT 1", "br"]] }]
+
+[games.screens]
+arcade8_v = """The front of a tall red-brick terraced house on black, its windows with ledges, a drainpipe up one side and chimney pots at the top; a tiny chimney sweep with a brush climbing the drainpipe, a flowerpot falling from a ledge, a black cat on another ledge, a white pigeon, a crescent moon. Leave the top eighth and the bottom sixteenth plain black: the score will be drawn over them later."""

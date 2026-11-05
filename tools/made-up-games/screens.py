@@ -1,6 +1,7 @@
 """The made-up games' screenshots at their systems' native resolutions: a Codex painting of the game's screen cut (or
 padded) to the screen's shape, scaled to its pixels and brought to the console's palette, then the game's HUD drawn
-over it in a bitmap font, since painted text comes out garbled."""
+over it in a bitmap font, since painted text comes out garbled (in a typeface on a PS2 screen, as its games drew
+theirs)."""
 
 import math
 
@@ -10,7 +11,8 @@ from PIL import Image
 import paint as P
 
 NATIVE = {"megadrive": (320, 224), "snes": (256, 224), "n64": (320, 240), "arcade": (320, 224), "arcade_v": (224, 288),
-          "arcade8": (256, 224), "arcade8_v": (224, 288), "arcade3d": (640, 480), "arcade_hd": (1280, 720)}
+          "arcade8": (256, 224), "arcade8_v": (224, 288), "arcade3d": (640, 480), "arcade_hd": (1280, 720),
+          "ps2": (640, 448)}
 
 # The shape a look's screen was shown at, where its pixels weren't square.
 DISPLAY = {"arcade8": (4, 3), "arcade8_v": (3, 4)}
@@ -139,6 +141,11 @@ def native(painting, system, look, fit="crop", focus=(0.5, 0.5)):
         return snap(np.asarray(img.convert("RGB"), dtype=np.float32)).astype(np.uint8)
     if look in ("arcade3d", "arcade_hd"):
         return np.asarray(img).copy()                            # 3D boards of the late 1990s on: 24-bit colour
+    if look == "ps2":
+        # 24-bit colour, softened down the screen as the console's flicker filter did for interlaced televisions.
+        soft = a.copy()
+        soft[1:-1] = a[:-2] * 0.25 + a[1:-1] * 0.5 + a[2:] * 0.25
+        return np.clip(soft + 0.5, 0, 255).astype(np.uint8)
     if system == "megadrive":
         # Each channel to the nearest of the console's eight levels, then at most 61 colours on screen.
         a = MD_LEVELS[np.abs(a[..., None] - MD_LEVELS).argmin(axis=-1)]
@@ -310,6 +317,69 @@ def _versus(img, spec):
     return img
 
 
+# A PS2 game's HUD: smooth text in a typeface, drawn on a float canvas.
+HUD_FONT = "TCCEB.TTF"
+
+
+def _rounded(w, h, x0, y0, x1, y1, r):
+    return P.mask(w, h, P.path(f"M {x0 + r} {y0} H {x1 - r} Q {x1} {y0} {x1} {y0 + r} V {y1 - r} Q {x1} {y1} {x1 - r} {y1} "
+                               f"H {x0 + r} Q {x0} {y1} {x0} {y1 - r} V {y0 + r} Q {x0} {y0} {x0 + r} {y0} Z"))
+
+
+def _items_smooth(img, items):
+    """HUD items as _items places them, in a typeface with a dark edge; a "BAR n" is a rounded bar."""
+    h, w = img.shape[:2]
+    canvas = img.astype(np.float32) / 255
+    for item in items:
+        s, place = item[0], item[1]
+        colour = item[2] if len(item) > 2 else "#ffffff"
+        size = h * 0.05 * (item[3] if len(item) > 3 else 1)
+        top = place[0] == "t"
+        row = 0.07 if place.endswith("2") else 0.0
+        x = {"l": w * 0.04, "c": w / 2, "r": w * 0.96}[place[1]]
+        y = h * (0.04 + row) if top else h * (0.96 - row)
+        if s.startswith("BAR "):
+            bw, bh = w * 0.28, h * 0.03
+            bx = {"l": x, "c": x - bw / 2, "r": x - bw}[place[1]]
+            by = y if top else y - bh
+            frame = _rounded(w, h, bx - 2, by - 2, bx + bw + 2, by + bh + 2, bh / 2 + 2)
+            P.over(canvas, "#05060c", frame, 0.75)
+            fill = _rounded(w, h, bx, by, bx + bw * float(s[4:]), by + bh, bh / 2)
+            P.over(canvas, P.vertical(w, h, [(0, "#d8ffb0"), (0.5, "#5ad83a"), (1, "#1a8a2a")], top=by, bottom=by + bh), fill)
+            continue
+        anchor = {"l": "l", "c": "m", "r": "r"}[place[1]] + ("a" if top else "d")
+        P.draw_text(canvas, s, HUD_FONT, size, (x, y), colour, anchor=anchor, stroke=max(1, int(size * 0.07)),
+                    stroke_colour="#05060c", shadow=("#000000", 2, 2))
+    img[:] = (np.clip(canvas, 0, 1) * 255 + 0.5).astype(np.uint8)
+
+
+def _dialogue_smooth(img, said):
+    """A PS2 role-playing game's message window: translucent navy with a pale edge, the speaker's name in gold on a
+    tab above it, the words in white, and a "more" arrow."""
+    h, w = img.shape[:2]
+    canvas = img.astype(np.float32) / 255
+    name, _, words = said.partition(": ") if ": " in said else ("", "", said)
+    size = h * 0.045
+    lines = P.wrap(words, "GOTHIC.TTF", size, w * 0.8)
+    x0, x1, y1 = w * 0.05, w * 0.95, h * 0.95
+    y0 = y1 - size * (1.45 * len(lines) + 1.3)
+    box = _rounded(w, h, x0, y0, x1, y1, h * 0.02)
+    P.over(canvas, "#0a1446", box, 0.78)
+    P.over(canvas, "#d8e2ff", np.clip(P.dilate(box, 1.5) - P.erode(box, 1.0), 0, 1), 0.9)
+    if name:
+        tab = _rounded(w, h, x0 + w * 0.02, y0 - size * 1.15, x0 + w * 0.04 + P.font("GOTHICB.TTF", size).getlength(name.title()),
+                       y0 + 2, h * 0.012)
+        P.over(canvas, "#0a1446", tab, 0.85)
+        P.over(canvas, "#d8e2ff", np.clip(P.dilate(tab, 1.5) - P.erode(tab, 1.0), 0, 1), 0.9)
+        P.draw_text(canvas, name.title(), "GOTHICB.TTF", size, (x0 + w * 0.03, y0 - size * 0.55), "#ffd860", anchor="lm")
+    for k, line in enumerate(lines):
+        P.draw_text(canvas, line, "GOTHIC.TTF", size, (x0 + w * 0.035, y0 + size * (0.65 + 1.45 * k)), "#ffffff",
+                    shadow=("#000000", 1, 1))
+    ax, ay, r = x1 - w * 0.03, y1 - size * 0.7, size * 0.3
+    P.over(canvas, "#ffffff", P.mask(w, h, [[(ax - r, ay - r * 0.6), (ax + r, ay - r * 0.6), (ax, ay + r * 0.6)]]))
+    img[:] = (np.clip(canvas, 0, 1) * 255 + 0.5).astype(np.uint8)
+
+
 def _hearts(img, full, total):
     heart = [".##.##.", "#######", "#######", ".#####.", "..###..", "...#..."]
     for n in range(total):
@@ -326,6 +396,12 @@ def _hearts(img, full, total):
 
 def hud(img, kind, game):
     h, w = img.shape[:2]
+    if game.get("look") == "ps2" and kind in ("text", "dialogue"):
+        if kind == "text":
+            _items_smooth(img, game.get("hud_items", []))
+        else:
+            _dialogue_smooth(img, game.get("dialogue", ""))
+        return img
     if kind == "text":
         _items(img, game.get("hud_items", []))
     elif kind == "versus":
