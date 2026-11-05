@@ -4,8 +4,8 @@ Draws each kind's two atlases, their regions as nintendo_ds_layout.py places the
 face seen from above and the upper half's face seen square on, in millimetres as the model's planar UVs map them (the
 screens' bezels and the switched-off screens under them, the D-pad, A, B, X and Y, START and SELECT, the speakers), and
 the swatches small parts take their colour from. <kind>_media.png: the screens at the DS's 256 x 192 pixels (the
-start-up screen and the menu with the game card's tile; then the game's title, TOUCH TO START, and that button pressed)
-and the game card's label: a made-up game, Odyssey. Run it with the system Python (Pillow):
+start-up screen and the menu with the game card's tile; then the game's title, TOUCH TO START, and that button pressed).
+The game is a made-up one, Odyssey. Run it with the system Python (Pillow):
 
     python tools/console-models/nintendo_ds_print.py <kind> <out folder>
 
@@ -118,7 +118,7 @@ def print_atlas(k):
     lower(k).paste(image)
     upper(k).paste(image)
     d = ImageDraw.Draw(image)
-    for name, colour in (("dark", rgb(k["dark"])), ("accent", rgb(k["accent"])), ("card", (122, 125, 130)),
+    for name, colour in (("dark", rgb(k["dark"])), ("accent", rgb(k["accent"])),
                          ("pad", rgb(k.get("pad", k["accent"])))):
         x, y = L.SWATCHES[name]
         d.rectangle([x - 12, y - 12, x + 11, y + 11], fill=colour)
@@ -223,25 +223,6 @@ def game_lower(size, pressed):
     return img.resize(size, Image.LANCZOS)
 
 
-def card_label(k):
-    """The game card's face: its grey plastic, the console's name on its label's band, Odyssey's art."""
-    c = L.CARD
-    reg = Region(k["media"]["card"], c["width"], c["length"], (122, 125, 130))
-    reg.rect_(2.5, 2.5, c["width"] - 2.5, c["length"] - 6.0, (238, 238, 240), r=1.2)
-    art = space((640, 480))
-    d = ImageDraw.Draw(art)
-    ship(d, 200, 300, 2.6, "#FFFFFF", "#FFB23C")
-    d.text((320, 120), "ODYSSEY", font=font("ariblk.ttf", 92), fill="#FFE45C", anchor="mm", stroke_width=5,
-           stroke_fill="#5A1A08")
-    x0, y0, x1, y1 = reg.box(3.5, 8.0, c["width"] - 3.5, c["length"] - 7.0)
-    reg.img.paste(art.convert("RGB").resize((round(x1 - x0), round(y1 - y0)), Image.LANCZOS), (round(x0), round(y0)))
-    reg.text(k["name"], "arialbd.ttf", 2.6, c["width"] / 2, 5.2, (40, 40, 44))
-    for k in range(8):                                        # the contacts along its leading edge
-        x = 5.0 + k * 3.5
-        reg.rect_(x, c["length"] - 3.6, x + 2.2, c["length"] - 0.8, (200, 170, 90), r=0.3)
-    return reg
-
-
 def media_atlas(kind, k):
     image = Image.new("RGB", (L.ATLAS, L.ATLAS), (20, 20, 22))
     upper_px, lower_px = k["screen_px"]
@@ -250,7 +231,6 @@ def media_atlas(kind, k):
                       ("game_lower", game_lower(lower_px, False)), ("game_pressed", game_lower(lower_px, True))):
         x, y, _, _ = k["media"][name]
         image.paste(img, (x, y))
-    card_label(k).paste(image)
     return image
 
 

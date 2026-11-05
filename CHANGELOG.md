@@ -10,6 +10,10 @@ it releases, and the Release workflow puts it on the release page (tools/release
 
 ## Unreleased
 
+### Fixed
+
+- **No more game card passing through the Nintendo DS and 3DS** in the Console theme: when you focus either, it switches on and the stylus comes out to tap TOUCH TO START.
+
 ## 0.24.0 (2026-11-05)
 
 ### New

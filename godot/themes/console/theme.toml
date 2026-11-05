@@ -62,10 +62,10 @@ model = "models/systems/wonderswan.glb"       # built by tools/console-models/wo
 model = "models/systems/wonderswancolor.glb"  # built by tools/console-models/wonderswan.py, turned to a three-quarter view; its focused clip swoops a cartridge in, then leaps onto its end in a full twirl
 
 [systems.nds]
-model = "models/systems/nds.glb"                # built by tools/console-models/nintendo_ds.py: a DS Lite open, turned to a three-quarter view; its focused clip slides a game card into slot-1, lights both screens, and the stylus taps TOUCH TO START
+model = "models/systems/nds.glb"                # built by tools/console-models/nintendo_ds.py: a DS Lite open, turned to a three-quarter view; its focused clip lights both screens, and the stylus taps TOUCH TO START
 
 [systems.n3ds]
-model = "models/systems/n3ds.glb"               # built by tools/console-models/nintendo_ds.py: the first 3DS in Aqua Blue, open, turned to a three-quarter view; its focused clip slides a game card in, lights the HOME Menu, and the stylus taps TOUCH TO START
+model = "models/systems/n3ds.glb"               # built by tools/console-models/nintendo_ds.py: the first 3DS in Aqua Blue, open, turned to a three-quarter view; its focused clip lights the HOME Menu, and the stylus taps TOUCH TO START
 
 [systems.virtualboy]
 model = "models/systems/virtualboy.glb"        # built by tools/console-models/virtualboy.py: the Virtual Boy on its stand, its controller standing on its grips beside it; its focused clip turns the unit round on its stand to show its eyes, where a made-up game plays in red, then turns it back

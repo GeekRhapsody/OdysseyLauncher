@@ -7,19 +7,18 @@ with the D-pad, A, B, X and Y and the small buttons (START and SELECT; the 3DS's
 3DS's touch screen on a raised panel, its Circle Pad in a well over its D-pad), slot-1 and the stylus's silo in its back
 face, and the hinge along its back; the upper half, built the same way and tipped up about the hinge. The printing (the faces: the screens' bezels,
 the switched-off screens, the buttons' tops and legends, the speakers) is one texture, drawn by nintendo_ds_print.py
-and projected onto each half's face; the screens and the game card's label are a second.
+and projected onto each half's face; the screens are a second.
 
 A node tree: a root (the turn to a three-quarter view, TILT_YAW and TILT_PITCH: its right end towards the viewer, its
 face tipped up; then the model spec's fit: standing on y = 0, centred, the largest side 1 m) holding the console; the
-console holding the game card (Odyssey, a made-up game), the stylus, and the screens switched on (the start-up screen
-and the menu, then the game's title, TOUCH TO START and that button pressed). The card and the stylus wait in their
-places shrunk to nothing and the screens are shrunk to nothing, so at rest the card is the console open, its screens
-off.
+console holding the stylus and the screens switched on (the start-up screen and the menu, then the title of Odyssey, a
+made-up game, TOUCH TO START and that button pressed). The stylus waits in its silo shrunk to nothing and the screens
+are shrunk to nothing, so at rest the card is the console open, its screens off.
 
-The `focused` clip (8 s, looping) plays a game: the card pops up high above the console, showing its label, turns flat
-and slides into slot-1 behind the upper half; both screens come on, the start-up screen and the menu, then the game; the
-stylus slides out of its silo, flies over the upper half and taps TOUCH TO START twice, and flies back in; then the
-screens go off and the card pops out and goes.
+The `focused` clip (6 s, looping) plays a game: both screens come on, the start-up screen and the menu, then the game;
+the stylus slides out of its silo, flies over the upper half and taps TOUCH TO START twice, and flies back in; then the
+screens go off. No game card goes in: slot-1 is behind the upper half, so a card coming down into it passed through the
+console.
 
 Five materials (case, print, dark, media, accent) and two textures, within the system model budget. Run from the repo
 root:
@@ -41,7 +40,7 @@ from mathutils import Matrix, Vector
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import nintendo_ds_layout as L  # noqa: E402
 from amiga import paint, rounded, solid  # noqa: E402
-from clip import HIDDEN, Pose, back_out, ease_in, ease_out, key, phase, smooth  # noqa: E402
+from clip import HIDDEN, Pose, ease_in, ease_out, key, phase, smooth  # noqa: E402
 from mega_drive_cartridge import bevel, boolean, box, export, join, material, new_object, triangles  # noqa: E402
 
 TILT_YAW = -20.0     # degrees about the vertical: the right end comes towards the viewer
@@ -182,18 +181,6 @@ def screens(k, m):
     return out
 
 
-def card(k, m):
-    """The game card, its middle at its origin, lying flat with its label up and its contacts' edge towards -y."""
-    c = L.CARD
-    w, l, t = c["width"], c["length"], c["thickness"]
-    shell = box("card", -w / 2, w / 2, -l / 2, l / 2, -t / 2, t / 2, m["media"])
-    bevel(shell, 0.6, segments=1)
-    label = atlas_uv(k["media"]["card"], w, l)
-    paint(shell, m["media"], lambda co: label(co.x + w / 2, l / 2 - co.y), lambda c_, n, name: n.z > 0.9)
-    paint(shell, m["print"], swatch("card"), lambda c_, n, name: n.z <= 0.9)
-    return shell
-
-
 def stylus(k, m):
     """The stylus, its middle at its origin, lying along y with its tip towards -y."""
     s = k["stylus"]
@@ -215,52 +202,34 @@ def shown(f, f0, f1):
 
 def timeline(f, c):
     poses = {}
-    # The card: pops up high above, label to the viewer, turns flat behind the console and slides into slot-1; at the
-    # end it pops out and goes.
-    behind, high = 45.0, c["high"]
-    if f < 10 or f >= 222:
-        poses["card"] = Pose(scale=HIDDEN)
-    elif f < 26:
-        poses["card"] = Pose(y=behind - 20.0, z=high, pitch=90.0, spin=12.0 * math.sin(f / 2.0),
-                             scale=HIDDEN + (1 - HIDDEN) * back_out(phase(f, 10, 18)))
-    elif f < 48:
-        t = smooth(phase(f, 26, 48))
-        poses["card"] = Pose(y=behind - 20.0 + 20.0 * t, z=high * (1 - t), pitch=90.0 * (1 - t), spin=360.0 * t)
-    elif f < 204:
-        poses["card"] = Pose(y=behind * (1 - ease_in(phase(f, 48, 58))))
-    else:
-        t = phase(f, 204, 222)
-        poses["card"] = Pose(y=24.0 * back_out(phase(f, 204, 210)) + 30.0 * t, z=60.0 * ease_in(t),
-                             scale=max(HIDDEN, 1 - ease_in(phase(f, 214, 222))))
-
     # The screens: the start-up screen and the menu, then the game; TOUCH TO START pressed at each tap.
-    poses["screen_boot_upper"] = shown(f, 62, 98)
-    poses["screen_boot_lower"] = shown(f, 62, 98)
-    poses["screen_game_upper"] = shown(f, 98, 202)
-    tapped = 146 <= f < 151 or 156 <= f < 162
-    poses["screen_game_lower"] = shown(f, 98, 202) if not tapped else Pose(scale=HIDDEN)
+    poses["screen_boot_upper"] = shown(f, 10, 46)
+    poses["screen_boot_lower"] = shown(f, 10, 46)
+    poses["screen_game_upper"] = shown(f, 46, 150)
+    tapped = 94 <= f < 99 or 104 <= f < 110
+    poses["screen_game_lower"] = shown(f, 46, 150) if not tapped else Pose(scale=HIDDEN)
     poses["screen_game_pressed"] = Pose() if tapped else Pose(scale=HIDDEN)
 
     # The stylus: out of its silo backwards, up over the upper half, down onto TOUCH TO START twice, and home.
-    out, over_y, over_x, touch = c["out"], c["over_y"], c["over_x"], c["touch"]
-    if f < 110 or f >= 198:
+    out, over_y, over_x, touch, high = c["out"], c["over_y"], c["over_x"], c["touch"], c["high"]
+    if f < 58 or f >= 146:
         poses["stylus"] = Pose(scale=HIDDEN)
-    elif f < 122:
-        poses["stylus"] = Pose(y=out * ease_out(phase(f, 110, 122)), scale=HIDDEN + (1 - HIDDEN) * phase(f, 110, 112))
-    elif f < 140:
-        t = smooth(phase(f, 122, 140))
+    elif f < 70:
+        poses["stylus"] = Pose(y=out * ease_out(phase(f, 58, 70)), scale=HIDDEN + (1 - HIDDEN) * phase(f, 58, 60))
+    elif f < 88:
+        t = smooth(phase(f, 70, 88))
         poses["stylus"] = Pose(x=over_x * t, y=out + (over_y - out) * t, z=high * math.sin(math.pi * t) + touch * t + 14.0 * t,
                                pitch=72.0 * t)
-    elif f < 166:
-        dips = (1 - smooth(phase(f, 140, 146))) * 14.0 + (smooth(phase(f, 150, 153)) - smooth(phase(f, 153, 156))) * 9.0
-        dips += smooth(phase(f, 160, 166)) * 14.0
+    elif f < 114:
+        dips = (1 - smooth(phase(f, 88, 94))) * 14.0 + (smooth(phase(f, 98, 101)) - smooth(phase(f, 101, 104))) * 9.0
+        dips += smooth(phase(f, 108, 114)) * 14.0
         poses["stylus"] = Pose(x=over_x, y=over_y, z=touch + dips, pitch=72.0)
     else:
-        t = smooth(phase(f, 166, 188))
+        t = smooth(phase(f, 114, 136))
         z = touch + 14.0 + (high - touch - 14.0) * math.sin(math.pi * t) - (touch + 14.0) * t
         poses["stylus"] = Pose(x=over_x * (1 - t), y=over_y + (out - over_y) * t, z=z, pitch=72.0 * (1 - t))
-        if f >= 188:
-            poses["stylus"] = Pose(y=out * (1 - ease_in(phase(f, 188, 198))))
+        if f >= 136:
+            poses["stylus"] = Pose(y=out * (1 - ease_in(phase(f, 136, 146))))
     return poses
 
 
@@ -293,15 +262,11 @@ def main():
         part.parent = console
         part.matrix_basis = place
         nodes["screen_" + name] = part
-    d = k["depth"]
-    playing = card(k, m)
-    playing.parent = console
-    playing.location = (0.0, d - L.CARD["length"] / 2 - 1.0, sum(k["slot"]["z"]) / 2)
     pen = stylus(k, m)
     pen.parent = console
     s = k["stylus"]
-    pen.location = (s["x"], d - s["length"] / 2 - 1.0, s["z"])
-    nodes["card"], nodes["stylus"] = playing, pen
+    pen.location = (s["x"], k["depth"] - s["length"] / 2 - 1.0, s["z"])
+    nodes["stylus"] = pen
 
     # The three-quarter view, then the spec's fit of the console at rest, as the root's transform.
     tilt = Matrix.Rotation(math.radians(TILT_PITCH), 4, "X") @ Matrix.Rotation(math.radians(TILT_YAW), 4, "Z")

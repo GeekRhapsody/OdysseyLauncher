@@ -17,7 +17,7 @@ Two textures. `print` (ATLAS square, PRINT_REGIONS): `lower` (the lower half's f
 the legends, the buttons' wells and tops), `upper` (the upper half's face, seen square on with the hinge at the bottom:
 the screen's bezel, the speakers), and swatches. `media` (each kind's `media` regions): the screens at the console's own
 pixels, a texel each (the start-up screen or menu on both, then the game's title on the upper and TOUCH TO START on the
-lower, and that button pressed), and the game card's label.
+lower, and that button pressed).
 """
 
 ATLAS = 1024
@@ -39,7 +39,7 @@ KINDS = {
         name="NINTENDO DS", speaker_dots=[(-1, -1), (-1, 0), (-1, 1), (1, -1), (1, 0), (1, 1)],
         screen_px=((256, 192), (256, 192)),       # the upper screen's pixels, the lower's
         media=dict(boot_upper=(8, 8, 256, 192), boot_lower=(272, 8, 256, 192), game_upper=(536, 8, 256, 192),
-                   game_lower=(8, 208, 256, 192), game_pressed=(272, 208, 256, 192), card=(536, 208, 280, 264)),
+                   game_lower=(8, 208, 256, 192), game_pressed=(272, 208, 256, 192)),
     ),
     "n3ds": dict(
         width=134.0, depth=74.0, lower=11.0, upper=10.0, corner=7.0, edge=2.0,
@@ -61,16 +61,14 @@ KINDS = {
         name="NINTENDO 3DS", speaker_dots=[(-1, -1), (1, -1), (0, 0), (-1, 1), (1, 1)],
         screen_px=((400, 240), (320, 240)),
         media=dict(boot_upper=(8, 8, 400, 240), boot_lower=(416, 8, 320, 240), game_upper=(8, 256, 400, 240),
-                   game_lower=(416, 256, 320, 240), game_pressed=(8, 504, 320, 240), card=(744, 8, 270, 255)),
+                   game_lower=(416, 256, 320, 240), game_pressed=(8, 504, 320, 240)),
     ),
 }
 
-CARD = dict(width=35.0, length=33.0, thickness=3.8)
-
 PRINT_REGIONS = dict(lower=(0, 0, 1024, 570), upper=(0, 580, 1024, 444))
-SWATCHES = dict(dark=(16, 1012), accent=(48, 1012), card=(80, 1012), pad=(112, 1012))  # 24 x 24 blocks' middles
+SWATCHES = dict(dark=(16, 1012), accent=(48, 1012), pad=(112, 1012))  # 24 x 24 blocks' middles
 
 SCREENS = ["boot_upper", "boot_lower", "game_upper", "game_lower", "game_pressed"]
 
 FPS = 30
-LENGTH = 240                 # 8 s
+LENGTH = 180                 # 6 s
