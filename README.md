@@ -6,7 +6,6 @@ Every system and every game is a floating 3D model. Depending on the theme, syst
 
 ![Browsing the systems, entering the Mega Drive and moving through its games](docs/readme/navigation.webp)
 
-*The games in these screenshots are made up, and their art is AI-generated: no real game's art is shown ([how they're made](tools/made-up-games/README.md)).*
 
 Odyssey Launcher is built with Godot 4 and C# for Windows and Linux. **Performance is the headline feature:** it starts fast, aims to stay locked to your display's refresh rate while you scroll through thousands of games, and keeps its memory use low.
 
@@ -25,67 +24,67 @@ Odyssey Launcher is built with Godot 4 and C# for Windows and Linux. **Performan
 
 ### A 3D library
 
-- **Systems, then games, then play.** The main screen is a 3D grid of your systems; enter one for a grid of its games. Moving between them flies the grids in and out of depth over the theme's background (a gradient, as on the PS2, or a wallpaper).
-- **Real boxes for real games.** Each system's games use a model of their packaging: Mega Drive clamshells, landscape SNES and N64 boxes, PlayStation jewel cases, black PS2 and PSP cases, jewel cases for other CD systems, DVD cases, Switch cases, and arcade cabinets with the marquee and screen filled in. Other systems' games get a box shaped by their own cover art. The front, back, spine and label each take the matching scraped art.
-- **Your choice of model.** Any game or system can use another of the theme's models instead: a flat cover, a flat screenshot, a blue PS2 case, or a 1990s television that plays the focused game's video, with its sound.
-- **Animated items.** The focused item lifts and sways, and models can carry their own animations: most of the Console theme's machines load a made-up game when you focus them (the Mega Drive takes a cartridge and its pad is played; the Game Boys', Game Gear's, PSP's and PS Vita's screens and the Amstrad CPC's, Commodore 64's, Flash card's and DOS and Windows PCs' monitors play the game as a video, in step with the buttons (Flash's and the Windows PCs' with their mice); the PS Vita's is played by touch, from its lock screen to its LiveArea), and the Recently played alarm clock rocks and rings. A theme can calm the motion or stop it.
-- **Pick it up and turn it round.** Press R3 to bring the focused game up large in the middle of the screen. Turn it with the right stick to read the back of the box or look along its spine.
-- **Several layouts.** Show systems and games as a grid (automatic size, or your own columns and rows), a grid with each name under its item, a carousel, one item at a time, or a list of titles beside the focused game's model. Each system can have its own layout.
-- **Favourites, Recently played and All games** appear as cards of their own at the start of the systems grid.
+- **Systems, then games, then play.** A 3D grid of your systems; enter one for a grid of its games, flying in and out of depth over a gradient or wallpaper.
+- **Real boxes for real games.** Mega Drive clamshells, SNES and N64 boxes, jewel cases, PS2, PSP, DVD and Switch cases, and arcade cabinets, each wrapped in its scraped front, back, spine and label. Other systems get a box shaped by their cover art.
+- **Your choice of model.** Give any game or system another of the theme's models: a flat cover or screenshot, a blue PS2 case, or a 1990s TV playing the game's video.
+- **Animated items.** The focused item lifts and sways, and most of the Console theme's machines load and play a made-up game when focused. A theme can calm the motion or stop it.
+- **Pick it up and turn it round.** R3 brings the focused game up large; turn it with the right stick to read the back or the spine.
+- **Several layouts:** a grid, a grid with names, a carousel, one at a time, or a list beside the focused game's model, per system if you like.
+- **Favourites, Recently played and All games** have their own cards at the start of the systems grid.
 
 ![Inspecting a game and turning it with the right stick](docs/readme/inspect.webp)
 
 ### Your collection, as it is
 
-- **Multi-disc games** show as one game: an `.m3u`, `.cue` or `.gdi` hides the files it lists. PS3, PS4 and PS5 games kept as folders (`Game.ps3`) count as one game too.
-- **Clean titles** come from No-Intro and Redump file names. The region, languages, revision and disc number are kept as details, and titles sort naturally ("The Legend of Zelda" under L).
-- **Sorting:** order systems by name, maker or release year. Order games by title, last played, time played, date added or release date, per system if you like.
-- **Play history:** play counts, total play time and last played, recorded for every launch.
-- **Import from RetroBat/Batocera:** a system's `gamelist.xml` brings in its titles, metadata, favourites and media without overwriting anything you already have.
-- **Network drives work well.** Folders are listed in large batches and scanned in parallel, and unplugging a drive never loses your favourites or history.
+- **Multi-disc games** show as one (`.m3u`, `.cue`, `.gdi`), as do PS3, PS4 and PS5 game folders.
+- **Clean titles** from No-Intro and Redump names, with the region, revision and disc kept as details, sorted naturally.
+- **Sorting:** systems by name, maker or year; games by title, last played, time played, date added or release date, per system.
+- **Play history:** play count, play time and last played.
+- **Import from RetroBat/Batocera:** a `gamelist.xml` brings in titles, metadata, favourites and media without overwriting yours.
+- **Network drives work well:** batched, parallel scans, and an unplugged drive never loses your favourites or history.
 
 ### Scraping
 
-- **Five providers:** ScreenScraper, LaunchBox's Games DB, IGDB, SteamGridDB and the Steam store. Ask them in the order you choose; each later one fills only what the earlier ones didn't find.
-- **ScreenScraper works out of the box** in releases. Add your own account in the settings for higher limits; IGDB and SteamGridDB need free keys of your own. LaunchBox's Games DB needs no account: its database (about 110 MB) is downloaded the first time it's needed, so games are looked up without the network, and names and art follow the regions you prefer, as ScreenScraper's do.
-- **Every kind of media:** front and back covers, spines, screenshots, logos, fan art, disc and cartridge labels, videos, and PDF manuals. You choose which kinds to download.
-- **Accurate matching:** ScreenScraper identifies files by name, size and checksum, and a title search only counts a hit when the name really matches. When a match is wrong, "scrape this game" searches every provider at once, shows each result with its cover, and lets you choose. For a SteamGridDB result you can also pick the cover, logo and hero from its alternatives.
-- **Runs in the background** in a queue that survives closing the app, and respects each provider's rate limits and quotas.
-- **Your own art and edits win.** Set any image, the video or the manual yourself, edit a title or any metadata field, and a later scrape never overwrites it. Remove any of a game's media from its options.
-- **Media layout:** media is stored in `covers/`, `screenshots/`, `videos/` and so on, under a folder you can move to any drive.
+- **Five providers:** ScreenScraper, LaunchBox's Games DB, IGDB, SteamGridDB and the Steam store, in your order, each filling only the gaps.
+- **ScreenScraper works out of the box** in releases; add your account for higher limits. LaunchBox needs no account and looks games up offline after a one-off download (about 110 MB). IGDB and SteamGridDB need free keys.
+- **Every kind of media:** covers, backs, spines, screenshots, logos, fan art, labels, videos and PDF manuals. You choose which.
+- **Accurate matching** by name, size and checksum. When a match is wrong, "scrape this game" searches every provider and lets you choose, SteamGridDB's alternative art included.
+- **Runs in the background** in a queue that survives restarts and respects each provider's limits.
+- **Your own art and edits win:** set any image, video, manual, title or field yourself, and no scrape overwrites it.
+- **Plain media folders** (`covers/`, `screenshots/`, `videos/`...) that you can move to any drive.
 
 ### Details and media
 
-- **Game details (Y)** show everything the library knows: the description, release date, genre, developer, publisher, players, rating, region, play history and file.
-- **Images, videos and manuals:** every scraped image appears as a card. Open one to view it full screen, play the game's video with sound, or read its manual a page at a time, zoomed to the page's width and scrolled with the right stick (Windows).
-- **System details** show the system's model large, ready to turn, beside its history, emulators, folders and settings.
+- **Game details (Y):** description, release date, genre, developer, publisher, players, rating, region, play history and file.
+- **Images, videos and manuals** as cards: view an image full screen, play the video with sound, or read the manual page by page (Windows).
+- **System details:** the system's model, ready to turn, beside its history, emulators, folders and settings.
 
 ### Launching
 
-- **Emulator profiles** RetroArch cores, standalone emulators (PCSX2, Dolphin, PPSSPP, DuckStation and more), and games that are their own program, script or shortcut.
-- **Per-game overrides:** run one game with another of its system's emulators, from its options.
-- **Switch controllers** are set up in Eden before each launch, the pad that chose the game as player 1, with an option to swap A/B and X/Y for non-Nintendo pads.
-- **Steam games** are handed to Steam and followed until Steam says they've ended, so their play time is recorded too.
-- **Clean hand-off:** while a game runs, the launcher stops drawing and frees its textures, so the emulator gets the machine. When the game ends, the launcher takes the foreground back so the controller works at once.
+- **Emulator profiles** for RetroArch cores, standalone emulators (PCSX2, Dolphin, PPSSPP, DuckStation and more), and games that are their own program, script or shortcut.
+- **Per-game overrides:** run one game with another emulator.
+- **Switch controllers** are set up in Eden before each launch, the pad that chose the game as player 1.
+- **Steam games** are followed until Steam says they've ended, so their play time counts too.
+- **Clean hand-off:** while a game runs the launcher stops drawing and frees its textures; when it ends, the launcher takes the foreground back.
 
 ### Everything from the sofa
 
-- **A full settings screen driven by the controller:** ROM folders, the media folder, emulators, themes (and downloading more), layouts and sorting, graphics, the status indicators and sounds, scraping providers, regions and credentials, rescanning and scraping the whole library, problems in your config files, and checking for updates. It includes an on-screen keyboard, file and folder pickers, and a "test connection" button for each provider.
-- **Options for each game (X):** the emulator, the 3D model, its media (images, video and manual), title and metadata, scraping, clearing metadata and deleting the game.
-- **Options for each system (X):** its ROM folders, emulator, layout and sorting, card and game models, scraping all its games (or only those missing a cover or a screenshot, or not scraped lately), and importing an existing `gamelist.xml`.
-- **Power menu (View):** restart, shut down or sleep the PC, or quit the app.
-- **Status indicators:** the clock, the battery, and the Wi-Fi signal or cable, top right, plus an optional FPS and video memory readout.
-- **Navigation sounds:** a tock as the focus moves and a whoosh as you enter a system (they can be turned off).
+- **Controller-driven settings** for folders, emulators, themes (and downloading more), layouts, graphics, scraping and updates, with an on-screen keyboard and file pickers.
+- **Game options (X):** emulator, model, media, metadata, scraping and deleting.
+- **System options (X):** folders, emulator, layout, models, scraping all its games and importing a `gamelist.xml`.
+- **Power menu (View):** restart, shut down, sleep or quit.
+- **Status indicators:** clock, battery and network, plus an optional FPS and video memory readout.
+- **Navigation sounds**, which you can turn off.
 - **Graphics options:** borderless, exclusive fullscreen or windowed; 3D resolution; Direct3D 12 or Vulkan; anisotropic filtering.
 - The keyboard works everywhere, and the mouse in the menus.
 
 ### Built for speed
 
-- It aims to be interactive within a second of its own start-up, even with a 10,000-game library. Nothing is scanned or decoded before the first frame.
-- It aims to stay locked to the refresh rate while scrolling. The UI thread never touches the disk, the network or the database, and nothing allocates per frame.
-- Covers stream in on background threads and are uploaded within a strict per-frame budget, so the visible grid is textured almost at once.
-- Each kind of model is drawn in one batch, whatever the number of games.
-- The baseline hardware is a Steam Deck, handheld at 1280×800 and docked to a 4K display.
+- Aims to be interactive within a second of its own start-up, even with 10,000 games.
+- Aims to stay locked to the refresh rate while scrolling: the UI thread never touches the disk, network or database, and nothing allocates per frame.
+- Covers stream in on background threads within a per-frame upload budget.
+- Each kind of model is drawn in one batch.
+- The baseline is a Steam Deck, handheld at 1280×800 or docked to 4K.
 
 ## Screenshots
 
