@@ -10,6 +10,8 @@ it releases, and the Release workflow puts it on the release page (tools/release
 
 ## Unreleased
 
+## 0.23.0 (2026-11-05)
+
 ### New
 
 - **Odyssey Launcher for Linux**: each release now has an AppImage beside the Windows zip, `OdysseyLauncher-<version>-linux-x86_64.AppImage`. Make it executable and run it: nothing else to install. It needs a 64-bit distribution with glibc 2.34 or later (Ubuntu 22.04, Linux Mint 21, Fedora 35, current Arch, or newer).
