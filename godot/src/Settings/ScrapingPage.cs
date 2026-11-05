@@ -27,7 +27,7 @@ public sealed partial class ScrapingPage : ListPanel
         _settings = settings;
         Subtitle = "[scraping] in settings.toml; credentials in secrets.toml";
         Build();
-        SetHints("A  Choose     Left Right  Change     B  Back");
+        SetHints(CommonHints.ChooseChangeBack);
         _settings.ConfigApplied += Rebuild;
     }
 

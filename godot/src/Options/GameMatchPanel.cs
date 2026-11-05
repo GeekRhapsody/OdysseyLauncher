@@ -36,6 +36,13 @@ public sealed partial class GameMatchPanel : ListPanel
     /// <summary>What a cover is scaled down to fit when decoded: twice its frame, for a window larger than the UI's 1280×800.</summary>
     private static readonly Vector2I DecodeSize = new(120, 160);
 
+    private static readonly Hint[] Hints =
+    [
+        new("Scrape with this game", Prompt.Accept),
+        new("Search for another name", Prompt.Alternate),
+        new("Back", Prompt.Back),
+    ];
+
     private readonly Dictionary<(string Provider, string Id), Cover> _covers = [];
     private readonly Dictionary<(string Provider, string Id), SettingRow> _coverRows = [];
     private readonly ItemOptions _options;
@@ -69,7 +76,7 @@ public sealed partial class GameMatchPanel : ListPanel
         _title = game.Title;
         _scrape = scrape;
         Subtitle = "Choose the right game: it's scraped with that one, and the other providers fill in what it lacks";
-        SetHints("A  Scrape with this game     X  Search for another name     B  Back");
+        SetHints(Hints);
         if (madeUp is null)
         {
             Search(null);

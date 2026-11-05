@@ -93,7 +93,8 @@ public sealed partial class ConfigLoader
                 SettingBool(tree, defaults, "ui", "show_battery") ?? true,
                 SettingBool(tree, defaults, "ui", "show_network") ?? true,
                 SettingBool(tree, defaults, "ui", "show_performance") ?? false,
-                SettingBool(tree, defaults, "ui", "navigation_sounds") ?? true);
+                SettingBool(tree, defaults, "ui", "navigation_sounds") ?? true,
+                (ButtonIcons)SettingName(tree, defaults, "button_icons", DisplayNames.ButtonIcons, [], "value", string.Empty, "ui"));
             var regions = SettingStrings(tree, defaults, "scraping", "regions", null) ?? [];
             var languages = SettingStrings(tree, defaults, "scraping", "languages", null) ?? [];
             string? CheckScraper(string value) => Scrapers.Contains(value) ? null : $"unknown provider '{value}'{Suggest(value, Scrapers)}";
@@ -267,23 +268,24 @@ public sealed partial class ConfigLoader
             SettingName(tree, defaults, key, names, others, "layout", "isn't a layout for this screen");
 
         /// <summary>
-        /// A <c>[display]</c> value that is one of <paramref name="names"/> (a layout, a sort, an order): its index. A bad
-        /// one is an error and the default is used; one of <paramref name="others"/> (the other screen's) says why with
-        /// <paramref name="otherWhy"/>.
+        /// A <c>[display]</c> (or <paramref name="section"/>) value that is one of <paramref name="names"/> (a layout, a sort,
+        /// an order): its index. A bad one is an error and the default is used; one of <paramref name="others"/> (the other
+        /// screen's) says why with <paramref name="otherWhy"/>.
         /// </summary>
         private int SettingName(
-            TomlTableNode tree, TomlTableNode defaults, string key, IReadOnlyList<string> names, IReadOnlyList<string> others, string what, string otherWhy)
+            TomlTableNode tree, TomlTableNode defaults, string key, IReadOnlyList<string> names, IReadOnlyList<string> others, string what, string otherWhy,
+            string section = "display")
         {
             foreach (var source in (ReadOnlySpan<TomlTableNode>)[tree, defaults])
             {
-                if (!TryGetSetting(source, "display", key, out var node))
+                if (!TryGetSetting(source, section, key, out var node))
                 {
                     continue;
                 }
 
                 if (node is not TomlScalar { Kind: TomlKind.String, Value: string value })
                 {
-                    Error(node, $"display.{key}", $"expected a string, found {TomlNode.KindName(node.Kind)}. Using the default");
+                    Error(node, $"{section}.{key}", $"expected a string, found {TomlNode.KindName(node.Kind)}. Using the default");
                     continue;
                 }
 
@@ -296,7 +298,7 @@ public sealed partial class ConfigLoader
                 var why = Layouts.IndexOf(others, value) >= 0
                     ? $"'{value}' {otherWhy}"
                     : $"unknown {what} '{value}'{Suggest(value, names)}";
-                Error(node, $"display.{key}", $"{why}. The {what}s are {string.Join(", ", names)}. Using the default");
+                Error(node, $"{section}.{key}", $"{why}. The {what}s are {string.Join(", ", names)}. Using the default");
             }
 
             return 0;

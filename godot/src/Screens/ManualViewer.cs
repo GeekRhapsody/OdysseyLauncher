@@ -29,7 +29,15 @@ public sealed partial class ManualViewer : UiPanel
     private readonly Label _message;
     private readonly Control _caption;
     private readonly Label _place;
-    private readonly Label _controls;
+    private static readonly Hint[] ZoomedHints =
+        [new("Scroll", Prompt.UpDown), new("Page", Prompt.LeftRight), new("Whole page", Prompt.Accept), new("Back", Prompt.Back)];
+
+    private static readonly Hint[] PagesHints =
+        [new("Page", Prompt.LeftRight), new("Ten pages", Prompt.Pages), new("Zoom", Prompt.Accept), new("Back", Prompt.Back)];
+
+    private static readonly Hint[] PageHints = [new("Zoom", Prompt.Accept), new("Back", Prompt.Back)];
+
+    private readonly HintBar _controls;
     // The texture _page shows, kept here rather than read back from it: ManualPages frees a page's texture, wrapper
     // and all, when it's no longer wanted, and reading back a freed wrapper's texture makes a new wrapper holding it.
     private ImageTexture? _shown;
@@ -83,8 +91,7 @@ public sealed partial class ManualViewer : UiPanel
         _place.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         _place.VerticalAlignment = VerticalAlignment.Center;
         line.AddChild(_place);
-        _controls = UiStyle.Label(string.Empty, UiStyle.Hint);
-        _controls.VerticalAlignment = VerticalAlignment.Center;
+        _controls = new HintBar(UiStyle.Hint) { SizeFlagsVertical = SizeFlags.ShrinkCenter };
         line.AddChild(_controls);
 
         if (ui.Pdf is { } renderer)
@@ -310,11 +317,7 @@ public sealed partial class ManualViewer : UiPanel
     {
         var count = _pages?.PageCount ?? 0;
         _place.Text = count > 0 ? string.Create(CultureInfo.InvariantCulture, $"Page {_index + 1} of {count}") : string.Empty;
-        _controls.Text = count == 0
-            ? "B  Back"
-            : _zoomed
-                ? "Up Down  Scroll     Left Right  Page     A  Whole page     B  Back"
-                : (count > 1 ? "Left Right  Page     LB RB  Ten pages     " : string.Empty) + "A  Zoom     B  Back";
+        _controls.Show(count == 0 ? CommonHints.Back : _zoomed ? ZoomedHints : count > 1 ? PagesHints : PageHints);
     }
 
     /// <summary>A page arrived, or the document opened or failed.</summary>

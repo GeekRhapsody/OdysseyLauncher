@@ -87,6 +87,17 @@ public class DebugOptionsTests
     }
 
     [Fact]
+    public void Button_icons_show_one_kind_for_a_run()
+    {
+        Assert.Null(DebugOptions.Parse([]).Options.ButtonIcons);
+        var result = DebugOptions.Parse(["--button-icons=steamdeck"]);
+        Assert.True(result.IsValid, string.Join("; ", result.Errors));
+        Assert.Equal(ButtonIcons.SteamDeck, result.Options.ButtonIcons);
+        Assert.False(DebugOptions.Parse(["--button-icons=sega"]).IsValid);
+        Assert.False(DebugOptions.Parse(["--button-icons"]).IsValid);
+    }
+
+    [Fact]
     public void Fake_status_shows_a_made_up_battery_and_network()
     {
         Assert.Null(DebugOptions.Parse([]).Options.FakeStatus);

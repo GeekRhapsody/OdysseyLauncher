@@ -29,7 +29,7 @@ public sealed partial class MediaFolderPage : ListPanel
     {
         _settings = settings;
         Build();
-        SetHints("A  Choose     B  Back");
+        SetHints(CommonHints.ChooseBack);
         _settings.ConfigApplied += Rebuild;
     }
 

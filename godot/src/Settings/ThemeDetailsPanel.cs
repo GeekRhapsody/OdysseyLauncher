@@ -31,7 +31,7 @@ public sealed partial class ThemeDetailsPanel : ListPanel
         _downloader = settings.Themes;
         _id = id;
         _pictures = new ThemeDownloaderPage.ScreenshotCache(settings.Ui, ScreenshotSize);
-        SetHints("A  Choose     Y  Remove     B  Back");
+        SetHints(CommonHints.ChooseRemoveBack);
         _downloader.Changed += ShowTheme;
         ShowTheme();
     }

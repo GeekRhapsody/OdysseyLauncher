@@ -17,6 +17,11 @@ public sealed class SdlGuid
     /// <summary><c>SDL_HARDWARE_BUS_VIRTUAL</c>.</summary>
     private const ushort VirtualBus = 0xFF;
 
+    private const ushort Valve = 0x28de;
+    private const ushort SteamDeckProduct = 0x1205;
+    private const ushort Microsoft = 0x045e;
+    private const ushort Xbox360Product = 0x028e;
+
     private readonly byte[] _bytes;
 
     private SdlGuid(byte[] bytes)
@@ -43,6 +48,18 @@ public sealed class SdlGuid
 
     /// <summary>Byte 15: the driver's own data.</summary>
     public byte DriverData => _bytes[15];
+
+    /// <summary>The Steam Deck's own controls, read with SDL's HIDAPI driver.</summary>
+    public bool IsSteamDeck => Driver == Hidapi && Vendor == Valve && Product == SteamDeckProduct;
+
+    /// <summary>The 2015 Steam Controller, wired, wireless or over Bluetooth (SDL's <c>k_eControllerType_SteamController</c>).</summary>
+    public bool IsSteamController => HasIds && Vendor == Valve && Product is 0x1101 or 0x1102 or 0x1105 or 0x1106 or 0x1142;
+
+    /// <summary>The new Steam Controller ("Triton"), or one of its dongles (SDL's <c>k_eControllerType_SteamControllerTriton</c>).</summary>
+    public bool IsNewSteamController => HasIds && Vendor == Valve && Product is >= 0x1302 and <= 0x1305;
+
+    /// <summary>An XInput Xbox 360 pad: what Steam Input or a handheld tool makes of a Steam Deck's controls, when the Deck's are there too.</summary>
+    public bool IsXInput360 => Driver == XInput && Vendor == Microsoft && Product == Xbox360Product;
 
     /// <summary>Null unless <paramref name="text"/> is 32 hex digits.</summary>
     public static SdlGuid? TryParse(string? text)

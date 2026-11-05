@@ -32,7 +32,7 @@ public sealed partial class InfoOverlay : CanvasLayer
     private Label _title = null!;
     private Label _subtitle = null!;
     private Label _favourite = null!;
-    private Label _hints = null!;
+    private HintBar _hints = null!;
     private Label _status = null!;
     private long _detailsKey = -1;
     private OverlayPalette _palette = OverlayPalette.Legacy;
@@ -170,13 +170,13 @@ public sealed partial class InfoOverlay : CanvasLayer
         _favourite.OffsetBottom = 82;
         _favourite.HorizontalAlignment = HorizontalAlignment.Right;
 
-        _hints = AddLabel(new LabelSettings { FontSize = 14 });
+        _hints = new HintBar(new LabelSettings { FontSize = 14 });
+        _root.AddChild(_hints);
         _hints.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.BottomRight);
         _hints.OffsetLeft = -Margin - 1000;
         _hints.OffsetRight = -Margin;
-        _hints.OffsetTop = -40;
-        _hints.OffsetBottom = -18;
-        _hints.HorizontalAlignment = HorizontalAlignment.Right;
+        _hints.OffsetTop = -44;
+        _hints.OffsetBottom = -16;
 
         _status = AddLabel(new LabelSettings { FontSize = 20, FontColor = Colors.White, ShadowSize = 8, ShadowOffset = Vector2.Zero });
         _status.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.Center);
@@ -241,7 +241,8 @@ public sealed partial class InfoOverlay : CanvasLayer
         _favourite.Visible = false;
     }
 
-    public void SetHints(string hints) => _hints.Text = hints;
+    /// <summary>Main thread: the controls' hints, bottom right (nothing happens when they're the ones shown).</summary>
+    public void SetHints(Hint[] hints) => _hints.Show(hints);
 
     /// <summary>A message in the middle of the screen, or null to hide it.</summary>
     public void SetStatus(string? status)
@@ -255,7 +256,7 @@ public sealed partial class InfoOverlay : CanvasLayer
         var glow = UiStyle.Colour(_palette.Glow);
         _title.LabelSettings.ShadowColor = glow;
         _subtitle.LabelSettings.FontColor = UiStyle.Colour(_palette.Subtitle);
-        _hints.LabelSettings.FontColor = UiStyle.Colour(_palette.Hint);
+        _hints.Settings.FontColor = UiStyle.Colour(_palette.Hint);
         _status.LabelSettings.ShadowColor = glow;
         List.Use(_palette);
         SystemLabels.Use(_palette);

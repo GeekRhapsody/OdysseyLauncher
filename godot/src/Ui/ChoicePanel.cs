@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Godot;
+using Launcher.App.Navigation;
 
 namespace Launcher.App.Ui;
 
@@ -13,6 +14,8 @@ public sealed record Choice(string Id, string Title, string? Detail = null);
 /// </summary>
 public sealed partial class ChoicePanel : ListPanel
 {
+    private static readonly Hint[] Hints = [new("Choose", Prompt.Accept), new("Keep as it is", Prompt.Back)];
+
     private readonly Action<Choice> _chosen;
     private SettingRow? _current;
 
@@ -34,7 +37,7 @@ public sealed partial class ChoicePanel : ListPanel
             }
         }
 
-        SetHints("A  Choose     B  Keep as it is");
+        SetHints(Hints);
     }
 
     public override Control? DefaultFocus => _current ?? base.DefaultFocus;

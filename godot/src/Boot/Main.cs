@@ -152,6 +152,7 @@ public partial class Main : Node3D
         }
 
         NavInput.RegisterActions();
+        StartButtonPrompts();
         _camera = new Camera3D { Fov = FieldOfView, Position = new Vector3(0, 0, CameraDistance), Current = true };
         AddChild(_camera);
 
@@ -395,6 +396,7 @@ public partial class Main : Node3D
         InstallBootLayout(theme);
         DebugHooks.Timeline.Mark(BootMarks.SceneBuilt);
 
+        ButtonPrompts.Choose(_options.ButtonIcons ?? services.Config.Settings.Ui.ButtonIcons);
         _navigator = new Navigator(services, _queue, _systemsGrid, _gamesGrid, _overlay!, _look, _loader, theme)
         {
             Streamer = _streamer,
@@ -715,6 +717,7 @@ public partial class Main : Node3D
             ApplyDisplaySettings(config.Settings.Display, boot: false);
             navigator.OnConfigChanged();
             _statusBar?.Apply(config.Settings.Ui);
+            ButtonPrompts.Choose(_options.ButtonIcons ?? config.Settings.Ui.ButtonIcons);
         };
         _settings.ThemeChosen += id =>
         {
@@ -850,6 +853,22 @@ public partial class Main : Node3D
                 AddChild(sounds);
                 _navigator.Sounds = sounds;
             });
+        });
+    }
+
+    /// <summary>
+    /// The controls' button icons (A1 Button icons): the pads connected now, and every kind's glyphs, loaded on the
+    /// thread pool from the start, so the overlay's first hints have them.
+    /// </summary>
+    private void StartButtonPrompts()
+    {
+        ButtonPrompts.Start();
+        _ = Task.Run(() =>
+        {
+            if (ButtonPrompts.LoadGlyphs() is { } glyphs)
+            {
+                _queue.Post(() => ButtonPrompts.UseGlyphs(glyphs));
+            }
         });
     }
 

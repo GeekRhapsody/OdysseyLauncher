@@ -20,7 +20,7 @@ public sealed partial class RomFoldersPage : ListPanel
     {
         _settings = settings;
         Build();
-        SetHints("A  Change     B  Back");
+        SetHints(CommonHints.ChangeBack);
         _settings.ConfigApplied += Rebuild;
     }
 

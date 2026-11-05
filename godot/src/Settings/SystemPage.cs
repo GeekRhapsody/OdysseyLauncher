@@ -35,6 +35,8 @@ public sealed partial class SystemPage : ListPanel
     private const string ThemesChoice = "";
     private const string OtherGamelist = "*other";
 
+    private static readonly Hint[] Hints = [new("Change", Prompt.Accept), new("Remove", Prompt.Secondary), new("Back", Prompt.Back)];
+
     private readonly SettingsController _settings;
     private readonly string _systemId;
     private readonly List<(SettingRow Row, int Index)> _folderRows = [];
@@ -59,7 +61,7 @@ public sealed partial class SystemPage : ListPanel
         _systemId = systemId;
         Subtitle = $"systems.{systemId} in systems.toml";
         Build();
-        SetHints("A  Change     Y  Remove     B  Back");
+        SetHints(Hints);
         _settings.ConfigApplied += Rebuild;
         _settings.Jobs.Jobs.Changed += ShowScrapeState;
         _settings.Jobs.Jobs.Changed += ShowImportState;

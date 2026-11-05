@@ -69,7 +69,7 @@ public sealed partial class GameOptionsPanel : ListPanel
         _delete = AddRow("Delete this game", DeleteDetail(game), activated: AskToDelete);
         _delete.DetailColour = UiStyle.Bad;
 
-        SetHints("A  Choose     Y  Remove     B  Back");
+        SetHints(CommonHints.ChooseRemoveBack);
         _options.Jobs.GamesUpdated += OnGamesUpdated;
         _options.Library.MediaChanged += OnMediaChanged;
         ShowGame();

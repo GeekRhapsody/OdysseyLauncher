@@ -28,6 +28,14 @@ public sealed partial class GameDetailsPanel : UiPanel
     private const int ThumbSide = 168;
     private const float ScrollStep = 60;
 
+    private static readonly Hint[] Hints =
+    [
+        new("View", Prompt.Accept),
+        new("Scroll the details", Prompt.UpDown),
+        new("Favourite", Prompt.Favourite),
+        new("Back", Prompt.Back, Prompt.Secondary),
+    ];
+
     private readonly UiContext _ui;
     private readonly AppServices _services;
     private readonly IVideoDecoder? _video;
@@ -115,7 +123,7 @@ public sealed partial class GameDetailsPanel : UiPanel
             cards.AddChild(none);
         }
 
-        SetHints("A  View     Up Down  Scroll the details     L3 / F  Favourite     B / Y  Back");
+        SetHints(Hints);
         Show(loaded);
         LoadThumbnails();
     }

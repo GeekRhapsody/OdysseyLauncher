@@ -28,7 +28,7 @@ public abstract partial class UiPanel : Control
     private readonly Label _title;
     private readonly Label _subtitle;
     private readonly Label _status;
-    private readonly Label _hints;
+    private readonly HintBar _hints;
     private double _statusClearAt = -1;
     private double _clock;
 
@@ -98,8 +98,7 @@ public abstract partial class UiPanel : Control
         _status = UiStyle.Label(string.Empty, new LabelSettings { FontSize = UiStyle.DetailSize, FontColor = UiStyle.Text }, wrap: true);
         _status.Visible = false;
         column.AddChild(_status);
-        _hints = UiStyle.Label(string.Empty, UiStyle.Hint);
-        _hints.HorizontalAlignment = HorizontalAlignment.Right;
+        _hints = new HintBar(UiStyle.Hint);
         _hints.Visible = !FullScreen;
         column.AddChild(_hints);
     }
@@ -176,7 +175,8 @@ public abstract partial class UiPanel : Control
 
     public void Close() => Layer?.Pop(this);
 
-    protected void SetHints(string hints) => _hints.Text = hints;
+    /// <summary>The controls' hints; a pad's buttons while the panel takes typing from the keyboard (<see cref="CapturesKeyboard"/>).</summary>
+    protected void SetHints(Hint[] hints) => _hints.Show(hints, padOnly: CapturesKeyboard);
 
     /// <summary>A line above the hints; cleared after <paramref name="seconds"/> (0 keeps it).</summary>
     public void ShowStatus(string? text, Color? colour = null, double seconds = 0)

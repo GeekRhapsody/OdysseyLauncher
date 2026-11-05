@@ -23,6 +23,8 @@ namespace Launcher.App.Settings;
 /// </summary>
 public sealed partial class MediaMovePanel : UiPanel
 {
+    private static readonly Hint[] Hints = [new("Stop: what moved goes back", Prompt.Accept, Prompt.Back)];
+
     private readonly SettingsController _settings;
     private readonly UiPanel _page;
     private readonly MediaMovePlan _plan;
@@ -58,7 +60,7 @@ public sealed partial class MediaMovePanel : UiPanel
         _stop = new Button { Text = "Stop", CustomMinimumSize = new Vector2(180, 46), FocusMode = FocusModeEnum.All };
         _stop.Pressed += Stop;
         buttons.AddChild(_stop);
-        SetHints("A / B  Stop: what moved goes back");
+        SetHints(Hints);
         ShowCounts(new MediaMoveProgress(0, plan.Files.Count, 0, plan.Bytes));
     }
 

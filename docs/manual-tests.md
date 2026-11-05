@@ -312,6 +312,22 @@ This checks what a script mustn't do: restart, shut down and sleep the PC from t
 - Anything that differed: a row that did nothing, a "Couldn't …" message (with its text), or the launcher still open after a restart or shutdown started.
 - After step 2, the log lines: `Select-String -Path "$env:APPDATA\Godot\app_userdata\Odyssey Launcher\logs\godot.log" -Pattern '^Power|error|warning'`. (The log is rewritten each run, so steps 4 and 5 leave nothing to send.)
 
+## Button icons
+
+This checks what a script can't: the controls along the bottom following the real device you press. Use the export, windowed: `& .\artifacts\export\windows\OdysseyLauncher.exe ++ --user-dir=C:\OdysseyTest`. Have the pads you own to hand (an Xbox pad, a DualSense or DualShock 4, a Switch or Switch 2 Pro or an 8BitDo pad in Switch mode, a GameCube pad on an adapter or the Switch 2's GameCube controller, a Steam Controller, a Steam Deck: as many as you have).
+
+1. **One pad at a time.** Start with only the Xbox pad connected: the controls along the bottom show Xbox's A, X, Y, View and Menu. Press an arrow key: they change to Enter, O, I, P and F1. Press the pad's D-pad: back to Xbox's. Do the same with each of the other pads connected alone: PlayStation shows the cross for Open and the square for Options; a Switch pad shows B for Open (the bottom button, which is the one that opens) and Y for Options; a GameCube pad shows A for Open, B for Options and START for Settings, with no Power (it has no View button), and in a system X for Back; the 2015 Steam Controller shows its arrow buttons for Power and Settings; the new Steam Controller shows the Deck's buttons.
+2. **Two kinds at once.** Connect the Xbox pad and the PlayStation pad together. Press a button on one, then on the other: the icons follow the pad you pressed. Disconnect one and press the other: still right.
+3. **The other screens.** With a PlayStation pad, open the settings (Options), a system's options (square), a game's details (triangle) and the power menu (Create): each one's controls show PlayStation's buttons. Type in a field with the on-screen keyboard (Settings, a credential): its controls show the pad's buttons even after you type on the keyboard.
+4. **The setting.** Settings, Button icons: choose Nintendo. Every screen shows a Switch's buttons whatever you press, and settings.toml has `button_icons = "nintendo"`. Choose Automatic again: they follow your pad once more.
+5. **Through Steam.** If you use Steam Input (Big Picture, or the launcher added to Steam as a non-Steam game), start the launcher through it with the DualSense: the icons are Xbox's, as Steam shows the pad as an Xbox 360 one. Settings, Button icons, PlayStation puts them right.
+6. **The Steam Deck.** On the Deck, in game mode and in desktop mode: the icons are the Deck's (its A, B, X and Y, and the View and Options buttons as pills).
+
+### Send back
+
+- Anything that differed: which pad (its name in Windows' Settings, Bluetooth & devices), what the icons showed, and what you expected.
+- The lines naming each pad and the icons it got: `Select-String -Path "$env:APPDATA\Godot\app_userdata\Odyssey Launcher\logs\godot.log" -Pattern '^Button icons'`.
+
 ## The ES-DE catalogue and launching shortcuts
 
 This checks what the scripts can't: the grid and settings with the whole catalogue, and a real shortcut or script as a game. It uses the M3 set-up (`C:\OdysseyTest`) and the export.

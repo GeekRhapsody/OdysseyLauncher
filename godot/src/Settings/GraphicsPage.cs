@@ -85,7 +85,7 @@ public sealed partial class GraphicsPage : ListPanel
             activated: () => SavePerformance(!Performance));
         _performance.Adjuster = direction => SavePerformance(direction > 0);
 
-        SetHints("A  Choose     Left Right  Change     B  Back");
+        SetHints(CommonHints.ChooseChangeBack);
         _settings.ConfigApplied += OnConfigApplied;
         Refresh();
     }

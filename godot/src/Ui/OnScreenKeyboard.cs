@@ -31,6 +31,18 @@ public sealed partial class OnScreenKeyboard : UiPanel
     private static readonly string[] Letters = ["1234567890-=", "qwertyuiop[]", "asdfghjkl;'\\", "zxcvbnm,./:_"];
     private static readonly string[] Symbols = ["!@#$%^&*()_+", "~`{}|<>\"?&€£", "éèêëàâäçñöüß", "ÉÀÇÑÖÜåøæ°§¿"];
 
+    private static readonly Hint[] Hints =
+    [
+        new("Type", Prompt.Accept),
+        new("Delete", Prompt.Alternate),
+        new("Space", Prompt.Secondary),
+        new("Move", Prompt.Pages),
+        new("Shift", Prompt.Shift),
+        new("Symbols", Prompt.Symbols),
+        new("Done", Prompt.Menu),
+        new("Cancel", Prompt.Back),
+    ];
+
     private readonly KeyboardRequest _request;
     private readonly TextField _field;
     private readonly Label _error;
@@ -90,7 +102,7 @@ public sealed partial class OnScreenKeyboard : UiPanel
         Key(functions, "Done", 110).Pressed += Finish;
 
         Relabel();
-        SetHints("A  Type     X  Delete     Y  Space     LB RB  Move     LT  Shift     RT  Symbols     Menu  Done     B  Cancel");
+        SetHints(Hints);
     }
 
     public override bool CapturesKeyboard => true;

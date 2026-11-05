@@ -27,7 +27,7 @@ public sealed partial class RegionsPage : ListPanel
         _settings = settings;
         Subtitle = "[scraping] regions in settings.toml";
         Build();
-        SetHints("A  On or off     Left Right  Earlier or later     B  Back");
+        SetHints(CommonHints.OnOffEarlierLater);
         _settings.ConfigApplied += Rebuild;
     }
 

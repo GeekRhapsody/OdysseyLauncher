@@ -23,6 +23,21 @@ namespace Launcher.App.Settings;
 /// </summary>
 public sealed partial class SettingsHome : ListPanel
 {
+    private static readonly Hint[] Hints = [new("Choose", Prompt.Accept), new("No or yes", Prompt.LeftRight), new("Close", Prompt.Back, Prompt.Menu)];
+
+    /// <summary><c>[ui] button_icons</c>' values, in <see cref="ButtonIcons"/>' order (A1 Button icons).</summary>
+    private static readonly Choice[] ButtonIconChoices =
+    [
+        new("automatic", "Automatic", "Those of the controller or keyboard you used last"),
+        new("xbox", "Xbox"),
+        new("playstation", "PlayStation"),
+        new("nintendo", "Nintendo", "A Switch's or a Switch 2's: B, the bottom button, confirms"),
+        new("gamecube", "GameCube"),
+        new("steamdeck", "Steam Deck", "And the new Steam Controller, whose buttons are the same"),
+        new("steamcontroller", "Steam Controller (2015)"),
+        new("keyboard", "Keyboard"),
+    ];
+
     private readonly SettingsController _settings;
     private readonly SettingRow _roms;
     private readonly SettingRow _media;
@@ -36,6 +51,7 @@ public sealed partial class SettingsHome : ListPanel
     private readonly SettingRow _battery;
     private readonly SettingRow _network;
     private readonly SettingRow _sounds;
+    private readonly SettingRow _buttonIcons;
     private readonly SettingRow _scraping;
     private readonly SettingRow _rescan;
     private readonly SettingRow _rescanMedia;
@@ -77,6 +93,8 @@ public sealed partial class SettingsHome : ListPanel
         _network = AddIndicatorRow("Network", "Wi-Fi with its signal, a cable, or disconnected", "show_network", ui => ui.ShowNetwork);
         _sounds = AddIndicatorRow("Navigation sounds", "A tock when the focus moves, a whoosh when you enter a system", "navigation_sounds",
             ui => ui.NavigationSounds, ("on", "off"));
+        _buttonIcons = AddRow("Button icons", "The buttons the controls along the bottom show", activated: ChooseButtonIcons);
+        _buttonIcons.Adjuster = StepButtonIcons;
 
         AddSection("Scraping");
         _scraping = AddRow("Providers, media and credentials", activated: () => Layer.Push(new ScrapingPage(_settings)));
@@ -100,7 +118,7 @@ public sealed partial class SettingsHome : ListPanel
         AddSection("Odyssey Launcher");
         _update = AddRow("Check for updates", activated: () => _settings.Updater.Check(this));
 
-        SetHints("A  Choose     Left Right  No or yes     B / Menu  Close");
+        SetHints(Hints);
         _settings.Jobs.Jobs.Changed += ShowJobs;
         _settings.ConfigApplied += OnConfigApplied;
         _settings.Updater.Changed += ShowUpdate;
@@ -145,6 +163,7 @@ public sealed partial class SettingsHome : ListPanel
         ShowIndicator(_battery, config.Settings.Ui.ShowBattery);
         ShowIndicator(_network, config.Settings.Ui.ShowNetwork);
         ShowIndicator(_sounds, config.Settings.Ui.NavigationSounds);
+        _buttonIcons.Value = ButtonIconChoices[(int)config.Settings.Ui.ButtonIcons].Title;
         ShowIndicator(_scanAtLaunch, config.Settings.Scanning.ScanAtLaunch);
         ShowIndicator(_emptySystems, !display.HideEmptySystems);
         ShowIndicator(_groupSystems, display.GroupSystems);
@@ -216,6 +235,26 @@ public sealed partial class SettingsHome : ListPanel
 
         _settings.Save(this, [new ConfigEdit(ConfigFileKind.Settings, ["ui", key], wanted)], $"{title}: {(wanted ? words.On : words.Off)}.");
     }
+
+    private void ChooseButtonIcons()
+    {
+        var current = DisplayNames.Name(_settings.Services.Config.Settings.Ui.ButtonIcons);
+        Layer.Push(new ChoicePanel("Button icons", "Saved as [ui] button_icons", ButtonIconChoices, current, SaveButtonIcons));
+    }
+
+    /// <summary>Left and right step through the kinds, stopping at the ends.</summary>
+    private void StepButtonIcons(int direction)
+    {
+        var current = (int)_settings.Services.Config.Settings.Ui.ButtonIcons;
+        var next = Math.Clamp(current + Math.Sign(direction), 0, ButtonIconChoices.Length - 1);
+        if (next != current)
+        {
+            SaveButtonIcons(ButtonIconChoices[next]);
+        }
+    }
+
+    private void SaveButtonIcons(Choice choice) =>
+        _settings.Save(this, [new ConfigEdit(ConfigFileKind.Settings, ["ui", "button_icons"], choice.Id)], $"Button icons: {choice.Title}.");
 
     // ---- Theme --------------------------------------------------------------------------------------
 

@@ -112,13 +112,35 @@ public sealed class SdlMapping
         var mapping = Generate(guid, out unsupported);
         if (mapping is not null)
         {
-            mapping.NintendoLabels = guid.Driver == SdlGuid.Hidapi
-                && ((guid.Vendor == Nintendo && guid.Product is not (0x0337 or 0x2073))
-                    || !guid.HasIds
-                    || (guid.Vendor == EightBitDoVendor && guid.Product is 0x6000 or 0x6100 or 0x6001 or 0x6101 or 0x6003 or 0x6006 or 0x6009));
+            mapping.NintendoLabels = HasNintendoLabels(guid);
         }
 
         return mapping;
+    }
+
+    /// <summary>
+    /// A GameCube pad SDL reads with its HIDAPI driver: an adapter (Nintendo's, or EVORETRO's), or the Switch 2's GameCube
+    /// controller. SDL maps it by position, as every pad, with GameCube's labels: A at the bottom, X on the right, B on
+    /// the left and Y at the top.
+    /// </summary>
+    public static bool IsGameCube(SdlGuid guid)
+    {
+        ArgumentNullException.ThrowIfNull(guid);
+        return guid.Driver == SdlGuid.Hidapi
+            && (IsGameCubeAdapter(guid.Vendor, guid.Product) || (guid.Vendor == Nintendo && guid.Product == 0x2073));
+    }
+
+    private static bool IsGameCubeAdapter(ushort vendor, ushort product) =>
+        (vendor == Nintendo && product == 0x0337) || (vendor == 0x0079 && product is 0x1843 or 0x1844 or 0x1846);
+
+    /// <summary>The pad's face buttons are labelled as a Switch's (<see cref="NintendoLabels"/>), worked out from its GUID alone.</summary>
+    public static bool HasNintendoLabels(SdlGuid guid)
+    {
+        ArgumentNullException.ThrowIfNull(guid);
+        return guid.Driver == SdlGuid.Hidapi
+            && ((guid.Vendor == Nintendo && guid.Product is not (0x0337 or 0x2073))
+                || !guid.HasIds
+                || (guid.Vendor == EightBitDoVendor && guid.Product is 0x6000 or 0x6100 or 0x6001 or 0x6101 or 0x6003 or 0x6006 or 0x6009));
     }
 
     private static SdlMapping? Generate(SdlGuid guid, out string? unsupported)
@@ -154,7 +176,7 @@ public sealed class SdlMapping
             return null;
         }
 
-        if ((vendor == Nintendo && product == 0x0337) || (vendor == 0x0079 && product is 0x1843 or 0x1844 or 0x1846))
+        if (IsGameCubeAdapter(vendor, product))
         {
             return Parse(HidapiGameCubeAdapter, "SDL's GameCube adapter mapping");
         }

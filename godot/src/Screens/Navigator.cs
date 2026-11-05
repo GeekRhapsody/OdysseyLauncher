@@ -44,8 +44,17 @@ public sealed partial class Navigator : Node
     private const double StatusSeconds = 2.5;
     private const int CachedLists = 3;
 
-    private const string SystemsHints = "A / Enter  Open     X / O  Options     Y / I  Details     View / P  Power     Menu / Esc  Settings";
-    private const string GamesHints = "A / Enter  Play     B / Esc  Back     X / O  Options     Y / I  Details     L3 / F  Favourite     R3 / Z  Zoom     LB RB  Page     LT RT  Letter";
+    private static readonly Hint[] SystemsHints =
+    [
+        new("Open", Prompt.Accept), new("Options", Prompt.Alternate), new("Details", Prompt.Secondary), new("Power", Prompt.Power),
+        new("Settings", Prompt.Menu),
+    ];
+
+    private static readonly Hint[] GamesHints =
+    [
+        new("Play", Prompt.Accept), new("Back", Prompt.Back), new("Options", Prompt.Alternate), new("Details", Prompt.Secondary),
+        new("Favourite", Prompt.Favourite), new("Zoom", Prompt.Inspect), new("Page", Prompt.Pages), new("Letter", Prompt.Letters),
+    ];
     private const double TitlesDelay = 0.4;
 
     /// <summary>How long after a theme is applied its predecessor's leftovers are collected, in seconds (2026-10-16).</summary>

@@ -21,7 +21,7 @@ public sealed partial class FallbackPage : ListPanel
         _settings = settings;
         Subtitle = "Asked in order, for what the default provider didn't have";
         Build();
-        SetHints("A  On or off     Left Right  Earlier or later     B  Back");
+        SetHints(CommonHints.OnOffEarlierLater);
         _settings.ConfigApplied += Rebuild;
     }
 

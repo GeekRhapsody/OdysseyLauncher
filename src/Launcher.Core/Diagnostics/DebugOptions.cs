@@ -58,6 +58,7 @@ public sealed record DebugOptions
     public const string ThemesListArg = "--themes-list";
     public const string UpdateFeedArg = "--update-feed";
     public const string BootFramesArg = "--boot-frames";
+    public const string ButtonIconsArg = "--button-icons";
 
     /// <summary>
     /// What <c>--open</c> can show once the app is interactive (M7), for captures of each settings screen and shared
@@ -89,7 +90,7 @@ public sealed record DebugOptions
         CaptureArg, CaptureFrameArg, BenchArg, BenchFramesArg, BenchScenarioArg, BenchSystemArg, BenchScrollSecondsArg,
         NoTexturesArg, RenderScaleArg, UpscalerArg, UploadCapArg, StartSystemArg, StartIndexArg, NavScriptArg, LaunchArg,
         UserDirArg, QuitAfterLaunchArg, ThemeArg, NoOverlayArg, OpenArg, OpenPathArg,
-        FakeStatusArg, SaveResponsesArg, LayoutArg, MemoryLogArg, ThemesListArg, UpdateFeedArg, BootFramesArg,
+        FakeStatusArg, SaveResponsesArg, LayoutArg, MemoryLogArg, ThemesListArg, UpdateFeedArg, BootFramesArg, ButtonIconsArg,
     ];
 
     /// <summary>
@@ -219,6 +220,12 @@ public sealed record DebugOptions
     public DeviceStatus? FakeStatus { get; init; }
 
     /// <summary>
+    /// <c>--button-icons=xbox|playstation|nintendo|gamecube|steamdeck|steamcontroller|keyboard</c>: the controls' hints show that kind's buttons
+    /// for this run, over <c>[ui] button_icons</c> and whatever is pressed, for captures; null for the setting's.
+    /// </summary>
+    public ButtonIcons? ButtonIcons { get; init; }
+
+    /// <summary>
     /// <c>--save-responses</c>: save each scraping provider's response in <c>scraped/responses/</c> for this run, to
     /// debug a scrape (A4). Off by default.
     /// </summary>
@@ -311,6 +318,7 @@ public sealed record DebugOptions
                 ThemesListArg => options with { ThemesList = ParsePath(name, value, null, errors) },
                 UpdateFeedArg => options with { UpdateFeed = ParsePath(name, value, null, errors) },
                 BootFramesArg => options with { BootFrames = ParseInt(name, value, 1, MaxFrames, errors) ?? 0 },
+                ButtonIconsArg => options with { ButtonIcons = ParseEnum(name, value, Config.ButtonIcons.Automatic, errors) },
                 _ => options,
             };
         }
@@ -580,6 +588,7 @@ public sealed record DebugOptions
         ThemesListArg => $"{ThemesListArg}=C:/odyssey-themes",
         UpdateFeedArg => $"{UpdateFeedArg}=C:/odyssey-update-feed",
         BootFramesArg => $"{BootFramesArg}=90",
+        ButtonIconsArg => $"{ButtonIconsArg}=playstation",
         _ => $"{BenchFramesArg}={DefaultBenchFrames}",
     };
 }

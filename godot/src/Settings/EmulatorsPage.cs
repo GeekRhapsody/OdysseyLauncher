@@ -42,7 +42,7 @@ public sealed partial class EmulatorsPage : ListPanel
         _settings = settings;
         Subtitle = "Where your emulators are, and the profiles your systems with games offer";
         Build();
-        SetHints("A  Change     B  Back");
+        SetHints(CommonHints.ChangeBack);
         _settings.ConfigApplied += Rebuild;
     }
 

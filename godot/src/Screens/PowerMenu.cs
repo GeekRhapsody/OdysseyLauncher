@@ -16,6 +16,8 @@ namespace Launcher.App.Screens;
 /// </summary>
 public sealed partial class PowerMenu : ListPanel
 {
+    private static readonly Hint[] Hints = [new("Choose", Prompt.Accept), new("Cancel", Prompt.Back, Prompt.Power)];
+
     private readonly IPowerControl _power;
     private readonly MainThreadQueue _queue;
     private readonly Action _quit;
@@ -35,7 +37,7 @@ public sealed partial class PowerMenu : ListPanel
             Close();
             _quit();
         });
-        SetHints("A  Choose     B / View  Cancel");
+        SetHints(Hints);
     }
 
     public override bool Handle(NavCommand command)

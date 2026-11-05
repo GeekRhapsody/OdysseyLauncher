@@ -97,7 +97,7 @@ public static class EdenControllers
         for (var i = 0; i < pads.Count; i++)
         {
             guids[i] = SdlGuid.TryParse(pads[i].Guid);
-            deck |= guids[i] is { Driver: SdlGuid.Hidapi, Vendor: Valve, Product: SteamDeck };
+            deck |= guids[i] is { IsSteamDeck: true };
         }
 
         // Eden numbers the pads of one GUID by the order SDL opened them (its port), whether they're used or not.
@@ -132,7 +132,7 @@ public static class EdenControllers
                 continue;
             }
 
-            if (deck && guid is { Driver: SdlGuid.XInput, Vendor: 0x045e, Product: 0x028e })
+            if (deck && guid.IsXInput360)
             {
                 skipped.Add(new SkippedPad(pad, "it's taken to be the Xbox 360 pad Steam Input or a handheld tool makes of the Steam Deck's controls, which are set up instead"));
                 continue;

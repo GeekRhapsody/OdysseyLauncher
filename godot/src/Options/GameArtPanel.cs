@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Godot;
+using Launcher.App.Navigation;
 using Launcher.App.Ui;
 using Launcher.Core.Library;
 using Launcher.Core.Media;
@@ -26,6 +27,8 @@ public sealed partial class GameArtPanel : UiPanel
 {
     /// <summary>Thumbnails downloaded at once.</summary>
     private const int ThumbsAtOnce = 2;
+
+    private static readonly Hint[] Hints = [new("Use this image", Prompt.Accept), new("Back", Prompt.Back)];
 
     private readonly ItemOptions _options;
     private readonly GameDetails _game;
@@ -88,7 +91,7 @@ public sealed partial class GameArtPanel : UiPanel
         _grid.AddThemeConstantOverride("h_separation", 12);
         _grid.AddThemeConstantOverride("v_separation", 12);
         margins.AddChild(_grid);
-        SetHints("A  Use this image     B  Back");
+        SetHints(Hints);
         if (madeUp)
         {
             MakeUpThumbs();

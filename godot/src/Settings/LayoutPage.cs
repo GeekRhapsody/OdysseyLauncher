@@ -56,7 +56,7 @@ public sealed partial class LayoutPage : ListPanel
             () => OrderChoices(sort => GamesOrderDetail((GameSort)Current("games_sort", (int)Display.GamesSort.Sort), sort)));
         AddNote("A system can have its own view, columns, rows and order: press X on it in the systems view, or choose it in ROM folders.");
 
-        SetHints("A  Choose     Left Right  Change     B  Back");
+        SetHints(CommonHints.ChooseChangeBack);
         _settings.ConfigApplied += OnConfigApplied;
         Refresh();
     }

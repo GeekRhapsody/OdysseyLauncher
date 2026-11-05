@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using Godot;
+using Launcher.App.Navigation;
 using Launcher.App.Ui;
 using Launcher.Core.Config;
 using Launcher.Core.Media;
@@ -24,6 +25,8 @@ public sealed partial class ScrapeMediaPage : ListPanel
         (ScraperIds.Steam, SteamStoreScraper.Supplies),
     ];
 
+    private static readonly Hint[] Hints = [new("Yes or no", Prompt.Accept), new("No or yes", Prompt.LeftRight), new("Back", Prompt.Back)];
+
     private readonly SettingsController _settings;
 
     public ScrapeMediaPage(SettingsController settings)
@@ -32,7 +35,7 @@ public sealed partial class ScrapeMediaPage : ListPanel
         _settings = settings;
         Subtitle = "[scraping] media in settings.toml";
         Build();
-        SetHints("A  Yes or no     Left Right  No or yes     B  Back");
+        SetHints(Hints);
         _settings.ConfigApplied += Rebuild;
     }
 

@@ -35,7 +35,7 @@ public sealed partial class ConfigLoader : IConfigLoader
         "systems_layout", "systems_columns", "systems_rows", "games_layout", "games_columns", "games_rows",
         "systems_sort", "systems_sort_order", "games_sort", "games_sort_order",
     ];
-    private static readonly string[] UiKeys = ["show_clock", "show_battery", "show_network", "show_performance", "navigation_sounds"];
+    private static readonly string[] UiKeys = ["show_clock", "show_battery", "show_network", "show_performance", "navigation_sounds", "button_icons"];
     private static readonly string[] ScrapingKeys = ["provider", "fallback", "regions", "languages", "media", "hash_limit_mb"];
     private static readonly string[] ScanningKeys = ["exclude", "scan_at_launch"];
 

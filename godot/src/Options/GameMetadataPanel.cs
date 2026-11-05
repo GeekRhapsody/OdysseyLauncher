@@ -21,6 +21,8 @@ public sealed partial class GameMetadataPanel : ListPanel
     private static readonly Field[] Fields =
         [Field.Title, Field.Released, Field.Genre, Field.Developer, Field.Publisher, Field.Players, Field.Rating, Field.Description];
 
+    private static readonly Hint[] Hints = [new("Edit", Prompt.Accept), new("Use the scraped value", Prompt.Secondary), new("Back", Prompt.Back)];
+
     private readonly ItemOptions _options;
     private readonly GameKey _key;
     private readonly SettingRow[] _rows = new SettingRow[Fields.Length];
@@ -40,7 +42,7 @@ public sealed partial class GameMetadataPanel : ListPanel
         }
 
         AddNote("Your values are kept when the game is scraped again. Clear metadata (in its options) removes them.");
-        SetHints("A  Edit     Y  Use the scraped value     B  Back");
+        SetHints(Hints);
         Reload();
     }
 

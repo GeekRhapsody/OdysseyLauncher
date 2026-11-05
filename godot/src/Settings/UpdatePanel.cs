@@ -21,6 +21,8 @@ public sealed partial class UpdatePanel : UiPanel
 {
     private const double RefreshSeconds = 0.2;
 
+    private static readonly Hint[] Hints = [new("Stop: nothing is changed", Prompt.Accept, Prompt.Back)];
+
     private readonly SettingsController _settings;
     private readonly AppUpdater _updater;
     private readonly UpdateService _service;
@@ -57,7 +59,7 @@ public sealed partial class UpdatePanel : UiPanel
         _stop = new Button { Text = "Stop", CustomMinimumSize = new Vector2(180, 46), FocusMode = FocusModeEnum.All };
         _stop.Pressed += Stop;
         buttons.AddChild(_stop);
-        SetHints("A / B  Stop: nothing is changed");
+        SetHints(Hints);
     }
 
     /// <summary>Menu would close the settings under it: it's ignored until the download is done.</summary>
@@ -167,7 +169,7 @@ public sealed partial class UpdatePanel : UiPanel
     private void Restart()
     {
         _counts.Text = $"Restarting with {_release.Version}…";
-        SetHints(string.Empty);
+        SetHints([]);
         GD.Print($"Update: quitting, so {_release.Version} can be installed.");
         // A frame later, so the line above is drawn.
         GetTree().CreateTimer(0).Timeout += () => GetTree().Quit();

@@ -21,6 +21,14 @@ public sealed partial class ThemeDownloaderPage : ListPanel
 {
     public static readonly Vector2 PictureSize = new(192, 108);
 
+    private static readonly Hint[] Hints =
+    [
+        new("Get or update", Prompt.Accept),
+        new("Details", Prompt.Alternate),
+        new("Remove", Prompt.Secondary),
+        new("Back", Prompt.Back),
+    ];
+
     private readonly SettingsController _settings;
     private readonly ThemeDownloader _downloader;
     private readonly Dictionary<string, (SettingRow Row, ThemeStatus Status)> _rows = new(StringComparer.Ordinal);
@@ -37,7 +45,7 @@ public sealed partial class ThemeDownloaderPage : ListPanel
         Subtitle = settings.ThemesList is { } local
             ? $"From {local} · installed in {_downloader.Paths.ThemesDir}"
             : $"From github.com/GeekRhapsody/odyssey-themes · installed in {_downloader.Paths.ThemesDir}";
-        SetHints("A  Get or update     X  Details     Y  Remove     B  Back");
+        SetHints(Hints);
         _downloader.Changed += ShowList;
         ShowList();
         _downloader.Refresh();

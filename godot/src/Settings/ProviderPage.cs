@@ -20,6 +20,8 @@ namespace Launcher.App.Settings;
 /// </summary>
 public sealed partial class ProviderPage : ListPanel
 {
+    private static readonly Hint[] Hints = [new("Change", Prompt.Accept), new("Clear", Prompt.Secondary), new("Back", Prompt.Back)];
+
     private readonly SettingsController _settings;
     private readonly string _provider;
     private readonly List<(SettingRow Row, string Key)> _keyRows = [];
@@ -37,7 +39,7 @@ public sealed partial class ProviderPage : ListPanel
         var keyless = ConfigInput.CredentialKeys(provider).Count == 0;
         Subtitle = keyless ? "No credentials needed" : $"[{provider}] in secrets.toml";
         Build();
-        SetHints(keyless ? "A  Choose     B  Back" : "A  Change     Y  Clear     B  Back");
+        SetHints(keyless ? CommonHints.ChooseBack : Hints);
         Load();
         if (provider == ScraperIds.LaunchBox)
         {

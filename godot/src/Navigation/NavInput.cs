@@ -226,17 +226,21 @@ public sealed class NavInput
 
         foreach (var binding in Presses)
         {
-            if (Godot.Input.IsActionJustPressed(binding.Pad) || (keyboard && Godot.Input.IsActionJustPressed(binding.Keys)))
+            var fromPad = Godot.Input.IsActionJustPressed(binding.Pad);
+            if (fromPad || (keyboard && Godot.Input.IsActionJustPressed(binding.Keys)))
             {
                 _held = NavCommand.None;
+                ButtonPrompts.Saw(fromPad);
                 return binding.Command;
             }
         }
 
         var current = NavCommand.None;
+        var currentFromPad = false;
         foreach (var binding in Repeating)
         {
-            if (Godot.Input.IsActionPressed(binding.Pad) || (keyboard && Godot.Input.IsActionPressed(binding.Keys)))
+            currentFromPad = Godot.Input.IsActionPressed(binding.Pad);
+            if (currentFromPad || (keyboard && Godot.Input.IsActionPressed(binding.Keys)))
             {
                 current = binding.Command;
                 break;
@@ -254,6 +258,7 @@ public sealed class NavInput
             _held = current;
             _heldFor = 0;
             _nextRepeat = RepeatDelay;
+            ButtonPrompts.Saw(currentFromPad);
             return current;
         }
 

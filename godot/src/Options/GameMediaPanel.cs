@@ -29,6 +29,8 @@ public sealed partial class GameMediaPanel : UiPanel
     /// <summary>The cards' kinds: the slots in order, then the video and the manual.</summary>
     private static readonly string[] Kinds = [.. MediaSlots.Names, MediaKinds.Video, MediaKinds.Manual];
 
+    private static readonly Hint[] Hints = [new("Choose your own", Prompt.Accept), new("Remove it", Prompt.Secondary), new("Back", Prompt.Back)];
+
     private readonly ItemOptions _options;
     private readonly GameDetails _game;
     private readonly SlotCard[] _cards = new SlotCard[Kinds.Length];
@@ -56,7 +58,7 @@ public sealed partial class GameMediaPanel : UiPanel
             grid.AddChild(_cards[card]);
         }
 
-        SetHints("A  Choose your own     Y  Remove it     B  Back");
+        SetHints(Hints);
         _options.Library.MediaChanged += OnMediaChanged;
         Reload();
     }

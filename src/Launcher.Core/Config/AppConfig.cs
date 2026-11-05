@@ -327,13 +327,39 @@ public static class Layouts
     }
 }
 
-/// <summary><c>[ui]</c>: the status indicators top right, each on or off, and the navigation sounds.</summary>
+/// <summary><c>[ui]</c>: the status indicators top right, each on or off, the navigation sounds and the controls' button icons.</summary>
 /// <param name="ShowClock">The time, in the user's regional short-time format.</param>
 /// <param name="ShowBattery">The battery's charge; nothing shows on a device without one.</param>
 /// <param name="ShowNetwork">Wi-Fi (with its signal), a cable, or disconnected.</param>
 /// <param name="ShowPerformance">The frame rate and the video memory in use, under the indicators (2026-10-08); off by default.</param>
 /// <param name="NavigationSounds">A tock when the focus moves to another system or game, and a whoosh when a system is entered (2026-10-10); on by default.</param>
-public sealed record UiSettings(bool ShowClock = true, bool ShowBattery = true, bool ShowNetwork = true, bool ShowPerformance = false, bool NavigationSounds = true);
+/// <param name="ButtonIcons">Which buttons the controls' hints show (2026-11-05): the last device used's, or one kind always.</param>
+public sealed record UiSettings(
+    bool ShowClock = true, bool ShowBattery = true, bool ShowNetwork = true, bool ShowPerformance = false, bool NavigationSounds = true,
+    ButtonIcons ButtonIcons = ButtonIcons.Automatic);
+
+/// <summary>
+/// The buttons the controls' hints show (<c>[ui] button_icons</c>, docs/ARCHITECTURE.md A1 "Button icons"): automatically
+/// those of the device last used, or one kind always (Steam Input, say, shows every pad as an Xbox 360 pad). The app's
+/// current kind is one of the others, never <see cref="Automatic"/>.
+/// </summary>
+public enum ButtonIcons
+{
+    Automatic,
+    Xbox,
+    PlayStation,
+
+    /// <summary>A Switch's (and a Switch 2's, the same buttons).</summary>
+    Nintendo,
+    GameCube,
+
+    /// <summary>The Steam Deck's, and the new Steam Controller's (the same buttons).</summary>
+    SteamDeck,
+
+    /// <summary>The 2015 Steam Controller's.</summary>
+    SteamController,
+    Keyboard,
+}
 
 /// <summary>How the window fills the screen (<c>[display] screen_mode</c>).</summary>
 public enum ScreenMode
@@ -363,12 +389,17 @@ public static class DisplayNames
 {
     public static IReadOnlyList<string> ScreenModes { get; } = ["borderless", "fullscreen", "windowed"];
 
+    /// <summary><c>[ui] button_icons</c>' values, in <see cref="ButtonIcons"/>' order.</summary>
+    public static IReadOnlyList<string> ButtonIcons { get; } = ["automatic", "xbox", "playstation", "nintendo", "gamecube", "steamdeck", "steamcontroller", "keyboard"];
+
     /// <summary>As Godot names them (<c>RenderingServer.GetCurrentRenderingDriverName()</c>, <c>--rendering-driver</c>).</summary>
     public static IReadOnlyList<string> RenderingDrivers { get; } = ["d3d12", "vulkan"];
 
     public static string Name(ScreenMode mode) => ScreenModes[(int)mode];
 
     public static string Name(RenderingDriver driver) => RenderingDrivers[(int)driver];
+
+    public static string Name(ButtonIcons icons) => ButtonIcons[(int)icons];
 
     public static bool TryParse(string name, out RenderingDriver driver)
     {

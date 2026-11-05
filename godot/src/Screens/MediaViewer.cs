@@ -31,7 +31,14 @@ public sealed partial class MediaViewer : UiPanel
     private readonly Control _caption;
     private readonly Label _name;
     private readonly Label _place;
-    private readonly Label _controls;
+    private static readonly Hint[] PlayHints = [new("Play", Prompt.Accept), new("Back", Prompt.Back)];
+    private static readonly Hint[] PlayMoveHints = [new("Play", Prompt.Accept), new("Previous / next", Prompt.LeftRight), new("Back", Prompt.Back)];
+    private static readonly Hint[] PauseHints = [new("Pause", Prompt.Accept), new("Back", Prompt.Back)];
+    private static readonly Hint[] PauseMoveHints = [new("Pause", Prompt.Accept), new("Previous / next", Prompt.LeftRight), new("Back", Prompt.Back)];
+    private static readonly Hint[] MoveHints = [new("Previous / next", Prompt.LeftRight), new("Back", Prompt.Back)];
+    private static readonly Hint[] EndedHints = [new("Play again", Prompt.Accept), new("Previous / next", Prompt.LeftRight), new("Back", Prompt.Back)];
+
+    private readonly HintBar _controls;
     private readonly ProgressBar _progress;
     private readonly AudioStreamPlayer _sound;
     private int _index;
@@ -91,8 +98,7 @@ public sealed partial class MediaViewer : UiPanel
         _place.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         _place.VerticalAlignment = VerticalAlignment.Center;
         line.AddChild(_place);
-        _controls = UiStyle.Label(string.Empty, UiStyle.Hint);
-        _controls.VerticalAlignment = VerticalAlignment.Center;
+        _controls = new HintBar(UiStyle.Hint) { SizeFlagsVertical = SizeFlags.ShrinkCenter };
         line.AddChild(_controls);
         _progress = new ProgressBar { ShowPercentage = false, CustomMinimumSize = new Vector2(0, 6), MaxValue = 1, MouseFilter = MouseFilterEnum.Ignore };
         lines.AddChild(_progress);
@@ -170,9 +176,9 @@ public sealed partial class MediaViewer : UiPanel
 
             var length = playback.Duration.TotalSeconds;
             _progress.Value = length > 0 ? Math.Min(1, playback.Position.TotalSeconds / length) : 0;
-            if (playback.Ended && _controls.Text != EndedControls)
+            if (playback.Ended)
             {
-                _controls.Text = EndedControls;
+                _controls.Show(EndedHints);
             }
         }
 
@@ -187,8 +193,6 @@ public sealed partial class MediaViewer : UiPanel
     }
 
     public override void OnClosed() => Release();
-
-    private const string EndedControls = "A  Play again     Left Right  Previous / next     B  Back";
 
     private void ShowItem(int index)
     {
@@ -273,10 +277,10 @@ public sealed partial class MediaViewer : UiPanel
     private void UpdateControls()
     {
         var video = _items[_index].Kind == MediaKinds.Video;
-        var move = _items.Count > 1 ? "Left Right  Previous / next     " : string.Empty;
-        _controls.Text = video && _video is not null && _shownError is null
-            ? (_playback?.Paused == true ? "A  Play     " : "A  Pause     ") + move + "B  Back"
-            : move + "B  Back";
+        var move = _items.Count > 1;
+        _controls.Show(video && _video is not null && _shownError is null
+            ? _playback?.Paused == true ? (move ? PlayMoveHints : PlayHints) : (move ? PauseMoveHints : PauseHints)
+            : move ? MoveHints : CommonHints.Back);
     }
 
     /// <summary>Stops the video and lets go of the picture.</summary>

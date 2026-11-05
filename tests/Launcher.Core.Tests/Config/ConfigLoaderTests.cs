@@ -1009,6 +1009,26 @@ public class ConfigLoaderTests
     }
 
     [Fact]
+    public void Button_icons_are_automatic_unless_the_ui_settings_choose_a_kind()
+    {
+        Assert.Equal(ButtonIcons.Automatic, Load().Config.Settings.Ui.ButtonIcons);
+
+        var playStation = Load(settings: """
+            [ui]
+            button_icons = "playstation"
+            """);
+        Assert.Empty(playStation.Diagnostics);
+        Assert.Equal(ButtonIcons.PlayStation, playStation.Config.Settings.Ui.ButtonIcons);
+
+        var bad = Load(settings: """
+            [ui]
+            button_icons = "sega"
+            """);
+        Assert.Single(bad.Diagnostics, d => d.IsError && d.Key == "ui.button_icons");
+        Assert.Equal(ButtonIcons.Automatic, bad.Config.Settings.Ui.ButtonIcons);
+    }
+
+    [Fact]
     public void Scanning_at_launch_is_off_unless_the_scanning_settings_turn_it_on()
     {
         Assert.False(Load().Config.Settings.Scanning.ScanAtLaunch);

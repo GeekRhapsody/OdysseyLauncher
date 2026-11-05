@@ -57,6 +57,25 @@ public sealed partial class FilePicker : UiPanel
     private const int PreviewSide = 300;
     private static readonly FileFilter AnyFile = new("Files", []);
 
+    private static readonly Hint[] FolderHints =
+    [
+        new("Open", Prompt.Accept),
+        new("Up", Prompt.Back),
+        new("Use this folder", Prompt.Alternate),
+        new("Type a path", Prompt.Secondary),
+        new("Page", Prompt.Pages),
+        new("Letter", Prompt.Letters),
+    ];
+
+    private static readonly Hint[] FileHints =
+    [
+        new("Open or choose", Prompt.Accept),
+        new("Up", Prompt.Back),
+        new("Type a path", Prompt.Secondary),
+        new("Page", Prompt.Pages),
+        new("Letter", Prompt.Letters),
+    ];
+
     private readonly UiContext _context;
     private readonly PickerRequest _request;
     private readonly VirtualList _list;
@@ -125,9 +144,7 @@ public sealed partial class FilePicker : UiPanel
 
         FooterButton(buttons, "Cancel", Cancel);
 
-        SetHints(request.Mode == PickerMode.Folder
-            ? "A  Open     B  Up     X  Use this folder     Y  Type a path     LB RB  Page     LT RT  Letter"
-            : "A  Open or choose     B  Up     Y  Type a path     LB RB  Page     LT RT  Letter");
+        SetHints(request.Mode == PickerMode.Folder ? FolderHints : FileHints);
     }
 
     public override Control? DefaultFocus => _list;

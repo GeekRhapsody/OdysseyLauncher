@@ -1,5 +1,6 @@
 using System;
 using Godot;
+using Launcher.App.Navigation;
 
 namespace Launcher.App.Ui;
 
@@ -10,6 +11,8 @@ namespace Launcher.App.Ui;
 /// </summary>
 public sealed partial class ConfirmDialog : UiPanel
 {
+    private static readonly Hint[] OkHints = [new("OK", Prompt.Accept)];
+
     private readonly Action<bool>? _answered;
     private readonly Button _yes;
     private readonly Button? _no;
@@ -39,7 +42,7 @@ public sealed partial class ConfirmDialog : UiPanel
             buttons.AddChild(_no);
         }
 
-        SetHints(no is null ? "A  OK" : "A  Choose     B  " + no);
+        SetHints(no is null ? OkHints : [new("Choose", Prompt.Accept), new(no, Prompt.Back)]);
     }
 
     public override Control? DefaultFocus => _startOnNo && _no is not null ? _no : _yes;

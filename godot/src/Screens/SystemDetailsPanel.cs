@@ -24,6 +24,13 @@ public sealed partial class SystemDetailsPanel : UiPanel
     private const float ScrollStep = 60;
     private const float ModelWidth = 500;
 
+    private static readonly Hint[] Hints =
+    [
+        new("Scroll the details", Prompt.UpDown),
+        new("Turn the model", Prompt.LeftRight, Prompt.RightStick),
+        new("Back", Prompt.Back, Prompt.Secondary),
+    ];
+
     private readonly ModelView _model;
     private readonly PanelContainer _info;
     private readonly ScrollContainer _infoScroll;
@@ -81,7 +88,7 @@ public sealed partial class SystemDetailsPanel : UiPanel
             AddField(fields, label, value);
         }
 
-        SetHints("Up Down  Scroll the details     Left Right / right stick  Turn the model     B / Y  Back");
+        SetHints(Hints);
     }
 
     public override Control? DefaultFocus => _info;
