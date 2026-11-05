@@ -10,6 +10,8 @@ it releases, and the Release workflow puts it on the release page (tools/release
 
 ## Unreleased
 
+## 0.24.0 (2026-11-05)
+
 ### New
 
 - **Button icons in the controls along the bottom**: each screen's controls show your controller's buttons (Xbox, PlayStation, Switch and Switch 2, GameCube, Steam Deck or Steam Controller) or your keyboard's keys, following whatever you pressed last, in your theme's colours. Settings, Button icons chooses one kind always, for when Steam shows your controller as an Xbox one.
