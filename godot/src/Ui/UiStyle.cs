@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using Godot;
+using Launcher.Core.Config;
 using Launcher.Core.Theming;
 using Theme = Godot.Theme;
 
@@ -28,6 +29,20 @@ public static class UiStyle
 
     /// <summary>The controls' hints (<see cref="HintBar"/>): a little larger than other small text, to read on a handheld's screen.</summary>
     public const int ControlsSize = 16;
+
+    /// <summary>
+    /// <c>[ui] size</c>'s small and large scales of the whole 2D UI (A1 "UI size"; medium is 1): the window's content
+    /// scale, so the base the UI is laid out in becomes 1280×800 over the scale (smaller at large, so panels fit to it).
+    /// </summary>
+    public const float SmallScale = 0.85f;
+    public const float LargeScale = 1.2f;
+
+    /// <summary>
+    /// The space a panel keeps from the window's sides when it's too big for the window (the large UI size), and from
+    /// its top and bottom, clear of the status indicators: 720 high fits medium's 800.
+    /// </summary>
+    public const int ScreenEdge = 24;
+    public const int ScreenEdgeY = 40;
 
     public static readonly Color Good = new("#8CE6A6");
     public static readonly Color Warning = new("#FFD66B");
@@ -63,6 +78,13 @@ public static class UiStyle
 
     /// <summary>The theme's font for the menus, or null for Godot's default.</summary>
     public static Font? Font => _font;
+
+    public static float ScaleOf(UiSize size) => size switch
+    {
+        UiSize.Small => SmallScale,
+        UiSize.Large => LargeScale,
+        _ => 1,
+    };
 
     public static LabelSettings Title { get; } = Keep(new LabelSettings { FontSize = TitleSize, FontColor = Text, ShadowColor = Glow, ShadowSize = 10, ShadowOffset = Vector2.Zero });
 

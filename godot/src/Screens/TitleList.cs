@@ -58,8 +58,9 @@ public sealed partial class TitleList : Control
         _systemStyle = new LabelSettings { FontSize = 14, ShadowColor = shadow, ShadowSize = 3, ShadowOffset = Vector2.Zero };
         Use(OverlayPalette.Legacy);
 
-        // Enough labels for the tallest list (2160p is the same 800-high base, stretched) and one coming in at each end.
-        var pool = (int)(800 / RowHeight) + 3;
+        // Enough labels for the tallest list (2160p is the same 800-high base, stretched; the small UI size's is taller)
+        // and one coming in at each end.
+        var pool = (int)(800 / UiStyle.SmallScale / RowHeight) + 3;
         _titles = new Label[pool];
         _systems = new Label[pool];
         _bound = new int[pool];

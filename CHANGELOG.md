@@ -10,6 +10,10 @@ it releases, and the Release workflow puts it on the release page (tools/release
 
 ## Unreleased
 
+### New
+
+- **UI size: small, medium or large**, in Settings, under UI: the menus, text and controls get smaller for a monitor on your desk, or larger for a handheld's small screen or a television across the room. It changes at once. The game and system cards keep their size.
+
 ### Changed
 
 - **Larger controls along the bottom of the screen**: their buttons and words are a little bigger, to read more easily on a small screen such as the Steam Deck's.

@@ -64,7 +64,7 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
     private const int Slots = MediaSlots.Count;
 
     // A grid whose rows are set fits them between the overlay's heading and its details, these shares of the view's
-    // height from the top and the bottom.
+    // height from the top and the bottom (times OverlayScale).
     private const float RowsBandTop = 0.15f;
     private const float RowsBandBottom = 0.18f;
 
@@ -91,7 +91,7 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
 
     // A grid with labels (GridLayout.Labels): the room under each row for its items' labels, as a share of the view's
     // height (two lines of Screens/GridLabels.cs's text in the overlay's 800-pixel base), the same on screen whatever the
-    // items' size; the gap between an item's foot and its label, over the items' height; and the rows' spacing over the
+    // items' size (times OverlayScale); the gap between an item's foot and its label, over the items' height; and the rows' spacing over the
     // items' height, less than the grid's since the labels' room parts the rows too.
     public const float LabelRoom = 0.064f;
     private const float LabelGap = 0.03f;
@@ -382,6 +382,15 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
 
     /// <summary>A column's width at rest, as a share of the view's width: a label's.</summary>
     public float LabelWidth => _pitchX * _scale / (_viewHeight * _viewAspect);
+
+    /// <summary>
+    /// The 2D UI's scale (<c>[ui] size</c>, A1 "UI size"): the overlay's text takes that much more of the view, so the
+    /// rows' room for labels, and a set size's band between the heading and the details, follow it. Applied by <see cref="SetView"/>.
+    /// </summary>
+    public float OverlayScale { get; set; } = 1;
+
+    /// <summary>The room under each row for its labels, as a share of the view's height.</summary>
+    public float LabelRoomShare => LabelRoom * OverlayScale;
 
     /// <summary>
     /// The cell's label, if the layout has labels and the cell is bound: its title, where its top middle shows (shares of
@@ -892,8 +901,8 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
     private float SizeGrid(float viewWidth)
     {
         var usableWidth = viewWidth * 0.9f;
-        var band = _viewHeight * (1 - RowsBandTop - RowsBandBottom);
-        var room = _labels ? _viewHeight * LabelRoom : 0;
+        var band = _viewHeight * (1 - ((RowsBandTop + RowsBandBottom) * OverlayScale));
+        var room = _labels ? _viewHeight * LabelRoomShare : 0;
         if (_layout.Columns > 0)
         {
             _scale = Math.Min(usableWidth / (_layout.Columns * _pitchX), RowScale(band / Math.Max(_layout.Rows, 1), room));
@@ -918,7 +927,7 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
         {
             var row = _linePitch * _scale;
             var fitting = _layout.Rows > 0 ? _layout.Rows : Math.Max(1, (int)(band / row + 0.001f));
-            _focusLine = _viewHeight / 2 - _viewHeight * RowsBandTop - ((fitting - 1) / 2 + 0.5f) * row;
+            _focusLine = _viewHeight / 2 - (_viewHeight * RowsBandTop * OverlayScale) - ((fitting - 1) / 2 + 0.5f) * row;
         }
 
         // The items' middle is on the line, so a row with its labels under it is centred there too.

@@ -328,6 +328,20 @@ This checks what a script can't: the controls along the bottom following the rea
 - Anything that differed: which pad (its name in Windows' Settings, Bluetooth & devices), what the icons showed, and what you expected.
 - The lines naming each pad and the icons it got: `Select-String -Path "$env:APPDATA\Godot\app_userdata\Odyssey Launcher\logs\godot.log" -Pattern '^Button icons'`.
 
+## UI size
+
+This checks what captures can't: whether each size reads well from where you sit, on the real screens. Use the export: `& .\artifacts\export\windows\OdysseyLauncher.exe ++ --user-dir=C:\OdysseyTest` on Windows, and the AppImage on the Steam Deck. Do steps 1 to 3 on each screen you have (a desk's monitor, the Deck, a television).
+
+1. **The setting.** Settings, under UI, UI size: choose Large. The settings, the text over the grid and the controls along the bottom grow at once; the game and system cards don't. settings.toml has `[ui]` `size = "large"`. Left and right on the row step between the sizes.
+2. **Every screen at Large.** Browse a system, open a game's details (Y), its options (X), its manual and its media, a system's details, the power menu (View), the on-screen keyboard (Settings, a credential), a file picker (Settings, ROM folders), and the theme downloader. None runs off the screen or cuts its text or buttons short; the long ones scroll. Try the layouts with labels and with a list (Settings, Layout): the labels under the cards have both their lines, and the list's titles don't run into the game on the right.
+3. **Small.** The same at Small: nothing sits in the wrong place, and the list layout's titles reach the bottom of the list.
+4. **Which reads best.** On each screen, which size you'd keep.
+
+### Send back
+
+- Which size you'd keep on each screen, and whether Large should be larger or Small smaller.
+- Any screen that ran off the screen, cut something short or looked wrong: which screen, which size, and a photo or screenshot if you can.
+
 ## The ES-DE catalogue and launching shortcuts
 
 This checks what the scripts can't: the grid and settings with the whole catalogue, and a real shortcut or script as a game. It uses the M3 set-up (`C:\OdysseyTest`) and the export.

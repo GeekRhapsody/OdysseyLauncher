@@ -81,6 +81,13 @@ The controls' hints along the bottom of every screen show each button's glyph fo
 - **`[ui] button_icons`** (Settings, Button icons) chooses one kind always instead (`automatic` by default), because Steam Input and handheld tools show every pad as an Xbox 360 pad; `--button-icons=<kind>` does it for one run, for captures.
 - **`Ui/HintBar`** draws a screen's hints, right-aligned: each hint is its glyphs and its words. Screens keep their hints in static arrays (`Hint`, `CommonHints`), so showing the same ones again does nothing, and a change of kind only swaps textures. A hint none of whose buttons the device has (the right stick, on a keyboard) is left out. The on-screen keyboard, which takes typing from the keyboard while the pad drives it, shows the last pad's glyphs.
 
+### UI size (2026-11-05)
+
+The whole 2D UI (the overlay, the menus, the status indicators and the controls' hints) is laid out at a base of 1280×800 and stretched to the window (`canvas_items`, aspect `expand`), so it takes the same share of every screen. `[ui] size` (Settings, UI size; `--ui-size=<size>` for one run) scales it for how far away the screen is: `small` 0.85 (a monitor on a desk), `medium` 1 (the default) or `large` 1.2 (a handheld, or a television across the room). The 3D grids keep their size.
+
+- **How.** `Main.ApplyUiSize` sets the root window's `ContentScaleFactor`, so every control, font and hint scales at once and is drawn sharp at the window's resolution; it applies at once, and costs nothing a frame. The base becomes 1280×800 over the scale: 1067×667 at large on 16:10.
+- **What follows it.** A panel too big for the window shrinks to it, 24 px from its sides and 40 from its top and bottom, clear of the status indicators (`UiPanel.FitFrame`: its rows scroll, and its columns share what's left); what can't shrink (the on-screen keyboard's keys, the art chooser's and the media panel's grids) is drawn smaller instead, as large as fits, by scaling the frame's holder (a container resets its children's scale). One along the bottom sits there by its size flags, not by the base's numbers. At medium every panel fits, so nothing changes. The grids' room for the overlay's text grows with it (`ItemGrid.OverlayScale`): the grid with labels' room under each row, and a set size's band between the heading and the details. The list layout's titles have labels enough for the small size's taller base.
+
 ## A2. Key interfaces (sketch)
 
 ```csharp
@@ -740,13 +747,14 @@ systems_sort_order = "ascending"     # or "descending"; Favourites, Recently pla
 games_sort = "alphabetical"          # "alphabetical" (default), "last_played", "play_time", "added" or "release_date"
 games_sort_order = "ascending"       # or "descending"; a system's own games_sort and games_sort_order (systems.toml) win
 
-[ui]                                 # the status indicators, top right (2026-10-02), the navigation sounds and the button icons
+[ui]                                 # the status indicators, top right (2026-10-02), the navigation sounds, the button icons and the UI's size
 show_clock = true                    # the time, in the user's regional short-time format
 show_battery = true                  # the battery's charge; nothing shows on a device without one
 show_network = true                  # Wi-Fi with its signal, a cable, or disconnected
 show_performance = false             # 2026-10-08: the frame rate and Godot's video memory, under the indicators; defaults to false
 navigation_sounds = true             # 2026-10-10: a tock when the focus moves, a whoosh when a system is entered (A1 Ui, UiSounds); defaults to true
 button_icons = "automatic"           # 2026-11-05: the controls' button icons (A1 Button icons): the device last used's, or always xbox, playstation, nintendo, gamecube, steamdeck, steamcontroller or keyboard
+size = "medium"                      # 2026-11-05: the 2D UI's size (A1 UI size): small (0.85), medium or large (1.2); the 3D grids keep theirs
 
 [scraping]
 provider = "screenscraper"           # asked first for every game
@@ -1531,3 +1539,4 @@ The console theme's cards' build records (each card's construction, its clip, it
 | 2026-11-05 | **Linux updates itself, two ways** (L5, the owner's decisions; A1 `Updates`, `Platform`): "Check for updates" renames the release's `.AppImage` over `$APPIMAGE` and restarts it (`LinuxUpdateInstaller`); appimagetool embeds zsync's update information (`gh-releases-zsync`, `latest` for a release, `latest-all` for a pre-release) for AppImageUpdate and the like. | Linux lets a running file be replaced, so no helper. The channels match the app's: a release is never offered a pre-release; a pre-release gets the newest of either, not an older release. |
 | 2026-11-05 | **The AppImage carries AppStream metadata**, id `io.github.geekrhapsody.OdysseyLauncher` (the owner's): `usr/share/metainfo/<id>.appdata.xml` (CC0-1.0 metadata, MIT project, OARS 1.1 with `social-info` mild, the README's screenshots), and the desktop entry renamed to the id. appimagetool and `make-appimage.sh` validate it with appstreamcli. | Software centres and AppImage managers read it; appimagetool pairs the metadata with the desktop entry by name. |
 | 2026-11-05 | **The controls' hints show button icons** (A1 Button icons, the owner's decisions): Kenney's CC0 Input Prompts (1.5A) for Xbox, PlayStation, Nintendo, GameCube, the Steam Deck, the 2015 Steam Controller and the keyboard, monochrome and tinted by the theme's hint colour; each pad's glyph by the button's position, so a Switch pad confirms with its B; the device last used decides, or `[ui] button_icons`. | As other front ends do. One CC0 set is consistent across devices and needs no credit. By position, controls never change with the pad. The setting is there because Steam Input shows every pad as an Xbox one. |
+| 2026-11-05 | **A UI size setting** (A1 UI size, the owner's request): `[ui] size`, small, medium or large, scales the whole 2D UI as the window's content scale (0.85, 1, 1.2); panels shrink to fit the window, and the grids' room for the overlay's text follows it. The controls' hints went from 14 to 16 px at every size. | The UI already takes the same share of every screen, so what differs is the distance: a desk's monitor, a handheld, a television. One scale for everything rather than each font's size, which would touch every screen. |

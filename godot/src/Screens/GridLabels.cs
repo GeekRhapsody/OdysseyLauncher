@@ -91,7 +91,7 @@ public sealed partial class GridLabels : Control
         }
 
         // A column wide, less a little either side, and the grid's room for labels tall; laid out again only when that changes.
-        var labelSize = new Vector2(Math.Max(grid.LabelWidth * size.X - 8, 16), ItemGrid.LabelRoom * size.Y);
+        var labelSize = new Vector2(Math.Max(grid.LabelWidth * size.X - 8, 16), grid.LabelRoomShare * size.Y);
         var resized = labelSize != _labelSize;
         _labelSize = labelSize;
         for (var cell = 0; cell < _labels.Length; cell++)

@@ -1029,6 +1029,26 @@ public class ConfigLoaderTests
     }
 
     [Fact]
+    public void The_ui_is_medium_unless_the_ui_settings_choose_a_size()
+    {
+        Assert.Equal(UiSize.Medium, Load().Config.Settings.Ui.Size);
+
+        var large = Load(settings: """
+            [ui]
+            size = "large"
+            """);
+        Assert.Empty(large.Diagnostics);
+        Assert.Equal(UiSize.Large, large.Config.Settings.Ui.Size);
+
+        var bad = Load(settings: """
+            [ui]
+            size = "huge"
+            """);
+        Assert.Single(bad.Diagnostics, d => d.IsError && d.Key == "ui.size");
+        Assert.Equal(UiSize.Medium, bad.Config.Settings.Ui.Size);
+    }
+
+    [Fact]
     public void Scanning_at_launch_is_off_unless_the_scanning_settings_turn_it_on()
     {
         Assert.False(Load().Config.Settings.Scanning.ScanAtLaunch);

@@ -29,6 +29,9 @@ public abstract partial class UiPanel : Control
     private readonly Label _subtitle;
     private readonly Label _status;
     private readonly HintBar _hints;
+    private readonly Vector2 _size;
+    private readonly bool _bottom;
+    private readonly Control? _holder;
     private double _statusClearAt = -1;
     private double _clock;
 
@@ -58,20 +61,34 @@ public abstract partial class UiPanel : Control
         }
         else
         {
-            var holder = placement == PanelPlacement.Centre ? (Container)new CenterContainer() : new MarginContainer();
-            holder.MouseFilter = MouseFilterEnum.Ignore;
-            holder.SetAnchorsPreset(LayoutPreset.FullRect);
-            if (holder is MarginContainer margins)
+            // Centred, or along the bottom in the middle. A frame wider or taller than the window makes the holder
+            // grow about its middle (up, along the bottom), so it stays there while FitFrame scales it down.
+            var holder = new MarginContainer
             {
-                margins.AddThemeConstantOverride("margin_top", (int)Math.Max(0, 800 - size.Y - 24));
-                margins.AddThemeConstantOverride("margin_bottom", 24);
-                margins.AddThemeConstantOverride("margin_left", (int)Math.Max(0, (1280 - size.X) / 2));
-                margins.AddThemeConstantOverride("margin_right", (int)Math.Max(0, (1280 - size.X) / 2));
+                MouseFilter = MouseFilterEnum.Ignore,
+                GrowHorizontal = GrowDirection.Both,
+                GrowVertical = placement == PanelPlacement.Bottom ? GrowDirection.Begin : GrowDirection.Both,
+            };
+            holder.SetAnchorsPreset(LayoutPreset.FullRect);
+            foreach (var side in (ReadOnlySpan<string>)["margin_top", "margin_bottom", "margin_left", "margin_right"])
+            {
+                holder.AddThemeConstantOverride(side, UiStyle.ScreenEdge);
             }
 
             AddChild(holder);
-            Frame = new PanelContainer { CustomMinimumSize = size, MouseFilter = MouseFilterEnum.Stop };
+            _holder = holder;
+            Frame = new PanelContainer
+            {
+                MouseFilter = MouseFilterEnum.Stop,
+                SizeFlagsHorizontal = SizeFlags.ShrinkCenter,
+                SizeFlagsVertical = placement == PanelPlacement.Bottom ? SizeFlags.ShrinkEnd : SizeFlags.ShrinkCenter,
+            };
             holder.AddChild(Frame);
+            _size = size;
+            _bottom = placement == PanelPlacement.Bottom;
+            FitFrame();
+            Resized += FitFrame;
+            Frame.MinimumSizeChanged += FitFrame;
         }
 
         var column = new VBoxContainer { MouseFilter = MouseFilterEnum.Ignore };
@@ -101,6 +118,29 @@ public abstract partial class UiPanel : Control
         _hints = new HintBar(UiStyle.Hint);
         _hints.Visible = !FullScreen;
         column.AddChild(_hints);
+    }
+
+    /// <summary>
+    /// The frame at the panel's size, or less where the window is smaller (the large UI size, A1 "UI size"): a panel's
+    /// rows scroll, and its columns share what's left. What can't shrink (a keyboard's keys, a grid of thumbnails) is
+    /// drawn smaller instead, as large as fits, about the window's middle (or the middle of its foot, along the bottom).
+    /// The holder is what's scaled: a container resets its children's scale.
+    /// </summary>
+    private void FitFrame()
+    {
+        var room = Size - new Vector2(2 * UiStyle.ScreenEdge, 2 * UiStyle.ScreenEdgeY);
+        if (_holder is null || room.X <= 0 || room.Y <= 0)
+        {
+            Frame.CustomMinimumSize = _size;
+            return;
+        }
+
+        Frame.CustomMinimumSize = new Vector2(Math.Min(_size.X, room.X), Math.Min(_size.Y, room.Y));
+        var needed = Frame.GetCombinedMinimumSize();
+        var scale = Math.Min(1, Math.Min(room.X / Math.Max(needed.X, 1), room.Y / Math.Max(needed.Y, 1)));
+        var grown = new Vector2(Math.Max(Size.X, needed.X + (2 * UiStyle.ScreenEdge)), Math.Max(Size.Y, needed.Y + (2 * UiStyle.ScreenEdge)));
+        _holder.Scale = new Vector2(scale, scale);
+        _holder.PivotOffset = new Vector2(grown.X / 2, _bottom ? grown.Y : grown.Y / 2);
     }
 
     /// <summary>The frame around the panel's content.</summary>

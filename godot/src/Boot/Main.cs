@@ -397,6 +397,7 @@ public partial class Main : Node3D
         DebugHooks.Timeline.Mark(BootMarks.SceneBuilt);
 
         ButtonPrompts.Choose(_options.ButtonIcons ?? services.Config.Settings.Ui.ButtonIcons);
+        ApplyUiSize(services.Config.Settings.Ui.Size);
         _navigator = new Navigator(services, _queue, _systemsGrid, _gamesGrid, _overlay!, _look, _loader, theme)
         {
             Streamer = _streamer,
@@ -718,6 +719,7 @@ public partial class Main : Node3D
             navigator.OnConfigChanged();
             _statusBar?.Apply(config.Settings.Ui);
             ButtonPrompts.Choose(_options.ButtonIcons ?? config.Settings.Ui.ButtonIcons);
+            ApplyUiSize(config.Settings.Ui.Size);
         };
         _settings.ThemeChosen += id =>
         {
@@ -1249,6 +1251,25 @@ public partial class Main : Node3D
     {
         GD.Print($"Display: the window is now {DisplayServer.WindowGetSize().X}x{DisplayServer.WindowGetSize().Y} ({DisplayServer.WindowGetMode()}), frame {Engine.GetFramesDrawn()}.");
         ApplyRenderScale();
+        UpdateGridViews();
+    }
+
+    /// <summary>
+    /// <c>[ui] size</c> (A1 "UI size"; <c>--ui-size</c> wins): the whole 2D UI is scaled as the window's content, and
+    /// the grids leave their room for the overlay's text at the same scale. Nothing when it's the scale in use.
+    /// </summary>
+    private void ApplyUiSize(UiSize size)
+    {
+        var scale = UiStyle.ScaleOf(_options.UiSize ?? size);
+        var window = GetTree().Root;
+        if (window.ContentScaleFactor == scale)
+        {
+            return;
+        }
+
+        window.ContentScaleFactor = scale;
+        _systemsGrid!.OverlayScale = scale;
+        _gamesGrid!.OverlayScale = scale;
         UpdateGridViews();
     }
 

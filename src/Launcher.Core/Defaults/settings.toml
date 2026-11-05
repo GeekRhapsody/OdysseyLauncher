@@ -86,6 +86,9 @@ navigation_sounds = true
 # or always "xbox", "playstation", "nintendo", "gamecube", "steamdeck" (the new Steam Controller's too),
 # "steamcontroller" (the 2015 one) or "keyboard". Steam Input, say, shows every controller as an Xbox one.
 button_icons = "automatic"
+# The size of the menus, text and controls: "small" (a monitor on a desk), "medium" or "large" (a handheld's small
+# screen, or a television across the room). The game and system cards keep their size.
+size = "medium"
 
 [scraping]
 # Every game is looked up with `provider` first; each `fallback` provider, in order, then fills in the fields

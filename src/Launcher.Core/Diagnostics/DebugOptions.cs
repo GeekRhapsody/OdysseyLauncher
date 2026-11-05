@@ -59,6 +59,7 @@ public sealed record DebugOptions
     public const string UpdateFeedArg = "--update-feed";
     public const string BootFramesArg = "--boot-frames";
     public const string ButtonIconsArg = "--button-icons";
+    public const string UiSizeArg = "--ui-size";
 
     /// <summary>
     /// What <c>--open</c> can show once the app is interactive (M7), for captures of each settings screen and shared
@@ -91,6 +92,7 @@ public sealed record DebugOptions
         NoTexturesArg, RenderScaleArg, UpscalerArg, UploadCapArg, StartSystemArg, StartIndexArg, NavScriptArg, LaunchArg,
         UserDirArg, QuitAfterLaunchArg, ThemeArg, NoOverlayArg, OpenArg, OpenPathArg,
         FakeStatusArg, SaveResponsesArg, LayoutArg, MemoryLogArg, ThemesListArg, UpdateFeedArg, BootFramesArg, ButtonIconsArg,
+        UiSizeArg,
     ];
 
     /// <summary>
@@ -225,6 +227,9 @@ public sealed record DebugOptions
     /// </summary>
     public ButtonIcons? ButtonIcons { get; init; }
 
+    /// <summary><c>--ui-size=small|medium|large</c>: the UI's size for this run, over <c>[ui] size</c>, for captures; null for the setting's.</summary>
+    public UiSize? UiSize { get; init; }
+
     /// <summary>
     /// <c>--save-responses</c>: save each scraping provider's response in <c>scraped/responses/</c> for this run, to
     /// debug a scrape (A4). Off by default.
@@ -319,6 +324,7 @@ public sealed record DebugOptions
                 UpdateFeedArg => options with { UpdateFeed = ParsePath(name, value, null, errors) },
                 BootFramesArg => options with { BootFrames = ParseInt(name, value, 1, MaxFrames, errors) ?? 0 },
                 ButtonIconsArg => options with { ButtonIcons = ParseEnum(name, value, Config.ButtonIcons.Automatic, errors) },
+                UiSizeArg => options with { UiSize = ParseEnum(name, value, Config.UiSize.Medium, errors) },
                 _ => options,
             };
         }
@@ -589,6 +595,7 @@ public sealed record DebugOptions
         UpdateFeedArg => $"{UpdateFeedArg}=C:/odyssey-update-feed",
         BootFramesArg => $"{BootFramesArg}=90",
         ButtonIconsArg => $"{ButtonIconsArg}=playstation",
+        UiSizeArg => $"{UiSizeArg}=large",
         _ => $"{BenchFramesArg}={DefaultBenchFrames}",
     };
 }

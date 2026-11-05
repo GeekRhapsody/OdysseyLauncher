@@ -98,6 +98,17 @@ public class DebugOptionsTests
     }
 
     [Fact]
+    public void The_ui_size_can_be_chosen_for_a_run()
+    {
+        Assert.Null(DebugOptions.Parse([]).Options.UiSize);
+        var result = DebugOptions.Parse(["--ui-size=large"]);
+        Assert.True(result.IsValid, string.Join("; ", result.Errors));
+        Assert.Equal(UiSize.Large, result.Options.UiSize);
+        Assert.False(DebugOptions.Parse(["--ui-size=huge"]).IsValid);
+        Assert.False(DebugOptions.Parse(["--ui-size"]).IsValid);
+    }
+
+    [Fact]
     public void Fake_status_shows_a_made_up_battery_and_network()
     {
         Assert.Null(DebugOptions.Parse([]).Options.FakeStatus);

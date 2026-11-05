@@ -327,16 +327,28 @@ public static class Layouts
     }
 }
 
-/// <summary><c>[ui]</c>: the status indicators top right, each on or off, the navigation sounds and the controls' button icons.</summary>
+/// <summary><c>[ui]</c>: the status indicators top right, each on or off, the navigation sounds, the controls' button icons and the UI's size.</summary>
 /// <param name="ShowClock">The time, in the user's regional short-time format.</param>
 /// <param name="ShowBattery">The battery's charge; nothing shows on a device without one.</param>
 /// <param name="ShowNetwork">Wi-Fi (with its signal), a cable, or disconnected.</param>
 /// <param name="ShowPerformance">The frame rate and the video memory in use, under the indicators (2026-10-08); off by default.</param>
 /// <param name="NavigationSounds">A tock when the focus moves to another system or game, and a whoosh when a system is entered (2026-10-10); on by default.</param>
 /// <param name="ButtonIcons">Which buttons the controls' hints show (2026-11-05): the last device used's, or one kind always.</param>
+/// <param name="Size">The size of the whole 2D UI (2026-11-05): menus, text and the controls' hints.</param>
 public sealed record UiSettings(
     bool ShowClock = true, bool ShowBattery = true, bool ShowNetwork = true, bool ShowPerformance = false, bool NavigationSounds = true,
-    ButtonIcons ButtonIcons = ButtonIcons.Automatic);
+    ButtonIcons ButtonIcons = ButtonIcons.Automatic, UiSize Size = UiSize.Medium);
+
+/// <summary>
+/// The size of the whole 2D UI (<c>[ui] size</c>, docs/ARCHITECTURE.md A1 "UI size"): smaller for a desk's monitor at arm's
+/// length, larger for a handheld's small screen or a television across the room. The 3D grids keep their size.
+/// </summary>
+public enum UiSize
+{
+    Small,
+    Medium,
+    Large,
+}
 
 /// <summary>
 /// The buttons the controls' hints show (<c>[ui] button_icons</c>, docs/ARCHITECTURE.md A1 "Button icons"): automatically
@@ -392,6 +404,9 @@ public static class DisplayNames
     /// <summary><c>[ui] button_icons</c>' values, in <see cref="ButtonIcons"/>' order.</summary>
     public static IReadOnlyList<string> ButtonIcons { get; } = ["automatic", "xbox", "playstation", "nintendo", "gamecube", "steamdeck", "steamcontroller", "keyboard"];
 
+    /// <summary><c>[ui] size</c>'s values, in <see cref="UiSize"/>'s order.</summary>
+    public static IReadOnlyList<string> UiSizes { get; } = ["small", "medium", "large"];
+
     /// <summary>As Godot names them (<c>RenderingServer.GetCurrentRenderingDriverName()</c>, <c>--rendering-driver</c>).</summary>
     public static IReadOnlyList<string> RenderingDrivers { get; } = ["d3d12", "vulkan"];
 
@@ -400,6 +415,8 @@ public static class DisplayNames
     public static string Name(RenderingDriver driver) => RenderingDrivers[(int)driver];
 
     public static string Name(ButtonIcons icons) => ButtonIcons[(int)icons];
+
+    public static string Name(UiSize size) => UiSizes[(int)size];
 
     public static bool TryParse(string name, out RenderingDriver driver)
     {

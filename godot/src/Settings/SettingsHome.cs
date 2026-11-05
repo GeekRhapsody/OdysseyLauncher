@@ -17,7 +17,7 @@ using Launcher.Core.Theming;
 namespace Launcher.App.Settings;
 
 /// <summary>
-/// The main settings screen (M7): ROM folders, the media folder, emulators, the theme and layout, whether systems without games show, graphics, the status indicators and navigation sounds, scraping, and the
+/// The main settings screen (M7): ROM folders, the media folder, emulators, the theme and layout, whether systems without games show, graphics, the status indicators, navigation sounds, button icons and UI size, scraping, and the
 /// library's actions (rescan, with or without every media folder, scrape all missing, and whether it's scanned at launch) with their progress and a way to cancel them. Menu, B or the Back
 /// button closes it; every change is saved as it's made, and applies without a restart.
 /// </summary>
@@ -38,6 +38,14 @@ public sealed partial class SettingsHome : ListPanel
         new("keyboard", "Keyboard"),
     ];
 
+    /// <summary><c>[ui] size</c>'s values, in <see cref="UiSize"/>'s order (A1 UI size).</summary>
+    private static readonly Choice[] UiSizeChoices =
+    [
+        new("small", "Small", "For a monitor on a desk"),
+        new("medium", "Medium"),
+        new("large", "Large", "For a handheld's small screen, or a television across the room"),
+    ];
+
     private readonly SettingsController _settings;
     private readonly SettingRow _roms;
     private readonly SettingRow _media;
@@ -52,6 +60,7 @@ public sealed partial class SettingsHome : ListPanel
     private readonly SettingRow _network;
     private readonly SettingRow _sounds;
     private readonly SettingRow _buttonIcons;
+    private readonly SettingRow _uiSize;
     private readonly SettingRow _scraping;
     private readonly SettingRow _rescan;
     private readonly SettingRow _rescanMedia;
@@ -95,6 +104,8 @@ public sealed partial class SettingsHome : ListPanel
             ui => ui.NavigationSounds, ("on", "off"));
         _buttonIcons = AddRow("Button icons", "The buttons the controls along the bottom show", activated: ChooseButtonIcons);
         _buttonIcons.Adjuster = StepButtonIcons;
+        _uiSize = AddRow("UI size", "The menus, text and controls: the game and system cards keep their size", activated: ChooseUiSize);
+        _uiSize.Adjuster = StepUiSize;
 
         AddSection("Scraping");
         _scraping = AddRow("Providers, media and credentials", activated: () => Layer.Push(new ScrapingPage(_settings)));
@@ -164,6 +175,7 @@ public sealed partial class SettingsHome : ListPanel
         ShowIndicator(_network, config.Settings.Ui.ShowNetwork);
         ShowIndicator(_sounds, config.Settings.Ui.NavigationSounds);
         _buttonIcons.Value = ButtonIconChoices[(int)config.Settings.Ui.ButtonIcons].Title;
+        _uiSize.Value = UiSizeChoices[(int)config.Settings.Ui.Size].Title;
         ShowIndicator(_scanAtLaunch, config.Settings.Scanning.ScanAtLaunch);
         ShowIndicator(_emptySystems, !display.HideEmptySystems);
         ShowIndicator(_groupSystems, display.GroupSystems);
@@ -255,6 +267,26 @@ public sealed partial class SettingsHome : ListPanel
 
     private void SaveButtonIcons(Choice choice) =>
         _settings.Save(this, [new ConfigEdit(ConfigFileKind.Settings, ["ui", "button_icons"], choice.Id)], $"Button icons: {choice.Title}.");
+
+    private void ChooseUiSize()
+    {
+        var current = DisplayNames.Name(_settings.Services.Config.Settings.Ui.Size);
+        Layer.Push(new ChoicePanel("UI size", "Applied at once, and saved as [ui] size", UiSizeChoices, current, SaveUiSize));
+    }
+
+    /// <summary>Left and right step through the sizes, stopping at the ends.</summary>
+    private void StepUiSize(int direction)
+    {
+        var current = (int)_settings.Services.Config.Settings.Ui.Size;
+        var next = Math.Clamp(current + Math.Sign(direction), 0, UiSizeChoices.Length - 1);
+        if (next != current)
+        {
+            SaveUiSize(UiSizeChoices[next]);
+        }
+    }
+
+    private void SaveUiSize(Choice choice) =>
+        _settings.Save(this, [new ConfigEdit(ConfigFileKind.Settings, ["ui", "size"], choice.Id)], $"UI size: {choice.Title}.");
 
     // ---- Theme --------------------------------------------------------------------------------------
 
