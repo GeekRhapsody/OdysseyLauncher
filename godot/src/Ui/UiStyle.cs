@@ -26,6 +26,9 @@ public static class UiStyle
     public const int DetailSize = 16;
     public const int HintSize = 14;
 
+    /// <summary>The controls' hints (<see cref="HintBar"/>): a little larger than other small text, to read on a handheld's screen.</summary>
+    public const int ControlsSize = 16;
+
     public static readonly Color Good = new("#8CE6A6");
     public static readonly Color Warning = new("#FFD66B");
     public static readonly Color Bad = new("#FF8A8A");
@@ -65,7 +68,7 @@ public static class UiStyle
 
     public static LabelSettings Subtitle { get; } = Keep(new LabelSettings { FontSize = DetailSize, FontColor = Dim });
 
-    public static LabelSettings Hint { get; } = Keep(new LabelSettings { FontSize = HintSize, FontColor = Dim });
+    public static LabelSettings Hint { get; } = Keep(new LabelSettings { FontSize = ControlsSize, FontColor = Dim });
 
     public static LabelSettings Body { get; } = Keep(new LabelSettings { FontSize = 18, FontColor = Text });
 

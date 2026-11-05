@@ -170,12 +170,12 @@ public sealed partial class InfoOverlay : CanvasLayer
         _favourite.OffsetBottom = 82;
         _favourite.HorizontalAlignment = HorizontalAlignment.Right;
 
-        _hints = new HintBar(new LabelSettings { FontSize = 14 });
+        _hints = new HintBar(new LabelSettings { FontSize = UiStyle.ControlsSize });
         _root.AddChild(_hints);
         _hints.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.BottomRight);
         _hints.OffsetLeft = -Margin - 1000;
         _hints.OffsetRight = -Margin;
-        _hints.OffsetTop = -44;
+        _hints.OffsetTop = -48;
         _hints.OffsetBottom = -16;
 
         _status = AddLabel(new LabelSettings { FontSize = 20, FontColor = Colors.White, ShadowSize = 8, ShadowOffset = Vector2.Zero });

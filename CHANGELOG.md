@@ -10,6 +10,10 @@ it releases, and the Release workflow puts it on the release page (tools/release
 
 ## Unreleased
 
+### Changed
+
+- **Larger controls along the bottom of the screen**: their buttons and words are a little bigger, to read more easily on a small screen such as the Steam Deck's.
+
 ### Fixed
 
 - **No more game card passing through the Nintendo DS and 3DS** in the Console theme: when you focus either, it switches on and the stylus comes out to tap TOUCH TO START.
