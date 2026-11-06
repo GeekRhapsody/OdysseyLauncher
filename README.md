@@ -29,7 +29,7 @@ Odyssey Launcher is built with Godot 4 and C# for Windows and Linux. **Performan
 - **Your choice of model.** Give any game or system another of the theme's models: a flat cover or screenshot, a blue PS2 case, or a 1990s TV playing the game's video.
 - **Animated items.** The focused item lifts and sways, and most of the Console theme's machines load and play a made-up game when focused. A theme can calm the motion or stop it.
 - **Pick it up and turn it round.** R3 brings the focused game up large; turn it with the right stick to read the back or the spine.
-- **Several layouts:** a grid, a grid with names, a carousel, one at a time, or a list beside the focused game's model, per system if you like.
+- **Several layouts:** a grid, a grid with names, a carousel, one at a time, a list beside the focused game's model, or a coverflow of spines, per system if you like.
 - **Favourites, Recently played and All games** have their own cards at the start of the systems grid.
 
 ![Inspecting a game and turning it with the right stick](docs/readme/inspect.webp)

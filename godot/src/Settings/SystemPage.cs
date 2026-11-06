@@ -458,7 +458,7 @@ public sealed partial class SystemPage : ListPanel
 
     /// <summary>
     /// How the system's games are shown: its own <c>games_layout</c>, or the Layout page's when unset (the default).
-    /// A chooses, left and right step through Default, Grid, Grid with labels, Carousel and List, Y goes back to the default.
+    /// A chooses, left and right step through Default, Grid, Grid with labels, Carousel, List and Coverflow, Y goes back to the default.
     /// </summary>
     private SettingRow AddViewRow(GamesLayout? own, GamesLayout settings)
     {

@@ -12,6 +12,7 @@ it releases, and the Release workflow puts it on the release page (tools/release
 
 ### New
 
+- **A Coverflow layout** for systems and games, in Settings, Look, Layout (or a system's own view): one row, with the focused game facing you in the middle and the rest showing their spines either side, like a shelf. Moving turns the next game round to face you and the last one back to its spine. Boxes with their spine on top, such as SNES and N64 boxes, stand on end to show it.
 - **UI size: small, medium or large**, in Settings, under UI: the menus, text and controls get smaller for a monitor on your desk, or larger for a handheld's small screen or a television across the room. It changes at once. The game and system cards keep their size.
 
 ### Changed

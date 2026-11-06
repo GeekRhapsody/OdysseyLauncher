@@ -14,7 +14,13 @@ public sealed partial class ItemGrid
     {
         var rowWorld = _linePitch * _scale * _zoom;
         float above, below;
-        if (_horizontal)
+        if (_coverflow)
+        {
+            // The side lines that show, the first, and half a line's margin; zoomed out as the games come in (more
+            // show), the pool's lines at most, half each side, so the focused item stays in the middle of them.
+            above = below = Math.Min(CoverflowSideLines(_zoom) + 1.5f, (_poolRows - 1) / 2f);
+        }
+        else if (_horizontal)
         {
             // The carousel's curve draws its far items in, so one more shows each side.
             above = below = _viewHeight * _viewAspect / 2 / rowWorld + (_curved ? 1.5f : 0.5f);

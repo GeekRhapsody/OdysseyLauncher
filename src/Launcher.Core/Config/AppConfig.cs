@@ -258,6 +258,9 @@ public enum SystemsLayout
 
     /// <summary><c>"single"</c>: one card at a time, filling the screen; left and right move to the next.</summary>
     Single,
+
+    /// <summary><c>"coverflow"</c>: one row, the focused card facing out in the middle, the others side on.</summary>
+    Coverflow,
 }
 
 /// <summary>How a system's games are shown (<c>[display] games_layout</c>).</summary>
@@ -274,6 +277,9 @@ public enum GamesLayout
 
     /// <summary><c>"list"</c>: the titles in a list, with the focused game's model beside it.</summary>
     List,
+
+    /// <summary><c>"coverflow"</c>: one row, the focused game facing out in the middle, the others showing their spines.</summary>
+    Coverflow,
 }
 
 /// <summary>A grid's columns and the rows that fit the screen's height; 0 for either is automatic.</summary>
@@ -285,9 +291,9 @@ public readonly record struct GridSize(int Columns, int Rows)
 /// <summary>The names config uses for the layouts.</summary>
 public static class Layouts
 {
-    public static IReadOnlyList<string> SystemsNames { get; } = ["grid", "grid_with_labels", "carousel", "single"];
+    public static IReadOnlyList<string> SystemsNames { get; } = ["grid", "grid_with_labels", "carousel", "single", "coverflow"];
 
-    public static IReadOnlyList<string> GamesNames { get; } = ["grid", "grid_with_labels", "carousel", "list"];
+    public static IReadOnlyList<string> GamesNames { get; } = ["grid", "grid_with_labels", "carousel", "list", "coverflow"];
 
     public static string Name(SystemsLayout layout) => SystemsNames[(int)layout];
 

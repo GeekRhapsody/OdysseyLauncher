@@ -439,7 +439,7 @@ godot --path godot -- --user-dir=<absolute folder> --theme=neon-arcade
 - `--capture=<absolute path>.png --capture-frame=150 --fixed-fps 60` saves a screenshot at that frame and quits.
 - `--no-overlay` hides the text, so you can check the background corners.
 - `--open=settings` (or `power`, `keyboard`, `confirm`, `folder-picker`) opens a menu straight away, to check `[ui.menu]`; the `theme` step in `--nav-script` switches theme with it open.
-- `--layout=single/list` shows a system's card, and a game's model, about half the screen's height (the user can choose these layouts in the settings: Look, Layout), so it's the closest look at your models' detail; `--layout=carousel/carousel` turns the items beside the focused one towards it, and `--layout=grid_with_labels/grid_with_labels` shows each item's title under it, in the list's colours (`[ui.menu]`).
+- `--layout=single/list` shows a system's card, and a game's model, about half the screen's height (the user can choose these layouts in the settings: Look, Layout), so it's the closest look at your models' detail; `--layout=carousel/carousel` turns the items beside the focused one towards it, `--layout=coverflow/coverflow` shows them side on (a game's spine; a model whose `spine` face is wider than high, its top, is stood on end to show it, and a flat one is turned part way), and `--layout=grid_with_labels/grid_with_labels` shows each item's title under it, in the list's colours (`[ui.menu]`).
 
 The console shows the theme's diagnostics as it loads (section 3), and `logs/models.log` in the user folder shows each model's report.
 

@@ -22,8 +22,8 @@ namespace Launcher.App.Screens;
 
 /// <summary>
 /// The screens (A1 Screens): Systems → Games → Launching, and back, with animated transitions between the two
-/// grids (each laid out as settings.toml's <c>[display]</c> says: a grid, a carousel, one system at a time, or a list
-/// of games with the focused one's model beside it), each system's look cross-faded in (A6), focus memory per system, the focused item's title in the
+/// grids (each laid out as settings.toml's <c>[display]</c> says: a grid, a carousel, one system at a time, a list
+/// of games with the focused one's model beside it, or a coverflow), each system's look cross-faded in (A6), focus memory per system, the focused item's title in the
 /// overlay (a system's and a game's details are on their details screens, Y), favourites, rescans, the power menu, launching, and themes (M6):
 /// switching one at run time, per-game models, and
 /// rebinding a game's media when it changes. Library calls run on the thread pool and their results come back
@@ -380,7 +380,7 @@ public sealed partial class Navigator : Node
 
         var grid = _screen == Screen.Systems ? _systemsGrid : _gamesGrid;
 
-        // A page is four rows of a grid, a carousel's width, or the titles a list shows.
+        // A page is four rows of a grid, a carousel's width, a coverflow's side, or the titles a list shows.
         var page = grid == _gamesGrid && _overlay.List.Visible ? _overlay.List.RowsShown : grid.PageStep;
         var moved = command switch
         {

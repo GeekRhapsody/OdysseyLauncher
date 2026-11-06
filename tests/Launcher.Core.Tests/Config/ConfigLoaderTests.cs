@@ -1247,6 +1247,32 @@ public class ConfigLoaderTests
     }
 
     [Fact]
+    public void Coverflow_is_read_for_the_systems_the_games_and_a_system()
+    {
+        var result = Load(
+            settings: """
+                [display]
+                systems_layout = "coverflow"
+                games_layout = "coverflow"
+                """,
+            systems: """
+                [systems.snes]
+                games_layout = "coverflow"
+                """);
+
+        Assert.Empty(result.Diagnostics);
+        var config = result.Config;
+        var display = config.Settings.Display;
+        Assert.Equal(SystemsLayout.Coverflow, display.SystemsLayout);
+        Assert.Equal(GamesLayout.Coverflow, display.GamesLayout);
+        Assert.Equal(GamesLayout.Coverflow, display.GamesLayoutFor(config.FindSystem("snes")));
+        Assert.False(Layouts.IsGrid(SystemsLayout.Coverflow));
+        Assert.False(Layouts.IsGrid(GamesLayout.Coverflow));
+        Assert.Equal("coverflow", Layouts.Name(SystemsLayout.Coverflow));
+        Assert.Equal("coverflow", Layouts.Name(GamesLayout.Coverflow));
+    }
+
+    [Fact]
     public void A_bad_layout_or_size_is_an_error_and_the_default_is_used()
     {
         var result = Load(settings: """

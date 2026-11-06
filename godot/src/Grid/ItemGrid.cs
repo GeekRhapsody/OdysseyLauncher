@@ -86,7 +86,21 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
     private const float ListWidth = 0.34f;
     private const float ListCentre = 0.22f;
 
-    // A big item (carousel, single, list) comes this far towards the camera when focused, in world units, at most.
+    // The coverflow: the focused item's share of the view's height and width at most; the gap between it and the first
+    // item side on, over the items' width; the gap between side boxes, as a share of the view's height (the same on
+    // screen in every system, whatever its boxes), or flat cards' spacing over their width as seen (they overlap, turned only
+    // this far, to face the middle); how far the side items step back, over the items' width; and the depth, over the
+    // width, below which the items count as flat.
+    private const float CoverflowHeight = 0.46f;
+    private const float CoverflowWidth = 0.4f;
+    private const float CoverflowGap = 0.1f;
+    private const float CoverflowSpineGap = 0.035f;
+    private const float CoverflowOverlap = 0.5f;
+    private const float CoverflowFlatTurn = 1.2f;
+    private const float CoverflowBack = 0.25f;
+    private const float CoverflowThin = 0.03f;
+
+    // A big item (carousel, single, list, coverflow) comes this far towards the camera when focused, in world units, at most.
     private const float BigFocusLift = 0.45f;
 
     // A grid with labels (GridLayout.Labels): the room under each row for its items' labels, as a share of the view's
@@ -163,6 +177,17 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
     private GridLayout _layout;
     private bool _horizontal;
     private bool _curved;
+
+    // The coverflow (A1 Grid, "Coverflow"): whether its items are flat cards (turned part way, to face the middle) rather
+    // than boxes (a quarter turn, the spine out), how far they turn side on, the deepest template's depth side on (a
+    // box stood on end shrinks to fit the cell's height), and how far the first side item's middle is from the focused
+    // one's, in model units.
+    private bool _coverflow;
+    private bool _flatSides;
+    private float _sideTurn;
+    private float _sideDepth;
+    private float _coverReach;
+
     private int _count;
     private int _columns = 1;
     private int _poolRows = 1;
@@ -218,6 +243,9 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
     // The theme's motion (A6 Motion): the focused item's sway and the others' bob, as multiples of the launcher's own.
     private float _focusSway = 1;
     private float _idleBob = 1;
+
+    // The bob the materials have: the theme's, or none in a coverflow (its spines stand still, as a shelf's would).
+    private float _shownBob = 1;
 
     // The focused card's video (A6 Card videos): its cell and model, the material showing it, and its own clock for a
     // card without a focused clip.
@@ -405,11 +433,12 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
         return _labels && _cellItem[cell] >= 0;
     }
 
-    /// <summary>How far LB and RB move the focus: four rows of a grid, a carousel's width, or 5 items.</summary>
+    /// <summary>How far LB and RB move the focus: four rows of a grid, a carousel's width, a coverflow's side, or 5 items.</summary>
     public int PageStep => _layout.Shape switch
     {
         GridShape.Grid => _columns * 4,
         GridShape.Carousel => Math.Max(1, (int)(_viewHeight * _viewAspect / (_linePitch * _scale))),
+        GridShape.Coverflow => Math.Max(1, (int)CoverflowSideLines(1)),
         _ => 5,
     };
 
@@ -694,9 +723,9 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
         var material = new ShaderMaterial { Shader = ItemShader };
         material.SetShaderParameter(ShaderParams.GridFade, _gridFade);
         material.SetShaderParameter(ShaderParams.TintCase, _systemCards && template.Tint);
-        if (_idleBob != 1)
+        if (_shownBob != 1)
         {
-            material.SetShaderParameter(ShaderParams.IdleBob, _idleBob);
+            material.SetShaderParameter(ShaderParams.IdleBob, _shownBob);
         }
         material.SetShaderParameter(ShaderParams.SlotState, _stateTexture);
         for (var i = 0; i < ItemTemplate.MaxAuthoredTextures; i++)
@@ -740,15 +769,23 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
     public void SetMotion(ThemeMotion motion)
     {
         _focusSway = motion.FocusSway;
-        if (motion.IdleBob == _idleBob)
+        _idleBob = motion.IdleBob;
+        ShowBob();
+    }
+
+    /// <summary>Gives every material the bob the grid shows: the theme's, or none in a coverflow.</summary>
+    private void ShowBob()
+    {
+        var bob = _coverflow ? 0 : _idleBob;
+        if (bob == _shownBob)
         {
             return;
         }
 
-        _idleBob = motion.IdleBob;
+        _shownBob = bob;
         foreach (var material in _materials)
         {
-            material.SetShaderParameter(ShaderParams.IdleBob, _idleBob);
+            material.SetShaderParameter(ShaderParams.IdleBob, _shownBob);
         }
     }
 
@@ -813,8 +850,10 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
         _labelsVersion++;
         _pitchX = width * PitchXFactor;
         _pitchY = height * (_labels ? LabelledPitchYFactor : PitchYFactor);
-        _horizontal = _layout.Shape is GridShape.Carousel or GridShape.Single;
-        _curved = _layout.Shape == GridShape.Carousel;
+        _horizontal = _layout.Shape is GridShape.Carousel or GridShape.Single or GridShape.Coverflow;
+        _coverflow = _layout.Shape == GridShape.Coverflow;
+        _curved = _layout.Shape == GridShape.Carousel || _coverflow;
+        ShowBob();
         _crossOffset = 0;
         var viewWidth = _viewHeight * _viewAspect;
         float linesShown;
@@ -844,6 +883,9 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
                 _crossOffset = viewWidth * ListCentre;
                 _focusLine = _viewHeight * 0.02f;
                 linesShown = 2;
+                break;
+            case GridShape.Coverflow:
+                linesShown = SizeCoverflow(source, width, viewWidth);
                 break;
             default:
                 // The focused row sits a little above the middle; the overlay's title is above it and its details below.

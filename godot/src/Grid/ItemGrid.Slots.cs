@@ -337,13 +337,13 @@ public sealed partial class ItemGrid
             ? Math.Min(model.Size.Y * _cellFit[cell], _itemHeight) / 2
             : _itemHeight / 2;
 
-    /// <summary>The bound cell's resting transform: fitted, centred in the cell's height, and on a carousel's curve.</summary>
+    /// <summary>The bound cell's resting transform: fitted, centred in the cell's height, and on a carousel's curve or in a coverflow.</summary>
     private Transform3D RestTransform(int cell)
     {
         var origin = FlatOrigin(cell);
         if (_curved)
         {
-            return CurvedTransform(cell, origin);
+            return _coverflow ? CoverflowTransform(cell, origin) : CurvedTransform(cell, origin);
         }
 
         _cellCurve[cell] = 1;
@@ -370,7 +370,88 @@ public sealed partial class ItemGrid
             new Vector3(origin.X, origin.Y + _itemHeight / 2 - HalfHeight(cell) * curve, back));
     }
 
-    /// <summary>A carousel's items take their places on its curve again whenever it scrolls (the focused ones follow in <see cref="UpdateFocus"/>).</summary>
+    /// <summary>
+    /// A coverflow's item, by its places from the middle: within a place of it, it turns side on, moves out to the first
+    /// side place and steps back; further out, the side places are <see cref="_linePitch"/> apart. Side on, a box's
+    /// spine faces the camera: a quarter turn round its vertical, or for a box whose spine is its top (SNES, N64) stood
+    /// on end, the top turned to the camera and rolled to read down, as a side spine does; a flat card turns part way,
+    /// to face the middle. A box turning is wider than side on, so it keeps that clear of the next one out (as wide as
+    /// it grows focused). Side on, an item shrinks to fit the cell's height (a box on end is as tall as it was wide)
+    /// and its side place (a game's own model deeper than the templates). It turns about its middle.
+    /// </summary>
+    private Transform3D CoverflowTransform(int cell, Vector3 origin)
+    {
+        var places = origin.X / _linePitch - _scroll;
+        var away = MathF.Abs(places);
+        var near = Math.Min(away, 1);
+        var turn = near * _sideTurn;
+        var onTop = _cellModel[cell]?.SlotAspect(MediaSlots.Spine) > 1;
+        var rotation = _flatSides ? new Basis(Vector3.Up, -Math.Clamp(places, -1, 1) * _sideTurn)
+            : onTop ? new Basis(Vector3.Back, -turn) * new Basis(Vector3.Right, turn)
+            : new Basis(Vector3.Up, turn);
+        var x = near * _coverReach + Math.Max(away - 1, 0) * _linePitch;
+        if (!_flatSides && away < 1)
+        {
+            var wide = (_cellWidth * MathF.Cos(turn) + _sideDepth * MathF.Sin(turn)) * FocusScale;
+            x = Math.Min(x, _coverReach + near * _linePitch - (_sideDepth + wide) / 2);
+        }
+
+        var size = DrawnSize(cell) * _cellFit[cell];
+        var room = _itemHeight / Math.Max(onTop ? size.X : size.Y, 0.001f);
+        room = _flatSides ? room : Math.Min(room, _sideDepth / Math.Max(size.Z, 0.001f));
+        var curve = 1 - (1 - Math.Min(room, 1)) * near;
+        _cellCurve[cell] = curve;
+        var fit = _cellFit[cell] * curve;
+        var middle = new Vector3(_scroll * _linePitch + MathF.Sign(places) * x, origin.Y + _itemHeight / 2, -CoverflowBack * _cellWidth * near);
+        return new Transform3D(rotation.Scaled(new Vector3(fit, fit, fit)), middle - rotation * new Vector3(0, HalfHeight(cell) * curve, 0));
+    }
+
+    /// <summary>
+    /// A coverflow's scale, the turn and spacing of its side items, and where the first stands (<see cref="CoverflowTransform"/>);
+    /// returns the lines that show. Boxes stand a spine and a gap apart; flat cards (thinner than <see cref="CoverflowThin"/> of
+    /// their width: a quarter turn would hide them) turn part way and overlap. Thin items are spaced out further when
+    /// the pool couldn't hold every line that shows.
+    /// </summary>
+    private float SizeCoverflow(IGridSource source, float width, float viewWidth)
+    {
+        var depth = 0f;
+        for (var t = 0; t < _templates.Count; t++)
+        {
+            var size = _templates[t].Size;
+            var tall = _templates[t].SlotAspect(MediaSlots.Spine) > 1 ? size.X : size.Y;
+            depth = source.UsesTemplate(t) ? Math.Max(depth, size.Z * Math.Min(1, _itemHeight / Math.Max(tall, 0.001f))) : depth;
+        }
+
+        _columns = 1;
+        _scale = Math.Min(_viewHeight * CoverflowHeight / _itemHeight, viewWidth * CoverflowWidth / width);
+        _focusLine = _viewHeight * 0.02f;
+        _flatSides = depth < width * CoverflowThin;
+        _sideTurn = _flatSides ? CoverflowFlatTurn : MathF.PI / 2;
+        _sideDepth = depth;
+        var side = width * MathF.Abs(MathF.Cos(_sideTurn)) + depth * MathF.Sin(_sideTurn);
+        _coverReach = width * (0.5f + CoverflowGap) + side / 2;
+        _linePitch = Math.Max(_flatSides ? side * CoverflowOverlap : depth + _viewHeight * CoverflowSpineGap / _scale, 0.001f);
+
+        // The pool binds the lines that show, plus spare ones (Bind): both sides' and the focused item's, and a line's
+        // margin each side.
+        var room = (_maxCells - 7) / 2f;
+        _linePitch *= Math.Max(1, CoverflowSideLines(1) / room);
+        return 2 * CoverflowSideLines(1) + 3;
+    }
+
+    /// <summary>
+    /// How many of a coverflow's side lines show on each side past its first, at <paramref name="zoom"/>: the view's
+    /// half width where they stand (stepped back, so it's wider), past the first, over their spacing.
+    /// </summary>
+    private float CoverflowSideLines(float zoom)
+    {
+        var scale = _scale * zoom;
+        var back = CoverflowBack * _cellWidth * scale;
+        var half = _viewHeight * _viewAspect / 2 * (_cameraDistance + back) / _cameraDistance;
+        return Math.Max(0, half - _coverReach * scale) / (_linePitch * scale);
+    }
+
+    /// <summary>A carousel's or coverflow's items take their places again whenever it scrolls (the focused ones follow in <see cref="UpdateFocus"/>).</summary>
     private void UpdateCurve()
     {
         if (!_curved || _scroll == _curveScroll)
@@ -386,7 +467,7 @@ public sealed partial class ItemGrid
                 continue;
             }
 
-            _cellBase[cell] = CurvedTransform(cell, FlatOrigin(cell));
+            _cellBase[cell] = RestTransform(cell);
             if (cell != _focusCell && cell != _previousCell)
             {
                 SetCellTransform(cell, _cellBase[cell]);

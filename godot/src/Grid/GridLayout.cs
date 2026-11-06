@@ -16,6 +16,12 @@ public enum GridShape
 
     /// <summary>One column on the right of the screen, an item at a time, scrolling down beside a list of titles.</summary>
     List,
+
+    /// <summary>
+    /// One row, scrolling sideways: the focused item facing out in the middle, the others turned side on (a box shows
+    /// its spine) and packed close either side, so a move turns one round and the other back.
+    /// </summary>
+    Coverflow,
 }
 
 /// <summary>
@@ -28,6 +34,7 @@ public readonly record struct GridLayout(GridShape Shape, int Columns = 0, int R
     {
         SystemsLayout.Carousel => new GridLayout(GridShape.Carousel),
         SystemsLayout.Single => new GridLayout(GridShape.Single),
+        SystemsLayout.Coverflow => new GridLayout(GridShape.Coverflow),
         _ => new GridLayout(GridShape.Grid, display.SystemsGrid.Columns, display.SystemsGrid.Rows, display.SystemsLayout == SystemsLayout.GridWithLabels),
     };
 
@@ -39,6 +46,7 @@ public readonly record struct GridLayout(GridShape Shape, int Columns = 0, int R
         {
             GamesLayout.Carousel => new GridLayout(GridShape.Carousel),
             GamesLayout.List => new GridLayout(GridShape.List),
+            GamesLayout.Coverflow => new GridLayout(GridShape.Coverflow),
             var layout => new GridLayout(GridShape.Grid, size.Columns, size.Rows, layout == GamesLayout.GridWithLabels),
         };
     }
