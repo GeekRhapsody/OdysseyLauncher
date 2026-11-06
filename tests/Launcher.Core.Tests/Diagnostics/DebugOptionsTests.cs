@@ -162,7 +162,11 @@ public class DebugOptionsTests
         Assert.True(coverflow.IsValid, string.Join("; ", coverflow.Errors));
         Assert.Equal(new LayoutOverride(SystemsLayout.Coverflow, null, GamesLayout.Coverflow, null), coverflow.Options.Layout);
 
-        foreach (var bad in (string[])["grid", "list/grid", "grid/single", "grid:4/grid", "grid:10x2/grid", "grid/grid:3x7", "grid:-1x2/grid", "grid/grid/grid"])
+        var showcase = DebugOptions.Parse(["--layout=grid/showcase"]);
+        Assert.True(showcase.IsValid, string.Join("; ", showcase.Errors));
+        Assert.Equal(new LayoutOverride(SystemsLayout.Grid, null, GamesLayout.Showcase, null), showcase.Options.Layout);
+
+        foreach (var bad in (string[])["grid", "list/grid", "showcase/grid", "grid/single", "grid:4/grid", "grid:10x2/grid", "grid/grid:3x7", "grid:-1x2/grid", "grid/grid/grid"])
         {
             var rejected = DebugOptions.Parse([$"--layout={bad}"]);
             Assert.False(rejected.IsValid, bad);

@@ -100,6 +100,18 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
     private const float CoverflowBack = 0.25f;
     private const float CoverflowThin = 0.03f;
 
+    // The showcase's strip: its items' share of the view's height, the fewest that show across, their spacing over their
+    // width, how far they turn the further they are from the middle, the room under it for the controls, as a share of the
+    // view's height (times OverlayScale), how much the focused item grows, and the room made for it either side, over
+    // the items' width.
+    private const float ShowcaseHeight = 0.175f;
+    private const float ShowcaseShown = 9;
+    private const float ShowcasePitchFactor = 1.16f;
+    private const float ShowcaseTurn = 0.2f;
+    private const float ShowcaseBottom = 0.11f;
+    private const float ShowcaseFocusScale = 1.28f;
+    private const float ShowcaseFocusGap = 0.24f;
+
     // A big item (carousel, single, list, coverflow) comes this far towards the camera when focused, in world units, at most.
     private const float BigFocusLift = 0.45f;
 
@@ -177,6 +189,18 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
     private GridLayout _layout;
     private bool _horizontal;
     private bool _curved;
+
+    // A curved row's items (a carousel's and the showcase's): how much smaller, how far turned and how far back they are,
+    // and how far out from the middle, in model units.
+    private float _curveShrink;
+    private float _curveTurn;
+    private float _curveDepth;
+    private float _curveGap;
+
+    // How much a focused item grows, and whether it grows up from its foot rather than about its middle (the showcase:
+    // its strip is at the bottom of the screen).
+    private float _focusScale = FocusScale;
+    private bool _growsUp;
 
     // The coverflow (A1 Grid, "Coverflow"): whether its items are flat cards (turned part way, to face the middle) rather
     // than boxes (a quarter turn, the spine out), how far they turn side on, the deepest template's depth side on (a
@@ -437,7 +461,7 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
     public int PageStep => _layout.Shape switch
     {
         GridShape.Grid => _columns * 4,
-        GridShape.Carousel => Math.Max(1, (int)(_viewHeight * _viewAspect / (_linePitch * _scale))),
+        GridShape.Carousel or GridShape.Showcase => Math.Max(1, (int)(_viewHeight * _viewAspect / (_linePitch * _scale))),
         GridShape.Coverflow => Math.Max(1, (int)CoverflowSideLines(1)),
         _ => 5,
     };
@@ -850,9 +874,11 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
         _labelsVersion++;
         _pitchX = width * PitchXFactor;
         _pitchY = height * (_labels ? LabelledPitchYFactor : PitchYFactor);
-        _horizontal = _layout.Shape is GridShape.Carousel or GridShape.Single or GridShape.Coverflow;
+        _horizontal = _layout.Shape is GridShape.Carousel or GridShape.Single or GridShape.Coverflow or GridShape.Showcase;
         _coverflow = _layout.Shape == GridShape.Coverflow;
-        _curved = _layout.Shape == GridShape.Carousel || _coverflow;
+        _curved = _layout.Shape is GridShape.Carousel or GridShape.Showcase || _coverflow;
+        _growsUp = _layout.Shape == GridShape.Showcase;
+        _focusScale = _growsUp ? ShowcaseFocusScale : FocusScale;
         ShowBob();
         _crossOffset = 0;
         var viewWidth = _viewHeight * _viewAspect;
@@ -865,6 +891,16 @@ public sealed partial class ItemGrid : Node3D, ITextureSink
                 _linePitch = width * CarouselPitchFactor;
                 _scale = Math.Min(_viewHeight / (CarouselRows * _pitchY), viewWidth / (CarouselShown * _linePitch));
                 _focusLine = _viewHeight * 0.02f;
+                (_curveShrink, _curveTurn, _curveDepth, _curveGap) = (CarouselShrink, CarouselTurn, CarouselDepth, 0);
+                linesShown = viewWidth / (_linePitch * _scale) + 2;
+                break;
+            case GridShape.Showcase:
+                // Along the bottom, above the controls; the middle item is set apart by its growth and the room around it.
+                _columns = 1;
+                _linePitch = width * ShowcasePitchFactor;
+                _scale = Math.Min(_viewHeight * ShowcaseHeight / height, viewWidth / (ShowcaseShown * _linePitch));
+                _focusLine = -_viewHeight * (0.5f - (ShowcaseBottom * OverlayScale) - (ShowcaseHeight / 2));
+                (_curveShrink, _curveTurn, _curveDepth, _curveGap) = (0, ShowcaseTurn, 0, width * ShowcaseFocusGap);
                 linesShown = viewWidth / (_linePitch * _scale) + 2;
                 break;
             case GridShape.Single:

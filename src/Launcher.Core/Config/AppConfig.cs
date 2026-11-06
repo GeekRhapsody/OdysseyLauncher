@@ -280,6 +280,9 @@ public enum GamesLayout
 
     /// <summary><c>"coverflow"</c>: one row, the focused game facing out in the middle, the others showing their spines.</summary>
     Coverflow,
+
+    /// <summary><c>"showcase"</c>: a strip of games along the bottom, the focused game's art and details above it.</summary>
+    Showcase,
 }
 
 /// <summary>A grid's columns and the rows that fit the screen's height; 0 for either is automatic.</summary>
@@ -293,7 +296,7 @@ public static class Layouts
 {
     public static IReadOnlyList<string> SystemsNames { get; } = ["grid", "grid_with_labels", "carousel", "single", "coverflow"];
 
-    public static IReadOnlyList<string> GamesNames { get; } = ["grid", "grid_with_labels", "carousel", "list", "coverflow"];
+    public static IReadOnlyList<string> GamesNames { get; } = ["grid", "grid_with_labels", "carousel", "list", "coverflow", "showcase"];
 
     public static string Name(SystemsLayout layout) => SystemsNames[(int)layout];
 

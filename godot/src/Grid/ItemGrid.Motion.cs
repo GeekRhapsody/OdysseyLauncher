@@ -63,7 +63,7 @@ public sealed partial class ItemGrid
     {
         var eased = blend * blend * (3 - 2 * blend);
         var inspected = inspect * inspect * (3 - 2 * inspect);
-        var scale = 1 + (FocusScale - 1) * eased * (1 - inspected);
+        var scale = 1 + (_focusScale - 1) * eased * (1 - inspected);
         var rest = _cellBase[cell].Origin;
         return new Vector3(rest.X, rest.Y + HalfHeight(cell) * _cellCurve[cell] * (1 - scale), rest.Z + _focusLift * eased * (1 - inspected));
     }
@@ -231,7 +231,7 @@ public sealed partial class ItemGrid
             grow = 1 + (factor - 1) * inspected;
         }
 
-        var scale = 1 + (FocusScale - 1) * eased * (1 - inspected);
+        var scale = 1 + (_focusScale - 1) * eased * (1 - inspected);
 
         // Inspected, it faces the camera (only the player turns it): swaying that close, its near edge would leave the view.
         var angle = model?.HasClip(ModelClip.Focused) == true ? 0 : (0.3f + 0.3f * MathF.Sin(time * 1.1f)) * _focusSway * eased * (1 - inspected);
@@ -259,11 +259,14 @@ public sealed partial class ItemGrid
         }
 
         // Coming towards the camera, an item would drift outwards in perspective (off screen at the edge columns), so
-        // it's pulled in to stay where it was on screen; launching, it flies towards the middle.
+        // it's pulled in to stay where it was on screen; launching, it flies towards the middle. One that grows up from
+        // its foot keeps its foot where it was on screen the same way.
         var rootScale = _scale * _zoom;
         var toCamera = Math.Clamp(1 - lift * rootScale / _cameraDistance, 0.2f, 1);
         var x = ((_rootOrigin.X + restOrigin.X * rootScale) * toCamera - _rootOrigin.X) / rootScale;
-        var y = restOrigin.Y + HalfHeight(cell) * _cellCurve[cell] * grow * (1 - scale);
+        var y = _growsUp
+            ? ((_rootOrigin.Y + restOrigin.Y * rootScale) * toCamera - _rootOrigin.Y) / rootScale
+            : restOrigin.Y + HalfHeight(cell) * _cellCurve[cell] * grow * (1 - scale);
         return new Transform3D(basis, new Vector3(x, y, restOrigin.Z + lift) + pivot);
     }
 

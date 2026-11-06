@@ -72,6 +72,18 @@ public static class DetailsFormatter
         return rows;
     }
 
+    /// <summary>The fields of a game's metadata the showcase layout shows under its description. Only those with a value.</summary>
+    public static IReadOnlyList<(string Label, string Value)> ShowcaseFields(GameMetadata? metadata)
+    {
+        var rows = new List<(string, string)>();
+        Add(rows, "Released", ReleaseDate(metadata?.ReleaseDate));
+        Add(rows, "Rating", metadata?.Rating is { } rating ? string.Create(Uk, $"{rating * 5:0.0} / 5") : null);
+        Add(rows, "Genre", metadata?.Genre);
+        Add(rows, "Players", metadata?.Players);
+        Add(rows, "Developer", metadata?.Developer);
+        return rows;
+    }
+
     /// <summary>
     /// Every field the app has for a system, for its details screen (Y): who made it and when, its games and their last
     /// scan (the library's summary), how they launch, where they're found and which files count, how they're shown and

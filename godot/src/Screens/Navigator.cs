@@ -23,7 +23,7 @@ namespace Launcher.App.Screens;
 /// <summary>
 /// The screens (A1 Screens): Systems → Games → Launching, and back, with animated transitions between the two
 /// grids (each laid out as settings.toml's <c>[display]</c> says: a grid, a carousel, one system at a time, a list
-/// of games with the focused one's model beside it, or a coverflow), each system's look cross-faded in (A6), focus memory per system, the focused item's title in the
+/// of games with the focused one's model beside it, a coverflow, or a showcase), each system's look cross-faded in (A6), focus memory per system, the focused item's title in the
 /// overlay (a system's and a game's details are on their details screens, Y), favourites, rescans, the power menu, launching, and themes (M6):
 /// switching one at run time, per-game models, and
 /// rebinding a game's media when it changes. Library calls run on the thread pool and their results come back
@@ -314,7 +314,7 @@ public sealed partial class Navigator : Node
         }
 
         // An inspected game stands in front of the titles (and their highlight) and the labels, not behind them.
-        _overlay.TitlesBehind = (_overlay.List.Visible || _overlay.GameLabels.Visible) && _gamesGrid.InspectShown;
+        _overlay.TitlesBehind = (_overlay.List.Visible || _overlay.GameLabels.Visible || _overlay.Showcase.Visible) && _gamesGrid.InspectShown;
 
         if (_titlesDue >= 0 && _clock >= _titlesDue)
         {
@@ -560,6 +560,8 @@ public sealed partial class Navigator : Node
 
         var library = _services.Library;
         var token = _shutdown.Token;
+        var showcase = _overlay.Showcase.Visible;
+        var artDecoder = showcase && !_overlay.Showcase.HasArt(key) ? ShowcaseDecoder() : null;
         _ = Task.Run(async () =>
         {
             try
@@ -572,14 +574,24 @@ public sealed partial class Navigator : Node
 
                 // A game's metadata is on its details screen (Y); the overlay keeps its title and whether it's a favourite.
                 var details = new OverlayDetails(key, game.IsFavourite);
+                var shown = showcase ? new ShowcaseDetails(key, game.Metadata?.Description ?? string.Empty, DetailsFormatter.ShowcaseFields(game.Metadata)) : null;
                 _queue.Post(() =>
                 {
                     if (_focusKey == key && _screen is Screen.Games or Screen.Launching)
                     {
                         _focusedGame = game;
                         _overlay.ShowDetails(details, _focusKey);
+                        if (shown is not null)
+                        {
+                            _overlay.Showcase.ShowDetails(shown, _focusKey);
+                        }
                     }
                 });
+
+                if (artDecoder is not null)
+                {
+                    await LoadShowcaseArtAsync(key, artDecoder, token).ConfigureAwait(false);
+                }
             }
             catch (OperationCanceledException)
             {
@@ -810,6 +822,7 @@ public sealed partial class Navigator : Node
         _games = null;
         _entering = null;
         _overlay.List.Bind(null, false);
+        _overlay.ShowShowcase(false);
         _perGameLoading.Clear();
         _gamesAnimation.Start(Shown, GamesHidden, TransitionSeconds);
         _systemsAnimation.Start(SystemsHidden, Shown, TransitionSeconds);
@@ -826,6 +839,7 @@ public sealed partial class Navigator : Node
         _gamesGrid.Layout = layout;
         _gamesGrid.Bind(source, focus);
         _overlay.List.Bind(layout.Shape == GridShape.List ? source : null, source.SystemIds.Count > 1 || source.Id is FavouritesId or RecentlyPlayedId or AllGamesId);
+        _overlay.ShowShowcase(layout.Shape == GridShape.Showcase);
         DebugHooks.Layout = $"{SystemsLayout()}/{layout}";
     }
 
@@ -933,6 +947,7 @@ public sealed partial class Navigator : Node
             return;
         }
 
+        RefreshShowcaseArt(games);
         var library = _services.Library;
         var token = _shutdown.Token;
         var kinds = source.Kinds;
@@ -1131,6 +1146,7 @@ public sealed partial class Navigator : Node
                         if (game == _gamesGrid.FocusIndex && _screen == Screen.Games)
                         {
                             _overlay.ShowHeading(source.Row(game).Title, source.SystemName(game));
+                            _detailsDue = _clock;
                         }
                     }
 

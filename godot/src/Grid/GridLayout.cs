@@ -22,6 +22,12 @@ public enum GridShape
     /// its spine) and packed close either side, so a move turns one round and the other back.
     /// </summary>
     Coverflow,
+
+    /// <summary>
+    /// One row along the bottom of the screen, scrolling sideways, the focused item in the middle and a little larger; the
+    /// focused game's art and details fill the screen above it (<see cref="Screens.ShowcasePanel"/>).
+    /// </summary>
+    Showcase,
 }
 
 /// <summary>
@@ -47,6 +53,7 @@ public readonly record struct GridLayout(GridShape Shape, int Columns = 0, int R
             GamesLayout.Carousel => new GridLayout(GridShape.Carousel),
             GamesLayout.List => new GridLayout(GridShape.List),
             GamesLayout.Coverflow => new GridLayout(GridShape.Coverflow),
+            GamesLayout.Showcase => new GridLayout(GridShape.Showcase),
             var layout => new GridLayout(GridShape.Grid, size.Columns, size.Rows, layout == GamesLayout.GridWithLabels),
         };
     }

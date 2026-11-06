@@ -1273,6 +1273,29 @@ public class ConfigLoaderTests
     }
 
     [Fact]
+    public void Showcase_is_a_layout_for_the_games_and_not_for_the_systems()
+    {
+        var result = Load(
+            settings: """
+                [display]
+                games_layout = "showcase"
+                """,
+            systems: """
+                [systems.snes]
+                games_layout = "showcase"
+                """);
+
+        Assert.Empty(result.Diagnostics);
+        var config = result.Config;
+        var display = config.Settings.Display;
+        Assert.Equal(GamesLayout.Showcase, display.GamesLayout);
+        Assert.Equal(GamesLayout.Showcase, display.GamesLayoutFor(config.FindSystem("snes")));
+        Assert.False(Layouts.IsGrid(GamesLayout.Showcase));
+        Assert.Equal("showcase", Layouts.Name(GamesLayout.Showcase));
+        Assert.False(Layouts.TryParse("showcase", out SystemsLayout _));
+    }
+
+    [Fact]
     public void A_bad_layout_or_size_is_an_error_and_the_default_is_used()
     {
         var result = Load(settings: """

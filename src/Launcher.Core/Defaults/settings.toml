@@ -55,8 +55,9 @@ systems_layout = "grid"
 systems_columns = 0
 systems_rows = 0
 # How a system's games are shown: "grid", "grid_with_labels" (the grid, each game's title under it), "carousel",
-# "list" (the titles, with the focused game's model beside them) or "coverflow" (one row, the focused game facing you
-# in the middle, the others showing their spines; turning to face you as they're focused).
+# "list" (the titles, with the focused game's model beside them), "coverflow" (one row, the focused game facing you
+# in the middle, the others showing their spines; turning to face you as they're focused) or "showcase" (a strip of
+# games along the bottom, the focused one in the middle, with its logo, details and screenshot above, over its hero art).
 # A system can have its own: games_layout in systems.toml.
 games_layout = "grid"
 # The games grid's columns and rows, as above. A system can have its own: games_columns and games_rows in systems.toml.

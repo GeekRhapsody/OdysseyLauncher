@@ -360,14 +360,14 @@ public sealed partial class ItemGrid
     {
         var places = origin.X / _linePitch - _scroll;
         var away = MathF.Abs(places);
-        var curve = 1 - CarouselShrink * Math.Min(away, 1);
+        var curve = 1 - _curveShrink * Math.Min(away, 1);
         _cellCurve[cell] = curve;
         var fit = _cellFit[cell] * curve;
-        var turn = -Math.Clamp(places, -1.5f, 1.5f) * CarouselTurn;
-        var back = -CarouselDepth * Math.Min(away, 3) * _itemHeight;
+        var turn = -Math.Clamp(places, -1.5f, 1.5f) * _curveTurn;
+        var back = -_curveDepth * Math.Min(away, 3) * _itemHeight;
         return new Transform3D(
             new Basis(Vector3.Up, turn).Scaled(new Vector3(fit, fit, fit)),
-            new Vector3(origin.X, origin.Y + _itemHeight / 2 - HalfHeight(cell) * curve, back));
+            new Vector3(origin.X + Math.Clamp(places, -1, 1) * _curveGap, origin.Y + _itemHeight / 2 - HalfHeight(cell) * curve, back));
     }
 
     /// <summary>

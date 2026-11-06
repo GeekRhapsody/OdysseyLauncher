@@ -157,6 +157,12 @@ public sealed partial class Navigator
             _overlay.List.Modulate = new Color(1, 1, 1, 1 - _gamesGrid.Fade);
         }
 
+        // So does the showcase, and its hero art.
+        if (_overlay.Showcase.Visible)
+        {
+            _overlay.Showcase.FadeWithGrid(1 - _gamesGrid.Fade);
+        }
+
         // The overlay dips while a transition swaps its text.
         var t = Math.Max(_systemsAnimation.Progress, _gamesAnimation.Progress);
         _overlay.Opacity = _systemsAnimation.Active || _gamesAnimation.Active ? Math.Abs(2 * t - 1) * 0.7f + 0.3f : 1;

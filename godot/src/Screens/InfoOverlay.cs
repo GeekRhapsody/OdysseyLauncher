@@ -28,7 +28,9 @@ public sealed partial class InfoOverlay : CanvasLayer
     private Control _behindRoot = null!;
     private int _listIndex;
     private int _gameLabelsIndex;
+    private int _showcaseIndex;
     private bool _titlesBehind;
+    private TextureRect _bottomScrim = null!;
     private Label _title = null!;
     private Label _subtitle = null!;
     private Label _favourite = null!;
@@ -46,6 +48,9 @@ public sealed partial class InfoOverlay : CanvasLayer
     /// <summary>The games' titles, shown in the list layout (left), with the focused game's model beside them.</summary>
     public TitleList List { get; } = new();
 
+    /// <summary>The focused game's art and details, above the showcase layout's strip of games.</summary>
+    public ShowcasePanel Showcase { get; } = new();
+
     /// <summary>The systems' names under their cards, in the grid with labels.</summary>
     public GridLabels SystemLabels { get; } = new("SystemLabels");
 
@@ -53,7 +58,7 @@ public sealed partial class InfoOverlay : CanvasLayer
     public GridLabels GameLabels { get; } = new("GameLabels");
 
     /// <summary>
-    /// Main thread: whether the games' titles (the list of titles, and the labels under the games) are drawn behind
+    /// Main thread: whether the games' titles (the list of titles, the labels under the games, the showcase's text) are drawn behind
     /// the 3D, on a background canvas layer (<see cref="LookStage.BackgroundLayer"/>), so an inspected game stands in
     /// front of them; otherwise they're with the rest of the overlay's text, in front. Behind, they're drawn through the
     /// 3D's buffer, so they're a little softer when the 3D is rendered below the window's resolution. Moves them only
@@ -72,10 +77,12 @@ public sealed partial class InfoOverlay : CanvasLayer
             _titlesBehind = value;
             List.GetParent().RemoveChild(List);
             GameLabels.GetParent().RemoveChild(GameLabels);
+            Showcase.GetParent().RemoveChild(Showcase);
             if (value)
             {
                 _behindRoot.AddChild(GameLabels);
                 _behindRoot.AddChild(List);
+                _behindRoot.AddChild(Showcase);
             }
             else
             {
@@ -84,6 +91,8 @@ public sealed partial class InfoOverlay : CanvasLayer
                 _root.MoveChild(GameLabels, _gameLabelsIndex);
                 _root.AddChild(List);
                 _root.MoveChild(List, _listIndex);
+                _root.AddChild(Showcase);
+                _root.MoveChild(Showcase, _showcaseIndex);
             }
         }
     }
@@ -120,16 +129,20 @@ public sealed partial class InfoOverlay : CanvasLayer
         _root.AddChild(GameLabels);
         _gameLabelsIndex = GameLabels.GetIndex();
         _root.AddChild(Scrim(top: true));
-        _root.AddChild(Scrim(top: false));
+        _bottomScrim = Scrim(top: false);
+        _root.AddChild(_bottomScrim);
 
         // The games' titles for the list layout, under the heading and the other text. While a game is inspected they go
         // behind the 3D (TitlesBehind), with the games' labels, on a layer that's shown and hidden with this one.
         _root.AddChild(List);
         _listIndex = List.GetIndex();
+        _root.AddChild(Showcase);
+        _showcaseIndex = Showcase.GetIndex();
         _behind = new CanvasLayer { Layer = LookStage.BackgroundLayer, Name = "OverlayBehind" };
         _behind.Visible = Visible;
         _behindRoot = new Control { MouseFilter = Control.MouseFilterEnum.Ignore };
         _behindRoot.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        _behindRoot.AddChild(Showcase.Backdrop);
         _behind.AddChild(_behindRoot);
         AddChild(_behind);
         VisibilityChanged += () => _behind.Visible = Visible;
@@ -215,6 +228,28 @@ public sealed partial class InfoOverlay : CanvasLayer
     {
         _title.Text = title;
         _subtitle.Text = subtitle;
+        if (Showcase.Visible)
+        {
+            Showcase.Focus(title);
+        }
+    }
+
+    /// <summary>
+    /// Main thread: shows or hides the showcase layout's panel. Its logo, or the title in the logo's place, stands for the
+    /// heading's title, and its strip of games stands where the bottom scrim would darken it.
+    /// </summary>
+    public void ShowShowcase(bool shown)
+    {
+        _title.Visible = !shown;
+        _bottomScrim.Visible = !shown;
+        if (shown)
+        {
+            Showcase.Open();
+        }
+        else
+        {
+            Showcase.Close();
+        }
     }
 
     /// <summary>The details belong to the item keyed <paramref name="key"/>; they're dropped if focus has moved on.</summary>
@@ -259,6 +294,7 @@ public sealed partial class InfoOverlay : CanvasLayer
         _hints.Settings.FontColor = UiStyle.Colour(_palette.Hint);
         _status.LabelSettings.ShadowColor = glow;
         List.Use(_palette);
+        Showcase.Use(_palette);
         SystemLabels.Use(_palette);
         GameLabels.Use(_palette);
     }

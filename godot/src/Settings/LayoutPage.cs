@@ -9,7 +9,7 @@ namespace Launcher.App.Settings;
 /// <summary>
 /// How the systems and the games are shown (<c>[display]</c> in settings.toml): the systems as a grid, a grid with
 /// labels, a carousel, one at a time or a coverflow; the games as a grid, a grid with labels, a carousel, a list with
-/// the focused game's model beside it or a coverflow; each grid's columns and rows (automatic, or a number); and the order of each (what they're sorted by, and which way). A changes a row
+/// the focused game's model beside it, a coverflow or a showcase; each grid's columns and rows (automatic, or a number); and the order of each (what they're sorted by, and which way). A changes a row
 /// through a list; left and right step through its values. Each change is saved at once, and the grid behind shows
 /// it. A system's own games view, grid size and order are on its page (X on it).
 /// </summary>
@@ -137,6 +137,7 @@ public sealed partial class LayoutPage : ListPanel
         GamesLayout.Carousel => "Carousel",
         GamesLayout.List => "List",
         GamesLayout.Coverflow => "Coverflow",
+        GamesLayout.Showcase => "Showcase",
         _ => "Grid",
     };
 
@@ -146,6 +147,7 @@ public sealed partial class LayoutPage : ListPanel
         GamesLayout.Carousel => "One row, the focused game in the middle",
         GamesLayout.List => "The titles in a list, the focused game's model beside it",
         GamesLayout.Coverflow => "One row of spines, the focused game turned to face you",
+        GamesLayout.Showcase => "A strip of games, the focused game's art and details above it",
         _ => "Rows and columns of games",
     };
 
