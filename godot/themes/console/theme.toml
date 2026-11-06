@@ -559,7 +559,7 @@ model = "models/systems/supervision.glb"       # built by tools/console-models/s
 model = "models/systems/ps2.glb"                # built by tools/console-models/ps2.py: the black launch model, turned to a three-quarter view; its focused clip slides the tray out, drops a DVD on it, and later ejects it
 
 [systems.ps3]
-model = "models/systems/ps3.glb"               # built by tools/console-models/ps3.py: the original PlayStation 3 and its DualShock 3; its focused clip slides a Blu-ray into the slot, plays on the sticks and steers by tilting the pad, then ejects the disc
+model = "models/systems/ps3.glb"               # built by tools/console-models/ps3.py: the original PlayStation 3; its focused clip slides a Blu-ray into the slot, the power light turning green, then ejects the disc
 
 [systems.ps4]
 model = "models/systems/ps4.glb"               # built by tools/console-models/ps4.py: the first PlayStation 4 and its DualShock 4; its focused clip slides a disc into the slit, lights the light bar blue and plays on the controller, then ejects the disc
