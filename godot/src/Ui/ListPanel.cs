@@ -24,6 +24,7 @@ public abstract partial class ListPanel : UiPanel
     private Control? _scrollTarget;
     private int _scrollFrom;
     private ulong _scrollFromFrame = ulong.MaxValue;
+    private int _rebuildScroll;
 
     protected ListPanel(string title, Vector2? size = null, bool dimBelow = false)
         : base(title, size ?? PageSize, PanelPlacement.Centre, dimBelow)
@@ -174,6 +175,7 @@ public abstract partial class ListPanel : UiPanel
     protected void ClearRows(out int focusedIndex)
     {
         focusedIndex = -1;
+        _rebuildScroll = _scroll.ScrollVertical;
         var owner = GetViewport()?.GuiGetFocusOwner();
         var rows = new List<SettingRow>();
         CollectRows(Rows, rows);
@@ -197,9 +199,8 @@ public abstract partial class ListPanel : UiPanel
     /// <summary>Focuses the <paramref name="index"/>th row (clamped), after <see cref="ClearRows"/> and a rebuild.</summary>
     protected void FocusRow(int index)
     {
-        if (index < 0 || Layer?.Top != this)
+        if (index < 0)
         {
-            // A page rebuilt under another panel gets its focus back from FocusDefault when it's on top again.
             return;
         }
 
@@ -207,22 +208,36 @@ public abstract partial class ListPanel : UiPanel
         CollectRows(Rows, rows);
         if (rows.Count > 0)
         {
-            var row = rows[Math.Min(index, rows.Count - 1)];
-            row.GrabFocus();
-            ScrollToLater(row);
+            FocusRebuilt(rows[Math.Min(index, rows.Count - 1)]);
         }
     }
 
     /// <summary>
-    /// Scrolls <paramref name="row"/> into view once it's laid out: rows added this frame have no place yet, so following
-    /// the focus at once would scroll a rebuilt page to its top, away from the row.
+    /// Focuses <paramref name="control"/> after <see cref="ClearRows"/> and a rebuild, the list staying where it was
+    /// unless the control would be out of view (2026-11-06): moving or turning on a region in the middle of the list
+    /// mustn't jump it. Controls added this frame have no place yet, so Godot's follow and ours would scroll to the
+    /// top: the scroll is put back and the control scrolled to once it's laid out.
     /// </summary>
-    private async void ScrollToLater(Control row)
+    protected void FocusRebuilt(Control control)
+    {
+        if (Layer?.Top != this)
+        {
+            // A page rebuilt under another panel gets its focus back from FocusDefault when it's on top again.
+            return;
+        }
+
+        control.GrabFocus();
+        _scroll.ScrollVertical = _rebuildScroll;
+        _scrollTarget = null;
+        ScrollToLater(control);
+    }
+
+    private async void ScrollToLater(Control control)
     {
         await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
-        if (IsInstanceValid(row) && row.IsInsideTree() && IsInstanceValid(_scroll) && Rows.IsAncestorOf(row))
+        if (IsInstanceValid(control) && control.IsInsideTree() && IsInstanceValid(_scroll) && Rows.IsAncestorOf(control))
         {
-            ScrollTo(row, _scroll.ScrollVertical);
+            ScrollTo(control, _scroll.ScrollVertical);
         }
     }
 

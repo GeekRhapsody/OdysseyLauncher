@@ -20,6 +20,7 @@ it releases, and the Release workflow puts it on the release page (tools/release
 
 ### Fixed
 
+- **The ↑ and ↓ buttons on the Regions and Fallbacks pages work with a controller**: press right to reach them, then A to move a region or provider earlier or later. The list no longer jumps to the top when you move one or turn it on or off: it only scrolls if the row would go out of view.
 - **No more game card passing through the Nintendo DS and 3DS** in the Console theme: when you focus either, it switches on and the stylus comes out to tap TOUCH TO START.
 
 ## 0.24.0 (2026-11-05)
