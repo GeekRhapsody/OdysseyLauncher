@@ -20,6 +20,7 @@ it releases, and the Release workflow puts it on the release page (tools/release
 
 - **Larger controls along the bottom of the screen**: their buttons and words are a little bigger, to read more easily on a small screen such as the Steam Deck's.
 - **The Console theme's PlayStation 3 looks like the original one**: its top curves from front to back as the real one's does, with the chrome strip along its front edge, the drive's chrome face with its slot, the flap, the vents in its end and PLAYSTATION 3 along its top. It no longer has a controller beside it.
+- **The Console theme's PICO-8 card is PICO-8's logo, built from coloured cubes**: the sparkle of eight colours round a white cross, which turns round while it's focused. It replaces the cartridge.
 
 ### Fixed
 

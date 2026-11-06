@@ -357,7 +357,7 @@ model = "models/systems/flash.glb"             # built by tools/console-models/f
 video = "videos/flash.mp4"                    # drawn by tools/console-models/flash_video.py: the screen through the clip (the preloader, Odyssey's title, the game, the right-click menu, the page loading again), played on the glass's video material
 
 [systems.pico8]
-model = "models/systems/pico8.glb"             # built by tools/console-models/pico8.py: PICO-8 has no hardware, so its cartridge made solid, its label a screen; its focused clip hops it round once and boots its label into a game
+model = "models/systems/pico8.glb"             # built by tools/console-models/pico8.py: PICO-8 has no hardware, so the sparkle of its logo in voxels; its focused clip turns it steadily round
 
 [systems.scummvm]
 model = "models/systems/scummvm.glb"           # built by tools/console-models/scummvm.py: ScummVM has no hardware, so the green S of its icon, made solid; its focused clip jumps it about: high with a spin, a hop each way, and back in a somersault

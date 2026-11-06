@@ -2,7 +2,7 @@
 laptop, open, its screen showing a made-up desktop of shortcuts.
 
 Built in Blender (desktop_layout.py has the measurements). Desktop Apps is the shortcuts on the user's desktop, so it
-has no hardware of its own: the card is a laptop, as Flash's is a monitor and PICO-8's its cartridge. The base is its
+has no hardware of its own: the card is a laptop, as Flash's is a monitor. The base is its
 rounded slab with the keyboard's well and the touchpad sunk into it, its top printed; the lid is built upright and
 turned back on its hinge, the bezel round the screen. The printing is one texture (desktop_print.py's).
 
