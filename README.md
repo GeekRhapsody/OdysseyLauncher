@@ -6,7 +6,7 @@ Every system and every game is a 3D model: consoles, logo cards, and games in th
 
 ![Browsing the systems, entering the Mega Drive and moving through its games](docs/readme/navigation.webp)
 
-Odyssey Launcher runs on Windows and Linux. **Performance is the headline feature:** it starts fast, stays smooth while you scroll through thousands of games, and keeps its memory use low.
+Odyssey Launcher runs on Windows and Linux, and performance is its headline feature.
 
 ## Contents
 
@@ -23,62 +23,61 @@ Odyssey Launcher runs on Windows and Linux. **Performance is the headline featur
 
 ### A 3D library
 
-- **Systems, then games, then play**, flying in and out of depth over a gradient or wallpaper.
-- **Real boxes for real games:** Mega Drive clamshells, SNES and N64 boxes, jewel cases, PS2, PSP, DVD and Switch cases, and arcade cabinets, each wrapped in its front, back, spine and label.
-- **Animated items:** the focused item lifts and sways, and many of the Console theme's machines play a made-up game when focused.
-- **Pick it up and turn it round:** bring a game up close and turn it to read the back or the spine.
-- **Seven layouts:** a grid, a grid with names, a carousel, one at a time, a list, a **coverflow** of spines, and a **showcase** of the focused game's art and details above a strip of boxes. Set one for everything, or per system.
-- **Favourites, Recently played and All games** at the start of the systems grid.
+- Systems and games fly in and out of depth over a gradient or wallpaper as you go from one to the next.
+- Games come in their real boxes: Mega Drive clamshells, SNES and N64 boxes, jewel cases, PS2, PSP, DVD and Switch cases, and arcade cabinets, each wrapped in its front, back, spine and label.
+- The focused item lifts and sways, and many of the Console theme's machines play a made-up game when focused.
+- Bring a game up close and turn it to read the back or the spine.
+- Choose from seven layouts: a grid, a grid with names, a carousel, one at a time, a list, a coverflow of spines, and a showcase of the focused game's art and details above a strip of boxes. Set one for everything, or per system.
+- Favourites, Recently played and All games sit at the start of the systems grid.
 
 ![Inspecting a game and turning it with the right stick](docs/readme/inspect.webp)
 
 ### Your collection
 
-- **Multi-disc games** and PS3, PS4 and PS5 game folders show as one game.
-- **Clean titles** from No-Intro and Redump names, sorted naturally.
-- **Sorting:** systems by name, maker or year; games by title, release date, last played, time played or date added.
-- **Play history:** play count, play time and last played.
-- **Import from ES-DE, RetroBat and Batocera** gamelists, without overwriting your own edits.
-- **Network drives** work well, and an unplugged drive never loses your favourites or history.
+- Multi-disc games, and PS3, PS4 and PS5 game folders, show as one game.
+- Titles are cleaned up from No-Intro and Redump names and sorted naturally.
+- Sort systems by name, maker or year, and games by title, release date, last played, time played or date added.
+- The launcher keeps each game's play count, play time and last played date.
+- Import ES-DE, RetroBat and Batocera gamelists without overwriting your own edits.
+- Network drives work well, and unplugging one never loses your favourites or history.
 
 ### Scraping
 
-- **Five providers:** ScreenScraper, LaunchBox's Games DB, IGDB, SteamGridDB and Steam, in the order you choose.
-- **Works out of the box** with ScreenScraper and LaunchBox; add your own accounts for more.
-- **Every kind of media:** covers, backs, spines, labels, screenshots, logos, fan art, videos and manuals.
-- **Choose the match yourself** when one is wrong, alternative art included.
-- **Your own art and edits always win.**
+- Five providers, in the order you choose: ScreenScraper, LaunchBox's Games DB, IGDB, SteamGridDB and Steam.
+- ScreenScraper and LaunchBox work out of the box; add your own accounts for more.
+- Scrapes covers, backs, spines, labels, screenshots, logos, fan art, videos and manuals.
+- When a match is wrong, choose the right one yourself, alternative art included.
+- Your own art and edits always win.
 
 ### Details and media
 
-- **Game details:** description, release date, genre, developer, players, rating and play history.
-- **Images, videos and manuals:** view images full screen, play videos with sound, read manuals page by page.
-- **System details:** the system's model, ready to turn, beside its history and settings.
+- A game's details show its description, release date, genre, developer, players, rating and play history.
+- View images full screen, play videos with sound and read manuals page by page.
+- A system's details show its model, ready to turn, beside its history and settings.
 
 ### Launching
 
-- **Emulator profiles** for RetroArch cores, standalone emulators, and games that are their own program or shortcut.
-- **Per-game emulators** when one game needs another.
-- **Steam games** count their play time too.
-- **Clean hand-off:** the launcher steps aside while you play and takes the foreground back when you quit.
+- Emulator profiles for RetroArch cores, standalone emulators, and games that are their own program or shortcut.
+- Give a single game a different emulator when it needs one.
+- Steam games count their play time too.
+- The launcher steps aside while you play and takes the foreground back when you quit.
 
 ### Made for the sofa
 
-- **Controller-driven everything:** settings, themes, scraping and updates, with an on-screen keyboard and file pickers.
-- **Button hints for your controller:** the controls along the bottom show Xbox, PlayStation, Switch, GameCube, Steam Deck or Steam Controller buttons, or your keyboard's keys, following whatever you pressed last. You can also fix one kind in the settings.
-- **UI size:** small for a desk, large for a handheld or a television across the room.
-- **Power menu:** restart, shut down, sleep or quit.
-- **Status indicators:** clock, battery and network.
-- The keyboard works everywhere, and the mouse in the menus.
+- Everything works with a controller, including settings, themes, scraping and updates, with an on-screen keyboard and file pickers.
+- The controls along the bottom show Xbox, PlayStation, Switch, GameCube, Steam Deck or Steam Controller buttons, or your keyboard's keys, following whatever you pressed last. You can also fix one kind in the settings.
+- Set the UI size small for a desk, or large for a handheld or a television across the room.
+- A power menu restarts, shuts down, sleeps or quits.
+- Status indicators show the clock, battery and network.
+- The keyboard works everywhere too, and the mouse in the menus.
 
-### Built for speed
+### Performance
 
-- Aims to be ready within a second, even with 10,000 games.
-- Aims to stay locked to your display's refresh rate while scrolling.
-- Covers stream in as you scroll, without stutter.
-- The baseline is a Steam Deck, handheld at 1280×800 or docked to 4K.
+The launcher aims to be ready within a second, even with 10,000 games, and to stay locked to your display's refresh rate while you scroll. Covers stream in as you scroll without stutter, and memory use stays low. The baseline is a Steam Deck, handheld at 1280×800 or docked to 4K.
 
 ## Screenshots
+
+The games in these screenshots are made up: their names, art and boxes were created for this README.
 
 ### Themes
 
@@ -168,11 +167,11 @@ To make a theme, see the guide for theme authors, [docs/THEMING.md](docs/THEMING
 
 ### Slab theme logos
 
-The **Slab** theme's system logos come from [**canvas-es-de**](https://github.com/Siddy212/canvas-es-de) by [Siddy212](https://github.com/Siddy212), which credits its original artwork and layouts to fagnerpc. They're used under [CC BY-NC-SA 2.0](https://creativecommons.org/licenses/by-nc-sa/2.0/). **Changes:** cropped, scaled, converted to WebP and some renamed; the PlayStation 5's image was made for Odyssey Launcher in the same layout. The adapted logos are shared under the same licence.
+The Slab theme's system logos come from [canvas-es-de](https://github.com/Siddy212/canvas-es-de) by [Siddy212](https://github.com/Siddy212), which credits its original artwork and layouts to fagnerpc. They're used under [CC BY-NC-SA 2.0](https://creativecommons.org/licenses/by-nc-sa/2.0/). Changes: cropped, scaled, converted to WebP and some renamed; the PlayStation 5's image was made for Odyssey Launcher in the same layout. The adapted logos are shared under the same licence.
 
 ### Classic View theme logos
 
-The **Classic View** theme's system logos come from [**es-theme-carbon**](https://github.com/fabricecaruso/es-theme-carbon), Batocera's default theme, by Rookervik (based on simple by Nils Bonenberger), under Creative Commons Attribution-NonCommercial-ShareAlike (its readme names version 2.0 in its heading and 4.0 in its licence text). **Changes:** rendered from SVG, cropped, scaled, converted to WebP and some renamed. The adapted logos are shared under the same licence.
+The Classic View theme's system logos come from [es-theme-carbon](https://github.com/fabricecaruso/es-theme-carbon), Batocera's default theme, by Rookervik (based on simple by Nils Bonenberger), under Creative Commons Attribution-NonCommercial-ShareAlike (its readme names version 2.0 in its heading and 4.0 in its licence text). Changes: rendered from SVG, cropped, scaled, converted to WebP and some renamed. The adapted logos are shared under the same licence.
 
 ### Also
 
@@ -182,8 +181,6 @@ The **Classic View** theme's system logos come from [**es-theme-carbon**](https:
 - [FFmpeg](https://ffmpeg.org) (LGPL 2.1 or later) and [PDFium](https://pdfium.googlesource.com/pdfium/) (BSD 3-clause and Apache 2.0, built by [pdfium-binaries](https://github.com/bblanchon/pdfium-binaries)) for videos and manuals in the Linux AppImage, unmodified; the AppImage carries their licences and source details.
 - [LibGit2Sharp](https://github.com/libgit2/libgit2sharp) (MIT) and [libgit2](https://libgit2.org) (GPLv2 with a linking exception) for downloading themes.
 - [ScreenScraper](https://www.screenscraper.fr), [LaunchBox's Games DB](https://gamesdb.launchbox-app.com), [IGDB](https://www.igdb.com), [SteamGridDB](https://www.steamgriddb.com) and Steam for game metadata and art.
-
-The games in these screenshots are made up: their names, art and boxes were created for this README.
 
 ## Licence
 
