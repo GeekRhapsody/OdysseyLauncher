@@ -10,7 +10,6 @@ numpy, scipy):
     python tools/console-models/devices_print.py <card> artifacts/made-up-games <out folder>
 """
 
-import math
 import os
 import random
 import sys
@@ -22,7 +21,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import devices_layout as L  # noqa: E402
 from arcade_print import Game, font, lettered, painting  # noqa: E402
-from retro_pc_print import mix, rgb, shade  # noqa: E402
+from retro_pc_print import mix, rgb  # noqa: E402
 
 
 def palette_image(colours):
@@ -249,43 +248,6 @@ def zmachine(atlas, made_up):
         put(atlas, "zmachine", name, screen)
 
 
-# ---- Steam Deck ------------------------------------------------------------------------------------------------------
-
-def steam(atlas, made_up):
-    games = ["Springheel Sam", "Stormfist", "Kaleidrop", "Deep Fathom", "Ghoulish Gus", "Redline Riviera"]
-    covers = [Image.open(Path(made_up) / "library" / "media" / "megadrive" / "covers" / f"{g} (Europe).jpg")
-              .convert("RGB") for g in games]
-    w, h = 960, 600
-    library = Image.new("RGB", (w, h))
-    d = ImageDraw.Draw(library)
-    for y in range(h):
-        d.line([(0, y), (w, y)], fill=mix((30, 36, 52), (12, 14, 20), y / h))
-    d.text((40, 40), "Library", font=font("segoeuib.ttf" if os.path.exists("C:/Windows/Fonts/segoeuib.ttf")
-                                          else "arialbd.ttf", 40), fill=(240, 240, 240), anchor="lm")
-    d.text((920, 40), "10:41", font=font("arialbd.ttf", 30), fill=(220, 220, 220), anchor="rm")
-    for k, cover in enumerate(covers[:5]):
-        cw, ch = (230, 320) if k == 0 else (160, 224)
-        x = 40 if k == 0 else 300 + (k - 1) * 170
-        y = 110 if k == 0 else 150
-        library.paste(ImageOps.fit(cover, (cw, ch), Image.LANCZOS), (x, y))
-        if k == 0:
-            d.rectangle([x - 5, y - 5, x + cw + 4, y + ch + 4], outline=(255, 255, 255), width=5)
-    d.text((40, 470), games[0], font=font("arialbd.ttf", 34), fill=(250, 250, 250), anchor="lm")
-    d.rounded_rectangle([40, 510, 250, 566], radius=8, fill=rgb("#4C8CF0"))
-    d.text((145, 538), "PLAY", font=font("arialbd.ttf", 28), fill=(255, 255, 255), anchor="mm")
-    put(atlas, "steam", "library", library)
-    game = Game("voltcrwn", made_up)
-    for name, frame in (("game1", game.shot), ("game2", game.frame(0.4))):
-        put(atlas, "steam", name, ImageOps.fit(frame.convert("RGB"), (960, 600), Image.LANCZOS))
-    boot = Image.new("RGB", (w, h), (8, 8, 10))
-    d = ImageDraw.Draw(boot)
-    for k in range(12):                                    # a spinner while it wakes
-        a = 2 * math.pi * k / 12
-        d.ellipse([w / 2 + 50 * math.cos(a) - 7, h / 2 + 50 * math.sin(a) - 7, w / 2 + 50 * math.cos(a) + 7,
-                   h / 2 + 50 * math.sin(a) + 7], fill=shade((230, 230, 240), -k / 14))
-    put(atlas, "steam", "boot", boot)
-
-
 def openbor(atlas, made_up):
     """OpenBOR's drum (props.py): its painting, wrapped round it, at 1024 wide."""
     drum = painting("openbor_drum").convert("RGB")
@@ -293,7 +255,7 @@ def openbor(atlas, made_up):
 
 
 CARDS = dict(tic80=tic80, wasm4=wasm4, lowresnx=lowresnx, vircon32=vircon32, fpinball=fpinball, vpinball=vpinball,
-             zmachine=zmachine, steam=steam, openbor=openbor)
+             zmachine=zmachine, openbor=openbor)
 
 
 def main(card, made_up, out):

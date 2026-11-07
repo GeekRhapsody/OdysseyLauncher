@@ -6,8 +6,7 @@ systems with no hardware of their own, a device that stands for them. Plain Pyth
 - `lowresnx`: the handheld of LowRes NX's icon, its screen sliding down over its rubber keyboard;
 - `vircon32`: Vircon32's console and gamepad, as its own renders show them;
 - `fpinball`: a pinball machine; `vpinball`: a corner of a playfield and its ball;
-- `zmachine`: a 1980s terminal and a brass lantern, for the Z-machine's text adventures;
-- `steam`: a Steam Deck.
+- `zmachine`: a 1980s terminal and a brass lantern, for the Z-machine's text adventures.
 Millimetres: x across (left to right), y back (away from the viewer), z up. Each card has one image,
 `<card>_media.png` (MEDIA_SIZE), its regions (x, y, width, height in pixels) in REGIONS; a card of pictures
 (JPEG) has `<card>_media.jpg` instead, as the all-games card's art is. OpenBOR's drum (props.py) is drawn with them:
@@ -16,7 +15,7 @@ Millimetres: x across (left to right), y back (away from the viewer), z up. Each
 
 FPS = 30
 MEDIA_SIZE = 1024
-JPEG = ("fpinball", "steam", "openbor")
+JPEG = ("fpinball", "openbor")
 
 
 def media_file(card):
@@ -34,8 +33,6 @@ REGIONS = {
     "vpinball": dict(ball=(0, 0, 512, 256), playfield=(0, 270, 512, 430), apron=(0, 710, 512, 90)),
     "zmachine": dict(dark=(0, 0, 480, 360), typed=(512, 0, 480, 360), lit=(0, 380, 480, 360),
                      room=(512, 380, 480, 360)),
-    "steam": dict(library=(0, 0, 480, 300), game1=(512, 0, 480, 300), game2=(0, 320, 480, 300),
-                  boot=(512, 320, 480, 300)),
 }
 
 # ---- TIC-80 ----------------------------------------------------------------------------------------------------------
@@ -110,11 +107,3 @@ TERMINAL = dict(base=(460.0, 330.0, 80.0), housing=(410.0, 300.0, 300.0), screen
                 lantern=dict(at=(330.0, -40.0), r=55.0, height=210.0))
 TERMINAL_COLOURS = dict(case="#E4DCC4", bezel="#3A3630", keys="#3E3A36", keytop="#5A5650", brass="#B8862A",
                         dark_glass="#3A3A30", lit_glass="#FFE08A", flame="#FFFFFF")
-
-# ---- Steam Deck ------------------------------------------------------------------------------------------------------
-
-DECK = dict(size=(298.0, 117.0), depth=20.0, round=26.0, screen=(150.7, 94.2), bezel=(168.0, 104.0),
-            sticks=[(-104.0, 26.0), (104.0, 26.0)], pads=[(-104.0, -24.0), (104.0, -24.0)], pad=32.5,
-            dpad=(-128.0, 30.0), abxy=(128.0, 30.0), steam=(-104.0, -48.0), dots=(104.0, -48.0))
-DECK_COLOURS = dict(body="#2A2A2E", grip="#232326", stick="#3A3A3E", cap="#1C1C1E", button="#1C1C1E",
-                    legend="#C8C8CC")

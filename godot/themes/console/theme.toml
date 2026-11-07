@@ -385,8 +385,9 @@ model = "models/systems/vpinball.glb"          # a corner of a playfield, its ch
 [systems.zmachine]
 model = "models/systems/zmachine.glb"          # a 1980s terminal and a brass lantern; its clip types LIGHT LAMP, lights the lantern and plays a made-up text adventure
 
+# Built by tools/console-models/steam_deck.py: Steam has no hardware of its own, so the first Steam Deck.
 [systems.steam]
-model = "models/systems/steam.glb"             # a Steam Deck; its clip picks it up, wakes it, launches a made-up game from its library and plays it
+model = "models/systems/steam.glb"             # the Steam Deck standing up, its grips and triggers measured from Valve's drawings; its focused clip picks it up, wakes it with STEAM, launches a made-up game from its library and plays it on the sticks, a trackpad and a trigger, then puts it down
 
 # Built by tools/console-models/emblems.py: the emblem made solid.
 [systems.doom]

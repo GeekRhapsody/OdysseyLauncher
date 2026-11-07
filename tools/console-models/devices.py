@@ -17,8 +17,7 @@ screens and printing devices_print.py draws (one image a card):
   back and catches it on the left flipper, its X to the front again.
 - `zmachine`: a 1980s terminal and a brass lantern; the clip types LIGHT LAMP, lights the lantern and plays a made-up
   text adventure, then the lantern goes out.
-- `steam`: a Steam Deck; the clip picks it up, wakes it with STEAM, launches a made-up game from its library and plays
-  it on the sticks and a trackpad, then sleeps it and puts it down.
+(Steam's Steam Deck has its own scripts: steam_deck.py.)
 
 A node tree: a root (the turn to a three-quarter view and the model spec's fit, as emblems.py's) holding the card's
 parts, each moving part its own node. Plain materials and the card's image, within the system model budget. Run from
@@ -723,117 +722,15 @@ def zmachine_timeline(f):
     return poses
 
 
-# ---- Steam Deck ------------------------------------------------------------------------------------------------------
-
-def deck_outline():
-    """The Deck's outline seen from the front (x, z): straight across the top, its grips reaching down at the ends."""
-    (w, h), r = L.DECK["size"], L.DECK["round"]
-    top = h / 2
-    points = E.arc(w / 2 - r, top - r, r, 0.0, 90.0, 8) + E.arc(-w / 2 + r, top - r, r, 90.0, 180.0, 8)
-    points += E.arc(-w / 2 + r * 1.3, -top + r * 1.3, r * 1.3, 180.0, 300.0, 10)
-    points += [(-w / 2 + 92.0, -top + 14.0), (w / 2 - 92.0, -top + 14.0)]
-    points += E.arc(w / 2 - r * 1.3, -top + r * 1.3, r * 1.3, 240.0, 360.0, 10)
-    return E.ccw(points)
-
-
-def steam(m):
-    dk = L.DECK
-    d = dk["depth"]
-    body = plate("deck", deck_outline(), -d / 2, d / 2, m["body"])
-    bevel(body, 5.0, segments=3, angle=30.0)
-    recolour(body, m["body"])
-    grips = []
-    for x0, x1 in ((-146.0, -95.0), (95.0, 146.0)):     # the grips, bulging behind
-        grip = box("grip", x0, x1, d / 2 - 2.0, d / 2 + 24.0, -56.0, 34.0, m["body"])
-        bevel(grip, 12.0, segments=3, angle=30.0)
-        grips.append(recolour(grip, m["body"]))
-    bw, bh = dk["bezel"]
-    bezel = recolour(plate("bezel", rounded(0.0, 4.0, bw, bh, 6.0, 4), -d / 2 - 0.6, -d / 2 + 1.0, m["button"]),
-                     m["button"])
-    sw, sh = dk["screen"]
-    dark = recolour(plate("screen_off", rounded(0.0, 4.0, sw, sh, 1.0, 1), -d / 2 - 1.0, -d / 2 - 0.6, m["glass"]),
-                    m["glass"])
-    pads = []
-    for k, (px, pz) in enumerate(dk["pads"]):
-        pad = recolour(plate(f"pad{k}", rounded(px, pz, dk["pad"], dk["pad"], 4.0, 3), -d / 2 - 0.4, -d / 2 + 1.0,
-                             m["button"]), m["button"])
-        pads.append(pad)
-    dx, dz = dk["dpad"]
-    plus = E.ccw([(dx - 3.5, dz - 10.0), (dx + 3.5, dz - 10.0), (dx + 3.5, dz - 3.5), (dx + 10.0, dz - 3.5),
-                  (dx + 10.0, dz + 3.5), (dx + 3.5, dz + 3.5), (dx + 3.5, dz + 10.0), (dx - 3.5, dz + 10.0),
-                  (dx - 3.5, dz + 3.5), (dx - 10.0, dz + 3.5), (dx - 10.0, dz - 3.5), (dx - 3.5, dz - 3.5)])
-    dpad = recolour(plate("dpad", plus, -d / 2 - 2.5, -d / 2 + 1.0, m["button"]), m["button"])
-    ax, az = dk["abxy"]
-    face = [recolour(plate(f"face{k}", E.circle(ax + ox, az + oz, 4.6, 16), -d / 2 - 2.5, -d / 2 + 1.0, m["button"]),
-                     m["button"]) for k, (ox, oz) in enumerate(((0.0, 9.0), (-9.0, 0.0), (9.0, 0.0)))]
-    dots_x, dots_z = dk["dots"]
-    dots = recolour(plate("dots", rounded(dots_x, dots_z, 14.0, 5.0, 2.5, 3), -d / 2 - 1.5, -d / 2 + 1.0,
-                          m["button"]), m["button"])
-    shoulders = []
-    for sign in (-1, 1):
-        x0, x1 = sorted((sign * 104.0, sign * 140.0))
-        shoulders.append(recolour(box("bumper", x0, x1, -4.0, 8.0, 56.0, 62.0, m["stick"]), m["stick"]))
-        shoulders.append(recolour(box("trigger", x0 + 4.0, x1 - 4.0, 8.0, 26.0, 50.0, 60.0, m["stick"]), m["stick"]))
-    deck = join([body, bezel, dark, dpad, dots] + grips + pads[:1] + face + shoulders, "deck")
-    parts = {"deck": (deck, None)}
-    for name, (part, _) in layered(("boot", "library", "game1", "game2"), sw, sh, m, (0.0, -d / 2 - 1.2, 4.0)
-                                   ).items():
-        parts[name] = (part, "deck")
-    parts["pad_right"] = (about(pads[1], (dk["pads"][1][0], -d / 2, dk["pads"][1][1])), "deck")
-    a_button = recolour(plate("a", E.circle(ax, az - 9.0, 4.6, 16), -d / 2 - 2.5, -d / 2 + 1.0, m["button"]),
-                        m["button"])
-    parts["button_a"] = (about(a_button, (ax, -d / 2, az - 9.0)), "deck")
-    sx, sz = dk["steam"]
-    steam_button = recolour(plate("steam_button", rounded(sx, sz, 16.0, 6.0, 3.0, 3), -d / 2 - 1.8, -d / 2 + 1.0,
-                                  m["button"]), m["button"])
-    parts["button_steam"] = (about(steam_button, (sx, -d / 2, sz)), "deck")
-    for k, (kx, kz) in enumerate(dk["sticks"]):
-        ring = lathe("ring", [(17.0, 0.0), (17.0, 2.5), (8.0, 2.5)], m["stick"], 24)
-        shaft = lathe("shaft", [(6.0, 0.0), (6.0, 9.0)], m["stick"], 16)
-        cap = lathe("cap", [(15.0, 9.0), (16.0, 13.0), (15.0, 15.0), (12.0, 14.0), (0.5, 13.0)], m["cap"], 24)
-        stick = join([recolour(ring, m["stick"]), recolour(shaft, m["stick"]), smooth_shaded(cap)], f"stick{k}")
-        stick.data.transform(Matrix.Translation((kx, -d / 2, kz)) @ Matrix.Rotation(math.pi / 2, 4, "X"))
-        parts[f"stick{k}"] = (about(stick, (kx, -d / 2, kz)), "deck")
-    deck.location = (0.0, 0.0, 0.0)
-    return parts, [], steam_timeline, 180
-
-
-def steam_showing(f):
-    if 30 <= f < 40:
-        return "boot"
-    if 40 <= f < 76:
-        return "library"
-    if 76 <= f < 150:
-        return "game1" if ((f - 76) // 8) % 2 == 0 else "game2"
-    return None
-
-
-def steam_timeline(f):
-    poses = showing_poses(("boot", "library", "game1", "game2"), steam_showing, f)
-    up = smooth(phase(f, 6, 22)) * (1 - smooth(phase(f, 154, 170)))
-    shake = 2.2 * math.sin(f * 2.7) * (1.0 if 120 <= f < 130 else 0.0)
-    poses["deck"] = Pose(z=25.0 * up, pitch=-12.0 * up, roll=shake)
-    poses["button_steam"] = Pose(y=1.5 * tap(f, 26))
-    poses["button_a"] = Pose(y=1.5 * tap(f, 70))
-    poses["pad_right"] = Pose(y=1.0 * taps(f, (100, 116)))
-    t = phase(f, 80, 146)
-    wave = math.sin(math.pi * t)
-    poses["stick0"] = Pose(pitch=14.0 * math.sin(2 * math.pi * 3 * t) * wave, spin=12.0 * math.sin(2 * math.pi * 2 * t)
-                           * wave)
-    poses["stick1"] = Pose(pitch=10.0 * math.sin(2 * math.pi * 2 * t + 1.0) * wave,
-                           spin=16.0 * math.sin(2 * math.pi * 3 * t) * wave)
-    return poses
-
-
 # ---- Main ------------------------------------------------------------------------------------------------------------
 
 CARDS = dict(tic80=(tic80, L.TIC80_COLOURS), wasm4=(wasm4, dict(L.WASM4_COLOURS, side="#4E7228")),
              lowresnx=(lowresnx, L.LOWRES_COLOURS), vircon32=(vircon32, L.VIRCON_COLOURS),
              fpinball=(fpinball, L.PINBALL_COLOURS), vpinball=(vpinball, L.VPIN_COLOURS),
-             zmachine=(zmachine, L.TERMINAL_COLOURS), steam=(steam, dict(L.DECK_COLOURS, glass="#0A0A0C")))
+             zmachine=(zmachine, L.TERMINAL_COLOURS))
 HIDDEN_AT_REST = dict(tic80=("screen_", "cart"), wasm4=("screen_",), lowresnx=("screen_",),
                       vircon32=("led_lit", "card"), fpinball=("bumper", "lamp"), vpinball=("bumper_lit",),
-                      zmachine=("screen_", "lantern_lit"), steam=("screen_",))
+                      zmachine=("screen_", "lantern_lit"))
 TILTS = dict(fpinball=(-32.0, 14.0), vpinball=(-20.0, 34.0), zmachine=(-26.0, 10.0))
 
 
