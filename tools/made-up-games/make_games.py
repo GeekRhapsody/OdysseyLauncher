@@ -1,6 +1,6 @@
 """Makes the made-up games' media for the README's captures (docs/readme/): for every release of every game in
-games.toml, its cover, back, spine, cartridge or disc label, logo and screenshot (an arcade game's logo and screenshot
-only),
+games.toml, its cover, back, spine, cartridge or disc label, logo, screenshot and hero (an arcade game's logo and
+screenshot only),
 composed from its Codex paintings (codex_art.py) with logos, packaging and HUDs drawn here, the same on every run.
 Writes a portable user folder to capture from, and review sheets:
 
@@ -34,9 +34,10 @@ from codex_art import look_of
 
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[1]
-EXTENSIONS = {"cover": ".jpg", "back": ".jpg", "spine": ".jpg", "label": ".jpg", "logo": ".png", "screenshot": ".png"}
+EXTENSIONS = {"cover": ".jpg", "back": ".jpg", "spine": ".jpg", "label": ".jpg", "logo": ".png", "screenshot": ".png",
+              "hero": ".jpg"}
 FOLDERS = {"cover": "covers", "back": "backcovers", "spine": "spines", "label": "labels", "logo": "logos",
-           "screenshot": "screenshots"}
+           "screenshot": "screenshots", "hero": "heroes"}
 ROM_EXTENSIONS = {"megadrive": ".md", "snes": ".sfc", "n64": ".z64", "arcade": ".zip", "ps2": ".chd"}
 SYSTEMS = ["megadrive", "snes", "n64", "arcade", "ps2"]
 
@@ -79,6 +80,8 @@ def make(release, paintings, media):
         pieces["spine"] = P.to_image(B.spine(release, art, logo))
         # A PS2 disc's label is round: a PNG with its corners and its hole transparent.
         pieces["label"] = P.layer_image(B.disc(release, art, logo)) if system == "ps2" else P.to_image(B.label(release, art, logo))
+        # 16:9, as ScreenScraper's fan art and LaunchBox's backgrounds are: the Showcase layout fills the screen with it.
+        pieces["hero"] = P.to_image(B.crop(art, 1920, 1080, release.get("crop", {}).get("hero", (0.5, 0.5))))
     for kind, image in pieces.items():
         extension = ".png" if image.mode == "RGBA" else EXTENSIONS[kind]
         save(image, media / system / FOLDERS[kind] / (stem + extension))
@@ -169,7 +172,7 @@ def contact_sheet(paths, height, width=2400, captions=True):
 
 
 def sheets(media, out):
-    heights = {"cover": 300, "back": 300, "spine": 300, "label": 160, "logo": 110, "screenshot": 224}
+    heights = {"cover": 300, "back": 300, "spine": 300, "label": 160, "logo": 110, "screenshot": 224, "hero": 200}
     for system in SYSTEMS:
         for kind, folder in FOLDERS.items():
             paths = sorted((media / system / folder).glob("*")) if (media / system / folder).exists() else []

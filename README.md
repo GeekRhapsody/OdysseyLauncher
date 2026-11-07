@@ -2,12 +2,11 @@
 
 **A fully 3D game launcher for your emulators and PC games, inspired by the PlayStation 2's memory card browser.**
 
-Every system and every game is a floating 3D model. Depending on the theme, systems appear as their own consoles, as slabs with their logos or as flat logo cards, and games come in their real boxes, cases and cabinets, wrapped in their own cover art. Pick a system, pick a game, and it launches in the emulator you've set up. When you quit the game you're back where you left off.
+Every system and every game is a 3D model: consoles, logo cards, and games in their real boxes, cases and cabinets, wrapped in their own art. Pick a system, pick a game, and it launches in your emulator. Quit the game and you're back where you left off.
 
 ![Browsing the systems, entering the Mega Drive and moving through its games](docs/readme/navigation.webp)
 
-
-Odyssey Launcher is built with Godot 4 and C# for Windows and Linux. **Performance is the headline feature:** it starts fast, aims to stay locked to your display's refresh rate while you scroll through thousands of games, and keeps its memory use low.
+Odyssey Launcher runs on Windows and Linux. **Performance is the headline feature:** it starts fast, stays smooth while you scroll through thousands of games, and keeps its memory use low.
 
 ## Contents
 
@@ -24,73 +23,66 @@ Odyssey Launcher is built with Godot 4 and C# for Windows and Linux. **Performan
 
 ### A 3D library
 
-- **Systems, then games, then play.** A 3D grid of your systems; enter one for a grid of its games, flying in and out of depth over a gradient or wallpaper.
-- **Real boxes for real games.** Mega Drive clamshells, SNES and N64 boxes, jewel cases, PS2, PSP, DVD and Switch cases, and arcade cabinets, each wrapped in its scraped front, back, spine and label. Other systems get a box shaped by their cover art.
-- **Your choice of model.** Give any game or system another of the theme's models: a flat cover or screenshot, a blue PS2 case, or a 1990s TV playing the game's video.
-- **Animated items.** The focused item lifts and sways, and most of the Console theme's machines load and play a made-up game when focused. A theme can calm the motion or stop it.
-- **Pick it up and turn it round.** R3 brings the focused game up large; turn it with the right stick to read the back or the spine.
-- **Several layouts:** a grid, a grid with names, a carousel, one at a time, a list beside the focused game's model, a coverflow of spines, or a showcase of the focused game's art and details above a strip of boxes, per system if you like.
-- **Favourites, Recently played and All games** have their own cards at the start of the systems grid.
+- **Systems, then games, then play**, flying in and out of depth over a gradient or wallpaper.
+- **Real boxes for real games:** Mega Drive clamshells, SNES and N64 boxes, jewel cases, PS2, PSP, DVD and Switch cases, and arcade cabinets, each wrapped in its front, back, spine and label.
+- **Animated items:** the focused item lifts and sways, and many of the Console theme's machines play a made-up game when focused.
+- **Pick it up and turn it round:** bring a game up close and turn it to read the back or the spine.
+- **Seven layouts:** a grid, a grid with names, a carousel, one at a time, a list, a **coverflow** of spines, and a **showcase** of the focused game's art and details above a strip of boxes. Set one for everything, or per system.
+- **Favourites, Recently played and All games** at the start of the systems grid.
 
 ![Inspecting a game and turning it with the right stick](docs/readme/inspect.webp)
 
-### Your collection, as it is
+### Your collection
 
-- **Multi-disc games** show as one (`.m3u`, `.cue`, `.gdi`), as do PS3, PS4 and PS5 game folders.
-- **Clean titles** from No-Intro and Redump names, with the region, revision and disc kept as details, sorted naturally.
-- **Sorting:** systems by name, maker or year; games by title, last played, time played, date added or release date, per system.
+- **Multi-disc games** and PS3, PS4 and PS5 game folders show as one game.
+- **Clean titles** from No-Intro and Redump names, sorted naturally.
+- **Sorting:** systems by name, maker or year; games by title, release date, last played, time played or date added.
 - **Play history:** play count, play time and last played.
-- **Import from RetroBat/Batocera:** a `gamelist.xml` brings in titles, metadata, favourites and media without overwriting yours.
-- **Network drives work well:** batched, parallel scans, and an unplugged drive never loses your favourites or history.
+- **Import from ES-DE, RetroBat and Batocera** gamelists, without overwriting your own edits.
+- **Network drives** work well, and an unplugged drive never loses your favourites or history.
 
 ### Scraping
 
-- **Five providers:** ScreenScraper, LaunchBox's Games DB, IGDB, SteamGridDB and the Steam store, in your order, each filling only the gaps.
-- **ScreenScraper works out of the box** in releases; add your account for higher limits. LaunchBox needs no account and looks games up offline after a one-off download (about 110 MB). IGDB and SteamGridDB need free keys.
-- **Every kind of media:** covers, backs, spines, screenshots, logos, fan art, labels, videos and PDF manuals. You choose which.
-- **Accurate matching** by name, size and checksum. When a match is wrong, "scrape this game" searches every provider and lets you choose, SteamGridDB's alternative art included.
-- **Runs in the background** in a queue that survives restarts and respects each provider's limits.
-- **Your own art and edits win:** set any image, video, manual, title or field yourself, and no scrape overwrites it.
-- **Plain media folders** (`covers/`, `screenshots/`, `videos/`...) that you can move to any drive.
+- **Five providers:** ScreenScraper, LaunchBox's Games DB, IGDB, SteamGridDB and Steam, in the order you choose.
+- **Works out of the box** with ScreenScraper and LaunchBox; add your own accounts for more.
+- **Every kind of media:** covers, backs, spines, labels, screenshots, logos, fan art, videos and manuals.
+- **Choose the match yourself** when one is wrong, alternative art included.
+- **Your own art and edits always win.**
 
 ### Details and media
 
-- **Game details (Y):** description, release date, genre, developer, publisher, players, rating, region, play history and file.
-- **Images, videos and manuals** as cards: view an image full screen, play the video with sound, or read the manual page by page (Windows).
-- **System details:** the system's model, ready to turn, beside its history, emulators, folders and settings.
+- **Game details:** description, release date, genre, developer, players, rating and play history.
+- **Images, videos and manuals:** view images full screen, play videos with sound, read manuals page by page.
+- **System details:** the system's model, ready to turn, beside its history and settings.
 
 ### Launching
 
-- **Emulator profiles** for RetroArch cores, standalone emulators (PCSX2, Dolphin, PPSSPP, DuckStation and more), and games that are their own program, script or shortcut.
-- **Per-game overrides:** run one game with another emulator.
-- **Switch controllers** are set up in Eden before each launch, the pad that chose the game as player 1.
-- **Steam games** are followed until Steam says they've ended, so their play time counts too.
-- **Clean hand-off:** while a game runs the launcher stops drawing and frees its textures; when it ends, the launcher takes the foreground back.
+- **Emulator profiles** for RetroArch cores, standalone emulators, and games that are their own program or shortcut.
+- **Per-game emulators** when one game needs another.
+- **Steam games** count their play time too.
+- **Clean hand-off:** the launcher steps aside while you play and takes the foreground back when you quit.
 
-### Everything from the sofa
+### Made for the sofa
 
-- **Controller-driven settings** for folders, emulators, themes (and downloading more), layouts, graphics, scraping and updates, with an on-screen keyboard and file pickers.
-- **Game options (X):** emulator, model, media, metadata, scraping and deleting.
-- **System options (X):** folders, emulator, layout, models, scraping all its games and importing a `gamelist.xml`.
-- **Power menu (View):** restart, shut down, sleep or quit.
-- **Status indicators:** clock, battery and network, plus an optional FPS and video memory readout.
-- **Navigation sounds**, which you can turn off.
-- **Graphics options:** borderless, exclusive fullscreen or windowed; 3D resolution; Direct3D 12 or Vulkan; anisotropic filtering.
+- **Controller-driven everything:** settings, themes, scraping and updates, with an on-screen keyboard and file pickers.
+- **Button hints for your controller:** the controls along the bottom show Xbox, PlayStation, Switch, GameCube, Steam Deck or Steam Controller buttons, or your keyboard's keys, following whatever you pressed last. You can also fix one kind in the settings.
+- **UI size:** small for a desk, large for a handheld or a television across the room.
+- **Power menu:** restart, shut down, sleep or quit.
+- **Status indicators:** clock, battery and network.
 - The keyboard works everywhere, and the mouse in the menus.
 
 ### Built for speed
 
-- Aims to be interactive within a second of its own start-up, even with 10,000 games.
-- Aims to stay locked to the refresh rate while scrolling: the UI thread never touches the disk, network or database, and nothing allocates per frame.
-- Covers stream in on background threads within a per-frame upload budget.
-- Each kind of model is drawn in one batch.
+- Aims to be ready within a second, even with 10,000 games.
+- Aims to stay locked to your display's refresh rate while scrolling.
+- Covers stream in as you scroll, without stutter.
 - The baseline is a Steam Deck, handheld at 1280×800 or docked to 4K.
 
 ## Screenshots
 
 ### Themes
 
-The **Slab** theme (the default) shows each system as a dark slab with its logo. **Console** shows each system as its console, modelled in 3D: every built-in system has its own, from the Channel F to the PlayStation 5 and the PS Vita (with a PC of its time for DOS and each Windows, and a laptop for desktop apps), most of them loading a made-up game when you focus them; a system you add yourself gets a plain card. **Classic View** looks like a 2D launcher: flat logo cards and flat covers over a wallpaper, with nothing swaying. Switch themes from the settings, or for the session with <kbd>T</kbd> on the systems screen, without a restart. Get more from **Download themes** in the settings: themes checked before they're listed, then kept up to date from their own repositories.
+**Slab** (the default) shows each system as a dark slab with its logo. **Console** shows each system as its own console, modelled in 3D, from the Channel F to the PlayStation 5. **Classic View** looks like a 2D launcher: flat logo cards and covers over a wallpaper. Switch themes without a restart, and download more from the settings.
 
 ![Switching from the Console theme to Slab, then Classic View](docs/readme/themes.webp)
 
@@ -110,103 +102,91 @@ The **Slab** theme (the default) shows each system as a dark slab with its logo.
 
 ### Layouts
 
-| Carousel | List |
+| Showcase | Coverflow |
 |---|---|
+| ![PS2 games in the showcase layout: the focused game's logo, description, details and screenshot over its art, above a strip of boxes](docs/readme/layout-showcase.jpg) | ![PS2 games in the coverflow layout: the focused game facing out, the rest showing their spines](docs/readme/layout-coverflow.jpg) |
+| **Carousel** | **List** |
 | ![SNES games in the carousel layout](docs/readme/layout-carousel.jpg) | ![Mega Drive games in the list layout, the focused game's box beside the titles](docs/readme/layout-list.jpg) |
 
-### Details and options
+### Details, options and settings
 
 | Game details | System details |
 |---|---|
 | ![A game's details: its description, metadata and play history, and its images](docs/readme/game-details.jpg) | ![The Mega Drive's details, its model beside them](docs/readme/system-details.jpg) |
-| **Game options** | |
-| ![A game's options: emulator, model, images, metadata, scraping](docs/readme/game-options.jpg) | |
+| **Game options** | **Settings** |
+| ![A game's options: emulator, model, media, metadata, scraping](docs/readme/game-options.jpg) | ![The settings' first page: Library, Systems, Emulators, Scraping, Appearance, Interface, Graphics and About](docs/readme/settings.jpg) |
 
 ## Getting started
 
-1. **Download** the latest `OdysseyLauncher-<version>-windows-x86_64.zip` from [Releases](https://github.com/GeekRhapsody/OdysseyLauncher/releases), unzip it anywhere, and run `OdysseyLauncher.exe`. The .NET runtime is included, so there's nothing else to install. It needs 64-bit Windows 10 or 11 and a GPU with Direct3D 12 or Vulkan.
+1. **Download** the latest release from [Releases](https://github.com/GeekRhapsody/OdysseyLauncher/releases):
+   - **Windows:** `OdysseyLauncher-<version>-windows-x86_64.zip`. Unzip it anywhere and run `OdysseyLauncher.exe`. Needs 64-bit Windows 10 or 11 and a GPU with Direct3D 12 or Vulkan.
+   - **Linux:** `OdysseyLauncher-<version>-linux-x86_64.AppImage`. Make it executable and run it. Needs a 64-bit distribution with glibc 2.34 or later (Ubuntu 22.04, Fedora 35 or newer), ideally with Vulkan.
 
-   **On Linux,** download `OdysseyLauncher-<version>-linux-x86_64.AppImage` instead, make it executable (`chmod +x`, or Allow executing in its properties), and run it. It needs a 64-bit distribution with glibc 2.34 or later (Ubuntu 22.04, Linux Mint 21, Fedora 35, current Arch and its derivatives, or newer), and runs best with a Vulkan driver.
-2. **Point it at your games.** By default each system's games are expected in `<your user folder>\ROMs\<system id>` (`ROMs\megadrive`, `ROMs\snes`...), as in other frontends. In **Settings > Library** you can set another root folder, and in **Settings > Systems** give any system its own folders.
-3. **Point it at your emulators.** In **Settings > Emulators**, set the folder your emulators live in and RetroArch's folder. Each system's emulator can be changed on its page in **Settings > Systems**, or from its options (X on its card). **Settings > About** lists any emulator that's missing.
-4. **Scrape** from **Settings > Scraping**: "Scrape all missing metadata" fetches art and metadata for every game never scraped, not found before, or without a front cover. Add your ScreenScraper account (or IGDB and SteamGridDB keys) on the same page, under Providers, for faster, fuller results.
+   Nothing else to install.
+2. **Add your games.** Put each system's games in `ROMs\<system>` in your user folder (`ROMs\megadrive`, `ROMs\snes`...), as in other frontends, or choose other folders in **Settings > Library** and **Settings > Systems**.
+3. **Set up your emulators** in **Settings > Emulators**. **Settings > About** lists any that are missing.
+4. **Scrape** from **Settings > Scraping** with "Scrape all missing metadata".
 
-**Portable mode:** put an empty `portable.txt` beside `OdysseyLauncher.exe` (on Linux, beside the `.AppImage` file), and settings, databases, media and caches stay in a `userdata` folder next to it, instead of `%APPDATA%` and `%LOCALAPPDATA%` (on Linux, `~/.config`, `~/.local/share` and `~/.cache`).
+**Portable mode:** put an empty `portable.txt` beside the executable (or the AppImage) and everything is kept in a `userdata` folder next to it.
 
-**Updating:** **Settings > About > Check for updates** fetches the newest release from GitHub, installs it and restarts the launcher. Your settings, library and media are kept. On Linux it replaces the `.AppImage` file, keeping its name; tools that update AppImages, such as AppImageUpdate and Gear Lever, can update it too.
+**Updating:** **Settings > About > Check for updates** installs the newest release and restarts, keeping your settings, library and media.
 
 ## Controls
+
+The hints along the bottom of each screen show the buttons for the controller you're using.
 
 | Action | Controller | Keyboard |
 |---|---|---|
 | Move | D-pad, left stick | Arrow keys |
 | Open, play | A | Enter, Space |
 | Back | B | Escape, Backspace |
-| Options for the focused system or game | X | O, or the Menu key |
+| Options for the focused system or game | X | O |
 | Details | Y | I |
-| Favourite (a game) | L3 | F |
+| Favourite | L3 | F |
 | Inspect (bring the game up close) | R3 | Z |
 | Turn the focused item | Right stick | |
 | Page up, page down | LB, RB | Page Up, Page Down |
-| Previous, next letter (a system's games) | LT, RT | <kbd>[</kbd>, <kbd>]</kbd> |
-| First, last | | Home, End |
-| Settings | Menu (or B on the systems screen) | F1 (or Escape on the systems screen) |
-| The system's settings (in its games) | Menu | F1 |
+| Previous, next letter | LT, RT | <kbd>[</kbd>, <kbd>]</kbd> |
+| Settings (in a system's games, that system's settings) | Menu | F1 |
 | Power menu | View | P |
-| Next theme, for the session (systems screen) | | T |
-| Rescan the library: ROM folders, and media for new games (systems screen) | | F5 |
-| Rescan the library and media (systems screen) | | Shift+F5 |
+| Next theme, for the session | | T |
+| Rescan the library | | F5 |
 
 ## Configuration
 
-Everything in the settings screen is saved to plain TOML files in `%APPDATA%\OdysseyLauncher` (or `userdata\` in portable mode). You can edit them by hand too. They hold only what differs from the built-in defaults, and the app keeps your comments and formatting when it writes to them:
-
-- `settings.toml`: folders (ROMs, media and emulators), display and graphics, layouts and sorting, the status indicators and sounds, scanning and scraping.
-- `systems.toml`: each system's ROM folders, file types, emulator, layout and sorting.
-- `emulators.toml`: emulator profiles (program, core and arguments, with placeholders such as `{rom}` and `{core}`).
-- `secrets.toml`: scraping credentials.
-
-Your own themes, and the ones you download, go in a `themes` folder beside them.
+Everything in the settings is saved to plain TOML files you can also edit by hand: `settings.toml`, `systems.toml`, `emulators.toml` and `secrets.toml` (scraping accounts). They're in `%APPDATA%\OdysseyLauncher` on Windows, `~/.config/OdysseyLauncher` on Linux, or `userdata` in portable mode. Your themes go in a `themes` folder beside them.
 
 ## Themes and models
 
-Themes are folders of glTF 2.0 (`.glb`) models and images, plus a `theme.toml`. The manifest sets the background (a gradient, or a wallpaper for the theme and for each system), the lighting, the menus' colours and font, how much items sway, each system's colour, model and logo, and each system's game template. A theme only states what it changes; everything else comes from the built-in base theme.
+A theme is a folder of 3D models (glTF `.glb`) and images, with a `theme.toml` that sets the background, lighting, menu colours, motion, and each system's model and logo. A theme only states what it changes; everything else comes from the built-in base theme.
 
-You can also replace any single model from the system and game options, without writing a theme:
+You can also give a single system or game its own model from its options, without writing a theme.
 
-- **A system's card,** or the template for all its games.
-- **A single game's model,** as a `.glb`, or an OBJ model in a zip. PS2 save icons (an OBJ with its `.anim`) keep their animation.
-
-Models are checked against the model spec and its budgets, oversized textures are scaled down, and any problem is written to a log you can read.
-
-The guide for theme authors is [docs/THEMING.md](docs/THEMING.md). It covers the manifest, media slots and fallbacks, the model spec and budgets, animation clips, making models in Blender, testing, and getting a theme onto the download list. A sample theme to copy is in [samples/themes/retro-tv](samples/themes/retro-tv).
+To make a theme, see the guide for theme authors, [docs/THEMING.md](docs/THEMING.md), and the sample theme in [samples/themes/retro-tv](samples/themes/retro-tv).
 
 ## Credits
 
-### Slab theme logos: canvas-es-de
+### Slab theme logos
 
-The system logos in the **Slab** theme (`godot/themes/slab/logos/`) come from [**canvas-es-de**](https://github.com/Siddy212/canvas-es-de) by [Siddy212](https://github.com/Siddy212), a theme for ES-DE. canvas-es-de credits its original artwork and layouts to fagnerpc.
+The **Slab** theme's system logos come from [**canvas-es-de**](https://github.com/Siddy212/canvas-es-de) by [Siddy212](https://github.com/Siddy212), which credits its original artwork and layouts to fagnerpc. They're used under [CC BY-NC-SA 2.0](https://creativecommons.org/licenses/by-nc-sa/2.0/). **Changes:** cropped, scaled, converted to WebP and some renamed; the PlayStation 5's image was made for Odyssey Launcher in the same layout. The adapted logos are shared under the same licence.
 
-They're used under the [Creative Commons Attribution-NonCommercial-ShareAlike 2.0](https://creativecommons.org/licenses/by-nc-sa/2.0/) licence (CC BY-NC-SA 2.0). **Changes:** each image was cropped to its content, scaled to at most 512 pixels on its longer side and converted to WebP, and a few were renamed to match Odyssey Launcher's system ids. The PlayStation 5's image (`ps5.webp`) isn't from canvas-es-de: it was made for Odyssey Launcher in the same layout. The adapted logos are shared under the same licence.
+### Classic View theme logos
 
-### Classic View theme logos: es-theme-carbon
-
-The system logos in the **Classic View** theme (`godot/themes/classic-view/logos/`) come from [**es-theme-carbon**](https://github.com/fabricecaruso/es-theme-carbon), Batocera's default theme, by Rookervik (based on simple by Nils Bonenberger). Its readme names the licence as Creative Commons Attribution-NonCommercial-ShareAlike (CC BY-NC-SA); its heading says version 2.0 and the licence text below it 4.0. The logos and trademarks themselves are their owners'.
-
-**Changes:** each SVG was rendered to an image, each image cropped to its content, scaled to at most 512 pixels on its longer side and converted to WebP, and a few were renamed to match Odyssey Launcher's system ids. The adapted logos are shared under the same licence.
+The **Classic View** theme's system logos come from [**es-theme-carbon**](https://github.com/fabricecaruso/es-theme-carbon), Batocera's default theme, by Rookervik (based on simple by Nils Bonenberger), under Creative Commons Attribution-NonCommercial-ShareAlike (its readme names version 2.0 in its heading and 4.0 in its licence text). **Changes:** rendered from SVG, cropped, scaled, converted to WebP and some renamed. The adapted logos are shared under the same licence.
 
 ### Also
 
 - [Godot Engine](https://godotengine.org), which renders everything.
-- [ES-DE](https://es-de.org), whose systems catalogue, folder names, emulator commands, release years and descriptions are the basis of the built-in systems.
-- [Lucide](https://lucide.dev) for the status indicator icons (ISC licence).
-- [FFmpeg](https://ffmpeg.org) (LGPL 2.1 or later), which decodes videos in the Linux AppImage. It's FFmpeg 9.0.2, unmodified, built from its source tarball as shared libraries by `tools/linux/setup.sh`; the AppImage carries its licence and says where its exact source is and how it was built (`usr/share/licenses/ffmpeg/`).
-- [PDFium](https://pdfium.googlesource.com/pdfium/) (BSD 3-clause and Apache 2.0, with the licences of the libraries built into it), which renders manuals in the Linux AppImage, as built by [pdfium-binaries](https://github.com/bblanchon/pdfium-binaries) (MIT licence), unmodified; the AppImage carries their licences (`usr/share/licenses/pdfium/`).
-- [LibGit2Sharp](https://github.com/libgit2/libgit2sharp) (MIT licence) and [libgit2](https://libgit2.org) (GPLv2 with a linking exception), with which the theme downloader clones and updates themes.
+- [ES-DE](https://es-de.org), whose systems catalogue is the basis of the built-in systems.
+- [Lucide](https://lucide.dev) for the status icons (ISC) and [Kenney](https://kenney.nl)'s Input Prompts for the button icons (CC0).
+- [FFmpeg](https://ffmpeg.org) (LGPL 2.1 or later) and [PDFium](https://pdfium.googlesource.com/pdfium/) (BSD 3-clause and Apache 2.0, built by [pdfium-binaries](https://github.com/bblanchon/pdfium-binaries)) for videos and manuals in the Linux AppImage, unmodified; the AppImage carries their licences and source details.
+- [LibGit2Sharp](https://github.com/libgit2/libgit2sharp) (MIT) and [libgit2](https://libgit2.org) (GPLv2 with a linking exception) for downloading themes.
 - [ScreenScraper](https://www.screenscraper.fr), [LaunchBox's Games DB](https://gamesdb.launchbox-app.com), [IGDB](https://www.igdb.com), [SteamGridDB](https://www.steamgriddb.com) and Steam for game metadata and art.
+
+The games in these screenshots are made up: their names, art and boxes were created for this README.
 
 ## Licence
 
-Odyssey Launcher is released under the [MIT licence](LICENSE). That covers its code, tools and documentation, and the models, images, videos and sounds made for it.
+Odyssey Launcher is released under the [MIT licence](LICENSE), covering its code, tools, documentation, and the models, images, videos and sounds made for it.
 
-What comes from others keeps its own licence: the Slab and Classic View themes' system logos (CC BY-NC-SA, as described under [Credits](#credits)), the Lucide icons (ISC), and the libraries the release ships (LibGit2Sharp and libgit2, the .NET runtime, and Godot, each under its own licence, and in the Linux AppImage FFmpeg, under the LGPL 2.1 or later, and PDFium, under BSD 3-clause and Apache 2.0). Console makers' names, logos and products are their owners' trademarks.
+What comes from others keeps its own licence: the Slab and Classic View logos (CC BY-NC-SA, see [Credits](#credits)), the Lucide icons (ISC), and the libraries the release ships (Godot, the .NET runtime, LibGit2Sharp and libgit2, and in the Linux AppImage FFmpeg and PDFium). Console makers' names, logos and products are their owners' trademarks.

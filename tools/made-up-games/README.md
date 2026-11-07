@@ -28,8 +28,9 @@ python -c "import tomllib; [print(g['id'], g['genre'], [v['system'] for v in g['
 
 Every release also has a logo (a transparent PNG). The box sizes are twice ScreenScraper's scans, so the art fits the
 templates' faces without cropping. Covers, backs, spines and labels are JPEGs, except a PS2 disc's label, a round PNG
-with its corners and hole transparent; logos and screenshots PNGs. Not made:
-heroes (a 1920 × 620 cut of the key art; dropped as not needed), videos and manuals.
+with its corners and hole transparent; logos and screenshots PNGs. Every release with key art also has a hero, a
+1920 × 1080 JPEG cut from it (16:9, as ScreenScraper's fan art and LaunchBox's backgrounds are), which the Showcase
+layout fills the screen with. Not made: videos and manuals.
 
 ## The process
 
@@ -54,7 +55,8 @@ heroes (a 1920 × 620 cut of the key art; dropped as not needed), videos and man
    so the Favourites and Recently played cards show without launching anything), maps that folder to `R:` while it
    runs (the system details show `R:\ROMs\megadrive`, not a path with your user name), and records each capture in
    Godot's movie mode (`--write-movie` at `--fixed-fps 60`, driven by `--nav-script`), with `--boot-frames=90` so
-   that boot lasts the same number of frames on every run. Each image is cut from the frame the log gives for the nav
+   that boot lasts the same number of frames on every run, and `--button-icons` so that the hints show Xbox or
+PlayStation buttons (`buttons` in `CAPTURES`), not the keyboard's keys the nav script's presses would. Each image is cut from the frame the log gives for the nav
    script's first step: a still is one frame (a 1280 × 800 JPEG), an animation every fourth frame (a 720 × 450 WebP
    at 15 fps). The animations hide the clock, which shows the time of the run. It writes `docs/readme/` and a contact sheet
    (`artifacts/made-up-games/readme/contact-sheet.jpg`, and `contact-sheet.html`, which plays the animations).
@@ -97,9 +99,9 @@ paint, look, make, scan, import, capture.
    an arcade game gets a logo and a screenshot only).
 7. Add games, then the CLAUDE.md row and this file.
 
-**A kind of art** (heroes again, say): `make()` makes it, `FOLDERS` and `EXTENSIONS` name its folder (the app's names:
-`MediaKinds.FolderOf` in `src/Launcher.Core/Media/MediaKinds.cs`) and its format. A hero was `boxes.crop(art, 1920, 620,
-focus)`.
+**A kind of art**: `make()` makes it, `FOLDERS` and `EXTENSIONS` name its folder (the app's names:
+`MediaKinds.FolderOf` in `src/Launcher.Core/Media/MediaKinds.cs`) and its format, as for the hero
+(`boxes.crop(art, 1920, 1080, focus)`).
 
 ## games.toml
 
@@ -119,7 +121,7 @@ A concept's keys:
 A release's keys: `system` (`megadrive`, `snes`, `n64`, `arcade`, `ps2`), `released` (YYYY-MM-DD), `hud` and `hud_items`, and
 what it changes: `title`, `logo`, `players`, `file` (an arcade game's ROM: a MAME-style name, `redlnriv.zip`), `screen`
 (its look), `screen_fit = "pad"` (a screen painting widened by mirroring its edges, not cut: Kaleidrop's square one),
-`crop` (a focus for cutting the key art or the screen: `{ cover = [x, y], label = [...], screen = [...] }`, fractions
+`crop` (a focus for cutting the key art or the screen: `{ cover = [x, y], label = [...], screen = [...], hero = [...] }`, fractions
 of the spare width and height), `dress` (the Mega Drive's `classic` or `sidebar`) and `logo_place` (`top` or `bottom`).
 
 **HUDs** (drawn at native resolution in a bitmap font; painted text comes out garbled): `text` draws `hud_items`, each

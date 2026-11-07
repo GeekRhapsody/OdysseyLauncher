@@ -97,6 +97,7 @@ class Capture:
     animation: bool = False
     start: int = 0
     lead: int = 0
+    buttons: str = "xbox"
 
     def output(self):
         return OUT / (self.name + (".webp" if self.animation else ".jpg"))
@@ -125,9 +126,15 @@ CAPTURES = [
             args=["--start-system=snes", "--start-index=7", "--layout=grid/carousel"]),
     Capture("layout-list", "console", ["wait", "wait"], after=30,
             args=["--start-system=megadrive", "--start-index=6", "--layout=grid/list"]),
+    Capture("layout-coverflow", "console", ["wait", "wait"], after=30,
+            args=["--start-system=ps2", "--start-index=8", "--layout=grid/coverflow"], buttons="playstation"),
+    Capture("layout-showcase", "console", ["wait", "wait", "wait"], after=30,
+            args=["--start-system=ps2", "--start-index=5", "--layout=grid/showcase"], buttons="playstation"),
     Capture("game-details", "console", ["wait"], after=30,
             args=["--start-system=megadrive", "--start-index=17", "--open=details"]),
-    Capture("game-options", "console", ["wait", "x"], after=30, args=["--start-system=megadrive", "--start-index=17"]),
+    Capture("game-options", "console", ["wait", "x"], after=30, args=["--start-system=megadrive", "--start-index=17"],
+            buttons="playstation"),
+    Capture("settings", "console", ["wait"], after=30, args=["--open=settings"]),
     Capture("system-details", "console", [*TO_MEGADRIVE, "y"], after=60, expect="Mega Drive"),
 ]
 
@@ -235,6 +242,7 @@ def record(capture, folder):
         [godot(), "--path", REPO / "godot", "--resolution", f"{STILL[0]}x{STILL[1]}", "--fixed-fps", "60",
          "--write-movie", folder / "f.png", "--",
          f"--user-dir={USER_DIR}", f"--theme={capture.theme}", "--fake-status=96+/wifi3", f"--boot-frames={BOOT}",
+         f"--button-icons={capture.buttons}",
          "--nav-script=" + ",".join(capture.nav), *capture.args,
          f"--capture={folder / 'end.png'}", f"--capture-frame={frames}"],
         capture_output=True, text=True, encoding="utf-8", errors="replace")
