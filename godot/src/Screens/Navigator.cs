@@ -169,13 +169,13 @@ public sealed partial class Navigator : Node
     /// <summary>True while another screen (the settings) has the input: the grids ignore it, and wait for it to be let go.</summary>
     public Func<bool>? InputSuspended { get; set; }
 
-    /// <summary>Menu, or Back on the systems screen: the settings screen should open (M7).</summary>
+    /// <summary>Menu (but in a system's games), or Back on the systems screen: the settings screen should open (M7).</summary>
     public event Action? SettingsRequested;
 
     /// <summary>View (Select) or P in either grid: the power menu should open.</summary>
     public event Action? PowerRequested;
 
-    /// <summary>X on a system: its options panel should open (M7). The system's id.</summary>
+    /// <summary>X on a system, or Menu in its games: its options panel should open (M7). The system's id.</summary>
     public event Action<string>? SystemOptionsRequested;
 
     /// <summary>X on a game: its options panel should open (M7). The game's id.</summary>
@@ -448,6 +448,11 @@ public sealed partial class Navigator : Node
                 break;
             case NavCommand.NextTheme when _screen == Screen.Systems:
                 SwitchTheme(null);
+                break;
+            // In a system's games, Menu opens that system's page (2026-11-07); Favourites, Recently played and All games
+            // have none, so theirs is the app's settings, as on the systems screen.
+            case NavCommand.Menu when _screen == Screen.Games && _games is not null && FindEntry(_games.Id) is { Virtual: VirtualKind.None }:
+                SystemOptionsRequested?.Invoke(_games.Id);
                 break;
             case NavCommand.Menu:
             case NavCommand.Back when _screen == Screen.Systems:

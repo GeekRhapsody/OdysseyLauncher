@@ -151,6 +151,7 @@ The **Slab** theme (the default) shows each system as a dark slab with its logo.
 | Previous, next letter (a system's games) | LT, RT | <kbd>[</kbd>, <kbd>]</kbd> |
 | First, last | | Home, End |
 | Settings | Menu (or B on the systems screen) | F1 (or Escape on the systems screen) |
+| The system's settings (in its games) | Menu | F1 |
 | Power menu | View | P |
 | Next theme, for the session (systems screen) | | T |
 | Rescan the library: ROM folders, and media for new games (systems screen) | | F5 |
