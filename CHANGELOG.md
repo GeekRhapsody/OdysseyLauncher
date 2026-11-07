@@ -10,6 +10,8 @@ it releases, and the Release workflow puts it on the release page (tools/release
 
 ## Unreleased
 
+## 1.0.0 (2026-11-07)
+
 ### New
 
 - **A Showcase layout** for games, in Settings, Appearance (or a system's own view): a strip of boxes along the bottom with the focused game in the middle, and above it that game's logo, description, details and screenshot, over its hero art if it has one.
