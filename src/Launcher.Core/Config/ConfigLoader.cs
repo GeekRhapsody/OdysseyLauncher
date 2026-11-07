@@ -35,6 +35,8 @@ public sealed partial class ConfigLoader : IConfigLoader
         "systems_layout", "systems_columns", "systems_rows", "games_layout", "games_columns", "games_rows",
         "systems_sort", "systems_sort_order", "games_sort", "games_sort_order",
     ];
+    // show_performance, the FPS and VRAM readout's (2026-10-08 to 2026-11-07), is still known so a file that turned it on
+    // loads without a warning; nothing reads it.
     private static readonly string[] UiKeys = ["show_clock", "show_battery", "show_network", "show_performance", "navigation_sounds", "button_icons", "size"];
     private static readonly string[] ScrapingKeys = ["provider", "fallback", "regions", "languages", "media", "hash_limit_mb"];
     private static readonly string[] ScanningKeys = ["exclude", "scan_at_launch"];

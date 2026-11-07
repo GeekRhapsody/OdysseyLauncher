@@ -982,16 +982,14 @@ public class ConfigLoaderTests
     }
 
     [Fact]
-    public void The_performance_readout_is_off_unless_the_ui_settings_turn_it_on()
+    public void The_removed_performance_readout_s_key_loads_without_a_warning()
     {
-        Assert.False(Load().Config.Settings.Ui.ShowPerformance);
-
-        var on = Load(settings: """
+        var old = Load(settings: """
             [ui]
             show_performance = true
             """);
-        Assert.Empty(on.Diagnostics);
-        Assert.True(on.Config.Settings.Ui.ShowPerformance);
+        Assert.Empty(old.Diagnostics);
+        Assert.Equal(new UiSettings(), old.Config.Settings.Ui);
     }
 
     [Fact]

@@ -92,7 +92,6 @@ public sealed partial class ConfigLoader
                 SettingBool(tree, defaults, "ui", "show_clock") ?? true,
                 SettingBool(tree, defaults, "ui", "show_battery") ?? true,
                 SettingBool(tree, defaults, "ui", "show_network") ?? true,
-                SettingBool(tree, defaults, "ui", "show_performance") ?? false,
                 SettingBool(tree, defaults, "ui", "navigation_sounds") ?? true,
                 (ButtonIcons)SettingName(tree, defaults, "button_icons", DisplayNames.ButtonIcons, [], "value", string.Empty, "ui"),
                 (UiSize)SettingName(tree, defaults, "size", DisplayNames.UiSizes, [], "size", string.Empty, "ui"));

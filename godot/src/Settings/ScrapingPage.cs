@@ -1,15 +1,19 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
+using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Launcher.App.Ui;
 using Launcher.Core.Config;
+using Launcher.Core.Library;
 using Launcher.Core.Scraping;
 
 namespace Launcher.App.Settings;
 
 /// <summary>
-/// Scraping (M7): the provider asked first (left and right change it in place), the fallbacks and their order, the
+/// Scraping (M7): "Scrape all missing metadata" (on the main page until 2026-11-07), the provider asked first (left and right change it in place), the fallbacks and their order, the
 /// media to download, the regions preferred and their order (2026-10-04), and each provider's credentials. The page says which providers are ready, which have no credentials, and whether an
 /// <c>ODYSSEY_*</c> variable sets them.
 /// </summary>
@@ -19,7 +23,9 @@ public sealed partial class ScrapingPage : ListPanel
 
     private readonly SettingsController _settings;
     private readonly Dictionary<string, SettingRow> _credentialRows = new(StringComparer.Ordinal);
+    private SettingRow _scrapeMissing = null!;
     private int _check;
+    private bool _counting;
 
     public ScrapingPage(SettingsController settings)
         : base("Scraping")
@@ -29,6 +35,7 @@ public sealed partial class ScrapingPage : ListPanel
         Build();
         SetHints(CommonHints.ChooseChangeBack);
         _settings.ConfigApplied += Rebuild;
+        _settings.Jobs.Jobs.Changed += ShowJob;
     }
 
     public static string NameOf(string provider) => provider switch
@@ -51,7 +58,11 @@ public sealed partial class ScrapingPage : ListPanel
         _ => string.Empty,
     };
 
-    public override void OnClosed() => _settings.ConfigApplied -= Rebuild;
+    public override void OnClosed()
+    {
+        _settings.ConfigApplied -= Rebuild;
+        _settings.Jobs.Jobs.Changed -= ShowJob;
+    }
 
     public override void OnRevealed() => CheckCredentials();
 
@@ -66,6 +77,10 @@ public sealed partial class ScrapingPage : ListPanel
     private void Build()
     {
         var scraping = _settings.Services.Config.Settings.Scraping;
+        AddSection("Scrape");
+        _scrapeMissing = AddRow("Scrape all missing metadata", "Games never scraped, not found, or without a front cover", activated: ScrapeMissing);
+        ShowJob();
+
         AddSection("Order");
         var provider = AddRow("Default provider", "Asked first for every game", NameOf(scraping.Provider), ChooseProvider);
         provider.Adjuster = direction =>
@@ -152,5 +167,101 @@ public sealed partial class ScrapingPage : ListPanel
             new ConfigEdit(ConfigFileKind.Settings, ["scraping", "provider"], provider),
             new ConfigEdit(ConfigFileKind.Settings, ["scraping", "fallback"], fallback),
         ], $"{NameOf(provider)} is asked first now.");
+    }
+
+    // ---- Scrape all missing ---------------------------------------------------------------------------
+
+    private void ShowJob() => _scrapeMissing.Value = _settings.Jobs.Scraping ? "Running" : _counting ? "Counting…" : null;
+
+    /// <summary>Counts what it would scrape first, and asks, saying which providers will be used.</summary>
+    private void ScrapeMissing()
+    {
+        if (_settings.Jobs.Scraping)
+        {
+            ShowStatus("Scraping is already running: it's at the top of the settings.", UiStyle.Dim, 4);
+            return;
+        }
+
+        if (_counting)
+        {
+            return;
+        }
+
+        _counting = true;
+        ShowJob();
+        var config = _settings.Services.Config;
+        var jobs = _settings.Jobs;
+        _ = Task.Run(async () =>
+        {
+            string? failure = null;
+            (MissingSummary Missing, IReadOnlyList<ProviderStatus> Providers) preview = default;
+            try
+            {
+                preview = await jobs.PreviewMissingAsync(CancellationToken.None).ConfigureAwait(false);
+            }
+            catch (Exception e)
+            {
+                failure = e.Message;
+            }
+
+            _settings.Ui.Queue.Post(() =>
+            {
+                _counting = false;
+                ShowJob();
+                if (Layer?.Top != this)
+                {
+                    return;
+                }
+
+                if (failure is not null)
+                {
+                    ConfirmDialog.Tell(Layer, "Couldn't count the games", failure);
+                    return;
+                }
+
+                AskToScrape(config, preview.Missing!, preview.Providers!);
+            });
+        });
+    }
+
+    private void AskToScrape(AppConfig config, MissingSummary missing, IReadOnlyList<ProviderStatus> providers)
+    {
+        if (missing.Games == 0)
+        {
+            ConfirmDialog.Tell(Layer, "Nothing to scrape", "Every game has been scraped and has a front cover.");
+            return;
+        }
+
+        var usable = providers.Where(p => p.InOrder && p.State == ProviderState.Ready).ToList();
+        if (usable.Count == 0)
+        {
+            ConfirmDialog.Tell(Layer, "No provider can scrape yet",
+                "None of the providers you use has its credentials yet. Add them to one under Providers, below, first.");
+            return;
+        }
+
+        var text = new StringBuilder();
+        text.Append(CultureInfo.InvariantCulture, $"{missing.Games:N0} game{(missing.Games == 1 ? string.Empty : "s")} in ");
+        text.Append(string.Join(", ", missing.Systems.Take(6).Select(s => string.Create(CultureInfo.InvariantCulture, $"{config.FindSystem(s.SystemId)?.Name ?? s.SystemId} ({s.Games:N0})"))));
+        if (missing.Systems.Count > 6)
+        {
+            text.Append(CultureInfo.InvariantCulture, $" and {missing.Systems.Count - 6} more systems");
+        }
+
+        text.Append(" have never been scraped, weren't found, or have no front cover.\n\n");
+        text.Append("They'll be looked up with ").Append(string.Join(", then ", usable.Select(p => p.DisplayName))).Append('.');
+        foreach (var skipped in providers.Where(p => p.InOrder && p.State != ProviderState.Ready))
+        {
+            text.Append(' ').Append(skipped.DisplayName).Append(skipped.State == ProviderState.MissingCredentials ? " has no credentials, so it's skipped." : " is resting, so it's skipped for now.");
+        }
+
+        text.Append("\n\nIt runs in the background: you can keep browsing, and stop it from its row at the top of the settings.");
+        ConfirmDialog.Ask(Layer, $"Scrape {missing.Games:N0} games?", text.ToString(), "Start scraping", "Not now", yes =>
+        {
+            if (yes)
+            {
+                _settings.Jobs.ScrapeMissing();
+            }
+        });
     }
 }

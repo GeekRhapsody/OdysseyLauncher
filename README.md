@@ -127,13 +127,13 @@ The **Slab** theme (the default) shows each system as a dark slab with its logo.
 1. **Download** the latest `OdysseyLauncher-<version>-windows-x86_64.zip` from [Releases](https://github.com/GeekRhapsody/OdysseyLauncher/releases), unzip it anywhere, and run `OdysseyLauncher.exe`. The .NET runtime is included, so there's nothing else to install. It needs 64-bit Windows 10 or 11 and a GPU with Direct3D 12 or Vulkan.
 
    **On Linux,** download `OdysseyLauncher-<version>-linux-x86_64.AppImage` instead, make it executable (`chmod +x`, or Allow executing in its properties), and run it. It needs a 64-bit distribution with glibc 2.34 or later (Ubuntu 22.04, Linux Mint 21, Fedora 35, current Arch and its derivatives, or newer), and runs best with a Vulkan driver.
-2. **Point it at your games.** By default each system's games are expected in `<your user folder>\ROMs\<system id>` (`ROMs\megadrive`, `ROMs\snes`...), as in other frontends. In **Settings > ROM folders** you can set another root folder, or give any system its own folders.
-3. **Point it at your emulators.** In **Settings > Emulators**, set the folder your emulators live in and RetroArch's folder. Each system's emulator can be changed from its options (X on its card). The settings list any emulator that's missing.
-4. **Scrape** from **Settings > Library**: "Scrape all missing metadata" fetches art and metadata for every game never scraped, not found before, or without a front cover. Add your ScreenScraper account (or IGDB and SteamGridDB keys) under **Settings > Scraping** for faster, fuller results.
+2. **Point it at your games.** By default each system's games are expected in `<your user folder>\ROMs\<system id>` (`ROMs\megadrive`, `ROMs\snes`...), as in other frontends. In **Settings > Library** you can set another root folder, and in **Settings > Systems** give any system its own folders.
+3. **Point it at your emulators.** In **Settings > Emulators**, set the folder your emulators live in and RetroArch's folder. Each system's emulator can be changed on its page in **Settings > Systems**, or from its options (X on its card). **Settings > About** lists any emulator that's missing.
+4. **Scrape** from **Settings > Scraping**: "Scrape all missing metadata" fetches art and metadata for every game never scraped, not found before, or without a front cover. Add your ScreenScraper account (or IGDB and SteamGridDB keys) on the same page, under Providers, for faster, fuller results.
 
 **Portable mode:** put an empty `portable.txt` beside `OdysseyLauncher.exe` (on Linux, beside the `.AppImage` file), and settings, databases, media and caches stay in a `userdata` folder next to it, instead of `%APPDATA%` and `%LOCALAPPDATA%` (on Linux, `~/.config`, `~/.local/share` and `~/.cache`).
 
-**Updating:** **Settings > Check for updates** fetches the newest release from GitHub, installs it and restarts the launcher. Your settings, library and media are kept. On Linux it replaces the `.AppImage` file, keeping its name; tools that update AppImages, such as AppImageUpdate and Gear Lever, can update it too.
+**Updating:** **Settings > About > Check for updates** fetches the newest release from GitHub, installs it and restarts the launcher. Your settings, library and media are kept. On Linux it replaces the `.AppImage` file, keeping its name; tools that update AppImages, such as AppImageUpdate and Gear Lever, can update it too.
 
 ## Controls
 

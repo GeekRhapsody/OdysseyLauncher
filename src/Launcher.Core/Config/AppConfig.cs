@@ -340,12 +340,11 @@ public static class Layouts
 /// <param name="ShowClock">The time, in the user's regional short-time format.</param>
 /// <param name="ShowBattery">The battery's charge; nothing shows on a device without one.</param>
 /// <param name="ShowNetwork">Wi-Fi (with its signal), a cable, or disconnected.</param>
-/// <param name="ShowPerformance">The frame rate and the video memory in use, under the indicators (2026-10-08); off by default.</param>
 /// <param name="NavigationSounds">A tock when the focus moves to another system or game, and a whoosh when a system is entered (2026-10-10); on by default.</param>
 /// <param name="ButtonIcons">Which buttons the controls' hints show (2026-11-05): the last device used's, or one kind always.</param>
 /// <param name="Size">The size of the whole 2D UI (2026-11-05): menus, text and the controls' hints.</param>
 public sealed record UiSettings(
-    bool ShowClock = true, bool ShowBattery = true, bool ShowNetwork = true, bool ShowPerformance = false, bool NavigationSounds = true,
+    bool ShowClock = true, bool ShowBattery = true, bool ShowNetwork = true, bool NavigationSounds = true,
     ButtonIcons ButtonIcons = ButtonIcons.Automatic, UiSize Size = UiSize.Medium);
 
 /// <summary>

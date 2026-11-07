@@ -1,141 +1,60 @@
-using System;
 using System.Collections.Generic;
-using System.Globalization;
-using System.IO;
 using System.Linq;
-using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
 using Godot;
 using Launcher.App.Navigation;
 using Launcher.App.Ui;
 using Launcher.Core.Config;
 using Launcher.Core.Library;
-using Launcher.Core.Scraping;
-using Launcher.Core.Theming;
 
 namespace Launcher.App.Settings;
 
 /// <summary>
-/// The main settings screen (M7): ROM folders, the media folder, emulators, the theme and layout, whether systems without games show, graphics, the status indicators, navigation sounds, button icons and UI size, scraping, and the
-/// library's actions (rescan, with or without every media folder, scrape all missing, and whether it's scanned at launch) with their progress and a way to cancel them. Menu, B or the Back
-/// button closes it; every change is saved as it's made, and applies without a restart.
+/// The main settings screen (M7; a short list of pages since 2026-11-07, docs/ARCHITECTURE.md decisions log): Library,
+/// Systems, Emulators, Scraping, Appearance, Interface, Graphics and About, each with a one-line summary of its settings.
+/// Above them, only while there are any: a row per running job (a rescan, a scrape, an import) with its progress, A
+/// cancelling it. The problems in the config files are on <see cref="AboutPage"/>. Menu, B or the Back button closes
+/// it; every change is saved as it's made, and applies without a restart.
 /// </summary>
 public sealed partial class SettingsHome : ListPanel
 {
-    private static readonly Hint[] Hints = [new("Choose", Prompt.Accept), new("No or yes", Prompt.LeftRight), new("Close", Prompt.Back, Prompt.Menu)];
-
-    /// <summary><c>[ui] button_icons</c>' values, in <see cref="ButtonIcons"/>' order (A1 Button icons).</summary>
-    private static readonly Choice[] ButtonIconChoices =
-    [
-        new("automatic", "Automatic", "Those of the controller or keyboard you used last"),
-        new("xbox", "Xbox"),
-        new("playstation", "PlayStation"),
-        new("nintendo", "Nintendo", "A Switch's or a Switch 2's: B, the bottom button, confirms"),
-        new("gamecube", "GameCube"),
-        new("steamdeck", "Steam Deck", "And the new Steam Controller, whose buttons are the same"),
-        new("steamcontroller", "Steam Controller (2015)"),
-        new("keyboard", "Keyboard"),
-    ];
-
-    /// <summary><c>[ui] size</c>'s values, in <see cref="UiSize"/>'s order (A1 UI size).</summary>
-    private static readonly Choice[] UiSizeChoices =
-    [
-        new("small", "Small", "For a monitor on a desk"),
-        new("medium", "Medium"),
-        new("large", "Large", "For a handheld's small screen, or a television across the room"),
-    ];
+    private static readonly Hint[] Hints = [new("Choose", Prompt.Accept), new("Close", Prompt.Back, Prompt.Menu)];
 
     private readonly SettingsController _settings;
-    private readonly SettingRow _roms;
-    private readonly SettingRow _media;
-    private readonly SettingRow _emulators;
-    private readonly SettingRow _theme;
-    private readonly SettingRow _layout;
-    private readonly SettingRow _emptySystems;
-    private readonly SettingRow _groupSystems;
-    private readonly SettingRow _graphics;
-    private readonly SettingRow _clock;
-    private readonly SettingRow _battery;
-    private readonly SettingRow _network;
-    private readonly SettingRow _sounds;
-    private readonly SettingRow _buttonIcons;
-    private readonly SettingRow _uiSize;
+    private readonly SettingRow _library;
     private readonly SettingRow _scraping;
-    private readonly SettingRow _rescan;
-    private readonly SettingRow _rescanMedia;
-    private readonly SettingRow _scanAtLaunch;
-    private readonly SettingRow _scrapeMissing;
-    private readonly SettingRow _problems;
-    private readonly SettingRow _update;
+    private readonly SettingRow _appearance;
+    private readonly SettingRow _interface;
+    private readonly SettingRow _graphics;
     private readonly Dictionary<int, SettingRow> _jobRows = [];
     private readonly VBoxContainer _jobs;
-    private bool _counting;
 
     public SettingsHome(SettingsController settings)
         : base("Settings")
     {
         _settings = settings;
-        Subtitle = $"Saved in {settings.Services.Paths.ConfigDir}";
 
-        AddSection("Games");
-        _roms = AddRow("ROM folders", activated: () => Layer.Push(new RomFoldersPage(_settings)));
-        _media = AddRow("Media folder", activated: () => Layer.Push(new MediaFolderPage(_settings)));
-        _emulators = AddRow("Emulators", activated: () => Layer.Push(new EmulatorsPage(_settings)));
-
-        AddSection("Look");
-        _theme = AddRow("Theme", activated: ChooseTheme);
-        AddRow("Download themes", "Themes made for Odyssey Launcher: get them, keep them up to date, or remove them",
-            activated: () => Layer.Push(new ThemeDownloaderPage(_settings)));
-        _layout = AddRow("Layout", activated: () => Layer.Push(new LayoutPage(_settings)));
-        _emptySystems = AddRow("Show systems without games", "A card for every system, even one with nothing in its ROM folders",
-            activated: () => SetShowEmptySystems(null));
-        _emptySystems.Adjuster = direction => SetShowEmptySystems(direction > 0);
-        _groupSystems = AddRow("Group regional variants", "A variant's games in its console's card, each in its own box (Dreamcast (NA/JP) in Dreamcast)",
-            activated: () => SetGroupSystems(null));
-        _groupSystems.Adjuster = direction => SetGroupSystems(direction > 0);
-        _graphics = AddRow("Graphics", activated: () => Layer.Push(new GraphicsPage(_settings)));
-
-        AddSection("UI");
-        _clock = AddIndicatorRow("Clock", $"The time, top right, in your {(OperatingSystem.IsWindows() ? "Windows" : "system's")} time format", "show_clock", ui => ui.ShowClock);
-        _battery = AddIndicatorRow("Battery", "Its charge, top right", "show_battery", ui => ui.ShowBattery);
-        _network = AddIndicatorRow("Network", "Wi-Fi with its signal, a cable, or disconnected", "show_network", ui => ui.ShowNetwork);
-        _sounds = AddIndicatorRow("Navigation sounds", "A tock when the focus moves, a whoosh when you enter a system", "navigation_sounds",
-            ui => ui.NavigationSounds, ("on", "off"));
-        _buttonIcons = AddRow("Button icons", "The buttons the controls along the bottom show", activated: ChooseButtonIcons);
-        _buttonIcons.Adjuster = StepButtonIcons;
-        _uiSize = AddRow("UI size", "The menus, text and controls: the game and system cards keep their size", activated: ChooseUiSize);
-        _uiSize.Adjuster = StepUiSize;
-
-        AddSection("Scraping");
-        _scraping = AddRow("Providers, media and credentials", activated: () => Layer.Push(new ScrapingPage(_settings)));
-
-        AddSection("Library");
-        _rescan = AddRow("Rescan the library", "Look for new, moved and removed games in every ROM folder, and for media only where there are new games",
-            activated: () => Rescan(RescanMedia.SystemsWithNewGames));
-        _rescanMedia = AddRow("Rescan the library and media", "Every ROM folder and every media folder: for art, videos or models you added or removed yourself",
-            activated: () => Rescan(RescanMedia.All));
-        _scanAtLaunch = AddRow("Auto scan the library at launch", "Rescan the library (ROM folders) in the background each time the app starts",
-            activated: () => SetScanAtLaunch(null));
-        _scanAtLaunch.Adjuster = direction => SetScanAtLaunch(direction > 0);
-        _scrapeMissing = AddRow("Scrape all missing metadata", "Games never scraped, not found, or without a front cover", activated: ScrapeMissing);
         _jobs = new VBoxContainer { MouseFilter = MouseFilterEnum.Ignore };
         _jobs.AddThemeConstantOverride("separation", 4);
         Rows.AddChild(_jobs);
 
-        AddSection("Config files");
-        _problems = AddRow("Problems in your config files", activated: ShowProblems);
-
-        AddSection("Odyssey Launcher");
-        _update = AddRow("Check for updates", activated: () => _settings.Updater.Check(this));
+        _library = AddRow("Library", activated: () => Layer.Push(new LibraryPage(_settings)));
+        AddRow("Systems", "Each system's ROM folders, emulator, games view and models", activated: () => Layer.Push(new SystemsPage(_settings)));
+        AddRow("Emulators", "The programs your systems use, and where they are", activated: () => Layer.Push(new EmulatorsPage(_settings)));
+        _scraping = AddRow("Scraping", activated: () => Layer.Push(new ScrapingPage(_settings)));
+        _appearance = AddRow("Appearance", activated: () => Layer.Push(new AppearancePage(_settings)));
+        _interface = AddRow("Interface", activated: () => Layer.Push(new InterfacePage(_settings)));
+        _graphics = AddRow("Graphics", activated: () => Layer.Push(new GraphicsPage(_settings)));
+        AddRow("About", $"Version {AboutPage.VersionText} · Check for updates, and your config files", activated: () => Layer.Push(new AboutPage(_settings)));
 
         SetHints(Hints);
         _settings.Jobs.Jobs.Changed += ShowJobs;
         _settings.ConfigApplied += OnConfigApplied;
-        _settings.Updater.Changed += ShowUpdate;
         Refresh();
         ShowJobs();
     }
+
+    /// <summary>Library, not a job's row above it, where A would cancel the job.</summary>
+    public override Control? DefaultFocus => _library;
 
     public override void OnRevealed() => Refresh();
 
@@ -143,7 +62,6 @@ public sealed partial class SettingsHome : ListPanel
     {
         _settings.Jobs.Jobs.Changed -= ShowJobs;
         _settings.ConfigApplied -= OnConfigApplied;
-        _settings.Updater.Changed -= ShowUpdate;
     }
 
     private void OnConfigApplied(AppConfig config) => Refresh();
@@ -152,340 +70,18 @@ public sealed partial class SettingsHome : ListPanel
     {
         var services = _settings.Services;
         var config = services.Config;
-        var custom = config.Systems.Count(s => s.RomDirSource == RomDirSource.Configured);
-        _roms.Detail = custom == 0
-            ? $"{config.Settings.RomRoot}, a folder per system"
-            : $"{config.Settings.RomRoot}; {custom} system{(custom == 1 ? " has" : "s have")} its own";
-        _media.Detail = config.Settings.MediaDir is null
-            ? $"{services.Library.MediaDir}, the default: covers, videos and models"
-            : $"{services.Library.MediaDir}: covers, videos and models";
-        _emulators.Detail = $"{config.Emulators.Count} profiles; the programs your systems use";
-        var active = services.Theme?.Active;
-        _theme.Detail = active is null ? config.Settings.Display.Theme : $"{active.Name} ({active.Id})";
-        var display = config.Settings.Display;
-        _layout.Detail = $"Systems: {LayoutPage.SystemsTitle(display.SystemsLayout)}{SizeOf(Layouts.IsGrid(display.SystemsLayout), display.SystemsGrid)} · Games: {LayoutPage.GamesTitle(display.GamesLayout)}{SizeOf(Layouts.IsGrid(display.GamesLayout), display.GamesGrid)}";
-        _graphics.Detail = GraphicsPage.Summary(display);
+        var withGames = services.Systems.Count(s => s.GameCount > 0);
+        _library.Detail = $"{withGames} system{(withGames == 1 ? string.Empty : "s")} with games · {config.Settings.RomRoot}";
+
         var scraping = config.Settings.Scraping;
         _scraping.Detail = scraping.Fallback.Count == 0
             ? $"{ScrapingPage.NameOf(scraping.Provider)} only"
             : $"{ScrapingPage.NameOf(scraping.Provider)}, then {string.Join(" and ", scraping.Fallback.Select(ScrapingPage.NameOf))} for what's missing";
 
-        ShowIndicator(_clock, config.Settings.Ui.ShowClock);
-        ShowIndicator(_battery, config.Settings.Ui.ShowBattery);
-        ShowIndicator(_network, config.Settings.Ui.ShowNetwork);
-        ShowIndicator(_sounds, config.Settings.Ui.NavigationSounds);
-        _buttonIcons.Value = ButtonIconChoices[(int)config.Settings.Ui.ButtonIcons].Title;
-        _uiSize.Value = UiSizeChoices[(int)config.Settings.Ui.Size].Title;
-        ShowIndicator(_scanAtLaunch, config.Settings.Scanning.ScanAtLaunch);
-        ShowIndicator(_emptySystems, !display.HideEmptySystems);
-        ShowIndicator(_groupSystems, display.GroupSystems);
-        if (_settings.DeviceStatus?.Current is { Battery.Present: false })
-        {
-            _battery.Detail = "This PC has no battery, so it never shows";
-        }
-
-        var problems = services.Diagnostics.Count(d => d.Severity != Severity.Info);
-        var errors = services.Diagnostics.Count(d => d.IsError);
-        _problems.Detail = problems == 0
-            ? "None: every file loaded cleanly"
-            : errors == 0
-                ? "Warnings only, such as emulators that aren't where config says"
-                : $"{errors} error{(errors == 1 ? string.Empty : "s")}: a setting with an error uses its default until it's fixed";
-        _problems.Value = problems == 0 ? null : problems.ToString(CultureInfo.InvariantCulture);
-        _problems.ValueColour = UiStyle.Warning;
-        ShowUpdate();
-    }
-
-    private void ShowUpdate()
-    {
-        var updater = _settings.Updater;
-        _update.Detail = updater.Current is { } current
-            ? $"You have {current}. Looks for a newer version on {updater.SourceName}, and installs it if you say so"
-            : $"This build ({Launcher.Core.CoreInfo.Version}) isn't a release's, so it can't be updated";
-        _update.Value = updater.Checking ? "Checking…" : null;
-        _update.ValueColour = UiStyle.Dim;
-    }
-
-    /// <summary>A grid's size after its layout's name, when it isn't automatic: " (5 columns, automatic rows)".</summary>
-    private static string SizeOf(bool grid, GridSize size) =>
-        !grid || size.IsAutomatic
-            ? string.Empty
-            : $" ({Count(size.Columns, "column")}, {Count(size.Rows, "row")})";
-
-    private static string Count(int value, string what) =>
-        value == 0 ? $"automatic {what}s" : value == 1 ? $"1 {what}" : $"{value} {what}s";
-
-    // ---- UI -----------------------------------------------------------------------------------------
-
-    /// <summary>
-    /// A status indicator's row (or the navigation sounds'): A turns it on or off; left is no, right is yes. It's saved
-    /// as <c>[ui] key</c>, and the status says it's <paramref name="words"/>' first or second (by default shown or hidden).
-    /// </summary>
-    private SettingRow AddIndicatorRow(string title, string detail, string key, Func<UiSettings, bool> shown, (string On, string Off)? words = null)
-    {
-        var said = words ?? ("shown", "hidden");
-        var row = AddRow(title, detail, activated: () => SetIndicator(title, key, shown, said, null));
-        row.Adjuster = direction => SetIndicator(title, key, shown, said, direction > 0);
-        return row;
-    }
-
-    private static void ShowIndicator(SettingRow row, bool on)
-    {
-        row.Value = on ? "Yes" : "No";
-        row.ValueColour = on ? UiStyle.Good : UiStyle.Faint;
-    }
-
-    /// <param name="on">Shown or not; null turns it the other way.</param>
-    private void SetIndicator(string title, string key, Func<UiSettings, bool> shown, (string On, string Off) words, bool? on)
-    {
-        var current = shown(_settings.Services.Config.Settings.Ui);
-        var wanted = on ?? !current;
-        if (current == wanted)
-        {
-            return;
-        }
-
-        _settings.Save(this, [new ConfigEdit(ConfigFileKind.Settings, ["ui", key], wanted)], $"{title}: {(wanted ? words.On : words.Off)}.");
-    }
-
-    private void ChooseButtonIcons()
-    {
-        var current = DisplayNames.Name(_settings.Services.Config.Settings.Ui.ButtonIcons);
-        Layer.Push(new ChoicePanel("Button icons", "Saved as [ui] button_icons", ButtonIconChoices, current, SaveButtonIcons));
-    }
-
-    /// <summary>Left and right step through the kinds, stopping at the ends.</summary>
-    private void StepButtonIcons(int direction)
-    {
-        var current = (int)_settings.Services.Config.Settings.Ui.ButtonIcons;
-        var next = Math.Clamp(current + Math.Sign(direction), 0, ButtonIconChoices.Length - 1);
-        if (next != current)
-        {
-            SaveButtonIcons(ButtonIconChoices[next]);
-        }
-    }
-
-    private void SaveButtonIcons(Choice choice) =>
-        _settings.Save(this, [new ConfigEdit(ConfigFileKind.Settings, ["ui", "button_icons"], choice.Id)], $"Button icons: {choice.Title}.");
-
-    private void ChooseUiSize()
-    {
-        var current = DisplayNames.Name(_settings.Services.Config.Settings.Ui.Size);
-        Layer.Push(new ChoicePanel("UI size", "Applied at once, and saved as [ui] size", UiSizeChoices, current, SaveUiSize));
-    }
-
-    /// <summary>Left and right step through the sizes, stopping at the ends.</summary>
-    private void StepUiSize(int direction)
-    {
-        var current = (int)_settings.Services.Config.Settings.Ui.Size;
-        var next = Math.Clamp(current + Math.Sign(direction), 0, UiSizeChoices.Length - 1);
-        if (next != current)
-        {
-            SaveUiSize(UiSizeChoices[next]);
-        }
-    }
-
-    private void SaveUiSize(Choice choice) =>
-        _settings.Save(this, [new ConfigEdit(ConfigFileKind.Settings, ["ui", "size"], choice.Id)], $"UI size: {choice.Title}.");
-
-    // ---- Theme --------------------------------------------------------------------------------------
-
-    private void ChooseTheme()
-    {
-        var services = _settings.Services;
-        var current = services.Theme?.Active.Id ?? services.Config.Settings.Display.Theme;
-        ShowStatus("Reading the themes…", UiStyle.Dim);
-        var builtIns = services.BuiltInThemes;
-        var themesDir = Path.Combine(services.Paths.ConfigDir, ThemeLoader.FolderName);
-        _ = Task.Run(() =>
-        {
-            // Each theme's name, from its manifest (user themes replace built-in ones with the same id).
-            var names = new SortedDictionary<string, (string Name, string Where)>(StringComparer.Ordinal);
-            // The base theme isn't one to choose: every theme builds on it.
-            foreach (var source in builtIns)
-            {
-                if (source.Id != ThemeCatalog.BaseId)
-                {
-                    names[source.Id] = (NameOf(source.Manifest.Text, source.Id), "Built in");
-                }
-            }
-
-            foreach (var source in ThemeCatalog.UserSources(themesDir, []))
-            {
-                names[source.Id] = (NameOf(source.Manifest.Text, source.Id), source.Folder);
-            }
-
-            var choices = names.Select(n => new Choice(n.Key, n.Value.Name, n.Key == ThemeCatalog.DefaultId && n.Value.Where == "Built in" ? "Built in; the default" : n.Value.Where)).ToList();
-            _settings.Ui.Queue.Post(() =>
-            {
-                ShowStatus(null);
-                if (Layer?.Top != this)
-                {
-                    return;
-                }
-
-                Layer.Push(new ChoicePanel("Theme", "Applied at once, and saved as [display] theme", choices, current, choice =>
-                    _settings.Save(this, [new ConfigEdit(ConfigFileKind.Settings, ["display", "theme"], choice.Id)], $"Theme: {choice.Title}. Loading it now…")));
-            });
-        });
-    }
-
-    private static string NameOf(string manifest, string id) =>
-        TomlEditor.Parse(manifest, id, out _)?.Get(["name"]) as string ?? id;
-
-    /// <param name="on">Shown or not; null turns it the other way. It's saved the other way round, as <c>[display] hide_empty_systems</c>.</param>
-    private void SetShowEmptySystems(bool? on)
-    {
-        var current = !_settings.Services.Config.Settings.Display.HideEmptySystems;
-        var wanted = on ?? !current;
-        if (current == wanted)
-        {
-            return;
-        }
-
-        _settings.Save(this, [new ConfigEdit(ConfigFileKind.Settings, ["display", "hide_empty_systems"], !wanted)],
-            wanted ? "Every system has a card now, with games or not." : "Systems without games are hidden.");
-    }
-
-    /// <param name="on">Grouped or not; null turns it the other way. It's saved as <c>[display] group_systems</c> (A5 Grouped systems).</param>
-    private void SetGroupSystems(bool? on)
-    {
-        var current = _settings.Services.Config.Settings.Display.GroupSystems;
-        var wanted = on ?? !current;
-        if (current == wanted)
-        {
-            return;
-        }
-
-        _settings.Save(this, [new ConfigEdit(ConfigFileKind.Settings, ["display", "group_systems"], wanted)],
-            wanted ? "Regional variants show in their console's card." : "Every regional variant has a card of its own.");
-    }
-
-    // ---- Library actions -------------------------------------------------------------------------------
-
-    /// <param name="media">Every media folder, or only those of systems with new games.</param>
-    private void Rescan(RescanMedia media)
-    {
-        if (_settings.Jobs.Scanning)
-        {
-            ShowStatus("A scan is already running: it's below.", UiStyle.Dim, 4);
-            return;
-        }
-
-        _settings.Rescan?.Invoke(null, media);
-    }
-
-    /// <param name="on">Scanned at launch or not; null turns it the other way. It's saved as <c>[scanning] scan_at_launch</c>.</param>
-    private void SetScanAtLaunch(bool? on)
-    {
-        var current = _settings.Services.Config.Settings.Scanning.ScanAtLaunch;
-        var wanted = on ?? !current;
-        if (current == wanted)
-        {
-            return;
-        }
-
-        _settings.Save(this, [new ConfigEdit(ConfigFileKind.Settings, ["scanning", "scan_at_launch"], wanted)],
-            wanted ? "The library is scanned each time the app starts." : "The library isn't scanned at launch (only systems never scanned).");
-    }
-
-    /// <summary>Counts what it would scrape first, and asks, saying which providers will be used.</summary>
-    private void ScrapeMissing()
-    {
-        if (_settings.Jobs.Scraping)
-        {
-            ShowStatus("Scraping is already running: it's below.", UiStyle.Dim, 4);
-            return;
-        }
-
-        if (_counting)
-        {
-            return;
-        }
-
-        _counting = true;
-        _scrapeMissing.Value = "Counting…";
-        var config = _settings.Services.Config;
-        var jobs = _settings.Jobs;
-        _ = Task.Run(async () =>
-        {
-            string? failure = null;
-            (MissingSummary Missing, IReadOnlyList<ProviderStatus> Providers) preview = default;
-            try
-            {
-                preview = await jobs.PreviewMissingAsync(CancellationToken.None).ConfigureAwait(false);
-            }
-            catch (Exception e)
-            {
-                failure = e.Message;
-            }
-
-            _settings.Ui.Queue.Post(() =>
-            {
-                _counting = false;
-                _scrapeMissing.Value = null;
-                if (Layer?.Top != this)
-                {
-                    return;
-                }
-
-                if (failure is not null)
-                {
-                    ConfirmDialog.Tell(Layer, "Couldn't count the games", failure);
-                    return;
-                }
-
-                AskToScrape(config, preview.Missing!, preview.Providers!);
-            });
-        });
-    }
-
-    private void AskToScrape(AppConfig config, MissingSummary missing, IReadOnlyList<ProviderStatus> providers)
-    {
-        if (missing.Games == 0)
-        {
-            ConfirmDialog.Tell(Layer, "Nothing to scrape", "Every game has been scraped and has a front cover.");
-            return;
-        }
-
-        var usable = providers.Where(p => p.InOrder && p.State == ProviderState.Ready).ToList();
-        if (usable.Count == 0)
-        {
-            ConfirmDialog.Ask(Layer, "No provider can scrape yet",
-                "None of the providers you use has its credentials yet. Add them under Scraping first.",
-                "Open Scraping", "Not now", yes =>
-                {
-                    if (yes)
-                    {
-                        Layer.Push(new ScrapingPage(_settings));
-                    }
-                });
-            return;
-        }
-
-        var text = new StringBuilder();
-        text.Append(CultureInfo.InvariantCulture, $"{missing.Games:N0} game{(missing.Games == 1 ? string.Empty : "s")} in ");
-        text.Append(string.Join(", ", missing.Systems.Take(6).Select(s => string.Create(CultureInfo.InvariantCulture, $"{config.FindSystem(s.SystemId)?.Name ?? s.SystemId} ({s.Games:N0})"))));
-        if (missing.Systems.Count > 6)
-        {
-            text.Append(CultureInfo.InvariantCulture, $" and {missing.Systems.Count - 6} more systems");
-        }
-
-        text.Append(" have never been scraped, weren't found, or have no front cover.\n\n");
-        text.Append("They'll be looked up with ").Append(string.Join(", then ", usable.Select(p => p.DisplayName))).Append('.');
-        foreach (var skipped in providers.Where(p => p.InOrder && p.State != ProviderState.Ready))
-        {
-            text.Append(' ').Append(skipped.DisplayName).Append(skipped.State == ProviderState.MissingCredentials ? " has no credentials, so it's skipped." : " is resting, so it's skipped for now.");
-        }
-
-        text.Append("\n\nIt runs in the background: you can keep browsing, and stop it in the settings, from its row under Library.");
-        ConfirmDialog.Ask(Layer, $"Scrape {missing.Games:N0} games?", text.ToString(), "Start scraping", "Not now", yes =>
-        {
-            if (yes)
-            {
-                _settings.Jobs.ScrapeMissing();
-            }
-        });
+        var display = config.Settings.Display;
+        _appearance.Detail = $"{services.Theme?.Active.Name ?? display.Theme} · {AppearancePage.LayoutSummary(display)}";
+        _interface.Detail = InterfacePage.Summary(config.Settings.Ui);
+        _graphics.Detail = GraphicsPage.Summary(display);
     }
 
     /// <summary>A row per running (or just ended) job: its progress, and A to cancel it.</summary>
@@ -529,33 +125,13 @@ public sealed partial class SettingsHome : ListPanel
                 _jobRows.Remove(id);
                 if (row.HasFocus())
                 {
-                    _scrapeMissing.GrabFocus();
+                    _library.GrabFocus();
                 }
 
                 _jobs.RemoveChild(row);
                 row.QueueFree();
             }
         }
-
-        var scanning = _settings.Jobs.ScanningMedia;
-        _rescan.Value = scanning == RescanMedia.SystemsWithNewGames ? "Running" : null;
-        _rescanMedia.Value = scanning == RescanMedia.All ? "Running" : null;
-        _scrapeMissing.Value = _settings.Jobs.Scraping ? "Running" : _counting ? "Counting…" : null;
-    }
-
-    // ---- Problems --------------------------------------------------------------------------------------
-
-    private void ShowProblems()
-    {
-        var problems = _settings.Services.Diagnostics.Where(d => d.Severity != Severity.Info).Take(12).ToList();
-        if (problems.Count == 0)
-        {
-            ShowStatus("Every config file loaded cleanly.", UiStyle.Good, 4);
-            return;
-        }
-
-        var text = string.Join("\n\n", problems.Select(d => d.ToString()));
-        ConfirmDialog.Tell(Layer, "Problems in your config files", text + "\n\nFix them in the files named (the settings screen won't overwrite them), or change the setting here.");
     }
 
     public override bool Handle(NavCommand command)

@@ -1,21 +1,31 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
+using System.Linq;
+using System.Threading.Tasks;
 using Launcher.App.Ui;
 using Launcher.Core.Config;
+using Launcher.Core.Theming;
 
 namespace Launcher.App.Settings;
 
 /// <summary>
-/// How the systems and the games are shown (<c>[display]</c> in settings.toml): the systems as a grid, a grid with
+/// Settings, Appearance (the Layout page until 2026-11-07, with the theme and which systems show moved in from the main
+/// page): the theme, chosen from a list and applied at once, and the theme downloader. Then how the systems and the
+/// games are shown (<c>[display]</c> in settings.toml): whether systems without games have a card and whether regional
+/// variants show in their system's (A5 Grouped systems); the systems as a grid, a grid with
 /// labels, a carousel, one at a time or a coverflow; the games as a grid, a grid with labels, a carousel, a list with
 /// the focused game's model beside it, a coverflow or a showcase; each grid's columns and rows (automatic, or a number); and the order of each (what they're sorted by, and which way). A changes a row
 /// through a list; left and right step through its values. Each change is saved at once, and the grid behind shows
 /// it. A system's own games view, grid size and order are on its page (X on it).
 /// </summary>
-public sealed partial class LayoutPage : ListPanel
+public sealed partial class AppearancePage : ListPanel
 {
     private readonly SettingsController _settings;
+    private readonly SettingRow _theme;
+    private readonly SettingRow _emptySystems;
+    private readonly SettingRow _groupSystems;
     private readonly SettingRow _systems;
     private readonly SettingRow _systemsColumns;
     private readonly SettingRow _systemsRows;
@@ -30,13 +40,24 @@ public sealed partial class LayoutPage : ListPanel
     // Values saved but not yet applied, so presses in quick succession step on from each other.
     private readonly Dictionary<string, object> _pending = new(StringComparer.Ordinal);
 
-    public LayoutPage(SettingsController settings)
-        : base("Layout")
+    public AppearancePage(SettingsController settings)
+        : base("Appearance")
     {
         _settings = settings;
         Subtitle = "[display] in settings.toml";
 
+        AddSection("Theme");
+        _theme = AddRow("Theme", "Its system cards, game boxes, background and menus", activated: ChooseTheme);
+        AddRow("Download themes", "Themes made for Odyssey Launcher: get them, keep them up to date, or remove them",
+            activated: () => Layer.Push(new ThemeDownloaderPage(_settings)));
+
         AddSection("Systems");
+        _emptySystems = AddRow("Show systems without games", "A card for every system, even one with nothing in its ROM folders",
+            activated: () => SetShowEmptySystems(null));
+        _emptySystems.Adjuster = direction => SetShowEmptySystems(direction > 0);
+        _groupSystems = AddRow("Group regional variants", "A variant's games in its console's card, each in its own box (Dreamcast (NA/JP) in Dreamcast)",
+            activated: () => SetGroupSystems(null));
+        _groupSystems.Adjuster = direction => SetGroupSystems(direction > 0);
         _systems = AddRow("Systems view", activated: () => ChooseLayout("systems_layout", "Systems view", SystemsChoices()));
         _systems.Adjuster = direction => StepLayout("systems_layout", Layouts.SystemsNames, direction);
         _systemsColumns = AddSizeRow("Columns", "systems_columns", DisplaySettings.MaxColumns);
@@ -54,12 +75,14 @@ public sealed partial class LayoutPage : ListPanel
         _gamesSort = AddSortRow("Sort by", "games_sort", "Sort games by", Sorts.GamesNames, () => GamesSortChoices());
         _gamesOrder = AddSortRow("Order", "games_sort_order", "Games' order", Sorts.OrderNames,
             () => OrderChoices(sort => GamesOrderDetail((GameSort)Current("games_sort", (int)Display.GamesSort.Sort), sort)));
-        AddNote("A system can have its own view, columns, rows and order: press X on it in the systems view, or choose it in ROM folders.");
+        AddNote("A system can have its own view, columns, rows and order: press X on it in the systems view, or choose it in Settings, Systems.");
 
         SetHints(CommonHints.ChooseChangeBack);
         _settings.ConfigApplied += OnConfigApplied;
         Refresh();
     }
+
+    public override void OnRevealed() => Refresh();
 
     public override void OnClosed() => _settings.ConfigApplied -= OnConfigApplied;
 
@@ -74,6 +97,9 @@ public sealed partial class LayoutPage : ListPanel
     private void Refresh()
     {
         var display = Display;
+        _theme.Value = _settings.Services.Theme?.Active.Name ?? display.Theme;
+        ShowToggle(_emptySystems, !display.HideEmptySystems);
+        ShowToggle(_groupSystems, display.GroupSystems);
         var systems = (SystemsLayout)Current("systems_layout", (int)display.SystemsLayout);
         var games = (GamesLayout)Current("games_layout", (int)display.GamesLayout);
         _systems.Value = SystemsTitle(systems);
@@ -395,4 +421,100 @@ public sealed partial class LayoutPage : ListPanel
         Refresh();
         _settings.Save(this, [new ConfigEdit(ConfigFileKind.Settings, ["display", key], value)], saved);
     }
+
+    // ---- Theme ----------------------------------------------------------------------------------------
+
+    private void ChooseTheme()
+    {
+        var services = _settings.Services;
+        var current = services.Theme?.Active.Id ?? services.Config.Settings.Display.Theme;
+        ShowStatus("Reading the themes…", UiStyle.Dim);
+        var builtIns = services.BuiltInThemes;
+        var themesDir = Path.Combine(services.Paths.ConfigDir, ThemeLoader.FolderName);
+        _ = Task.Run(() =>
+        {
+            // Each theme's name, from its manifest (user themes replace built-in ones with the same id).
+            var names = new SortedDictionary<string, (string Name, string Where)>(StringComparer.Ordinal);
+            // The base theme isn't one to choose: every theme builds on it.
+            foreach (var source in builtIns)
+            {
+                if (source.Id != ThemeCatalog.BaseId)
+                {
+                    names[source.Id] = (NameOf(source.Manifest.Text, source.Id), "Built in");
+                }
+            }
+
+            foreach (var source in ThemeCatalog.UserSources(themesDir, []))
+            {
+                names[source.Id] = (NameOf(source.Manifest.Text, source.Id), source.Folder);
+            }
+
+            var choices = names.Select(n => new Choice(n.Key, n.Value.Name, n.Key == ThemeCatalog.DefaultId && n.Value.Where == "Built in" ? "Built in; the default" : n.Value.Where)).ToList();
+            _settings.Ui.Queue.Post(() =>
+            {
+                ShowStatus(null);
+                if (Layer?.Top != this)
+                {
+                    return;
+                }
+
+                Layer.Push(new ChoicePanel("Theme", "Applied at once, and saved as [display] theme", choices, current, choice =>
+                    _settings.Save(this, [new ConfigEdit(ConfigFileKind.Settings, ["display", "theme"], choice.Id)], $"Theme: {choice.Title}. Loading it now…")));
+            });
+        });
+    }
+
+    private static string NameOf(string manifest, string id) =>
+        TomlEditor.Parse(manifest, id, out _)?.Get(["name"]) as string ?? id;
+
+    // ---- Which systems show ---------------------------------------------------------------------------
+
+    private static void ShowToggle(SettingRow row, bool on)
+    {
+        row.Value = on ? "Yes" : "No";
+        row.ValueColour = on ? UiStyle.Good : UiStyle.Faint;
+    }
+
+    /// <param name="on">Shown or not; null turns it the other way. It's saved the other way round, as <c>[display] hide_empty_systems</c>.</param>
+    private void SetShowEmptySystems(bool? on)
+    {
+        var current = !Display.HideEmptySystems;
+        var wanted = on ?? !current;
+        if (current == wanted)
+        {
+            return;
+        }
+
+        _settings.Save(this, [new ConfigEdit(ConfigFileKind.Settings, ["display", "hide_empty_systems"], !wanted)],
+            wanted ? "Every system has a card now, with games or not." : "Systems without games are hidden.");
+    }
+
+    /// <param name="on">Grouped or not; null turns it the other way. It's saved as <c>[display] group_systems</c> (A5 Grouped systems).</param>
+    private void SetGroupSystems(bool? on)
+    {
+        var current = Display.GroupSystems;
+        var wanted = on ?? !current;
+        if (current == wanted)
+        {
+            return;
+        }
+
+        _settings.Save(this, [new ConfigEdit(ConfigFileKind.Settings, ["display", "group_systems"], wanted)],
+            wanted ? "Regional variants show in their console's card." : "Every regional variant has a card of its own.");
+    }
+
+    // ---- Summary --------------------------------------------------------------------------------------
+
+    /// <summary>The layouts, for the settings' Appearance row: "Systems: Grid · Games: Grid (5 columns, automatic rows)".</summary>
+    public static string LayoutSummary(DisplaySettings display) =>
+        $"Systems: {SystemsTitle(display.SystemsLayout)}{GridSummary(Layouts.IsGrid(display.SystemsLayout), display.SystemsGrid)} · Games: {GamesTitle(display.GamesLayout)}{GridSummary(Layouts.IsGrid(display.GamesLayout), display.GamesGrid)}";
+
+    /// <summary>A grid's size after its layout's name, when it isn't automatic: " (5 columns, automatic rows)".</summary>
+    private static string GridSummary(bool grid, GridSize size) =>
+        !grid || size.IsAutomatic
+            ? string.Empty
+            : $" ({Count(size.Columns, "column")}, {Count(size.Rows, "row")})";
+
+    private static string Count(int value, string what) =>
+        value == 0 ? $"automatic {what}s" : value == 1 ? $"1 {what}" : $"{value} {what}s";
 }

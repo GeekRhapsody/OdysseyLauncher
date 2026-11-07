@@ -133,7 +133,7 @@ public static class DetailsFormatter
 
         var display = config.Settings.Display;
         var layout = display.GamesLayoutFor(system);
-        Add(rows, "Games view", Own(Settings.LayoutPage.GamesTitle(layout), system.GamesLayout is not null));
+        Add(rows, "Games view", Own(Settings.AppearancePage.GamesTitle(layout), system.GamesLayout is not null));
         if (Layouts.IsGrid(layout))
         {
             var size = display.GamesGridFor(system);
@@ -142,7 +142,7 @@ public static class DetailsFormatter
 
         var sort = display.GamesSortFor(system);
         Add(rows, "Games sorted", Own(
-            $"{Settings.LayoutPage.GamesSortTitle(sort.Sort)}: {Settings.LayoutPage.GamesOrderDetail(sort.Sort, sort.Order)}",
+            $"{Settings.AppearancePage.GamesSortTitle(sort.Sort)}: {Settings.AppearancePage.GamesOrderDetail(sort.Sort, sort.Order)}",
             system.GamesSort is not null || system.GamesSortOrder is not null));
         Add(rows, "Card model", cardModel);
         Add(rows, "Games' model", gamesModel);

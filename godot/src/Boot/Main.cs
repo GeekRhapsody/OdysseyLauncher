@@ -1060,8 +1060,14 @@ public partial class Main : Node3D
                 GetTree().CreateTimer(0).Timeout += () => _ui!.Push(new ThemeDownloaderPage(settings));
                 break;
             case "update":
-                // "Check for updates" pressed: with --update-feed, from a local folder, so nothing is fetched.
-                settings.Updater.Check(settings.Open());
+                // About's "Check for updates" pressed: with --update-feed, from a local folder, so nothing is fetched.
+                settings.Open();
+                GetTree().CreateTimer(0).Timeout += () =>
+                {
+                    var about = new AboutPage(settings);
+                    _ui!.Push(about);
+                    settings.Updater.Check(about);
+                };
                 break;
         }
     }

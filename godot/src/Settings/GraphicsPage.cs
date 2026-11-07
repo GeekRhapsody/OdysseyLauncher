@@ -13,9 +13,8 @@ namespace Launcher.App.Settings;
 /// Graphics (2026-10-08), <c>[display]</c> in settings.toml: the screen mode (exclusive fullscreen, borderless or a
 /// window), the resolution (the 3D's in the fullscreen modes, as Godot can't change the display mode; the window's size
 /// in a window), the video driver (on Windows, Direct3D 12 or Vulkan, from the next start: it's written to the
-/// <see cref="RenderingOverride"/> beside the executable, and a restart is offered; Linux has Vulkan only), anisotropic filtering, and the FPS
-/// and VRAM readout under the status indicators (<c>[ui] show_performance</c>). A chooses from a list; left and right
-/// step through the values. Each change is saved at once, and everything but the driver applies at once.
+/// <see cref="RenderingOverride"/> beside the executable, and a restart is offered; Linux has Vulkan only) and anisotropic
+/// filtering. A chooses from a list; left and right step through the values. Each change is saved at once, and everything but the driver applies at once.
 /// </summary>
 public sealed partial class GraphicsPage : ListPanel
 {
@@ -35,7 +34,6 @@ public sealed partial class GraphicsPage : ListPanel
     private readonly SettingRow _resolution;
     private readonly SettingRow _driver;
     private readonly SettingRow _anisotropy;
-    private readonly SettingRow _performance;
     private readonly string _executableDir;
     private readonly string _running;
 
@@ -48,7 +46,6 @@ public sealed partial class GraphicsPage : ListPanel
     private WindowSize? _pendingSize;
     private RenderingDriver? _pendingDriver;
     private int? _pendingAnisotropy;
-    private bool? _pendingPerformance;
 
     public GraphicsPage(SettingsController settings)
         : base("Graphics")
@@ -80,11 +77,6 @@ public sealed partial class GraphicsPage : ListPanel
         _anisotropy = AddRow("Anisotropic filtering", activated: ChooseAnisotropy);
         _anisotropy.Adjuster = direction => Step(DisplaySettings.AnisotropicLevels, Anisotropy, direction, SaveAnisotropy);
 
-        AddSection("On screen");
-        _performance = AddRow("Show FPS and VRAM", "Top right, under the clock: frames a second and the video memory the app uses",
-            activated: () => SavePerformance(!Performance));
-        _performance.Adjuster = direction => SavePerformance(direction > 0);
-
         SetHints(CommonHints.ChooseChangeBack);
         _settings.ConfigApplied += OnConfigApplied;
         Refresh();
@@ -99,7 +91,6 @@ public sealed partial class GraphicsPage : ListPanel
         _pendingSize = null;
         _pendingDriver = null;
         _pendingAnisotropy = null;
-        _pendingPerformance = null;
         Refresh();
     }
 
@@ -114,8 +105,6 @@ public sealed partial class GraphicsPage : ListPanel
     private RenderingDriver Driver => _pendingDriver ?? Display.RenderingDriver;
 
     private int Anisotropy => _pendingAnisotropy ?? Display.AnisotropicFiltering;
-
-    private bool Performance => _pendingPerformance ?? _settings.Services.Config.Settings.Ui.ShowPerformance;
 
     private void Refresh()
     {
@@ -157,10 +146,6 @@ public sealed partial class GraphicsPage : ListPanel
         var anisotropy = Anisotropy;
         _anisotropy.Value = AnisotropyTitle(anisotropy);
         _anisotropy.Detail = "Sharper textures on surfaces seen at an angle; 16× is the most graphics cards support";
-
-        var performance = Performance;
-        _performance.Value = performance ? "Yes" : "No";
-        _performance.ValueColour = performance ? UiStyle.Good : UiStyle.Faint;
     }
 
     /// <summary>A one-line summary for the settings screen's Graphics row.</summary>
@@ -501,20 +486,6 @@ public sealed partial class GraphicsPage : ListPanel
         _pendingAnisotropy = samples;
         Refresh();
         Save([new ConfigEdit(ConfigFileKind.Settings, ["display", "anisotropic_filtering"], (long)samples)], $"Anisotropic filtering: {AnisotropyTitle(samples)}.");
-    }
-
-    // ---- Performance readout --------------------------------------------------------------------------
-
-    private void SavePerformance(bool on)
-    {
-        if (on == Performance)
-        {
-            return;
-        }
-
-        _pendingPerformance = on;
-        Refresh();
-        _settings.Save(this, [new ConfigEdit(ConfigFileKind.Settings, ["ui", "show_performance"], on)], on ? "FPS and VRAM: shown." : "FPS and VRAM: hidden.");
     }
 
     // ---- Helpers --------------------------------------------------------------------------------------

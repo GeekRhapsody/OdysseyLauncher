@@ -81,8 +81,6 @@ games_sort_order = "ascending"
 show_clock = true
 show_battery = true
 show_network = true
-# The frame rate and the video memory the app uses, under the indicators.
-show_performance = false
 # A tock when the focus moves to another system or game, and a whoosh when you enter a system.
 navigation_sounds = true
 # The buttons the controls along the bottom show: "automatic" (those of the controller or keyboard you last used),

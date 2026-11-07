@@ -12,16 +12,21 @@ it releases, and the Release workflow puts it on the release page (tools/release
 
 ### New
 
-- **A Showcase layout** for games, in Settings, Look, Layout (or a system's own view): a strip of boxes along the bottom with the focused game in the middle, and above it that game's logo, description, details and screenshot, over its hero art if it has one.
-- **A Coverflow layout** for systems and games, in Settings, Look, Layout (or a system's own view): one row, with the focused game facing you in the middle and the rest showing their spines either side, like a shelf. Moving turns the next game round to face you and the last one back to its spine. Boxes with their spine on top, such as SNES and N64 boxes, stand on end to show it.
-- **UI size: small, medium or large**, in Settings, under UI: the menus, text and controls get smaller for a monitor on your desk, or larger for a handheld's small screen or a television across the room. It changes at once. The game and system cards keep their size.
+- **A Showcase layout** for games, in Settings, Appearance (or a system's own view): a strip of boxes along the bottom with the focused game in the middle, and above it that game's logo, description, details and screenshot, over its hero art if it has one.
+- **A Coverflow layout** for systems and games, in Settings, Appearance (or a system's own view): one row, with the focused game facing you in the middle and the rest showing their spines either side, like a shelf. Moving turns the next game round to face you and the last one back to its spine. Boxes with their spine on top, such as SNES and N64 boxes, stand on end to show it.
+- **UI size: small, medium or large**, in Settings, Interface: the menus, text and controls get smaller for a monitor on your desk, or larger for a handheld's small screen or a television across the room. It changes at once. The game and system cards keep their size.
 
 ### Changed
 
+- **The settings are easier to find your way around.** The first page is a short list: Library, Systems, Emulators, Scraping, Appearance, Interface, Graphics and About, each showing what it's set to. Each system's own settings (its ROM folders, emulator, games view and models) are under Systems, the systems you have games for first. Anything running, such as a scan or a scrape, shows at the top while it runs. Problems in your config files are under About, on a wide page that scrolls instead of a dialog with small, cramped text. Scrape all missing metadata is on the Scraping page.
 - **Larger controls along the bottom of the screen**: their buttons and words are a little bigger, to read more easily on a small screen such as the Steam Deck's.
 - **The Console theme's PlayStation 3 looks like the original one**: its top curves from front to back as the real one's does, with the chrome strip along its front edge, the drive's chrome face with its slot, the flap, the vents in its end and PLAYSTATION 3 along its top. It no longer has a controller beside it.
 - **The Console theme's PICO-8 card is PICO-8's logo, built from coloured cubes**: the sparkle of eight colours round a white cross, which turns round while it's focused. It replaces the cartridge.
 - **The Console theme's Steam Deck looks like the real one**: its shape is taken from Valve's own drawings, with the grips curving out behind it, the bumpers and rounded triggers on its top corners and the four buttons on its back, and its sticks, trackpads, buttons, vents and ports where the real ones are. While it's focused it still wakes up, shows its library and plays a game, now pulling a trigger too.
+
+### Removed
+
+- **The FPS and VRAM display** under the clock is gone, with its setting in Graphics.
 
 ### Fixed
 
