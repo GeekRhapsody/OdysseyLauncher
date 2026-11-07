@@ -124,7 +124,7 @@ The games in these screenshots are made up: their names, art and boxes were crea
    Nothing else to install.
 2. **Add your games.** Put each system's games in `ROMs\<system>` in your user folder (`ROMs\megadrive`, `ROMs\snes`...), as in other frontends, or choose other folders in **Settings > Library** and **Settings > Systems**.
 3. **Set up your emulators** in **Settings > Emulators**. **Settings > About** lists any that are missing.
-4. **Scrape** from **Settings > Scraping** with "Scrape all missing metadata".
+4. **Scrape** from **Settings > Scraping** with "Scrape what's missing".
 
 **Portable mode:** put an empty `portable.txt` beside the executable (or the AppImage) and everything is kept in a `userdata` folder next to it.
 

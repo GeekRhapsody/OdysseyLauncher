@@ -237,7 +237,7 @@ public sealed partial class GameMediaPanel : UiPanel
             use,
             file => Set(kind, file),
             Filter: filter,
-            Subtitle: $"{what}. It's copied into the media folder, so the original can go",
+            Subtitle: $"{what}. It's copied into the media folder, so you can delete the original",
             Thumbnails: filter == FileFilter.Images));
     }
 
@@ -268,7 +268,7 @@ public sealed partial class GameMediaPanel : UiPanel
 
                 if (result.Status == UserArtStatus.Set)
                 {
-                    ShowStatus($"{SlotName(kind)}: yours now.", UiStyle.Good, 5);
+                    ShowStatus($"{SlotName(kind)} saved.", UiStyle.Good, 5);
                 }
                 else
                 {
@@ -303,7 +303,7 @@ public sealed partial class GameMediaPanel : UiPanel
         var key = _game.Key;
         var name = SlotName(kind);
         var afterwards = kind is MediaKinds.Video or MediaKinds.Manual
-            ? $"It comes back if the game is scraped again while {name} is on in Scraping › Media."
+            ? $"It comes back if the game is scraped again while {name} is on in Settings > Scraping > Media to scrape."
             : "The slot stays empty until the game is scraped again.";
         ConfirmDialog.Ask(Layer, $"Remove your {name.ToLowerInvariant()}?",
             $"{row.Media.Path} ({UiStyle.Size(row.Media.SizeBytes)}) is deleted from the media folder. {afterwards}",

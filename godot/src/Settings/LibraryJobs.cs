@@ -443,7 +443,7 @@ public sealed class LibraryJobs : IDisposable
         }
 
         return result.Notices.All(n => n.State == ProviderState.MissingCredentials)
-            ? "None of your providers has its credentials yet: add them in Settings, under Scraping."
+            ? "None of your providers has its credentials yet: add them in Settings > Scraping."
             : result.Notices[0].Message;
     }
 

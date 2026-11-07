@@ -144,8 +144,8 @@ public static class DetailsFormatter
         Add(rows, "Games sorted", Own(
             $"{Settings.AppearancePage.GamesSortTitle(sort.Sort)}: {Settings.AppearancePage.GamesOrderDetail(sort.Sort, sort.Order)}",
             system.GamesSort is not null || system.GamesSortOrder is not null));
-        Add(rows, "Card model", cardModel);
-        Add(rows, "Games' model", gamesModel);
+        Add(rows, "System model", cardModel);
+        Add(rows, "Game template", gamesModel);
 
         Add(rows, "ScreenScraper", system.ScreenScraperId is { } ss ? string.Create(Uk, $"System {ss}") : "Not on ScreenScraper");
         Add(rows, "IGDB", system.IgdbPlatforms is { Count: > 0 } platforms
@@ -171,7 +171,7 @@ public static class DetailsFormatter
     {
         VirtualKind.Favourites => "The games you've marked as favourites, from every system. Press L3 (or F) on a game to add it, or to take it out.",
         VirtualKind.RecentlyPlayed => "The games you've played most recently, from every system, newest first.",
-        _ => "Every game in your library, from every system, in one list, sorted as the settings' Layout page says.",
+        _ => "Every game in your library, from every system, in one list, sorted as Settings > Appearance says.",
     };
 
     /// <summary>The subtitle under a system's name: who made it and when, and how many games there are.</summary>
@@ -273,7 +273,7 @@ public static class DetailsFormatter
 
     private static string EmulatorName(AppConfig config, string id) => config.Emulators.TryGetValue(id, out var emulator) ? emulator.Name : id;
 
-    /// <summary>A setting's value, marked when the system has its own rather than the Layout page's.</summary>
+    /// <summary>A setting's value, marked when the system has its own rather than the Appearance page's.</summary>
     private static string Own(string value, bool own) => own ? value + " (its own)" : value;
 
     private static string GridSize(int columns, int rows) => (columns, rows) switch

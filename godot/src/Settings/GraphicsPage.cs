@@ -54,7 +54,7 @@ public sealed partial class GraphicsPage : ListPanel
         _executableDir = Path.GetDirectoryName(OS.GetExecutablePath()) ?? ".";
         _running = RenderingServer.GetCurrentRenderingDriverName();
         _editorRun = OS.HasFeature("editor");
-        Subtitle = "[display] in settings.toml";
+        Subtitle = "The screen mode, resolution and renderer";
 
         AddSection("Screen");
         _screenMode = AddRow("Screen mode", activated: ChooseScreenMode);
@@ -66,12 +66,12 @@ public sealed partial class GraphicsPage : ListPanel
         AddSection("Rendering");
         if (DriverChoice)
         {
-            _driver = AddRow("Video driver", activated: ChooseDriver);
+            _driver = AddRow("Renderer", activated: ChooseDriver);
             _driver.Adjuster = direction => Step(Drivers, Driver, direction, SaveDriver);
         }
         else
         {
-            _driver = AddRow("Video driver");
+            _driver = AddRow("Renderer");
         }
 
         _anisotropy = AddRow("Anisotropic filtering", activated: ChooseAnisotropy);
@@ -140,7 +140,7 @@ public sealed partial class GraphicsPage : ListPanel
         else
         {
             _driver.Value = RunningTitle(_running);
-            _driver.Detail = "The only driver on Linux";
+            _driver.Detail = "The only renderer on Linux";
         }
 
         var anisotropy = Anisotropy;
@@ -176,7 +176,7 @@ public sealed partial class GraphicsPage : ListPanel
             choices.Add(new Choice(DisplayNames.Name(mode), ModeTitle(mode), ModeDetail(mode)));
         }
 
-        Layer.Push(new ChoicePanel("Screen mode", "Saved as [display] screen_mode", choices, DisplayNames.Name(Mode), choice =>
+        Layer.Push(new ChoicePanel("Screen mode", null, choices, DisplayNames.Name(Mode), choice =>
         {
             foreach (var mode in Modes)
             {
@@ -296,7 +296,7 @@ public sealed partial class GraphicsPage : ListPanel
         if (Mode == ScreenMode.Windowed)
         {
             var sizes = SizeChoices();
-            Layer.Push(new ChoicePanel("Window size", "Saved as [display] window_size", ChoicesOf(sizes), CurrentSize.ToString(), choice =>
+            Layer.Push(new ChoicePanel("Window size", null, ChoicesOf(sizes), CurrentSize.ToString(), choice =>
             {
                 foreach (var (option, size) in sizes)
                 {
@@ -310,7 +310,7 @@ public sealed partial class GraphicsPage : ListPanel
         }
 
         var resolutions = ResolutionChoices();
-        Layer.Push(new ChoicePanel("3D resolution", "Saved as [display] render_resolution", ChoicesOf(resolutions), IdOf(Resolution), choice =>
+        Layer.Push(new ChoicePanel("3D resolution", null, ChoicesOf(resolutions), IdOf(Resolution), choice =>
         {
             foreach (var (option, resolution) in resolutions)
             {
@@ -401,7 +401,7 @@ public sealed partial class GraphicsPage : ListPanel
             choices.Add(new Choice(DisplayNames.Name(driver), DriverTitle(driver), driver == RenderingDriver.D3D12 ? "The default" : null));
         }
 
-        Layer.Push(new ChoicePanel("Video driver", "Saved as [display] rendering_driver; used from the next start", choices, DisplayNames.Name(Driver), choice =>
+        Layer.Push(new ChoicePanel("Renderer", "Used from the next start", choices, DisplayNames.Name(Driver), choice =>
         {
             if (DisplayNames.TryParse(choice.Id, out RenderingDriver driver))
             {
@@ -426,7 +426,7 @@ public sealed partial class GraphicsPage : ListPanel
         var executableDir = _executableDir;
         Func<string?>? writeOverride = _editorRun ? null : () => RenderingOverride.Write(executableDir, driver);
         _settings.Save(this, [new ConfigEdit(ConfigFileKind.Settings, ["display", "rendering_driver"], DisplayNames.Name(driver))],
-            $"Video driver: {DriverTitle(driver)}.",
+            $"Renderer: {DriverTitle(driver)}.",
             result =>
             {
                 if (result.Saved && !_editorRun && DisplayNames.Name(driver) != _running && Layer?.Top == this)
@@ -472,7 +472,7 @@ public sealed partial class GraphicsPage : ListPanel
             choices.Add(new Choice(level.ToString(CultureInfo.InvariantCulture), AnisotropyTitle(level), level == 16 ? "The default" : null));
         }
 
-        Layer.Push(new ChoicePanel("Anisotropic filtering", "Saved as [display] anisotropic_filtering", choices, Anisotropy.ToString(CultureInfo.InvariantCulture), choice =>
+        Layer.Push(new ChoicePanel("Anisotropic filtering", null, choices, Anisotropy.ToString(CultureInfo.InvariantCulture), choice =>
             SaveAnisotropy(int.Parse(choice.Id, CultureInfo.InvariantCulture))));
     }
 

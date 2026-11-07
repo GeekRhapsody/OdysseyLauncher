@@ -62,7 +62,7 @@ public sealed partial class GameOptionsPanel : ListPanel
 
         AddSection("Scraping");
         _scrape = AddRow("Scrape this game", activated: Scrape);
-        _clear = AddRow("Clear metadata", "Removes what was scraped, every image (yours too), its model and your edits", activated: AskToClear);
+        _clear = AddRow("Reset this game", "Removes what was scraped, every image (yours too), its model and your edits", activated: AskToClear);
         _clear.DetailColour = UiStyle.Warning;
 
         AddSection("Delete");
@@ -492,14 +492,14 @@ public sealed partial class GameOptionsPanel : ListPanel
     private void AskToClear()
     {
         var title = _game.Title;
-        ConfirmDialog.Ask(Layer, "Clear this game's metadata?",
+        ConfirmDialog.Ask(Layer, "Reset this game?",
             $"This removes, for {title}:\n" +
             "• everything scraped: its metadata, its scraped images and the saved responses\n" +
             "• all its images, including the ones you chose yourself (their files are deleted)\n" +
             "• its own model\n" +
             "• your edits to its title and metadata\n\n" +
             "Its favourite, play history, emulator and chosen template stay. Scrape it again to get its metadata back.",
-            "Clear it", "Keep it", yes =>
+            "Reset it", "Keep it", yes =>
             {
                 if (yes)
                 {
@@ -510,7 +510,7 @@ public sealed partial class GameOptionsPanel : ListPanel
 
     private void Clear()
     {
-        ShowStatus("Clearing…", UiStyle.Dim);
+        ShowStatus("Resetting…", UiStyle.Dim);
         var options = _options;
         var key = _game.Key;
         _ = Task.Run(async () =>
@@ -521,12 +521,12 @@ public sealed partial class GameOptionsPanel : ListPanel
                 var result = await options.Jobs.ClearGameAsync(key, CancellationToken.None).ConfigureAwait(false);
                 message = !result.Found
                     ? "It isn't in the library any more."
-                    : string.Create(CultureInfo.InvariantCulture, $"Cleared: {result.FilesDeleted} file{(result.FilesDeleted == 1 ? string.Empty : "s")} removed.")
+                    : string.Create(CultureInfo.InvariantCulture, $"Reset: {result.FilesDeleted} file{(result.FilesDeleted == 1 ? string.Empty : "s")} removed.")
                       + (result.KeptSharedArt.Count > 0 ? $" Kept {string.Join(", ", result.KeptSharedArt)}: other games of that name use it." : string.Empty);
             }
             catch (Exception e)
             {
-                message = $"It couldn't be cleared: {e.Message}";
+                message = $"It couldn't be reset: {e.Message}";
             }
 
             options.Ui.Queue.Post(() =>

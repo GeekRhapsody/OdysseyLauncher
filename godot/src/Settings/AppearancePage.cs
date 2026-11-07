@@ -44,7 +44,7 @@ public sealed partial class AppearancePage : ListPanel
         : base("Appearance")
     {
         _settings = settings;
-        Subtitle = "[display] in settings.toml";
+        Subtitle = "The theme, and how the systems and games are shown";
 
         AddSection("Theme");
         _theme = AddRow("Theme", "Its system cards, game boxes, background and menus", activated: ChooseTheme);
@@ -55,7 +55,7 @@ public sealed partial class AppearancePage : ListPanel
         _emptySystems = AddRow("Show systems without games", "A card for every system, even one with nothing in its ROM folders",
             activated: () => SetShowEmptySystems(null));
         _emptySystems.Adjuster = direction => SetShowEmptySystems(direction > 0);
-        _groupSystems = AddRow("Group regional variants", "A variant's games in its console's card, each in its own box (Dreamcast (NA/JP) in Dreamcast)",
+        _groupSystems = AddRow("Group regional variants", "A variant's games in its console's card, each in its own box, such as Dreamcast (NA/JP) games in the Dreamcast's card",
             activated: () => SetGroupSystems(null));
         _groupSystems.Adjuster = direction => SetGroupSystems(direction > 0);
         _systems = AddRow("Systems view", activated: () => ChooseLayout("systems_layout", "Systems view", SystemsChoices()));
@@ -75,7 +75,7 @@ public sealed partial class AppearancePage : ListPanel
         _gamesSort = AddSortRow("Sort by", "games_sort", "Sort games by", Sorts.GamesNames, () => GamesSortChoices());
         _gamesOrder = AddSortRow("Order", "games_sort_order", "Games' order", Sorts.OrderNames,
             () => OrderChoices(sort => GamesOrderDetail((GameSort)Current("games_sort", (int)Display.GamesSort.Sort), sort)));
-        AddNote("A system can have its own view, columns, rows and order: press X on it in the systems view, or choose it in Settings, Systems.");
+        AddNote("A system can have its own view, columns, rows and order: press X on it in the systems view, or choose it in Settings > Systems.");
 
         SetHints(CommonHints.ChooseChangeBack);
         _settings.ConfigApplied += OnConfigApplied;
@@ -205,7 +205,7 @@ public sealed partial class AppearancePage : ListPanel
         var current = key == "systems_layout"
             ? Layouts.Name((SystemsLayout)Current(key, (int)display.SystemsLayout))
             : Layouts.Name((GamesLayout)Current(key, (int)display.GamesLayout));
-        Layer.Push(new ChoicePanel(title, $"Saved as [display] {key}", choices, current, choice =>
+        Layer.Push(new ChoicePanel(title, null, choices, current, choice =>
             Save(key, Index(key, choice.Id), choice.Id, $"{title}: {choice.Title}.")));
     }
 
@@ -324,7 +324,7 @@ public sealed partial class AppearancePage : ListPanel
     private SettingRow AddSortRow(string title, string key, string pickerTitle, IReadOnlyList<string> names, Func<List<Choice>> choices)
     {
         var row = AddRow(title, activated: () =>
-            Layer.Push(new ChoicePanel(pickerTitle, $"Saved as [display] {key}", choices(), names[SortOf(key)], choice =>
+            Layer.Push(new ChoicePanel(pickerTitle, null, choices(), names[SortOf(key)], choice =>
                 Save(key, IndexOf(names, choice.Id), choice.Id, $"{pickerTitle}: {choice.Title}."))));
         row.Adjuster = direction =>
         {
@@ -384,7 +384,7 @@ public sealed partial class AppearancePage : ListPanel
     {
         var what = key.EndsWith("rows", StringComparison.Ordinal) ? "rows" : "columns";
         var row = AddRow(title, activated: () =>
-            Layer.Push(new ChoicePanel(title, $"Saved as [display] {key}", SizeChoices(max, what), SizeOf(key).ToString(CultureInfo.InvariantCulture), choice =>
+            Layer.Push(new ChoicePanel(title, null, SizeChoices(max, what), SizeOf(key).ToString(CultureInfo.InvariantCulture), choice =>
             {
                 var value = int.Parse(choice.Id, CultureInfo.InvariantCulture);
                 Save(key, value, (long)value, $"{title}: {SizeText(value)}.");
@@ -458,7 +458,7 @@ public sealed partial class AppearancePage : ListPanel
                     return;
                 }
 
-                Layer.Push(new ChoicePanel("Theme", "Applied at once, and saved as [display] theme", choices, current, choice =>
+                Layer.Push(new ChoicePanel("Theme", "Applied at once", choices, current, choice =>
                     _settings.Save(this, [new ConfigEdit(ConfigFileKind.Settings, ["display", "theme"], choice.Id)], $"Theme: {choice.Title}. Loading it now…")));
             });
         });

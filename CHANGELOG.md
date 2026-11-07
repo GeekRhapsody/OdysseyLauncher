@@ -10,6 +10,12 @@ it releases, and the Release workflow puts it on the release page (tools/release
 
 ## Unreleased
 
+### Changed
+
+- **Clearer names in the menus.** The same things now have the same names everywhere: the media you choose to scrape uses the game's media names (Back cover, Spine, Disc or cartridge label, Logo, Hero art) instead of ScreenScraper's. Some options are renamed to say what they do: "Clear metadata" is now "Reset this game", "Scrape all missing metadata" is "Scrape what's missing", "Auto scan the library at launch" is "Rescan when the launcher starts", and "Video driver" is "Renderer". The power menu reads Restart, Shut down, Sleep and Quit Odyssey Launcher.
+- **The settings no longer show config file names and keys** such as "[display] in settings.toml" or "Saved as [display] screen_mode". Each page now says in plain words what it holds.
+- **A scrape's question says why a provider is skipped**: that it has reached its limit or is closed (and until when), or that it refused its credentials.
+
 ## 1.0.0 (2026-11-07)
 
 ### New

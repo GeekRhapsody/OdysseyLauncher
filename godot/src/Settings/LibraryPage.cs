@@ -24,19 +24,19 @@ public sealed partial class LibraryPage : ListPanel
         : base("Library")
     {
         _settings = settings;
-        Subtitle = "[paths] and [scanning] in settings.toml";
+        Subtitle = "Where your games and media are, and when they're scanned";
 
         AddSection("Folders");
         _root = AddRow("ROM root", value: "Change", activated: ChooseRoot);
         _media = AddRow("Media folder", activated: () => Layer.Push(new MediaFolderPage(_settings)));
-        AddNote("Each system's games are in a folder named after it under the ROM root (megadrive, snes…). A system can have folders of its own: Settings, Systems, then the system.");
+        AddNote("Each system's games are in a folder named after it under the ROM root (megadrive, snes…). A system can have folders of its own: Settings > Systems, then the system.");
 
         AddSection("Scanning");
         _rescan = AddRow("Rescan the library", "Look for new, moved and removed games in every ROM folder, and for media only where there are new games",
             activated: () => Rescan(RescanMedia.SystemsWithNewGames));
         _rescanMedia = AddRow("Rescan the library and media", "Every ROM folder and every media folder: for art, videos or models you added or removed yourself",
             activated: () => Rescan(RescanMedia.All));
-        _scanAtLaunch = AddRow("Auto scan the library at launch", "Rescan the library (ROM folders) in the background each time the app starts",
+        _scanAtLaunch = AddRow("Rescan when the launcher starts", "Look for new and removed games in the ROM folders, in the background, each time the launcher starts",
             activated: () => SetScanAtLaunch(null));
         _scanAtLaunch.Adjuster = direction => SetScanAtLaunch(direction > 0);
 
@@ -129,6 +129,6 @@ public sealed partial class LibraryPage : ListPanel
         }
 
         _settings.Save(this, [new ConfigEdit(ConfigFileKind.Settings, ["scanning", "scan_at_launch"], wanted)],
-            wanted ? "The library is scanned each time the app starts." : "The library isn't scanned at launch (only systems never scanned).");
+            wanted ? "The library is rescanned each time the launcher starts." : "The library isn't rescanned when the launcher starts (only systems never scanned are).");
     }
 }

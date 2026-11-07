@@ -13,7 +13,7 @@ using Launcher.Core.Scraping;
 namespace Launcher.App.Settings;
 
 /// <summary>
-/// Scraping (M7): "Scrape all missing metadata" (on the main page until 2026-11-07), the provider asked first (left and right change it in place), the fallbacks and their order, the
+/// Scraping (M7): "Scrape what's missing" (on the main page until 2026-11-07), the provider asked first (left and right change it in place), the fallbacks and their order, the
 /// media to download, the regions preferred and their order (2026-10-04), and each provider's credentials. The page says which providers are ready, which have no credentials, and whether an
 /// <c>ODYSSEY_*</c> variable sets them.
 /// </summary>
@@ -31,7 +31,7 @@ public sealed partial class ScrapingPage : ListPanel
         : base("Scraping")
     {
         _settings = settings;
-        Subtitle = "[scraping] in settings.toml; credentials in secrets.toml";
+        Subtitle = "Where your games' details and art come from";
         Build();
         SetHints(CommonHints.ChooseChangeBack);
         _settings.ConfigApplied += Rebuild;
@@ -46,6 +46,15 @@ public sealed partial class ScrapingPage : ListPanel
         ScraperIds.Steam => "Steam store",
         ScraperIds.LaunchBox => "LaunchBox Games DB",
         _ => provider,
+    };
+
+    /// <summary>Why a provider in the order is left out of a scrape, for the question that starts one.</summary>
+    public static string SkippedNote(ProviderStatus provider) => provider switch
+    {
+        { State: ProviderState.MissingCredentials } => $"{provider.DisplayName} has no credentials, so it's skipped.",
+        { Until: { } until } => string.Create(CultureInfo.InvariantCulture,
+            $"{provider.DisplayName} has reached its limit or is closed, so it's skipped until {until.ToLocalTime():d MMMM, HH:mm}."),
+        _ => $"{provider.DisplayName} refused its credentials, so it's skipped until the launcher restarts.",
     };
 
     public static string AboutOf(string provider) => provider switch
@@ -78,7 +87,7 @@ public sealed partial class ScrapingPage : ListPanel
     {
         var scraping = _settings.Services.Config.Settings.Scraping;
         AddSection("Scrape");
-        _scrapeMissing = AddRow("Scrape all missing metadata", "Games never scraped, not found, or without a front cover", activated: ScrapeMissing);
+        _scrapeMissing = AddRow("Scrape what's missing", "Games never scraped, not found, or without a front cover", activated: ScrapeMissing);
         ShowJob();
 
         AddSection("Order");
@@ -252,7 +261,7 @@ public sealed partial class ScrapingPage : ListPanel
         text.Append("They'll be looked up with ").Append(string.Join(", then ", usable.Select(p => p.DisplayName))).Append('.');
         foreach (var skipped in providers.Where(p => p.InOrder && p.State != ProviderState.Ready))
         {
-            text.Append(' ').Append(skipped.DisplayName).Append(skipped.State == ProviderState.MissingCredentials ? " has no credentials, so it's skipped." : " is resting, so it's skipped for now.");
+            text.Append(' ').Append(SkippedNote(skipped));
         }
 
         text.Append("\n\nIt runs in the background: you can keep browsing, and stop it from its row at the top of the settings.");

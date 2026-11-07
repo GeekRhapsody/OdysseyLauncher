@@ -251,7 +251,7 @@ public sealed partial class GameMatchPanel : ListPanel
             if (current is not null && provider.Candidates.All(c => c.ProviderGameId != current))
             {
                 // Its match isn't among these results: it can still be scraped again.
-                AddResult(provider, current, null, "Its match now, not among these results", $"ID {current} · {Origin(provider)}", isCurrent: true);
+                AddResult(provider, current, null, "Current match (not in these results)", $"ID {current} · {Origin(provider)}", isCurrent: true);
                 firstCurrent = firstCurrent < 0 ? rows : firstCurrent;
                 rows++;
             }
@@ -262,7 +262,7 @@ public sealed partial class GameMatchPanel : ListPanel
                 var detail = candidate.MatchedBy is { } matchedBy
                     ? $"ID {candidate.ProviderGameId} · matches the file's {(matchedBy == MatchMethods.Hash ? "contents" : "name")}"
                     : string.Create(CultureInfo.InvariantCulture, $"ID {candidate.ProviderGameId} · {candidate.Similarity * 100:0}% like {Quote(_search!.Term)}");
-                AddResult(provider, candidate.ProviderGameId, candidate, Label(candidate), isCurrent ? $"{detail} · its match now, {Origin(provider)}" : detail, isCurrent);
+                AddResult(provider, candidate.ProviderGameId, candidate, Label(candidate), isCurrent ? $"{detail} · current match, {Origin(provider)}" : detail, isCurrent);
                 first = first < 0 ? rows : first;
                 firstCurrent = isCurrent && firstCurrent < 0 ? rows : firstCurrent;
                 rows++;

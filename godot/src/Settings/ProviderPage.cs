@@ -37,7 +37,7 @@ public sealed partial class ProviderPage : ListPanel
         _settings = settings;
         _provider = provider;
         var keyless = ConfigInput.CredentialKeys(provider).Count == 0;
-        Subtitle = keyless ? "No credentials needed" : $"[{provider}] in secrets.toml";
+        Subtitle = keyless ? "No credentials needed" : null;
         Build();
         SetHints(keyless ? CommonHints.ChooseBack : Hints);
         Load();
@@ -94,9 +94,9 @@ public sealed partial class ProviderPage : ListPanel
         ScraperIds.SteamGridDb =>
             "Make an API key on steamgriddb.com: Preferences, then API.",
         ScraperIds.Steam =>
-            "The Steam store needs no account. It finds a game by its title (not the shortcut's app id), for systems with steam_store = true in systems.toml: Windows and Steam. A game no longer sold can't be found.",
+            "The Steam store needs no account. It finds a game by its title (not the shortcut's app id), for the Windows and Steam systems. A game no longer sold can't be found.",
         ScraperIds.LaunchBox =>
-            "LaunchBox's Games DB needs no account. Its whole database (about 110 MB) is downloaded the first time a scrape needs it and checked for a newer copy once a week; games are then found in it without the network, for systems with launchbox_platforms in systems.toml. Names and art follow your preferred regions.",
+            "LaunchBox's Games DB needs no account. Its whole database (about 110 MB) is downloaded the first time a scrape needs it and checked for a newer copy once a week; games are then found in it without the network, for the systems it covers. Names and art follow your preferred regions.",
         _ => string.Empty,
     };
 
@@ -207,12 +207,12 @@ public sealed partial class ProviderPage : ListPanel
             switch (accounts.SourceOf(_provider, key))
             {
                 case CredentialSource.File:
-                    row.Detail = "Set in secrets.toml";
+                    row.Detail = "Set";
                     row.Value = "••••••••";
                     row.ValueColour = UiStyle.Good;
                     break;
                 case CredentialSource.Environment:
-                    row.Detail = $"Set by {ProviderAccounts.EnvironmentVariable(_provider, key)}, which overrides secrets.toml";
+                    row.Detail = $"Set by {ProviderAccounts.EnvironmentVariable(_provider, key)}, which overrides the saved value";
                     row.Value = "••••••••";
                     row.ValueColour = UiStyle.Accent;
                     break;
@@ -253,7 +253,7 @@ public sealed partial class ProviderPage : ListPanel
             value => Save(key, value.Trim(), $"{label} saved."),
             Secret: true,
             Placeholder: "Type or paste the new value",
-            Subtitle: "Saved to secrets.toml only. Show reveals what you've typed.",
+            Subtitle: "Saved only on this computer. Show reveals what you've typed.",
             Validate: ConfigInput.CheckCredential));
     }
 
@@ -269,7 +269,7 @@ public sealed partial class ProviderPage : ListPanel
             ? $" {ProviderAccounts.EnvironmentVariable(_provider, key)} still sets it: remove that variable too."
             : string.Empty;
         ConfirmDialog.Ask(Layer, $"Clear the {label.ToLowerInvariant()}?",
-            $"It's removed from secrets.toml.{environment}", "Clear it", "Keep it", yes =>
+            $"It's removed from this computer.{environment}", "Clear it", "Keep it", yes =>
             {
                 if (yes)
                 {

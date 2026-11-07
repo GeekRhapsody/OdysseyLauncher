@@ -77,7 +77,7 @@ public sealed partial class EmulatorsPage : ListPanel
         else
         {
             AddNote("The built-in profiles look for each program on the PATH, in Flatpak's apps, and in ~/Applications, " +
-                "~/.local/share/applications, ~/.local/bin and ~/bin ([variables] in settings.toml). A profile " +
+                "~/.local/share/applications, ~/.local/bin and ~/bin. A profile " +
                 "given a program of its own keeps it.");
         }
 
@@ -195,7 +195,7 @@ public sealed partial class EmulatorsPage : ListPanel
             PickerUses.EmulatorsFolder,
             folder => _settings.Save(this,
                 [new ConfigEdit(ConfigFileKind.Settings, ["variables", variable], ConfigWriter.PathValue(folder))],
-                $"{title} saved: {{{variable}}} is now {folder}.",
+                $"{title} saved: {folder}.",
                 check: () => ConfigInput.CheckFolder(folder)),
             Start: current,
             Subtitle: variable == "retroarch"
@@ -258,7 +258,7 @@ public sealed partial class EmulatorsPage : ListPanel
         {
             _settings.Save(this,
                 [new ConfigEdit(ConfigFileKind.Settings, ["variables", list], ConfigWriter.PathValue(file))],
-                $"{{{list}}} is now {file}: {sharing.Count + 1} profiles use it.",
+                $"{sharing.Count + 1} profiles now run {file}.",
                 check: () => ConfigInput.CheckExecutable(file));
             return;
         }
@@ -275,7 +275,7 @@ public sealed partial class EmulatorsPage : ListPanel
         if (variable is not null && sameName)
         {
             edits = [new ConfigEdit(ConfigFileKind.Settings, ["variables", variable], ConfigWriter.PathValue(Path.GetDirectoryName(file)!))];
-            saved = $"{{{variable}}} is now {Path.GetDirectoryName(file)}: {sharing.Count + 1} profiles and their cores use it.";
+            saved = $"{sharing.Count + 1} profiles and their cores now use {Path.GetDirectoryName(file)}.";
         }
         else
         {

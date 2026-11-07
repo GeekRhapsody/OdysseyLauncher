@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Godot;
 using Launcher.App.Navigation;
+using Launcher.App.Options;
 using Launcher.App.Ui;
 using Launcher.Core.Config;
 using Launcher.Core.Media;
@@ -25,7 +26,7 @@ public sealed partial class ScrapeMediaPage : ListPanel
         (ScraperIds.Steam, SteamStoreScraper.Supplies),
     ];
 
-    private static readonly Hint[] Hints = [new("Yes or no", Prompt.Accept), new("No or yes", Prompt.LeftRight), new("Back", Prompt.Back)];
+    private static readonly Hint[] Hints = [new("On or off", Prompt.Accept), new("Back", Prompt.Back)];
 
     private readonly SettingsController _settings;
 
@@ -33,34 +34,15 @@ public sealed partial class ScrapeMediaPage : ListPanel
         : base("Media to scrape", new Vector2(900, 640))
     {
         _settings = settings;
-        Subtitle = "[scraping] media in settings.toml";
         Build();
         SetHints(Hints);
         _settings.ConfigApplied += Rebuild;
     }
 
-    /// <summary>A scrapable kind, for people, in ScreenScraper's words where they differ from the slot's.</summary>
-    public static string NameOf(string kind) => kind switch
-    {
-        MediaKinds.Cover => "Front cover",
-        MediaKinds.Back => "Box back",
-        MediaKinds.Spine => "Box spine",
-        MediaKinds.Screenshot => "Screenshot",
-        MediaKinds.Logo => "Wheel",
-        MediaKinds.Hero => "Fan art",
-        MediaKinds.Label => "Support texture",
-        MediaKinds.Video => "Video",
-        MediaKinds.Manual => "Manual",
-        _ => kind,
-    };
-
     private static string AboutOf(string kind) => kind switch
     {
-        MediaKinds.Logo => "The game's logo",
-        MediaKinds.Hero => "Wide artwork, for the hero slot",
-        MediaKinds.Label => "A disc's or cartridge's art, for the label slot",
+        MediaKinds.Hero => "Wide artwork",
         MediaKinds.Video => "A gameplay clip",
-        MediaKinds.Manual => "The game's manual",
         _ => string.Empty,
     };
 
@@ -71,10 +53,10 @@ public sealed partial class ScrapeMediaPage : ListPanel
         return names.Count == 1 ? names[0] + " only" : string.Join(", ", names);
     }
 
-    /// <summary>The Scraping page's summary of the list: "Front cover, box back and 3 more".</summary>
+    /// <summary>The Scraping page's summary of the list: "Front cover, back cover and 3 more".</summary>
     public static string Summary(IReadOnlyList<string> media)
     {
-        var names = MediaKinds.Scrapable.Where(media.Contains).Select(NameOf).ToList();
+        var names = MediaKinds.Scrapable.Where(media.Contains).Select(GameMediaPanel.SlotName).ToList();
         return names.Count switch
         {
             0 => "None",
@@ -96,12 +78,12 @@ public sealed partial class ScrapeMediaPage : ListPanel
     private void Build()
     {
         var media = _settings.Services.Config.Settings.Scraping.Media;
-        AddNote("Downloaded for each game scraped from now on. Turning one off keeps what's already scraped; Clear metadata in a game's options removes it.");
+        AddNote("Downloaded for each game scraped from now on. Turning one off keeps what's already scraped; Reset this game, in a game's options, removes it.");
         foreach (var kind in MediaKinds.Scrapable)
         {
             var on = media.Contains(kind);
             var about = AboutOf(kind);
-            var row = AddRow(NameOf(kind), (about.Length > 0 ? about + " · " : string.Empty) + SourcesOf(kind), on ? "Yes" : "No", () => Set(kind, !media.Contains(kind)));
+            var row = AddRow(GameMediaPanel.SlotName(kind), (about.Length > 0 ? about + " · " : string.Empty) + SourcesOf(kind), on ? "Yes" : "No", () => Set(kind, !media.Contains(kind)));
             row.ValueColour = on ? UiStyle.Good : UiStyle.Faint;
             row.Adjuster = direction => Set(kind, direction > 0);
         }
@@ -124,6 +106,6 @@ public sealed partial class ScrapeMediaPage : ListPanel
         }
 
         _settings.Save(this, [new ConfigEdit(ConfigFileKind.Settings, ["scraping", "media"], media)],
-            on ? $"{NameOf(kind)}: downloaded from now on." : $"{NameOf(kind)}: not downloaded any more.");
+            on ? $"{GameMediaPanel.SlotName(kind)}: downloaded from now on." : $"{GameMediaPanel.SlotName(kind)}: not downloaded any more.");
     }
 }

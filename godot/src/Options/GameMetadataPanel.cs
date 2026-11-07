@@ -14,7 +14,7 @@ namespace Launcher.App.Options;
 /// Editing a game's title and metadata (M7 part 2). Each field shows what the grid and details show (the user's value,
 /// else the scraped one) and where it came from; A types a new value on the on-screen keyboard, checked before it's
 /// saved (<see cref="MetadataInput"/>); Y goes back to the scraped value. The user's values are overrides in
-/// userdata.db, which scraping never writes, so a re-scrape keeps them; "Clear metadata" removes them.
+/// userdata.db, which scraping never writes, so a re-scrape keeps them; "Reset this game" removes them.
 /// </summary>
 public sealed partial class GameMetadataPanel : ListPanel
 {
@@ -41,7 +41,7 @@ public sealed partial class GameMetadataPanel : ListPanel
             _rows[i] = AddRow(Label(field), "Reading…", activated: () => Edit(field));
         }
 
-        AddNote("Your values are kept when the game is scraped again. Clear metadata (in its options) removes them.");
+        AddNote("Your values are kept when the game is scraped again. Reset this game (in its options) removes them.");
         SetHints(Hints);
         Reload();
     }

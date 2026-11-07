@@ -59,7 +59,6 @@ public sealed partial class SystemPage : ListPanel
     {
         _settings = settings;
         _systemId = systemId;
-        Subtitle = $"systems.{systemId} in systems.toml";
         Build();
         SetHints(Hints);
         _settings.ConfigApplied += Rebuild;
@@ -394,7 +393,7 @@ public sealed partial class SystemPage : ListPanel
             var memberId = member.Id;
             var detail = grouping
                 ? $"{GamesOf(memberId)}. Yes: its games are in this card, each in its own box. No: a card of its own"
-                : "Settings, Appearance, Group regional variants is off, so every variant has its own card";
+                : "Settings > Appearance > Group regional variants is off, so every variant has its own card";
             var row = AddRow($"{member.Name} in this card", detail, activated: () => SetGrouped(memberId, null));
             row.Adjuster = direction => SetGrouped(memberId, direction > 0);
             ShowYesNo(row, member.Group is not null);
@@ -407,7 +406,7 @@ public sealed partial class SystemPage : ListPanel
 
         var own = grouping
             ? $"Yes: its games are in {parent.Name}'s card, each in its own box. No: a card of its own"
-            : "Settings, Appearance, Group regional variants is off, so every variant has its own card";
+            : "Settings > Appearance > Group regional variants is off, so every variant has its own card";
         var shown = AddRow($"Show under {parent.Name}", own, activated: () => SetGrouped(_systemId, null));
         shown.Adjuster = direction => SetGrouped(_systemId, direction > 0);
         ShowYesNo(shown, system.Group is not null);
@@ -472,7 +471,7 @@ public sealed partial class SystemPage : ListPanel
                 choices.Add(new Choice(Layouts.Name(layout), AppearancePage.GamesTitle(layout), AppearancePage.GamesDetail(layout)));
             }
 
-            Layer.Push(new ChoicePanel("How its games are shown", $"Saved as systems.{_systemId}.games_layout", choices,
+            Layer.Push(new ChoicePanel("How its games are shown", null, choices,
                 own is { } current ? Layouts.Name(current) : string.Empty,
                 choice => SaveView(Layouts.TryParse(choice.Id, out GamesLayout chosen) ? chosen : null)));
         });
@@ -511,7 +510,7 @@ public sealed partial class SystemPage : ListPanel
         {
             var choices = AppearancePage.SizeChoices(max, what);
             choices.Insert(0, new Choice(string.Empty, "As in Settings", $"{AppearancePage.SizeText(settings)}, the Appearance page's"));
-            Layer.Push(new ChoicePanel($"{title} of {SystemName()}'s games", $"Saved as systems.{_systemId}.{key}", choices,
+            Layer.Push(new ChoicePanel($"{title} of {SystemName()}'s games", null, choices,
                 own?.ToString(CultureInfo.InvariantCulture) ?? string.Empty,
                 choice => SaveGrid(key, choice.Id.Length == 0 ? null : int.Parse(choice.Id, CultureInfo.InvariantCulture))));
         });
@@ -560,7 +559,7 @@ public sealed partial class SystemPage : ListPanel
                 choices.Add(new Choice(names[i], titleOf(i), detailOf(i)));
             }
 
-            Layer.Push(new ChoicePanel(key == "games_sort" ? "Sort its games by" : "Its games' order", $"Saved as systems.{_systemId}.{key}", choices,
+            Layer.Push(new ChoicePanel(key == "games_sort" ? "Sort its games by" : "Its games' order", null, choices,
                 own is { } current ? names[current] : string.Empty,
                 choice => SaveSort(key, choice.Id.Length == 0 ? null : choice.Id, choice.Id.Length == 0 ? null : choice.Title)));
         });
@@ -646,7 +645,7 @@ public sealed partial class SystemPage : ListPanel
         _template.Detail = _ownTemplate is { } template
             ? $"Yours, {ItemOptions.ModelsText(template).Split('\n')[0]} · Y removes it"
             : system?.GameModel is { } chosen
-                ? $"'{chosen}', chosen from the theme (game_model)"
+                ? $"'{chosen}', chosen from the theme"
                 : $"The theme's choice: {InUse(options.Theme.GameModelInUse(_systemId)?.Description)}";
         _template.Value = _ownTemplate is not null ? "Yours" : system?.GameModel is not null ? "Chosen" : "Change";
     }
@@ -921,7 +920,7 @@ public sealed partial class SystemPage : ListPanel
         if (usable.Count == 0)
         {
             ConfirmDialog.Ask(Layer, "No provider can scrape yet",
-                "None of the providers you use has its credentials yet. Add them under Scraping in the settings first.",
+                "None of the providers you use has its credentials yet. Add them in Settings > Scraping first.",
                 "Open Scraping", "Not now", yes =>
                 {
                     if (yes)
@@ -949,7 +948,7 @@ public sealed partial class SystemPage : ListPanel
                     : string.Create(CultureInfo.InvariantCulture, $"{games:N0} of {name}'s {Games(count.Games)} haven't been scraped in the last {RecentDays} days, or ever: those are looked up, and the {count.Games - games:N0} scraped since are skipped."));
                 break;
             default:
-                var kind = ScrapeMediaPage.NameOf(KindOf(filter)!).ToLowerInvariant();
+                var kind = GameMediaPanel.SlotName(KindOf(filter)!).ToLowerInvariant();
                 text.Append(games == count.Games
                     ? string.Create(CultureInfo.InvariantCulture, $"None of {name}'s {Games(count.Games)} has a {kind}, so every one is looked up.")
                     : string.Create(CultureInfo.InvariantCulture, $"{games:N0} of {name}'s {Games(count.Games)} have no {kind}: those are looked up, and the {count.Games - games:N0} with one are skipped."));
@@ -959,13 +958,13 @@ public sealed partial class SystemPage : ListPanel
         text.Append(" Each game gets only the media it's missing, and its metadata is refreshed.");
         if (KindOf(filter) is { } wanted && !_settings.Services.Config.Settings.Scraping.Media.Contains(wanted))
         {
-            text.Append(CultureInfo.InvariantCulture, $" {ScrapeMediaPage.NameOf(wanted)}s aren't in your media to scrape, though, so none is downloaded: turn them on under Scraping, Media to scrape.");
+            text.Append(CultureInfo.InvariantCulture, $" {GameMediaPanel.SlotName(wanted)}s aren't in your media to scrape, though, so none is downloaded: turn them on in Settings > Scraping > Media to scrape.");
         }
 
         text.Append("\n\nThey'll be looked up with ").Append(string.Join(", then ", usable.Select(p => p.DisplayName))).Append('.');
         foreach (var skipped in providers.Where(p => p.InOrder && p.State != ProviderState.Ready))
         {
-            text.Append(' ').Append(skipped.DisplayName).Append(skipped.State == ProviderState.MissingCredentials ? " has no credentials, so it's skipped." : " is resting, so it's skipped for now.");
+            text.Append(' ').Append(ScrapingPage.SkippedNote(skipped));
         }
 
         text.Append("\n\nYour own images and edits are kept. It runs in the background: you can keep browsing, and its games update in the grid as they're done.");
@@ -1142,7 +1141,7 @@ public sealed partial class SystemPage : ListPanel
             : string.Create(CultureInfo.InvariantCulture, $"; {plan.NotInLibrary:N0} aren't (not scanned yet, or in another folder). "));
         if (plan.WithMetadata > 0)
         {
-            text.Append(CultureInfo.InvariantCulture, $"{Games(plan.WithMetadata)} get titles and metadata where they have none, saved as your own edits: scraping won't replace them, and Clear metadata removes them.");
+            text.Append(CultureInfo.InvariantCulture, $"{Games(plan.WithMetadata)} get titles and metadata where they have none, saved as your own edits: scraping won't replace them, and Reset this game removes them.");
         }
 
         if (plan.Files > 0)

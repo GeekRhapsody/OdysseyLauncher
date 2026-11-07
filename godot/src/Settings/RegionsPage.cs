@@ -21,7 +21,6 @@ public sealed partial class RegionsPage : OrderedListPage
         : base("Regions", new Vector2(860, 640))
     {
         _settings = settings;
-        Subtitle = "[scraping] regions in settings.toml";
         Build();
         _settings.ConfigApplied += Rebuild;
     }

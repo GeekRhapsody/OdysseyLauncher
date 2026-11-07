@@ -19,7 +19,7 @@ public sealed partial class InterfacePage : ListPanel
         new("playstation", "PlayStation"),
         new("nintendo", "Nintendo", "A Switch's or a Switch 2's: B, the bottom button, confirms"),
         new("gamecube", "GameCube"),
-        new("steamdeck", "Steam Deck", "And the new Steam Controller, whose buttons are the same"),
+        new("steamdeck", "Steam Deck", "Also the new Steam Controller, which has the same buttons"),
         new("steamcontroller", "Steam Controller (2015)"),
         new("keyboard", "Keyboard"),
     ];
@@ -44,7 +44,7 @@ public sealed partial class InterfacePage : ListPanel
         : base("Interface")
     {
         _settings = settings;
-        Subtitle = "[ui] in settings.toml";
+        Subtitle = "The status bar, the menus and their sounds";
 
         AddSection("Status bar");
         _clock = AddToggleRow("Clock", $"The time, top right, in your {(OperatingSystem.IsWindows() ? "Windows" : "system's")} time format", "show_clock", ui => ui.ShowClock);
@@ -54,7 +54,7 @@ public sealed partial class InterfacePage : ListPanel
         AddSection("Menus");
         _uiSize = AddRow("UI size", "The menus, text and controls: the game and system cards keep their size", activated: ChooseUiSize);
         _uiSize.Adjuster = direction => Step(UiSizeChoices, (int)Ui.Size, direction, SaveUiSize);
-        _buttonIcons = AddRow("Button icons", "The buttons the controls along the bottom show", activated: ChooseButtonIcons);
+        _buttonIcons = AddRow("Button icons", "Which buttons the hints along the bottom show", activated: ChooseButtonIcons);
         _buttonIcons.Adjuster = direction => Step(ButtonIconChoices, (int)Ui.ButtonIcons, direction, SaveButtonIcons);
 
         AddSection("Sound");
@@ -135,13 +135,13 @@ public sealed partial class InterfacePage : ListPanel
     }
 
     private void ChooseUiSize() =>
-        Layer.Push(new ChoicePanel("UI size", "Applied at once, and saved as [ui] size", UiSizeChoices, DisplayNames.Name(Ui.Size), SaveUiSize));
+        Layer.Push(new ChoicePanel("UI size", "Applied at once", UiSizeChoices, DisplayNames.Name(Ui.Size), SaveUiSize));
 
     private void SaveUiSize(Choice choice) =>
         _settings.Save(this, [new ConfigEdit(ConfigFileKind.Settings, ["ui", "size"], choice.Id)], $"UI size: {choice.Title}.");
 
     private void ChooseButtonIcons() =>
-        Layer.Push(new ChoicePanel("Button icons", "Saved as [ui] button_icons", ButtonIconChoices, DisplayNames.Name(Ui.ButtonIcons), SaveButtonIcons));
+        Layer.Push(new ChoicePanel("Button icons", null, ButtonIconChoices, DisplayNames.Name(Ui.ButtonIcons), SaveButtonIcons));
 
     private void SaveButtonIcons(Choice choice) =>
         _settings.Save(this, [new ConfigEdit(ConfigFileKind.Settings, ["ui", "button_icons"], choice.Id)], $"Button icons: {choice.Title}.");

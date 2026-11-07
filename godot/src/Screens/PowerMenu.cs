@@ -28,10 +28,10 @@ public sealed partial class PowerMenu : ListPanel
         _power = power;
         _queue = queue;
         _quit = quit;
-        AddAction(PowerAction.Restart, "Restart system", "Close every app and restart the computer");
-        AddAction(PowerAction.ShutDown, "Shut down system", "Close every app and turn the computer off");
-        AddAction(PowerAction.Sleep, "Sleep system", "The launcher is here as you left it when the computer wakes");
-        AddRow("Quit app", "Close Odyssey Launcher and go back to the desktop", activated: () =>
+        AddAction(PowerAction.Restart, "Restart", "Close every app and restart the computer");
+        AddAction(PowerAction.ShutDown, "Shut down", "Close every app and turn the computer off");
+        AddAction(PowerAction.Sleep, "Sleep", "The launcher is here as you left it when the computer wakes");
+        AddRow("Quit Odyssey Launcher", "Close Odyssey Launcher and go back to the desktop", activated: () =>
         {
             GD.Print("Power: quitting the app.");
             Close();

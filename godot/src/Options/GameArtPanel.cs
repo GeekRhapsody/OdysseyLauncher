@@ -184,7 +184,7 @@ public sealed partial class GameArtPanel : UiPanel
         var pick = _picks[_step];
         if (_current.TryGetValue(step.Kind, out var currentFile))
         {
-            var keep = AddTile(look, "Keep this one", "Yours now", -1, pick);
+            var keep = AddTile(look, "Keep this one", "Current", -1, pick);
             _tiles[step.Kind] = keep;
             if (_currentThumbs.TryGetValue(step.Kind, out var thumb))
             {
