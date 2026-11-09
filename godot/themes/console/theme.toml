@@ -173,7 +173,8 @@ model = "models/systems/switch.glb"           # built by tools/console-models/sw
 model = "models/systems/3do.glb"               # built by tools/console-models/threedo.py: a Panasonic FZ-1 and its controller; its focused clip slides the tray out, drops a CD in, takes it in while ACCESS flickers, plays the pad, and later ejects the CD
 
 [systems.vectrex]
-model = "models/systems/vectrex.glb"           # built by tools/console-models/vectrex.py: MB's Vectrex with its controller in front of it, the power-on screen drawn in lines; its focused clip slides a cartridge into its side, settles an overlay over the tube and plays a made-up vector game while the joystick rocks, then takes them out again
+model = "models/systems/vectrex.glb"           # built by tools/console-models/vectrex.py: MB's Vectrex with its controller in front of it, the power-on screen drawn in lines; its focused clip slides a cartridge into its side, rocks the joystick and fires the buttons while the tube plays a made-up vector game, then takes the cartridge out again
+video = "videos/vectrex.mp4"                   # drawn by tools/console-models/vectrex_video.py: the tube through the clip (the power-on screen, the game's overlay sliding in, the game through it, the overlay sliding out, the power-on screen coming back), played on the glass's video material
 
 [systems.atarist]
 model = "models/systems/atarist.glb"           # built by tools/console-models/atari_st.py: a 520STFM, its SC1224 showing GEM's desktop, and its mouse; its focused clip slides a floppy in, double-clicks its way to the game, and ejects it
@@ -295,7 +296,8 @@ model = "models/systems/gx4000.glb"            # built by tools/console-models/g
 model = "models/systems/cdtv.glb"              # built by tools/console-models/cdtv.py: the Commodore CDTV and its remote controller; its focused clip slides a caddy into the slot, lights the LEDs, counts the track's time on the display and plays on the remote, then ejects the caddy
 
 [systems.amiga]
-model = "models/systems/amiga.glb"            # built by tools/console-models/amiga.py: an Amiga 500 and its 1084S monitor, Kickstart 1.3 asking for a disk; its focused clip loads a game from a floppy, then resets with Ctrl and both Amiga keys
+model = "models/systems/amiga.glb"            # built by tools/console-models/amiga.py: an Amiga 500 and its 1084S monitor, Kickstart 1.3 asking for a disk; its focused clip slides a floppy (a made-up game) into the drive, starts the game with SPACE and plays it on the cursor keys and SPACE, ejects the floppy, then resets with Ctrl and both Amiga keys
+video = "videos/amiga.mp4"                    # drawn by tools/console-models/amiga_video.py: the screen through the clip (Kickstart's hand, the decrunch, the game's title and its play, the reset back to the hand), played on the glass's video material
 
 [systems.xbox]
 model = "models/systems/xbox.glb"              # built by tools/console-models/xbox.py: the original Xbox and its Controller S; its focused clip switches on, slides the tray out, drops a DVD on it and plays on the pad, then takes the DVD out

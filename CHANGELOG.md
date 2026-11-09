@@ -15,6 +15,8 @@ it releases, and the Release workflow puts it on the release page (tools/release
 - **Clearer names in the menus.** The same things now have the same names everywhere: the media you choose to scrape uses the game's media names (Back cover, Spine, Disc or cartridge label, Logo, Hero art) instead of ScreenScraper's. Some options are renamed to say what they do: "Clear metadata" is now "Reset this game", "Scrape all missing metadata" is "Scrape what's missing", "Auto scan the library at launch" is "Rescan when the launcher starts", and "Video driver" is "Renderer". The power menu reads Restart, Shut down, Sleep and Quit Odyssey Launcher.
 - **The settings no longer show config file names and keys** such as "[display] in settings.toml" or "Saved as [display] screen_mode". Each page now says in plain words what it holds.
 - **A scrape's question says why a provider is skipped**: that it has reached its limit or is closed (and until when), or that it refused its credentials.
+- **The Console theme's Amiga card loads and plays its game.** When you focus it, the floppy goes in and the monitor shows the game loading, with the Amiga's colourful decrunch stripes, then its title screen and the game itself, a space shooter played in step with the keys going down, before a reset brings back the insert-disk screen. Before, it showed a black screen and a still title.
+- **The Console theme's Vectrex card plays smoothly.** When you focus it, its screen shows the game as a video in step with the controller, seen through the game's coloured overlay: the ship moves as the joystick rocks, fires as the button goes down, and raises its shield. Before, the screen swapped three still pictures and blinked dark at each swap.
 
 ## 1.0.0 (2026-11-07)
 

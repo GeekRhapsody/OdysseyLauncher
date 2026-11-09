@@ -8,26 +8,30 @@ comb of fins along its back edge, the keyboard's wells into the deck, and the dr
 end. Its 96 keys (the UK layout) stand in the wells, tapering to their printed tops, off-white or grey as the real
 ones. Behind it stands the monitor: its side outline extruded (the hood sloping down behind), the bezel's panel sunk
 into its front, the screen's opening sloping in to the curved glass, its badge, the seams of the control flap under
-it, and a grille in each side. The printing is two textures drawn by amiga_print.py: the computer's top seen from above
-(planar-mapped onto every face facing up: the key tops and legends, the badge, the lights, the AMIGA lettering) with
-the monitor's badge and the swatches its bezel and the lit drive light take; and the screens (the glass at rest shows
-Kickstart 1.3's hand holding a disk), the floppy's two sides and their swatches.
+it, and a grille in each side. Two textures drawn by amiga_print.py: the printing (the computer's top seen from above,
+planar-mapped onto every face facing up: the key tops and legends, the badge, the lights, the AMIGA lettering; the
+monitor's badge, the floppy's two sides and the swatches small parts take) and the glass's still.
+
+The glass is the material `video`: while the card is focused, the launcher plays the theme's video for it there
+(godot/themes/console/videos/amiga.mp4, drawn by amiga_video.py), starting it again each time the clip loops (A6 Card
+videos); otherwise, and where there's no decoder, it shows its own texture: Kickstart 1.3's hand holding a disk.
 
 A node tree: a root (the turn to a three-quarter view, TILT_YAW and TILT_PITCH: the drive's end towards the viewer,
 the top tipped up; then the model spec's fit: standing on y = 0, centred, the largest side 1 m) holding the set; the
-set holding the floppy, the eject button, the lit drive light, two screens over the glass (black, and the title screen
-of a made-up game, Odyssey) and the Ctrl and Amiga keys. The floppy waits in the drive shrunk to nothing, the light and
-the screens are shrunk to nothing, so at rest the card is the set with Kickstart's hand on the screen.
+set holding the floppy (waiting in the drive shrunk to nothing), the eject button, the lit drive light (shrunk to
+nothing while it's off) and the keys the clip presses (MOVING_KEYS).
 
-The `focused` clip (8 s, looping) loads a game: the floppy pops up beside the drive, flips over and slides in; the
-drive light flickers while the screen goes black, then Odyssey's title screen comes up. Ctrl and both Amiga keys go
-down together (the Amiga's reset), the hand is back, the eject button is pressed and the floppy pops out and goes.
+The `focused` clip (12 s, looping; its timing is amiga_layout.py's, which the video follows) loads a game and plays
+it: the floppy appears beside the drive showing its label, levels at the slot and slides in; the drive light flickers
+while it's read; SPACE starts the game, the cursor keys steer the ship and SPACE fires; then the eject button pushes
+the floppy out, it's taken away, and Ctrl and both Amiga keys go down together (the Amiga's reset).
 
-Seven materials (case, print, key_light, key_dark, dark, glass, disk) and two textures, within the system model
+Seven materials (case, print, key_light, key_dark, dark, video, disk) and two textures, within the system model
 budget. Run from the repo root:
 
     python tools/console-models/amiga_print.py artifacts/amiga
     blender -b --factory-startup --python tools/console-models/amiga.py -- artifacts/amiga godot/themes/console/models/systems/amiga.glb
+    python tools/console-models/amiga_video.py godot/themes/console/videos/amiga.mp4
 """
 
 import math
@@ -45,8 +49,9 @@ from mega_drive_cartridge import bevel, boolean, box, export, join, material, ne
 
 TILT_YAW = -30.0     # degrees about the vertical: the right end (the drive) comes towards the viewer
 TILT_PITCH = 25.0    # degrees about the horizontal: the top tips up towards the viewer
-ROUGHNESS = dict(case=0.55, print=0.55, key_light=0.5, key_dark=0.5, dark=0.8, glass=0.2, disk=0.4)
+ROUGHNESS = dict(case=0.55, print=0.55, key_light=0.5, key_dark=0.5, dark=0.8, video=0.2, disk=0.4)
 RESET_KEYS = ("ctrl", "lamiga", "ramiga")
+MOVING_KEYS = RESET_KEYS + ("up", "down", "space")   # the reset's, and the game's
 
 # The deck's frame: x across, s up the slope from the deck's front edge, h off it.
 SLOPE_FRAME = Matrix.Translation((0.0, L.DECK[0][0], L.DECK[0][1])) @ Matrix.Rotation(L.SLOPE, 4, "X")
@@ -168,8 +173,8 @@ def computer(m):
 
 
 def keys(m):
-    """The keys, standing in their wells and tapering to their printed tops: Ctrl and the Amiga keys apart (the clip
-    presses them)."""
+    """The keys, standing in their wells and tapering to their printed tops: MOVING_KEYS apart (the clip presses
+    them)."""
     static, moving = [], {}
     h, inset = L.KEY_HEIGHT, L.KEY_INSET
     for k in L.KEYS:
@@ -182,7 +187,7 @@ def keys(m):
         bevel(cap, 0.6, segments=1, angle=30)
         cap.data.transform(SLOPE_FRAME)
         paint(cap, m["print"], top_uv, lambda c, n, _name: n.z > 0.95)
-        if name in RESET_KEYS:
+        if name in MOVING_KEYS:
             moving[name] = cap
         else:
             static.append(cap)
@@ -216,9 +221,9 @@ def monitor(m):
           lambda c, n, name: name == "case" and abs(n.y) < 0.5 and 0.3 < c.y < b["depth"] - 0.1
           and abs(c.x) < b["x"] + 0.5 and b["z"][0] - 0.5 < c.z < b["z"][1] + 0.5)
 
+    # The launcher plays the card's video on the material named video (A6 Card videos): UVs 0 to 1, upright.
     gw, gh = M["glass"]["size"]
-    region = atlas_uv(L.MEDIA_REGIONS["kickstart"], 1.0, 1.0)
-    glass = curved("glass", gw, gh, M["glass"]["bulge"], region, m["glass"])
+    glass = curved("glass", gw, gh, M["glass"]["bulge"], lambda a, b: (a, 1 - b), m["video"])
     glass.data.transform(Matrix.Translation((0.0, o["depth"], o["z"])))
 
     bm = bmesh.new()
@@ -238,21 +243,15 @@ def monitor(m):
     return parts
 
 
-def screen(m, name, uv):
-    """A screen switched on over the glass, its middle at its origin (the clip opens and closes it about there)."""
-    gw, gh = L.MONITOR["glass"]["size"]
-    return curved(name, gw, gh, L.MONITOR["glass"]["bulge"], uv, m["glass"])
-
-
 def disk(m):
     """The floppy, its middle at its origin, its shutter's edge towards -x (into the drive), its label up."""
     l, w, t = L.DISK["length"], L.DISK["width"], L.DISK["thickness"]
     shell = box("disk", -l / 2, l / 2, -w / 2, w / 2, -t / 2, t / 2, m["disk"])
     bevel(shell, 0.8, segments=2)
-    top, bottom = atlas_uv(L.MEDIA_REGIONS["disk_top"], l, w), atlas_uv(L.MEDIA_REGIONS["disk_bottom"], l, w)
+    top, bottom = atlas_uv(L.PRINT_REGIONS["disk_top"], l, w), atlas_uv(L.PRINT_REGIONS["disk_bottom"], l, w)
     paint(shell, m["disk"], lambda co: top(co.x + l / 2, w / 2 - co.y), lambda c, n, name: n.z > 0.9)
     paint(shell, m["disk"], lambda co: bottom(co.x + l / 2, w / 2 + co.y), lambda c, n, name: n.z < -0.9)
-    paint(shell, m["disk"], swatch(L.MEDIA_SWATCHES["edge"]), lambda c, n, name: abs(n.z) <= 0.9)
+    paint(shell, m["disk"], swatch(L.PRINT_SWATCHES["edge"]), lambda c, n, name: abs(n.z) <= 0.9)
     return shell
 
 
@@ -279,13 +278,38 @@ def eject_button(m):
 
 # ---- The focused clip ------------------------------------------------------------------------------------------------
 
-def appear(f, f0, f1):
-    return HIDDEN + (1 - HIDDEN) * back_out(phase(f, f0, f1)) if f >= f0 else HIDDEN
+OUT = L.WIDTH / 2 + 40.0 + L.DISK["length"] / 2 - L.SEAT[0]    # where the floppy appears: 40 mm out from the drive,
+LIFT, TIP = 44.0, 30.0                                          # above the slot, tipped to show the viewer its label
+MOUTH = L.WIDTH / 2 + 2.0 + L.DISK["length"] / 2 - L.SEAT[0]    # its leading edge just outside the slot
+POP = 30.0                                                      # how far the drive pushes it out
+TRAVEL = 3.0                                                    # how far a key goes down
 
 
-def flat(v):
-    """A screen squeezed to v of its height (switching on or off)."""
-    return Pose(axes=(1.0, 1.0, max(HIDDEN, v)))
+def disk_pose(f):
+    """The floppy: appears beside the drive showing its label, levels at the slot and slides in, pushed home; later
+    the drive pushes it out, and it's drawn out, lifted and gone."""
+    a, b, c, d, e = L.DISK_IN
+    o0, o1, o2, o3 = L.DISK_OUT
+    if f < a or f >= o3:
+        return Pose(scale=HIDDEN)                              # in its seat, so the rest pose's bounds are the set's
+    if f < b:
+        return Pose(x=OUT, z=LIFT, pitch=TIP, scale=HIDDEN + (1 - HIDDEN) * back_out(phase(f, a, b), 1.4))
+    if f < c:
+        return Pose(x=OUT, z=LIFT + 2.0 * math.sin(math.pi * phase(f, b, c)), pitch=TIP)
+    if f < d:
+        t = smooth(phase(f, c, d))
+        return Pose(x=OUT + (MOUTH - OUT) * t, z=LIFT * (1 - t), pitch=TIP * (1 - t))
+    if f < e:
+        return Pose(x=MOUTH * (1 - smooth(phase(f, d, e))))
+    if f < o0:
+        return Pose(x=-1.5 * math.sin(math.pi * phase(f, e, e + 4)))    # pushed home, and settles
+    if f < o1:
+        return Pose(x=POP * back_out(phase(f, o0, o1), 1.6))
+    if f < o2:
+        t = smooth(phase(f, o1, o2))
+        return Pose(x=POP + (OUT - POP) * t, z=LIFT * t, pitch=TIP * t)
+    t = phase(f, o2, o3)
+    return Pose(x=OUT, z=LIFT + 12.0 * ease_out(t), pitch=TIP, scale=max(HIDDEN, 1 - ease_in(t)))
 
 
 def tap(f, f0, hold=2):
@@ -293,45 +317,22 @@ def tap(f, f0, hold=2):
     return smooth(phase(f, f0, f0 + 3)) * (1 - smooth(phase(f, f0 + 3 + hold, f0 + 7 + hold)))
 
 
+def held(f, spans):
+    """A key held through (from, to) spans: down in three frames, back up in three."""
+    return max((smooth(phase(f, f0, f0 + 3)) * (1 - smooth(phase(f, f1, f1 + 3))) for f0, f1 in spans), default=0.0)
+
+
 def timeline(f):
-    out = L.WIDTH / 2 + 22.0 + L.DISK["length"] / 2 - L.SEAT[0]   # the floppy's middle beside the drive: 22 mm out
-
-    # The floppy: pops up beside the drive, flips over coming down to the slot, slides in; later pops out and goes.
-    if f < 14 or f >= 228:
-        floppy = Pose(scale=HIDDEN)
-    elif f < 24:
-        floppy = Pose(x=out, z=50.0, scale=appear(f, 14, 22))
-    elif f < 44:
-        t = smooth(phase(f, 24, 44))
-        floppy = Pose(x=out - 30.0 * t, z=50.0 * (1 - t), pitch=360.0 * t)
-    elif f < 198:
-        floppy = Pose(x=(out - 30.0) * (1 - smooth(phase(f, 44, 58))))
-    elif f < 214:
-        floppy = Pose(x=40.0 * back_out(phase(f, 198, 206)))
-    else:
-        t = ease_in(phase(f, 214, 228))
-        floppy = Pose(x=40.0 + 80.0 * t, z=30.0 * t, scale=max(HIDDEN, 1 - ease_in(phase(f, 220, 228))))
-
-    # The drive light, while the disk is read: on, with a short blink every few frames.
-    reading = 60 <= f < 112 or 200 <= f < 206
-    light = Pose() if reading and (f // 5) % 5 != 3 else Pose(scale=HIDDEN)
-
-    # The screens: black while the game loads, its title screen opening; the reset blacks it out, and the hand's back.
-    black = Pose() if 62 <= f < 102 or 184 <= f < 194 else Pose(scale=HIDDEN)
-    if f < 100 or f >= 188:
-        title = Pose(scale=HIDDEN)
-    elif f < 106:
-        title = flat(0.02 + 0.98 * ease_out(phase(f, 100, 106)))
-    elif f < 182:
-        title = Pose()
-    else:
-        title = flat(1 - ease_in(phase(f, 182, 188)))
-
-    poses = {"floppy": floppy, "drive_light": light, "screen_black": black, "screen_title": title,
-             "eject": Pose(x=-1.5 * tap(f, 196))}
-    for k, name in enumerate(RESET_KEYS):                         # Ctrl, then each Amiga key, held, let go together
-        d = 3.0 * smooth(phase(f, 170 + 3 * k, 173 + 3 * k)) * (1 - smooth(phase(f, 186, 190)))
-        poses[name] = Pose(x=PRESS.x * d, y=PRESS.y * d, z=PRESS.z * d)
+    """The clip at frame f: the floppy, the drive light while the disk is read (a short blink every few frames), the
+    eject button, and the keys: SPACE starts the game and fires, the cursor keys steer the ship (the video follows
+    them), and Ctrl and each Amiga key go down in turn and are let go together, the reset."""
+    reading = L.READ[0] <= f < L.READ[1] and (f // 5) % 5 != 3
+    poses = {"floppy": disk_pose(f), "drive_light": Pose() if reading else Pose(scale=HIDDEN),
+             "eject": Pose(x=-1.5 * tap(f, L.EJECT))}
+    down = {name: held(f, [(L.RESET[0] + 3 * k, L.RESET[1])]) for k, name in enumerate(RESET_KEYS)}
+    down.update(up=held(f, L.UP), down=held(f, L.DOWN), space=max(tap(f, f0) for f0 in (L.START,) + L.FIRE))
+    for name, d in down.items():
+        poses[name] = Pose(x=PRESS.x * TRAVEL * d, y=PRESS.y * TRAVEL * d, z=PRESS.z * TRAVEL * d)
     return poses
 
 
@@ -344,9 +345,9 @@ def main():
     scene = bpy.context.scene
     scene.render.fps = L.FPS
     printed = bpy.data.images.load(os.path.join(images, "amiga_print.png"))
-    media = bpy.data.images.load(os.path.join(images, "amiga_media.png"))
-    colours = dict(L.COLOURS, print="#FFFFFF", glass="#FFFFFF", disk="#FFFFFF")
-    textures = dict(print=printed, glass=media, disk=media)
+    still = bpy.data.images.load(os.path.join(images, "amiga_screen.png"))
+    colours = dict(L.COLOURS, print="#FFFFFF", video="#FFFFFF", disk="#FFFFFF")
+    textures = dict(print=printed, video=still, disk=printed)
     m = {n: material(n, colours[n], r, textures.get(n)) for n, r in ROUGHNESS.items()}
 
     static, moving = keys(m)
@@ -354,9 +355,6 @@ def main():
     eject = eject_button(m)
     lit, lit_at = drive_light(m)
     floppy = disk(m)
-    unlit = swatch(L.MEDIA_SWATCHES["black"])(None)
-    black = screen(m, "screen_black", lambda a, b: unlit)
-    title = screen(m, "screen_title", atlas_uv(L.MEDIA_REGIONS["title"], 1.0, 1.0))
     for obj in [whole, eject, floppy] + list(moving.values()):
         for p in obj.data.polygons:
             p.use_smooth = True
@@ -366,16 +364,12 @@ def main():
     root = bpy.data.objects.new("amiga_root", None)
     scene.collection.objects.link(root)
     whole.parent = root
-    o, M = L.MONITOR["opening"], L.MONITOR
-    glass_front = Vector((M["at"][0], M["at"][1] + o["depth"], o["z"]))
-    for part, where in ((floppy, Vector(L.SEAT)), (lit, lit_at), (black, glass_front + Vector((0.0, -0.5, 0.0))),
-                        (title, glass_front + Vector((0.0, -1.0, 0.0)))):
+    for part, where in ((floppy, Vector(L.SEAT)), (lit, lit_at)):
         part.parent = whole
         part.location = where
     for part in [eject] + list(moving.values()):
         part.parent = whole
-    nodes = {"floppy": floppy, "drive_light": lit, "screen_black": black, "screen_title": title, "eject": eject,
-             **moving}
+    nodes = {"floppy": floppy, "drive_light": lit, "eject": eject, **moving}
 
     # The three-quarter view, then the spec's fit of the set at rest, as the root's transform.
     tilt = Matrix.Rotation(math.radians(TILT_PITCH), 4, "X") @ Matrix.Rotation(math.radians(TILT_YAW), 4, "Z")
@@ -387,7 +381,7 @@ def main():
                                                                              -lo.z)) @ tilt
 
     key("focused", nodes, timeline, L.LENGTH)
-    meshes = [whole, eject, lit, floppy, black, title] + list(moving.values())
+    meshes = [whole, eject, lit, floppy] + list(moving.values())
     print(f"Amiga: {sum(triangles(o.data) for o in meshes)} triangles ({triangles(whole.data)} the set), "
           f"{len({mat.name for o in meshes for mat in o.data.materials})} materials, "
           f"size {size.x:.1f} x {size.y:.1f} x {size.z:.1f} mm tilted, before the fit")

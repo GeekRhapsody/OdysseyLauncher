@@ -4,8 +4,10 @@
 clips frame for frame; this pipes them to ffmpeg as raw RGB.
 
 The settings are amstrad_cpc_video.py's: H.264 4:2:0 (High profile: Media Foundation decodes it; it can't decode 4:4:4),
-tuned for animation, a key frame every second (so a restart is quick), no sound. Run with the system Python (Pillow;
-ffmpeg on the PATH).
+tuned for animation, a key frame every second (so a restart is quick), no sound; and, from 2026-11-08, no B-frames:
+their reordering delays an MP4's timestamps by two frames, which the file's edit list takes back, but Media Foundation
+ignores the edit list, so on Windows every frame came two frames after its moment in the clip (the videos encoded
+before then still do). Run with the system Python (Pillow; ffmpeg on the PATH).
 """
 
 import os
@@ -23,7 +25,7 @@ def encode(out, size, fps, frames, label):
     encoder = subprocess.Popen(
         ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
          "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{width}x{height}", "-r", str(fps), "-i", "-",
-         "-c:v", "libx264", "-preset", "veryslow", "-tune", "animation", "-crf", "18",
+         "-c:v", "libx264", "-preset", "veryslow", "-tune", "animation", "-crf", "18", "-bf", "0",
          "-pix_fmt", "yuv420p", "-profile:v", "high", "-g", str(fps), "-movflags", "+faststart", "-an", out],
         stdin=subprocess.PIPE)
     count = 0

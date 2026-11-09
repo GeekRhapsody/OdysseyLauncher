@@ -1,24 +1,24 @@
-"""The Amiga 500's and its 1084S monitor's printing, for the console theme's Amiga model (tools/console-models/amiga.py).
+"""The Amiga 500's and its 1084S monitor's printing, for the console theme's Amiga model (tools/console-models/amiga.py),
+and the Amiga's pictures, which its video (amiga_video.py) draws with title(), decrunch() and the game's pieces.
 
-Draws its two atlases, their regions as amiga_layout.py places them. amiga_print.png: the computer's top seen from
-above, in millimetres as the model's planar UVs map it (each key's top in its colour with its legend, the Commodore
-badge, the power light lit and the drive light off, the AMIGA lettering in relief), the monitor's badge, and the
-swatches small parts take their colour from. amiga_media.png: the two screens, each the glass's whole width and
-height, a dark border round the lit raster, drawn at the Amiga's 320 x 256 pixels: Kickstart 1.3's hand holding a
-disk (the glass at rest) and the title screen of a made-up game, Odyssey; and the floppy's two sides, its label
-(Odyssey's) and its hub. Run it with the system Python (Pillow):
+amiga_print.png, its regions as amiga_layout.py places them: the computer's top seen from above, in millimetres as the
+model's planar UVs map it (each key's top in its colour with its legend, the Commodore badge, the power light lit and
+the drive light off, the AMIGA lettering in relief), the monitor's badge, the floppy's two sides (its label, Odyssey's,
+and its hub), and the swatches small parts take their colour from. amiga_screen.png: the glass at VIDEO_PX, a dark
+border round the lit raster, Kickstart 1.3's hand holding a disk drawn at the Amiga's 320 x 256 pixels: the still of
+the model's `video` material, and the first and last frame of its video. Run it with the system Python (Pillow, numpy):
 
     python tools/console-models/amiga_print.py <out folder>
-
-It writes amiga_print.png and amiga_media.png there.
 """
 
 import math
 import os
 import random
 import sys
+from functools import lru_cache
 
-from PIL import Image, ImageDraw, ImageFilter, ImageFont
+import numpy as np
+from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageFont
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import amiga_layout as L  # noqa: E402
@@ -141,17 +141,27 @@ def print_atlas():
     image = Image.new("RGB", (L.ATLAS, L.ATLAS), CASE)
     top().paste(image)
     monitor_badge().paste(image)
+    disk_side(L.PRINT_REGIONS["disk_top"], True).paste(image)
+    disk_side(L.PRINT_REGIONS["disk_bottom"], False).paste(image)
     d = ImageDraw.Draw(image)
-    for name, colour in (("bezel", rgb(L.COLOURS["bezel"])), ("lit", (255, 64, 46)), ("black", (8, 8, 8))):
+    for name, colour in (("bezel", rgb(L.COLOURS["bezel"])), ("lit", (255, 64, 46)), ("black", (8, 8, 8)),
+                         ("edge", rgb(L.COLOURS["disk"]))):
         x, y = L.PRINT_SWATCHES[name]
         d.rectangle([x - 12, y - 12, x + 11, y + 11], fill=colour)
     return image
 
 
 # ---- The screens -----------------------------------------------------------------------------------------------------
+# The Amiga's 320 x 256 pictures: Kickstart's hand, the decrunch, Odyssey's title screen, and the pieces its game
+# (amiga_video.py) shares with the title: the copper's sky, the stars, the planet, the tiled floor.
 
 WHITE, BLACK = (255, 255, 255), (0, 0, 0)
 DISK_BLUE, METAL = (0, 85, 170), (170, 170, 170)
+W, H, HORIZON = 320, 256, 176                 # the picture, and the title's horizon
+SKY = [(0, (0, 0, 48)), (0.45, (64, 16, 112)), (0.8, (208, 64, 96)), (1.0, (255, 176, 64))]
+FLOOR = [(40, 16, 96), (112, 48, 160)]
+BARS = [(255, 96, 160), (96, 224, 255)]       # the copper bars rolling through the title's sky
+GLINT = 60                                    # frames between two glints crossing the title
 
 
 def pixel_font(name, size):
@@ -203,67 +213,114 @@ def kickstart():
     return img
 
 
-def checker_floor(d, horizon, w, h, colours):
-    """A floor of tiles running to the horizon, rows narrowing with distance: the demo scene's favourite."""
-    for row in range(h - horizon):
-        y = horizon + row
-        z = 400.0 / (row + 4)                         # distance into the screen
-        for x in range(w):
-            u = (x - w / 2) * z / 64.0
-            tile = (int(math.floor(u / 8.0)) + int(math.floor(z / 6.0))) % 2
-            d.point((x, y), fill=colours[tile])
-
-
-def title_screen():
-    """Odyssey's title screen, 320 x 256: copper bars graded to the horizon, a ringed planet, the ship over a tiled
-    floor, the title in chrome, PRESS FIRE TO START."""
-    w, h, horizon = 320, 256, 176
-    img = Image.new("RGB", (w, h))
-    d = ImageDraw.Draw(img)
-    d.fontmode = "1"
-    stops = [(0, (0, 0, 48)), (0.45, (64, 16, 112)), (0.8, (208, 64, 96)), (1.0, (255, 176, 64))]
-    for y in range(0, horizon, 2):                    # the copper's bands: two lines each
-        t = y / horizon
+def copper(d, top, bottom, stops):
+    """The copper's sky: a colour every two lines from top to bottom, graded through stops (t, colour), in the
+    Amiga's 16 levels a channel."""
+    for y in range(top, bottom, 2):
+        t = (y - top) / (bottom - top)
         for (t0, c0), (t1, c1) in zip(stops, stops[1:]):
             if t0 <= t <= t1:
                 colour = mix(c0, c1, (t - t0) / (t1 - t0))
-        d.rectangle([0, y, w, y + 1], fill=tuple(v // 16 * 16 for v in colour))
-    rng = random.Random(500)
-    for _ in range(90):
-        x, y = rng.randrange(w), rng.randrange(horizon - 40)
-        d.point((x, y), fill=(255, 255, 255) if rng.random() < 0.5 else (160, 176, 255))
-    d.ellipse([200, 92, 300, 192], fill=(240, 112, 48))
-    d.ellipse([206, 96, 286, 168], fill=(255, 160, 80))
-    d.arc([168, 128, 332, 156], 160, 380, fill=(255, 240, 208), width=3)
-    checker_floor(d, horizon, w, h, [(40, 16, 96), (112, 48, 160)])
-    d.line([(0, horizon), (w, horizon)], fill=(255, 208, 128))
-    ship(d, 116, 150, 2.2, (255, 255, 255), (255, 176, 48))
-    for k in range(4):
-        d.line([(40 - k * 10, 146 + k * 3), (84 - k * 6, 146 + k * 3)], fill=(255, 208, 128), width=2)
+        d.rectangle([0, y, W, y + 1], fill=tuple(v // 16 * 16 for v in colour))
 
-    # The title: chrome letters, a dark outline, graded from sky to ground.
-    font = pixel_font("ariblk.ttf", 46)
-    mask = Image.new("L", (w, 80), 0)
+
+def planet(d, cx, cy, r=50):
+    """The ringed planet, its middle at (cx, cy), r its radius."""
+    d.ellipse([cx - r, cy - r, cx + r, cy + r], fill=(240, 112, 48))
+    d.ellipse([cx - 0.88 * r, cy - 0.92 * r, cx + 0.72 * r, cy + 0.52 * r], fill=(255, 160, 80))
+    d.arc([cx - 1.64 * r, cy - 0.28 * r, cx + 1.64 * r, cy + 0.28 * r], 160, 380, fill=(255, 240, 208),
+          width=max(1, round(3 * r / 50)))
+
+
+def floor(img, horizon, along=0.0, into=0.0):
+    """The tiled floor from the horizon down, its rows narrowing with distance (the demo scene's favourite), moved
+    `along` to the left and `into` towards the viewer, in its own units."""
+    z = 400.0 / (np.arange(H - horizon) + 4.0)                   # each row's distance into the screen
+    u = (np.arange(W) - W / 2)[None, :] * z[:, None] / 64.0 + along
+    tile = (np.floor(u / 8.0) + np.floor((z[:, None] + into) / 6.0)).astype(int) % 2
+    pixels = np.array(img)
+    pixels[horizon:] = np.array(FLOOR, np.uint8)[tile]
+    return Image.fromarray(pixels)
+
+
+@lru_cache(maxsize=None)
+def title_layers():
+    """The title's letters (a mask), their dark outline, and the chrome they're filled with."""
+    mask = Image.new("L", (W, 80), 0)
     dm = ImageDraw.Draw(mask)
     dm.fontmode = "1"
-    dm.text((w / 2, 40), "ODYSSEY", font=font, fill=255, anchor="mm")
-    edge = mask.filter(ImageFilter.MaxFilter(5))
-    chrome = gradient((w, 80), [(0.0, (180, 240, 255)), (0.45, (255, 255, 255)), (0.5, (40, 48, 128)),
+    dm.text((W / 2, 40), "ODYSSEY", font=pixel_font("ariblk.ttf", 46), fill=255, anchor="mm")
+    chrome = gradient((W, 80), [(0.0, (180, 240, 255)), (0.45, (255, 255, 255)), (0.5, (40, 48, 128)),
                                 (0.75, (120, 96, 200)), (1.0, (255, 208, 120))]).convert("RGB")
-    img.paste((16, 0, 48), (0, 8), edge)
-    img.paste(chrome.crop((0, 0, w, 80)), (0, 8), mask)
+    return mask, mask.filter(ImageFilter.MaxFilter(5)), chrome
+
+
+def title(t=0):
+    """Odyssey's title screen, 320 x 256, t frames after it came up: copper bars graded to the horizon with two bright
+    bars rolling through them, a ringed planet, the ship over the tiled floor running towards the viewer, the title in
+    chrome with a glint crossing it every GLINT frames, PRESS SPACE TO START blinking."""
+    img = Image.new("RGB", (W, H))
+    d = ImageDraw.Draw(img)
+    copper(d, 0, HORIZON, SKY)
+    for k, colour in enumerate(BARS):
+        y = round(HORIZON / 2 - 6 + 56 * math.sin(2 * math.pi * t / 90 + k * math.pi))
+        for j in range(12):
+            d.line([(0, y + j), (W, y + j)], fill=tuple(round(c * (1 - abs(j - 5.5) / 6)) // 16 * 16 for c in colour))
+    rng = random.Random(500)
+    for k in range(90):
+        x, y, blue = rng.randrange(W), rng.randrange(HORIZON - 40), rng.random() < 0.5
+        if (t // 6 + k) % 9:                                   # now and then a star blinks off
+            d.point((x, y), fill=(160, 176, 255) if blue else WHITE)
+    planet(d, 250, 142)
+    img = floor(img, HORIZON, into=0.8 * t)
     d = ImageDraw.Draw(img)
     d.fontmode = "1"
-    d.text((w / 2, 230), "PRESS FIRE TO START", font=pixel_font("arialbd.ttf", 12), fill=(255, 240, 64), anchor="mm")
-    d.text((w / 2, 246), "© ODYSSEY LAUNCHER", font=pixel_font("arial.ttf", 9), fill=(208, 192, 255), anchor="mm")
+    d.line([(0, HORIZON), (W, HORIZON)], fill=(255, 208, 128))
+    y = 150 + round(2 * math.sin(2 * math.pi * t / 45))
+    ship(d, 116, y, 2.2, WHITE, (255, 176, 48))
+    for k in range(4):
+        d.line([(40 - k * 10, y - 4 + k * 3), (84 - k * 6, y - 4 + k * 3)], fill=(255, 208, 128), width=2)
+    mask, edge, chrome = title_layers()
+    img.paste((16, 0, 48), (0, 8), edge)
+    img.paste(chrome, (0, 8), mask)
+    x = (t % GLINT) * 8 - 60
+    band = Image.new("L", (W, 80), 0)
+    ImageDraw.Draw(band).polygon([(x, 0), (x + 14, 0), (x - 10, 80), (x - 24, 80)], fill=255)
+    img.paste(WHITE, (0, 8), ImageChops.multiply(band, mask))
+    d = ImageDraw.Draw(img)
+    d.fontmode = "1"
+    if (t // 15) % 2 == 0:
+        d.text((W / 2, 230), "PRESS SPACE TO START", font=pixel_font("arialbd.ttf", 12), fill=(255, 240, 64),
+               anchor="mm")
+    d.text((W / 2, 246), "© ODYSSEY LAUNCHER", font=pixel_font("arial.ttf", 9), fill=(208, 192, 255), anchor="mm")
     return img
 
 
+def decrunch(f):
+    """The loader decrunching the game: the background's colour changed every few lines as it works, afresh each
+    frame (f seeds it)."""
+    rng = random.Random(f)
+    img = Image.new("RGB", (W, H))
+    d = ImageDraw.Draw(img)
+    y = 0
+    while y < H:
+        h = rng.choice((1, 1, 2, 2, 3, 4, 6, 8))
+        d.rectangle([0, y, W, y + h - 1], fill=tuple(rng.randrange(16) * 17 for _ in range(3)))
+        y += h
+    return img
+
+
+def faded(raster, level):
+    """A picture faded to level (0 to 1) in the Amiga's 16 steps, as a palette fade does."""
+    k = round(15 * min(1.0, max(0.0, level))) / 15
+    return raster if k == 1 else raster.point(lambda v: round(v * k))
+
+
 def glass_image(raster):
-    """A screen's region: the tube's dark border, the 320 x 256 picture in its middle (doubled, then fitted)."""
-    image = Image.new("RGB", L.SCREEN_PX, (22, 24, 23))
+    """The glass at VIDEO_PX: the tube's dark border, the 320 x 256 picture in its middle (doubled, then fitted)."""
+    image = Image.new("RGB", L.VIDEO_PX, (22, 24, 23))
     picture = raster.resize((640, 512), Image.NEAREST).resize(L.RASTER, Image.LANCZOS)
-    image.paste(picture, ((L.SCREEN_PX[0] - L.RASTER[0]) // 2, (L.SCREEN_PX[1] - L.RASTER[1]) // 2))
+    image.paste(picture, ((L.VIDEO_PX[0] - L.RASTER[0]) // 2, (L.VIDEO_PX[1] - L.RASTER[1]) // 2))
     return image
 
 
@@ -312,23 +369,9 @@ def disk_side(rect, label):
     return reg
 
 
-def media_atlas():
-    image = Image.new("RGB", (L.ATLAS, L.ATLAS), (22, 24, 23))
-    for name, raster in (("kickstart", kickstart()), ("title", title_screen())):
-        x, y, _, _ = L.MEDIA_REGIONS[name]
-        image.paste(glass_image(raster), (x, y))
-    disk_side(L.MEDIA_REGIONS["disk_top"], True).paste(image)
-    disk_side(L.MEDIA_REGIONS["disk_bottom"], False).paste(image)
-    d = ImageDraw.Draw(image)
-    for name, colour in (("black", (6, 6, 7)), ("edge", rgb(L.COLOURS["disk"]))):
-        x, y = L.MEDIA_SWATCHES[name]
-        d.rectangle([x - 12, y - 12, x + 11, y + 11], fill=colour)
-    return image
-
-
 def main(out):
     os.makedirs(out, exist_ok=True)
-    for name, image in (("amiga_print.png", print_atlas()), ("amiga_media.png", media_atlas())):
+    for name, image in (("amiga_print.png", print_atlas()), ("amiga_screen.png", glass_image(kickstart()))):
         path = os.path.join(out, name)
         image.save(path, optimize=True)
         print(path)

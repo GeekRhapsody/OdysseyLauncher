@@ -1,5 +1,6 @@
-"""The Amiga 500 and its Commodore 1084S monitor: the measurements shared by amiga_print.py (which draws their printing)
-and amiga.py (which builds them). Plain Python: Blender's Python imports it too.
+"""The Amiga 500 and its Commodore 1084S monitor: the measurements shared by amiga_print.py (which draws their printing,
+the glass's still and the screens of its video), amiga_video.py (which draws the video) and amiga.py (which builds
+them). Plain Python: Blender's Python imports it too.
 
 Millimetres. The computer: x from its middle (left to right), y back from its front edge, z up from the table. It's
 474 x 330 x 62 mm: a wedge whose keyboard deck rises from a low front edge to a step, behind which the raised back
@@ -15,11 +16,15 @@ The deck is a plane at SLOPE: a key stands on it in the slope's frame (x across,
 edge, h off it), and deck_point() maps a point of that frame to the model's (y, z).
 
 Two textures. `print` (ATLAS square, PRINT_REGIONS): `top` (the computer's top seen from above: the key tops and their
-legends, the badge and lights, the AMIGA lettering; planar-mapped onto every face facing up) and `badge` (the
-monitor's), and swatches for plain parts. `media` (MEDIA_REGIONS): `kickstart` (the glass at rest: Kickstart 1.3's
-hand holding a disk) and `title` (the game's title screen), each the glass's whole width and height with the raster
-in its middle, drawn at the Amiga's 320 x 256 pixels; `disk_top` and `disk_bottom` (the floppy's two sides, as seen
-looking at each, its shutter to the left); and swatches. A region is (x, y, width, height) in pixels.
+legends, the badge and lights, the AMIGA lettering; planar-mapped onto every face facing up), `badge` (the monitor's),
+`disk_top` and `disk_bottom` (the floppy's two sides, as seen looking at each, its shutter to the left), and swatches
+for plain parts. A region is (x, y, width, height) in pixels. And the glass's own, amiga_screen.png (VIDEO_PX):
+Kickstart 1.3's hand holding a disk, the still of the model's `video` material, and the first and last frame of the
+card's video (amiga_video.py), which the launcher plays on the glass while the card is focused. Each of the video's
+frames is the glass's whole width and height, the Amiga's 320 x 256 picture in its middle (RASTER, 4:3).
+
+The `focused` clip's timing, in frames at FPS, is here so that the video follows the clip (amiga.py) frame for frame:
+the launcher starts the video with the clip, and again each time the clip loops.
 """
 
 import math
@@ -177,16 +182,39 @@ SEAT = (WIDTH / 2 - DISK["length"] / 2 - 8.0, (DRIVE["slot"][0] + DRIVE["slot"][
 COLOURS = dict(case="#D8D1BE", key_light="#DEDACC", key_dark="#A29D8E", top_light="#ECE9DE", top_dark="#B3AE9F",
                bezel="#C6BFAD", dark="#1B1A18", disk="#24439C")
 
-PRINT_REGIONS = dict(top=(0, 0, 1024, 713), badge=(0, 722, 400, 78))
-PRINT_SWATCHES = dict(bezel=(16, 836), lit=(48, 836), black=(80, 836))  # each a 24 x 24 block's middle, in pixels
+PRINT_REGIONS = dict(top=(0, 0, 1024, 713), badge=(0, 722, 400, 78), disk_top=(112, 806, 220, 210),
+                     disk_bottom=(340, 806, 220, 210))
+PRINT_SWATCHES = dict(bezel=(16, 836), lit=(48, 836), black=(80, 836), edge=(16, 868))  # each a 24 x 24 block's
+                                                                                       # middle, in pixels
 
-SCREEN_PX = (640, 460)       # a screen's region, the glass's proportions
-RASTER = (576, 432)          # the lit picture in its middle, 4:3; the Amiga's 320 x 256 pixels drawn into it
-MEDIA_REGIONS = dict(kickstart=(0, 0) + SCREEN_PX, title=(0, 468) + SCREEN_PX, disk_top=(648, 0, 376, 360),
-                     disk_bottom=(648, 368, 376, 360))
-MEDIA_SWATCHES = dict(black=(664, 752), edge=(696, 752))
+# The video's frames and the glass's still: the glass's proportions, even sides for H.264, about a video pixel to each
+# of the Amiga's (more than the details screen shows of the glass at 1080p, and minified little in the grid, where the
+# launcher draws a card's video without mipmaps); the lit picture in its middle, 4:3.
+VIDEO_PX = (380, 272)
+RASTER = (342, 256)
 
-# -- The focused clip ------------------------------------------------------------------------------------------------
+# -- The focused clip, in frames at FPS ------------------------------------------------------------------------------
 
 FPS = 30
-LENGTH = 240                 # 8 s
+LENGTH = 360                 # 12 s
+DISK_IN = (10, 18, 26, 34, 44)   # the floppy appears beside the drive; shows its label; levels at the slot; slides in
+READ = (48, 118)             # the drive light, while the disk is read
+BOOT = 48                    # the hand goes: the screen's black while the boot block loads
+DECRUNCH = (62, 96)          # the loader decrunching the game: the background's colour flickering in stripes
+TITLE_IN = (96, 110)         # the title screen fades in (a palette fade, in the Amiga's 16 steps)
+START = 164                  # SPACE starts the game: the title fades out, and the game fades in (GAME_IN)
+TITLE_OUT = (166, 176)
+GAME_IN = (178, 186)
+UP = ((196, 206), (240, 250))    # the cursor keys held: the ship climbs and dives
+DOWN = ((214, 228), (262, 276))
+FIRE = (202, 222, 236, 256, 282)  # SPACE: a laser each, each meeting an enemy
+EJECT = 292                  # the eject button: the floppy pops out (DISK_OUT), the game playing on from memory
+DISK_OUT = (294, 300, 308, 318)  # pops out; drawn out; lifted; gone
+RESET = (318, 334)           # Ctrl, then each Amiga key, goes down three frames apart; all three let go together
+BLACK = 326                  # the reset, all three down: the screen black
+HAND = 338                   # Kickstart's hand again, the first frame
+
+
+def held(f, spans):
+    """Whether one of the (from, to) spans holds a key down at frame f."""
+    return any(f0 <= f < f1 for f0, f1 in spans)

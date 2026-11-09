@@ -6,26 +6,28 @@ Built in Blender (vectrex_layout.py has the measurements, taken from photographs
 underside) at the base's width, with the front box standing proud of it at its sides; the hood's recess is cut into the
 face, narrowing back to the bezel, the tube's face in front of it; the bay is cut into the base under the hood, the
 cartridge slot into its right side. The controller lies on the table in front, its coiled cord running up into the
-bay's port. The printing is one texture (vectrex_print.py's): the tube lit four ways, the overlay, the controller's
-face, the bay's back wall, the cartridge's label and the lid's strip.
+bay's port. Two textures drawn by vectrex_print.py: the printing (the controller's face, the bay's back wall, the
+cartridge's label, the lid's strip and swatches) and the glass's still.
+
+The tube's glass is the material `video`: while the card is focused, the launcher plays the theme's video for it there
+(godot/themes/console/videos/vectrex.mp4, drawn by vectrex_video.py, the game's overlay sliding in and out in it),
+starting it again each time the clip loops (A6 Card videos); otherwise, and where there's no decoder, it shows its own
+texture: the power-on screen, VECTREX drawn in lines.
 
 A node tree: a root (the turn to a three-quarter view, TILT_YAW and TILT_PITCH: the right side towards the viewer, the
 top tipped up; then the model spec's fit: standing on y = 0, centred, the largest side 1 m) holding the console and
-the controller; the console holding the tube's faces (the power-on screen and the game's three frames; those not lit
-wait behind the bezel, so a swap never shows one shrinking: at worst the dark tube in front of them blinks), the
-overlay and the cartridge (both waiting shrunk to nothing), the controller its joystick (its origin at its pivot) and
-its four buttons.
+the controller; the console holding the cartridge (waiting shrunk to nothing), the controller its joystick (its origin
+at its pivot) and its four buttons.
 
-The `focused` clip (8 s, looping): a cartridge slides into the side, the overlay comes in and settles over the tube,
-the screen flickers on and the game plays (the score climbing, the ship moving and firing, a rock bursting) while the
-joystick rocks and the buttons press; then the screen goes dark, the overlay comes back out and the cartridge too, and
-the power-on screen returns.
+The `focused` clip (8 s, looping; its timing is vectrex_layout.py's, which the video follows): a cartridge slides into
+the side; while the video plays the game, the joystick rocks, button 1 fires and button 4 raises the shield; then the
+cartridge comes out again.
 
-Four materials (case, screen, key, metal) and one 1024² texture, within the system model budget. Run from the repo
-root:
+Four materials (case, key, metal, video) and two textures, within the system model budget. Run from the repo root:
 
     python tools/console-models/vectrex_print.py artifacts/vectrex
     blender -b --factory-startup --python tools/console-models/vectrex.py -- artifacts/vectrex godot/themes/console/models/systems/vectrex.glb
+    python tools/console-models/vectrex_video.py godot/themes/console/videos/vectrex.mp4
 """
 
 import math
@@ -39,7 +41,7 @@ from mathutils import Matrix, Vector
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import vectrex_layout as L  # noqa: E402
 from amiga import curved, paint, rounded, solid  # noqa: E402
-from clip import HIDDEN, Pose, back_out, ease_in, ease_out, key, phase, smooth, wobble  # noqa: E402
+from clip import HIDDEN, Pose, back_out, ease_in, key, phase, smooth, wobble  # noqa: E402
 from mega_drive import prism_y, prism_z  # noqa: E402
 from mega_drive_cartridge import (bevel, boolean, box, export, join, material, new_object, prism_x,  # noqa: E402
                                   triangles)
@@ -47,7 +49,7 @@ from mega_drive_cartridge import (bevel, boolean, box, export, join, material, n
 TILT_YAW = -28.0     # degrees about the vertical: the right side comes towards the viewer
 TILT_PITCH = 12.0    # degrees about the horizontal: the top tips up towards the viewer
 
-ROUGHNESS = dict(case=0.55, screen=0.35, key=0.35, metal=0.3)
+ROUGHNESS = dict(case=0.55, key=0.35, metal=0.3, video=0.35)
 
 T = math.radians(L.FRONT_TILT)
 ORIGIN = Vector((0.0, 0.0, L.HOOD_BOTTOM))
@@ -187,27 +189,6 @@ def console(m):
     return join([body] + parts, "vectrex")
 
 
-def screen(m, name, region):
-    """One of the tube's faces (or the overlay, flat): its node at its middle, facing the viewer."""
-    tw, th = L.TUBE["size"]
-    rx, ry, rw, rh = L.REGIONS[region]
-    flat = name == "overlay"
-    part = curved(name, tw, th, 0.0 if flat else L.TUBE["bulge"],
-                  lambda a, b: ((rx + a * rw) / L.ATLAS, 1 - (ry + b * rh) / L.ATLAS), m["screen"], 16, 14)
-    part.data.transform(FACE)
-    w = L.OVERLAY["w"] if flat else L.HOOD["depth"] - 0.4
-    return part, front(0.0, L.TUBE["v"] + th / 2, w)
-
-
-def dark_tube(m):
-    """The tube's face dark, standing just behind the lit faces, in front of those waiting behind the bezel."""
-    tw, th = L.TUBE["size"]
-    part = curved("tube", tw, th, L.TUBE["bulge"], lambda a, b: swatch("dark")(None), m["screen"], 16, 14)
-    part.data.transform(FACE)
-    part.data.transform(Matrix.Translation(front(0.0, L.TUBE["v"] + th / 2, L.HOOD["depth"] - 0.15)))
-    return part
-
-
 # ---- The controller --------------------------------------------------------------------------------------------------
 
 def pad_frame():
@@ -320,74 +301,33 @@ def cartridge(m):
 
 # ---- The focused clip ------------------------------------------------------------------------------------------------
 
-BEHIND = 6.0                 # how far back the tube's faces that aren't lit wait: behind the bezel
-GAME = [(64, "game_1"), (67, "game_1"), (80, "game_2"), (93, "game_3"), (106, "game_1"), (119, "game_2"),
-        (132, "game_3"), (145, "game_1"), (158, "game_2")]
-
-
-def showing(f):
-    """Which of the tube's faces is lit at frame f: the power-on screen, or the game's frames from 64 to 171 (but for
-    the flicker as it comes on, when the overlay shows the tube dark)."""
-    if f < 64 or f >= 171:
-        return "logo"
-    if 65 <= f < 67:
-        return "overlay"
-    name = "logo"
-    for start, frame in GAME:
-        if f >= start:
-            name = frame
-    return name
+def cartridge_pose(f):
+    """The cartridge: appears out to the right, slides in, a nudge; later out again and gone."""
+    travel = L.CART["travel"]
+    if f < L.CART_SHOW[0] or f >= L.CART_GONE[1]:
+        return Pose(scale=HIDDEN)
+    if f < L.CART_IN[0]:
+        return Pose(x=travel, scale=max(HIDDEN, back_out(phase(f, *L.CART_SHOW))))
+    if f < L.CART_IN[1]:
+        return Pose(x=travel * (1 - smooth(phase(f, *L.CART_IN))))
+    if f < L.CART_OUT[0]:
+        return Pose(x=wobble(f, L.CART_IN[1], -2.0, period=8.0, decay=4.0))
+    if f < L.CART_OUT[1]:
+        return Pose(x=travel * smooth(phase(f, *L.CART_OUT)))
+    return Pose(x=travel, scale=max(HIDDEN, 1 - ease_in(phase(f, *L.CART_GONE))))
 
 
 def timeline(f):
-    lit = showing(f)
-    back = EW * BEHIND
-    poses = {name: Pose() if name == lit else Pose(x=back.x, y=back.y, z=back.z)
-             for name in ("logo", "game_1", "game_2", "game_3")}
-
-    # The cartridge: appears out to the right, slides in, a nudge; later out again and gone.
-    travel = L.CART["travel"]
-    if f < 12 or f >= 220:
-        poses["cartridge"] = Pose(scale=HIDDEN)
-    elif f < 18:
-        poses["cartridge"] = Pose(x=travel, scale=max(HIDDEN, back_out(phase(f, 12, 17))))
-    elif f < 36:
-        poses["cartridge"] = Pose(x=travel * (1 - smooth(phase(f, 18, 36))))
-    elif f < 196:
-        poses["cartridge"] = Pose(x=wobble(f, 36, -2.0, period=8.0, decay=4.0))
-    elif f < 214:
-        poses["cartridge"] = Pose(x=travel * smooth(phase(f, 196, 214)))
-    else:
-        poses["cartridge"] = Pose(x=travel, scale=max(HIDDEN, 1 - ease_in(phase(f, 214, 220))))
-
-    # The overlay: comes in from in front of the hood and settles; it shows only while the tube's dark.
-    out = -EW * L.OVERLAY["out"]
-    if f < 44 or f >= 196:
-        poses["overlay"] = Pose(scale=HIDDEN)
-    elif f < 64:
-        k = 1 - smooth(phase(f, 48, 62))
-        poses["overlay"] = Pose(x=out.x * k, y=out.y * k, z=out.z * k, scale=max(HIDDEN, back_out(phase(f, 44, 49))))
-    elif f < 171:
-        poses["overlay"] = Pose() if lit == "overlay" else Pose(scale=HIDDEN)
-    else:
-        k = ease_in(phase(f, 176, 190))
-        poses["overlay"] = Pose(x=out.x * k, y=out.y * k, z=out.z * k,
-                                scale=max(HIDDEN, 1 - ease_in(phase(f, 188, 196))))
-
-    # The controller: the joystick rocks while the game plays; button 1 fires with the shots, 4 now and then.
-    playing = 67 <= f < 171
-    t = (f - 67) / 30.0
-    tilt = L.STICK["tilt"] * smooth(phase(f, 67, 74)) * (1 - smooth(phase(f, 164, 171))) if playing else 0.0
-    poses["joystick"] = Pose(roll=tilt * math.sin(2 * math.pi * 0.9 * t),
-                             pitch=0.5 * tilt * math.sin(2 * math.pi * 1.7 * t))
+    """The clip at frame f. The controller: the joystick rocks while the game plays (the video's ship follows it);
+    button 1 fires the bolts, button 4 raises the shield."""
+    roll, pitch = L.stick(f)
+    poses = {"cartridge": cartridge_pose(f), "joystick": Pose(roll=roll, pitch=pitch)}
     for k in range(1, 5):
         poses[f"button_{k}"] = Pose()
-    for start in (80, 119, 158):
-        if start <= f < start + 5:
-            poses["button_1"] = Pose(z=-L.BUTTONS["press"] * math.sin(math.pi * phase(f, start, start + 5)))
-    for start in (100, 139):
-        if start <= f < start + 5:
-            poses["button_4"] = Pose(z=-L.BUTTONS["press"] * math.sin(math.pi * phase(f, start, start + 5)))
+    for name, starts in (("button_1", L.SHOTS), ("button_4", L.SHIELDS)):
+        down = max(L.pressed(f, f0) for f0 in starts)
+        if down > 0.0:
+            poses[name] = Pose(z=-L.BUTTONS["press"] * down)
     return poses
 
 
@@ -400,33 +340,34 @@ def main():
     scene = bpy.context.scene
     scene.render.fps = L.FPS
     atlas = bpy.data.images.load(os.path.join(images, "vectrex_print.png"))
+    still = bpy.data.images.load(os.path.join(images, "vectrex_screen.png"))
     m = {
         "case": material("case", L.COLOURS["print"], ROUGHNESS["case"], atlas),
-        "screen": material("screen", L.COLOURS["glass"], ROUGHNESS["screen"], atlas),
         "key": material("key", L.COLOURS["key"], ROUGHNESS["key"]),
         "metal": material("metal", L.COLOURS["silver"], ROUGHNESS["metal"]),
+        "video": material("video", L.COLOURS["glass"], ROUGHNESS["video"], still),
     }
 
     body = console(m)
     pad, pad_nodes = controller(m)
-    fixed = join([body, pad, cord(m), dark_tube(m)], "vectrex")
+    # The tube's glass: the launcher plays the card's video on the material named video (A6 Card videos), UVs 0 to 1,
+    # upright.
+    tw, th = L.TUBE["size"]
+    glass = curved("glass", tw, th, L.TUBE["bulge"], lambda a, b: (a, 1 - b), m["video"], 16, 14)
+    glass.data.transform(Matrix.Translation(front(0.0, L.TUBE["v"] + th / 2, L.TUBE["w"])) @ FACE)
+    fixed = join([body, pad, cord(m), glass], "vectrex")
     (fw, fh, fv), depth = L.HOOD["front"], L.HOOD["depth"]
-    glass = [mat.name for mat in fixed.data.materials].index("screen")
+    video = [mat.name for mat in fixed.data.materials].index("video")
     for p in fixed.data.polygons:
         u, v, w = on_face(p.center)
         hood = 0.3 < w < depth + 0.5 and abs(u) < fw / 2 + 1.0 and fv - 1.0 < v < fv + fh + 1.0
-        p.use_smooth = p.material_index == glass or not hood
+        p.use_smooth = p.material_index == video or not hood
     fixed.data.set_sharp_from_angle(angle=math.radians(35))
 
     root = bpy.data.objects.new("vectrex_root", None)
     scene.collection.objects.link(root)
     fixed.parent = root
     nodes = {}
-    for name in ("logo", "game_1", "game_2", "game_3", "overlay"):
-        part, where = screen(m, name, name)
-        part.parent = fixed
-        part.location = where
-        nodes[name] = part
     cart = cartridge(m)
     cart.parent = fixed
     c = L.CART
