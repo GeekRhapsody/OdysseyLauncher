@@ -10,6 +10,8 @@ it releases, and the Release workflow puts it on the release page (tools/release
 
 ## Unreleased
 
+## 1.1.0 (2026-11-09)
+
 ### New
 
 - Sort titles: a game can have a separate name for A to Z order. Set it in the game's options, under Edit the title and metadata. Jumping by letter follows it, and importing a gamelist brings in its sort names.
