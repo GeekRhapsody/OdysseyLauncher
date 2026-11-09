@@ -12,6 +12,10 @@ namespace Launcher.App.Grid;
 /// (<see cref="Tick"/>); when it goes back (the clip looped), the video starts again from its first frame. A video
 /// shorter than the clip holds its last frame until then; a longer one is cut there.
 /// <para>
+/// The clip may already be under way when the video starts (it plays on under the settings, which stop the video): the
+/// video then starts where the clip is, and drops the frames already past instead of playing them fast to catch up.
+/// </para>
+/// <para>
 /// A thread of its own opens the file and decodes a few frames ahead, each into an <see cref="Image"/> of its own,
 /// stamped with the loop it belongs to; the main thread uploads the frame due, if a new one is. Nothing in
 /// <see cref="Tick"/> allocates.
@@ -40,6 +44,9 @@ public sealed class CardVideo : IDisposable
     private long _loop;
     private double _lastPosition = -1;
 
+    // The clip's position in ticks, for the thread to start from and to drop frames already past.
+    private long _now;
+
     public CardVideo(IVideoDecoder decoder, string path)
     {
         _decoder = decoder;
@@ -64,11 +71,14 @@ public sealed class CardVideo : IDisposable
     /// <summary>Main thread, once a frame: <paramref name="position"/> is the time into the clip, in seconds.</summary>
     public void Tick(double position)
     {
-        if (_stop || Texture is not { } texture)
+        if (_stop)
         {
             return;
         }
 
+        // Before the first frame too: the thread starts where the clip is, and a loop while it catches up restarts it.
+        var now = (long)(position * TimeSpan.TicksPerSecond);
+        Volatile.Write(ref _now, now);
         if (position < _lastPosition)
         {
             Volatile.Write(ref _loop, _loop + 1);    // the main thread is its only writer
@@ -76,10 +86,13 @@ public sealed class CardVideo : IDisposable
         }
 
         _lastPosition = position;
+        if (Texture is not { } texture)
+        {
+            return;
+        }
 
         // The latest frame that's due: an earlier loop's frames are all past, and are skipped without being shown.
         var written = Volatile.Read(ref _written);
-        var now = (long)(position * TimeSpan.TicksPerSecond);
         var due = -1L;
         for (var i = _read; i < written; i++)
         {
@@ -135,17 +148,22 @@ public sealed class CardVideo : IDisposable
                 _images[i] = Image.CreateEmpty(width, height, false, Image.Format.Rgba8);
             }
 
-            var loop = 0L;
+            var loop = -1L;     // so the first pass starts the video where the clip is
             var ended = false;
+            var catchingUp = false;
             while (!_stop && !GodotWork.Quitting)
             {
                 var wanted = Volatile.Read(ref _loop);
                 if (wanted != loop)
                 {
-                    // The clip looped: from the first frame again (a reader that can't seek is opened again).
+                    // The video starts where the clip is (from the key frame before it, the frames already past dropped
+                    // until one is due), or the clip looped: from the first frame again. A reader that can't seek is
+                    // opened again, and catches up from the start.
+                    var start = loop < 0 ? Volatile.Read(ref _now) : 0;
+                    catchingUp = loop < 0;
                     loop = wanted;
                     ended = false;
-                    if (!video.Seek(TimeSpan.Zero))
+                    if (!video.Seek(TimeSpan.FromTicks(start)))
                     {
                         video.Dispose();
                         video = _decoder.OpenVideo(_path, out error);
@@ -166,6 +184,12 @@ public sealed class CardVideo : IDisposable
                 switch (video.ReadFrame(frame, out var time))
                 {
                     case VideoFrameResult.Frame:
+                        if (catchingUp && time.Ticks < Volatile.Read(ref _now))
+                        {
+                            break;
+                        }
+
+                        catchingUp = false;
                         var slot = (int)(_written % Slots);
                         _images[slot]!.SetData(width, height, false, Image.Format.Rgba8, frame);
                         _times[slot] = time.Ticks;

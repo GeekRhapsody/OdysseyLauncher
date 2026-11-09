@@ -18,6 +18,10 @@ it releases, and the Release workflow puts it on the release page (tools/release
 - **The Console theme's Amiga card loads and plays its game.** When you focus it, the floppy goes in and the monitor shows the game loading, with the Amiga's colourful decrunch stripes, then its title screen and the game itself, a space shooter played in step with the keys going down, before a reset brings back the insert-disk screen. Before, it showed a black screen and a still title.
 - **The Console theme's Vectrex card plays smoothly.** When you focus it, its screen shows the game as a video in step with the controller, seen through the game's coloured overlay: the ship moves as the joystick rocks, fires as the button goes down, and raises its shield. Before, the screen swapped three still pictures and blinked dark at each swap.
 
+### Fixed
+
+- **A system card's video no longer races after you close the settings.** It now carries on in step with the card's animation, where before it played fast until it caught up.
+
 ## 1.0.0 (2026-11-07)
 
 ### New
