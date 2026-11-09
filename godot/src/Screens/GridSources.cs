@@ -193,7 +193,7 @@ public sealed class GamesSource : IGridSource
             _system[i] = system;
             _systemNames[i] = nameOf(systemId);
             _colours[i] = Palette.PlainBox(systemColours[system], row.GameId);
-            _letters[i] = LetterOf(row.Title);
+            _letters[i] = LetterOf(row.SortTitle ?? row.Title);
         }
 
         _systemIds = [.. systems];
@@ -479,10 +479,11 @@ public sealed class GamesSource : IGridSource
         var changed = new List<int>();
         for (var i = 0; i < rows.Count; i++)
         {
-            if (!string.Equals(rows[i].Title, _rows[i].Title, StringComparison.Ordinal))
+            if (!string.Equals(rows[i].Title, _rows[i].Title, StringComparison.Ordinal)
+                || !string.Equals(rows[i].SortTitle, _rows[i].SortTitle, StringComparison.Ordinal))
             {
-                _rows[i] = _rows[i] with { Title = rows[i].Title };
-                _letters[i] = LetterOf(rows[i].Title);
+                _rows[i] = _rows[i] with { Title = rows[i].Title, SortTitle = rows[i].SortTitle };
+                _letters[i] = LetterOf(rows[i].SortTitle ?? rows[i].Title);
                 changed.Add(i);
             }
         }
@@ -585,7 +586,10 @@ public sealed class GamesSource : IGridSource
         return -1;
     }
 
-    /// <summary>The letter a title sorts under: its first letter after a leading article, upper-case; '#' for anything else.</summary>
+    /// <summary>
+    /// The letter a title sorts under: its first letter after a leading article, upper-case; '#' for anything else. Given
+    /// the user's sort title where there is one, as the order is (<see cref="GameRow.SortTitle"/>).
+    /// </summary>
     public static char LetterOf(string title)
     {
         var span = title.AsSpan().TrimStart();

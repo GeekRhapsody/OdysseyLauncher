@@ -321,6 +321,56 @@ public sealed class LibraryServiceTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task A_sort_title_moves_a_game_in_title_order_and_keeps_its_title()
+    {
+        Rom("snes/Alpha.sfc");
+        Rom("snes/Beta.sfc");
+        Rom("snes/Gamma.sfc");
+        Rom("nes/Delta.nes");
+        await _library.RescanAsync(null, null, Ct);
+        var alpha = new GameKey("snes", "alpha.sfc");
+        await _library.SetFavouriteAsync(alpha, true, Ct);
+        await _library.SetFavouriteAsync(new GameKey("nes", "delta.nes"), true, Ct);
+
+        await _library.SetSortTitleOverrideAsync(alpha, "  The Zeta 2  ", Ct);
+
+        var games = (await _library.GetGamesAsync("snes", Ct)).Games;
+        Assert.Equal([("Beta", null), ("Gamma", null), ("Alpha", "The Zeta 2")], games.Select(g => (g.Title, g.SortTitle)));
+        Assert.Equal(["Delta", "Alpha"], (await _library.GetFavouritesAsync(Ct)).Select(f => f.Game.Title));
+        Assert.Equal(["Beta", "Delta", "Gamma", "Alpha"], (await _library.GetAllGamesAsync(default, Ct)).Select(r => r.Game.Title));
+        Assert.Equal(["Alpha", "Gamma", "Beta"],
+            (await _library.GetGamesAsync("snes", new GamesOrdering(GameSort.Alphabetical, SortOrder.Descending), Ct)).Games.Select(g => g.Title));
+        var edit = (await _library.GetMetadataEditAsync(alpha, Ct))!;
+        Assert.Equal(("Alpha", null, "The Zeta 2"), (edit.Title, edit.TitleOverride, edit.SortTitleOverride));
+
+        await _library.SetSortTitleOverrideAsync(alpha, " ", Ct);
+
+        Assert.Equal(["Alpha", "Beta", "Gamma"], await Titles("snes"));
+        Assert.Null((await _library.GetMetadataEditAsync(alpha, Ct))!.SortTitleOverride);
+    }
+
+    [Fact]
+    public async Task Editing_the_title_keeps_the_users_sort_title_and_clearing_it_sorts_by_the_users_title()
+    {
+        Rom("snes/Alpha.sfc");
+        Rom("snes/Beta.sfc");
+        Rom("snes/Gamma.sfc");
+        await _library.RescanAsync(null, null, Ct);
+        var alpha = new GameKey("snes", "alpha.sfc");
+
+        await _library.SetSortTitleOverrideAsync(alpha, "Zeta", Ct);
+        await _library.SetTitleOverrideAsync(alpha, "Aardvark", Ct);
+        Assert.Equal(["Beta", "Gamma", "Aardvark"], await Titles("snes"));
+
+        await _library.SetTitleOverrideAsync(alpha, null, Ct);
+        Assert.Equal(["Beta", "Gamma", "Alpha"], await Titles("snes"));
+
+        await _library.SetTitleOverrideAsync(alpha, "Delta", Ct);
+        await _library.SetSortTitleOverrideAsync(alpha, null, Ct);
+        Assert.Equal(["Beta", "Delta", "Gamma"], await Titles("snes"));
+    }
+
+    [Fact]
     public async Task A_games_chosen_template_comes_with_its_rows_and_details_and_the_chosen_ids_once()
     {
         Rom("snes/Alpha.sfc");

@@ -13,13 +13,14 @@ namespace Launcher.App.Options;
 /// <summary>
 /// Editing a game's title and metadata (M7 part 2). Each field shows what the grid and details show (the user's value,
 /// else the scraped one) and where it came from; A types a new value on the on-screen keyboard, checked before it's
-/// saved (<see cref="MetadataInput"/>); Y goes back to the scraped value. The user's values are overrides in
+/// saved (<see cref="MetadataInput"/>); Y goes back to the scraped value. The sort title has no scraped value: without
+/// the user's, the game sorts by its title, which the keyboard starts from. The user's values are overrides in
 /// userdata.db, which scraping never writes, so a re-scrape keeps them; "Reset this game" removes them.
 /// </summary>
 public sealed partial class GameMetadataPanel : ListPanel
 {
     private static readonly Field[] Fields =
-        [Field.Title, Field.Released, Field.Genre, Field.Developer, Field.Publisher, Field.Players, Field.Rating, Field.Description];
+        [Field.Title, Field.SortTitle, Field.Released, Field.Genre, Field.Developer, Field.Publisher, Field.Players, Field.Rating, Field.Description];
 
     private static readonly Hint[] Hints = [new("Edit", Prompt.Accept), new("Use the scraped value", Prompt.Secondary), new("Back", Prompt.Back)];
 
@@ -49,6 +50,7 @@ public sealed partial class GameMetadataPanel : ListPanel
     private enum Field
     {
         Title,
+        SortTitle,
         Released,
         Genre,
         Developer,
@@ -72,7 +74,7 @@ public sealed partial class GameMetadataPanel : ListPanel
             {
                 if (Own(Fields[i]) is null)
                 {
-                    ShowStatus("That's already the scraped value.", UiStyle.Dim, 3);
+                    ShowStatus(Fields[i] == Field.SortTitle ? "It already sorts by its title." : "That's already the scraped value.", UiStyle.Dim, 3);
                 }
                 else
                 {
@@ -117,7 +119,7 @@ public sealed partial class GameMetadataPanel : ListPanel
             var row = _rows[i];
             row.Detail = shown is null ? "None" : Display(field, shown);
             row.DetailColour = shown is null ? UiStyle.Faint : UiStyle.Dim;
-            row.Value = own is not null ? "Yours" : scraped is not null ? (field == Field.Title && _edit.Scraped is null ? "File name" : "Scraped") : null;
+            row.Value = own is not null ? "Yours" : scraped is not null ? Source(field) : null;
             row.ValueColour = own is not null ? UiStyle.Good : UiStyle.Accent;
         }
     }
@@ -131,6 +133,7 @@ public sealed partial class GameMetadataPanel : ListPanel
         return field switch
         {
             Field.Title => _edit?.TitleOverride,
+            Field.SortTitle => _edit?.SortTitleOverride,
             Field.Description => o?.Description,
             Field.Released => o?.ReleaseDate,
             Field.Developer => o?.Developer,
@@ -142,12 +145,14 @@ public sealed partial class GameMetadataPanel : ListPanel
         };
     }
 
+    /// <summary>What shows without the user's value: the scraped one, or for the sort title the title in use.</summary>
     private string? Scraped(Field field)
     {
         var s = _edit?.Scraped;
         return field switch
         {
             Field.Title => _edit?.Title,
+            Field.SortTitle => _edit?.TitleOverride ?? _edit?.Title,
             Field.Description => s?.Description,
             Field.Released => s?.ReleaseDate,
             Field.Developer => s?.Developer,
@@ -190,6 +195,7 @@ public sealed partial class GameMetadataPanel : ListPanel
     private static string Label(Field field) => field switch
     {
         Field.Title => "Title",
+        Field.SortTitle => "Sort title",
         Field.Released => "Released",
         Field.Genre => "Genre",
         Field.Developer => "Developer",
@@ -199,9 +205,18 @@ public sealed partial class GameMetadataPanel : ListPanel
         _ => "Description",
     };
 
+    /// <summary>Where the value shown without the user's comes from.</summary>
+    private string Source(Field field) => field switch
+    {
+        Field.Title when _edit!.Scraped is null => "File name",
+        Field.SortTitle => "From the title",
+        _ => "Scraped",
+    };
+
     private static (string? Placeholder, string Subtitle, Func<string, string?> Check) Input(Field field) => field switch
     {
         Field.Title => ("The game's name", "Shown in the grid, and used to search for it when scraping", MetadataInput.CheckTitle),
+        Field.SortTitle => ("The name it sorts by", "Where it goes A to Z; the grid still shows its title", MetadataInput.CheckTitle),
         Field.Released => ("24/02/1994", "A year, a month and year, or a day: 1994, 02/1994, 24/02/1994", MetadataInput.CheckReleaseDate),
         Field.Players => ("1-2", "How many can play: 1, 1-2, 1-4", MetadataInput.CheckPlayers),
         Field.Rating => ("4.5", "Out of 5 (4.5), or a percentage (90%)", MetadataInput.CheckRating),
@@ -225,7 +240,7 @@ public sealed partial class GameMetadataPanel : ListPanel
             current is null ? string.Empty : Editable(field, current),
             text => Save(field, text),
             Placeholder: placeholder,
-            Subtitle: subtitle + ". Empty: the scraped value",
+            Subtitle: subtitle + (field == Field.SortTitle ? ". Empty: sort by its title" : ". Empty: the scraped value"),
             Validate: check));
     }
 
@@ -262,6 +277,7 @@ public sealed partial class GameMetadataPanel : ListPanel
         Func<Task> write = field switch
         {
             Field.Title => () => library.SetTitleOverrideAsync(key, stored, CancellationToken.None),
+            Field.SortTitle => () => library.SetSortTitleOverrideAsync(key, stored, CancellationToken.None),
             Field.Description => () => library.SetMetadataOverrideAsync(key, o with { Description = stored }, CancellationToken.None),
             Field.Released => () => library.SetMetadataOverrideAsync(key, o with { ReleaseDate = stored }, CancellationToken.None),
             Field.Developer => () => library.SetMetadataOverrideAsync(key, o with { Developer = stored }, CancellationToken.None),
@@ -292,8 +308,9 @@ public sealed partial class GameMetadataPanel : ListPanel
                     return;
                 }
 
-                GD.Print($"Options: {key.SystemId}/{key.PathKey}: {Label(field).ToLowerInvariant()} {(stored is null ? "back to the scraped value" : "saved")}.");
-                ShowStatus(failure is not null ? $"Not saved: {failure}" : stored is null ? $"{Label(field)}: the scraped value again." : $"{Label(field)} saved.",
+                GD.Print($"Options: {key.SystemId}/{key.PathKey}: {Label(field).ToLowerInvariant()} {(stored is null ? "back to the default" : "saved")}.");
+                ShowStatus(failure is not null ? $"Not saved: {failure}" : stored is not null ? $"{Label(field)} saved."
+                        : field == Field.SortTitle ? "Sort title: sorted by its title again." : $"{Label(field)}: the scraped value again.",
                     failure is null ? UiStyle.Good : UiStyle.Bad, 4);
                 Reload();
             });

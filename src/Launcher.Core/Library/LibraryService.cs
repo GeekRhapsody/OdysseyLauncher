@@ -305,6 +305,16 @@ public sealed class LibraryService : ILibrary, IPlayHistory, IDisposable
         }, cancellationToken);
     }
 
+    public Task SetSortTitleOverrideAsync(GameKey game, string? sortTitle, CancellationToken cancellationToken)
+    {
+        var trimmed = string.IsNullOrWhiteSpace(sortTitle) ? null : sortTitle.Trim();
+        return _writer.RunAsync(c =>
+        {
+            LibraryStore.SetSortTitleOverride(c, game, trimmed);
+            return true;
+        }, cancellationToken);
+    }
+
     public Task SetMetadataOverrideAsync(GameKey game, MetadataOverride values, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(values);

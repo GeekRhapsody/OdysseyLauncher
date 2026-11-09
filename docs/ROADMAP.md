@@ -1240,3 +1240,17 @@ Update this at the end of every milestone: the status, the date, and the evidenc
     - Benches (`bench-export.ps1 -SkipExport`, one export with its `themes/console` Amiga files as committed and as changed; the same user folder, the Amiga focused by `--start-system=amiga --nav-script=back`, 900 frames; 1280×800 windowed, mobile/d3d12, 5 warm runs each): p99 16.98–17.09 ms before and 17.01–17.05 after, no hitches (a first set after had two runs at 17.8 and 18.1 ms with the GPU's time up too; a second had none); GPU 0.15–0.16 ms both; render CPU 0.25–0.27 and 0.29–0.30 ms; main-thread allocation the same (366 and 367.6 KB over a run); textures 304.9 and 301.2 MB (the media atlas gone); working set 414–420 and 442–448 MB (the decoder, while the video plays).
   - **Not done:**
     - The game is played on the keyboard: the set has no joystick.
+- **2026-11-09: sort titles** (the owner's request: stylised titles don't sort well, so let the user give a game the name it sorts by; ES-DE gamelists' `sortname` imported too, and the keyboard starting from the game's title).
+  - **What was added:**
+    - `userdata.db` migration 0005: `game_overrides.sort_name`, the user's sort title. `sort_title` is now its key, else the title's, so the grid queries' order is unchanged (A4). `SetSortTitleOverrideAsync` writes it, a title edit leaves the key alone when a sort title is set, and Reset this game clears it.
+    - The game's metadata panel has a Sort title row after Title ("From the title" until the user types one). The keyboard starts from the title in use, typing the title back unchanged stores nothing, and Y sorts it by its title again.
+    - Grid rows carry the sort title, and the letter jump goes by it.
+    - The ES-DE gamelist import reads `<sortname>` and fills it where the game has none.
+    - Docs: A4 (Imported gamelists, userdata.db, Grid queries), a decisions-log entry and `CHANGELOG.md`.
+  - **Verification:**
+    - `verify.ps1` passes: 1,486 tests, 1,463 pass and 23 skip (four new or extended for sort titles: order in a system, All games and Favourites, a title edit keeping it, a rescrape and Reset, the gamelist reader and import). On Linux (`test.sh`): 1,483 without the benchmarks, 1,437 pass and 46 skip.
+    - The grid query benchmark (Debug test run, 10,000 games): a median of 19.6 ms before and 20.5 ms after (budget 45). For 632 games: 1.3 ms before and 1.0 ms after.
+    - Captures (1280×800, a copy of the made-up-games library, SNES in the list layout): the migration on an existing userdata.db; the panel's new row; the keyboard opening with "Apex Circuit"; a sort title typed through the keyboard moving Apex Circuit between Mooncrest Chronicle and Puck Rush with focus kept; letter jumps treating it as an O; Y putting it back first.
+  - **Not done:**
+    - Discs: a sort title's key (as a user title's) has no disc suffix, so discs given the same sort title sort by game id, not disc number.
+    - The details screen doesn't say a game has a sort title.

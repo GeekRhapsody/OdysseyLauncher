@@ -11,6 +11,7 @@ public sealed record GamelistCopy(string Kind, string Source);
 
 /// <summary>What importing does for one game. Every value fills a gap: the game had none.</summary>
 /// <param name="Title">A title to set as the user's, or null.</param>
+/// <param name="SortTitle">A sort title to set as the user's, or null.</param>
 /// <param name="Fill">Metadata to set as the user's (null fields: nothing to set).</param>
 /// <param name="Favourite">It becomes a favourite (it isn't one).</param>
 /// <param name="ScreenScraperId">To store as its ScreenScraper match (it has none).</param>
@@ -19,12 +20,13 @@ public sealed record GamelistGame(
     GameKey Key,
     string RelPath,
     string? Title,
+    string? SortTitle,
     MetadataOverride Fill,
     bool Favourite,
     string? ScreenScraperId,
     IReadOnlyList<GamelistCopy> Media)
 {
-    public bool HasMetadata => Title is not null || Fill != Empty;
+    public bool HasMetadata => Title is not null || SortTitle is not null || Fill != Empty;
 
     internal static MetadataOverride Empty { get; } = new();
 }
@@ -226,6 +228,7 @@ public sealed class GamelistImportService(LibraryService library, IPlatformPaths
                 game.Key,
                 game.RelPath,
                 game.HasTitle ? null : TitleFor(entry.Name, game),
+                game.HasSortTitle ? null : entry.SortName,
                 fill,
                 entry.Favourite && !game.IsFavourite,
                 game.HasScreenScraperMatch ? null : entry.ScreenScraperId,
@@ -316,7 +319,7 @@ public sealed class GamelistImportService(LibraryService library, IPlatformPaths
                 {
                     if (game.HasMetadata)
                     {
-                        GamelistStore.FillOverrides(c, transaction, game.Key, game.Title, game.Fill);
+                        GamelistStore.FillOverrides(c, transaction, game.Key, game.Title, game.SortTitle, game.Fill);
                         metadata++;
                     }
 

@@ -17,6 +17,10 @@ public sealed record SystemSummary(string SystemId, string Name, int GameCount, 
 /// <param name="CoverSizeBytes">The cover file's size when it was indexed, for its derivative's key; 0 when unknown.</param>
 /// <param name="CoverMtimeMs">The cover file's modification time (unix ms) when it was indexed; 0 when unknown.</param>
 /// <param name="Template">The template the user chose for this game (<c>game_overrides.template</c>); null for its system's.</param>
+/// <param name="SortTitle">
+/// The name the user gave it to sort by (<c>game_overrides.sort_name</c>); null when it sorts by its title. The grid's
+/// letter jump goes by it, as the order does.
+/// </param>
 public readonly record struct GameRow(
     long GameId,
     string Title,
@@ -25,7 +29,8 @@ public readonly record struct GameRow(
     float CoverAspect = 0,
     long CoverSizeBytes = 0,
     long CoverMtimeMs = 0,
-    string? Template = null);
+    string? Template = null,
+    string? SortTitle = null);
 
 /// <summary>One indexed media file: what the grid needs to name its derivative and crop it.</summary>
 /// <param name="Path">Relative to DataDir (<c>media/&lt;system&gt;/&lt;folder&gt;/...</c>).</param>
@@ -113,8 +118,9 @@ public sealed record GameMediaInfo(string Kind, MediaRef Media, int? Width, int?
 /// </summary>
 /// <param name="Title">The scraped title, else the one cleaned from the file name: what shows without an override.</param>
 /// <param name="Scraped">The <c>metadata</c> row; null when the game has never been scraped (or nothing was found).</param>
+/// <param name="SortTitleOverride">The name the user gave it to sort by; null when it sorts by its title.</param>
 /// <param name="Overrides">The user's metadata (userdata.db); every field null when there's none.</param>
-public sealed record GameMetadataEdit(GameKey Key, string Title, string? TitleOverride, GameMetadata? Scraped, MetadataOverride Overrides);
+public sealed record GameMetadataEdit(GameKey Key, string Title, string? TitleOverride, string? SortTitleOverride, GameMetadata? Scraped, MetadataOverride Overrides);
 
 /// <summary>A game's play statistics from userdata.db.</summary>
 public sealed record PlayStats(int PlayCount, TimeSpan TotalPlayTime, DateTimeOffset? LastPlayedAt);
@@ -267,6 +273,9 @@ public interface ILibrary
 
     /// <summary>Null restores the scraped or file-name title.</summary>
     Task SetTitleOverrideAsync(GameKey game, string? title, CancellationToken cancellationToken);
+
+    /// <summary>The name the game sorts by, A to Z, while it keeps its title. Null sorts it by its title again.</summary>
+    Task SetSortTitleOverrideAsync(GameKey game, string? sortTitle, CancellationToken cancellationToken);
 
     Task SetHiddenAsync(GameKey game, bool hidden, CancellationToken cancellationToken);
 

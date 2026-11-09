@@ -96,7 +96,7 @@ internal static class LibraryStore
     // overridden; the COALESCE keeps overridden titles in their own place. Another order (A4 Grid queries) joins what
     // it sorts by, and sorts in a temporary B-tree, as All games always does.
     private const string GamesColumns =
-        "g.game_id, COALESCE(o.title, g.title), m.path, f.added_at IS NOT NULL, m.width, m.height, m.size_bytes, m.mtime_ms, o.template";
+        "g.game_id, COALESCE(o.title, g.title), m.path, f.added_at IS NOT NULL, m.width, m.height, m.size_bytes, m.mtime_ms, o.template, o.sort_name";
 
     private const string GamesFrom = """
         FROM games g
@@ -165,7 +165,7 @@ internal static class LibraryStore
     }
 
     private const string FavouritesSql = """
-        SELECT g.system_id, g.game_id, COALESCE(o.title, g.title), m.path, 1, m.width, m.height, m.size_bytes, m.mtime_ms, o.template
+        SELECT g.system_id, g.game_id, COALESCE(o.title, g.title), m.path, 1, m.width, m.height, m.size_bytes, m.mtime_ms, o.template, o.sort_name
         FROM user.favourites f
         JOIN games g ON g.system_id = f.system_id AND g.path_key = f.path_key
         LEFT JOIN user.game_overrides o ON o.system_id = g.system_id AND o.path_key = g.path_key
@@ -176,7 +176,7 @@ internal static class LibraryStore
 
     // Uses the partial index play_stats_recent.
     private const string RecentSql = """
-        SELECT g.system_id, g.game_id, COALESCE(o.title, g.title), m.path, f.added_at IS NOT NULL, m.width, m.height, m.size_bytes, m.mtime_ms, o.template
+        SELECT g.system_id, g.game_id, COALESCE(o.title, g.title), m.path, f.added_at IS NOT NULL, m.width, m.height, m.size_bytes, m.mtime_ms, o.template, o.sort_name
         FROM user.play_stats p
         JOIN games g ON g.system_id = p.system_id AND g.path_key = p.path_key
         LEFT JOIN user.game_overrides o ON o.system_id = g.system_id AND o.path_key = g.path_key
@@ -204,7 +204,8 @@ internal static class LibraryStore
                 Aspect(reader, 4),
                 reader.IsDBNull(6) ? 0 : reader.GetInt64(6),
                 reader.IsDBNull(7) ? 0 : reader.GetInt64(7),
-                NullableString(reader, 8)));
+                NullableString(reader, 8),
+                NullableString(reader, 9)));
         }
 
         return games;
@@ -300,7 +301,7 @@ internal static class LibraryStore
     {
         using var command = connection.CreateCommand();
         command.CommandText = """
-            SELECT g.title, o.title, mt.source, mt.description, mt.release_date, mt.developer, mt.publisher, mt.genre,
+            SELECT g.title, o.title, o.sort_name, mt.source, mt.description, mt.release_date, mt.developer, mt.publisher, mt.genre,
                    mt.players, mt.rating, o.description, o.release_date, o.developer, o.publisher, o.genre, o.players, o.rating
             FROM games g
             LEFT JOIN user.game_overrides o ON o.system_id = g.system_id AND o.path_key = g.path_key
@@ -315,13 +316,13 @@ internal static class LibraryStore
             return null;
         }
 
-        var scraped = reader.IsDBNull(2) ? null : new GameMetadata(
-            NullableString(reader, 3), NullableString(reader, 4), NullableString(reader, 5), NullableString(reader, 6),
-            NullableString(reader, 7), NullableString(reader, 8), reader.IsDBNull(9) ? null : reader.GetDouble(9), reader.GetString(2));
+        var scraped = reader.IsDBNull(3) ? null : new GameMetadata(
+            NullableString(reader, 4), NullableString(reader, 5), NullableString(reader, 6), NullableString(reader, 7),
+            NullableString(reader, 8), NullableString(reader, 9), reader.IsDBNull(10) ? null : reader.GetDouble(10), reader.GetString(3));
         var overrides = new MetadataOverride(
-            NullableString(reader, 10), NullableString(reader, 11), NullableString(reader, 12), NullableString(reader, 13),
-            NullableString(reader, 14), NullableString(reader, 15), reader.IsDBNull(16) ? null : reader.GetDouble(16));
-        return new GameMetadataEdit(key, reader.GetString(0), NullableString(reader, 1), scraped, overrides);
+            NullableString(reader, 11), NullableString(reader, 12), NullableString(reader, 13), NullableString(reader, 14),
+            NullableString(reader, 15), NullableString(reader, 16), reader.IsDBNull(17) ? null : reader.GetDouble(17));
+        return new GameMetadataEdit(key, reader.GetString(0), NullableString(reader, 1), NullableString(reader, 2), scraped, overrides);
     }
 
     /// <summary><c>$s0, $s1, ...</c>: the parameters <see cref="BindSystems"/> binds.</summary>
@@ -420,7 +421,8 @@ internal static class LibraryStore
                 Aspect(reader, 5),
                 reader.IsDBNull(7) ? 0 : reader.GetInt64(7),
                 reader.IsDBNull(8) ? 0 : reader.GetInt64(8),
-                NullableString(reader, 9))));
+                NullableString(reader, 9),
+                NullableString(reader, 10))));
         }
 
         return rows;
@@ -552,17 +554,39 @@ internal static class LibraryStore
         command.ExecuteNonQuery();
     }
 
+    // sort_title is the key of the user's sort title (sort_name) if there is one, else of their title (A4 userdata.db).
     public static void SetTitleOverride(SqliteConnection connection, GameKey game, string? title)
     {
         using var command = connection.CreateCommand();
         command.CommandText = """
             INSERT INTO user.game_overrides (system_id, path_key, title, sort_title) VALUES ($system, $key, $title, $sort)
-            ON CONFLICT (system_id, path_key) DO UPDATE SET title = excluded.title, sort_title = excluded.sort_title
+            ON CONFLICT (system_id, path_key) DO UPDATE SET title = excluded.title,
+                sort_title = CASE WHEN sort_name IS NULL THEN excluded.sort_title ELSE sort_title END
             """;
         command.Parameters.AddWithValue("$system", game.SystemId);
         command.Parameters.AddWithValue("$key", game.PathKey);
         command.Parameters.AddWithValue("$title", (object?)title ?? DBNull.Value);
         command.Parameters.AddWithValue("$sort", title is null ? DBNull.Value : TitleParser.SortKey(title));
+        command.ExecuteNonQuery();
+    }
+
+    public static void SetSortTitleOverride(SqliteConnection connection, GameKey game, string? sortTitle)
+    {
+        using var read = connection.CreateCommand();
+        read.CommandText = "SELECT title FROM user.game_overrides WHERE system_id = $system AND path_key = $key";
+        read.Parameters.AddWithValue("$system", game.SystemId);
+        read.Parameters.AddWithValue("$key", game.PathKey);
+        var sortBy = sortTitle ?? read.ExecuteScalar() as string;
+
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            INSERT INTO user.game_overrides (system_id, path_key, sort_name, sort_title) VALUES ($system, $key, $name, $sort)
+            ON CONFLICT (system_id, path_key) DO UPDATE SET sort_name = excluded.sort_name, sort_title = excluded.sort_title
+            """;
+        command.Parameters.AddWithValue("$system", game.SystemId);
+        command.Parameters.AddWithValue("$key", game.PathKey);
+        command.Parameters.AddWithValue("$name", (object?)sortTitle ?? DBNull.Value);
+        command.Parameters.AddWithValue("$sort", sortBy is null ? DBNull.Value : TitleParser.SortKey(sortBy));
         command.ExecuteNonQuery();
     }
 

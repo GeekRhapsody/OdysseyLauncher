@@ -568,7 +568,7 @@ internal static class ScrapeStore
 
         // userdata.db is keyed by identity, so clear it even for a game that's gone from the library.
         using (var overrides = Command("""
-            UPDATE user.game_overrides SET title = NULL, sort_title = NULL, description = NULL, release_date = NULL,
+            UPDATE user.game_overrides SET title = NULL, sort_name = NULL, sort_title = NULL, description = NULL, release_date = NULL,
                 developer = NULL, publisher = NULL, genre = NULL, players = NULL, rating = NULL
             WHERE system_id = $system AND path_key = $key
             """))

@@ -13,6 +13,7 @@ public sealed class GamelistReaderTests
         	<game id="1726">
         		<path>./720 Degrees (USA).zip</path>
         		<name>720 Degrees</name>
+        		<sortname>Seven Twenty Degrees</sortname>
         		<desc>You're a skateboarder in Skate City.
         Visit skate shops scattered around the park.
         </desc>
@@ -56,6 +57,7 @@ public sealed class GamelistReaderTests
         var game = result.Games[0];
         Assert.Equal("./720 Degrees (USA).zip", game.Path);
         Assert.Equal("720 Degrees", game.Name);
+        Assert.Equal("Seven Twenty Degrees", game.SortName);
         Assert.Equal("You're a skateboarder in Skate City.\nVisit skate shops scattered around the park.", game.Description);
         Assert.Equal("Sports / Skateboard", game.Genre);
         Assert.Equal("1989-11-01", game.ReleaseDate);
@@ -77,6 +79,7 @@ public sealed class GamelistReaderTests
 
         // No id attribute: no ScreenScraper match, whatever scraped it.
         Assert.Null(result.Games[1].ScreenScraperId);
+        Assert.Null(result.Games[1].SortName);
         Assert.Empty(result.Games[1].Media);
     }
 

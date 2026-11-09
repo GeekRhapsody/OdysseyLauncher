@@ -179,6 +179,30 @@ public sealed class GamelistImportServiceTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Imports_sort_names_as_the_users_sort_titles_only_where_the_game_has_none()
+    {
+        var marioKey = new GameKey("nes", "super mario bros. (world).zip");
+        await _bed.Library.SetSortTitleOverrideAsync(marioKey, "Aaa Mario", Ct);
+        await _bed.Library.SetTitleOverrideAsync(SkateKey, "Skate", Ct);
+        var file = Gamelist("""
+            <game><path>./Sub/Zelda (USA).zip</path><name>The Legend of Zelda</name><sortname>Zelda 1</sortname></game>
+            <game><path>./Super Mario Bros. (World).zip</path><sortname>Mario Bros 1</sortname></game>
+            <game><path>./720 Degrees (USA).zip</path><name>720 Degrees</name><sortname>Seven Twenty</sortname></game>
+            """);
+
+        var plan = await _service.PlanAsync("nes", file, Ct);
+        Assert.Equal([(ZeldaKey, "The Legend of Zelda", "Zelda 1"), (SkateKey, null, "Seven Twenty")],
+            plan.Games.Select(g => (g.Key, g.Title, g.SortTitle)).OrderByDescending(g => g.Key.PathKey, StringComparer.Ordinal));
+        Assert.Equal(2, plan.WithMetadata);
+        await _service.ImportAsync(plan, null, null, Ct);
+
+        // Without them: The Legend of Zelda, Skate, Super Mario Bros.
+        var games = (await _bed.Library.GetGamesAsync("nes", Ct)).Games;
+        Assert.Equal([("Super Mario Bros.", "Aaa Mario"), ("Skate", "Seven Twenty"), ("The Legend of Zelda", "Zelda 1")], games.Select(g => (g.Title, g.SortTitle)));
+        Assert.Empty((await _service.PlanAsync("nes", file, Ct)).Games);
+    }
+
+    [Fact]
     public async Task Leaves_scraped_values_and_matches_alone()
     {
         var file = Gamelist(SkateEntry);

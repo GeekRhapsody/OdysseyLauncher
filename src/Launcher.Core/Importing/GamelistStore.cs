@@ -9,6 +9,7 @@ namespace Launcher.Core.Importing;
 /// <param name="RomDir">The ROM folder it was scanned in (absolute).</param>
 /// <param name="Values">Its effective metadata: the user's value, else the scraped one (null: neither).</param>
 /// <param name="HasTitle">The user's title, or a scraped one.</param>
+/// <param name="HasSortTitle">The user's sort title.</param>
 /// <param name="HasScreenScraperMatch">A stored or manual ScreenScraper match.</param>
 internal sealed record GamelistLibraryGame(
     GameKey Key,
@@ -16,6 +17,7 @@ internal sealed record GamelistLibraryGame(
     string RomDir,
     int? Disc,
     bool HasTitle,
+    bool HasSortTitle,
     MetadataOverride Values,
     bool IsFavourite,
     bool HasScreenScraperMatch,
@@ -52,7 +54,8 @@ internal static class GamelistStore
                    f.path_key IS NOT NULL,
                    EXISTS (SELECT 1 FROM scraper_matches sm WHERE sm.game_id = g.game_id AND sm.scraper = $ss)
                        OR EXISTS (SELECT 1 FROM user.manual_matches mm WHERE mm.system_id = g.system_id AND mm.path_key = g.path_key AND mm.scraper = $ss),
-                   (SELECT group_concat(m.kind) FROM media m WHERE m.game_id = g.game_id)
+                   (SELECT group_concat(m.kind) FROM media m WHERE m.game_id = g.game_id),
+                   o.sort_name IS NOT NULL
             FROM games g
             JOIN rom_dirs d ON d.dir_id = g.dir_id
             LEFT JOIN metadata mt ON mt.game_id = g.game_id
@@ -77,6 +80,7 @@ internal static class GamelistStore
                 reader.GetString(2),
                 reader.IsDBNull(3) ? null : reader.GetInt32(3),
                 reader.GetBoolean(4),
+                !reader.IsDBNull(15) && reader.GetBoolean(15),
                 new MetadataOverride(Text(5), Text(6), Text(7), Text(8), Text(9), Text(10), reader.IsDBNull(11) ? null : reader.GetDouble(11)),
                 reader.GetBoolean(12),
                 reader.GetBoolean(13),
@@ -87,19 +91,25 @@ internal static class GamelistStore
     }
 
     /// <summary>
-    /// Writes a game's imported title and metadata as the user's own (userdata.db), filling only what the user hasn't
-    /// set: a value the user set meanwhile wins.
+    /// Writes a game's imported title, sort title and metadata as the user's own (userdata.db), filling only what the
+    /// user hasn't set: a value the user set meanwhile wins. sort_title is the key of the sort title, else of the title.
     /// </summary>
-    public static void FillOverrides(SqliteConnection connection, SqliteTransaction transaction, GameKey game, string? title, MetadataOverride values)
+    public static void FillOverrides(SqliteConnection connection, SqliteTransaction transaction, GameKey game, string? title, string? sortTitle,
+        MetadataOverride values)
     {
+        var sortBy = sortTitle ?? title;
         using var command = connection.CreateCommand();
         command.Transaction = transaction;
         command.CommandText = """
-            INSERT INTO user.game_overrides (system_id, path_key, title, sort_title, description, release_date, developer, publisher, genre, players, rating)
-            VALUES ($system, $key, $title, $sort, $description, $release, $developer, $publisher, $genre, $players, $rating)
+            INSERT INTO user.game_overrides (system_id, path_key, title, sort_name, sort_title, description, release_date, developer, publisher, genre, players, rating)
+            VALUES ($system, $key, $title, $name, $sort, $description, $release, $developer, $publisher, $genre, $players, $rating)
             ON CONFLICT (system_id, path_key) DO UPDATE SET
                 title = COALESCE(title, excluded.title),
-                sort_title = CASE WHEN title IS NULL THEN excluded.sort_title ELSE sort_title END,
+                sort_title = CASE
+                    WHEN sort_name IS NOT NULL THEN sort_title
+                    WHEN excluded.sort_name IS NOT NULL OR title IS NULL THEN excluded.sort_title
+                    ELSE sort_title END,
+                sort_name = COALESCE(sort_name, excluded.sort_name),
                 description = COALESCE(description, excluded.description),
                 release_date = COALESCE(release_date, excluded.release_date),
                 developer = COALESCE(developer, excluded.developer),
@@ -111,7 +121,8 @@ internal static class GamelistStore
         command.Parameters.AddWithValue("$system", game.SystemId);
         command.Parameters.AddWithValue("$key", game.PathKey);
         command.Parameters.AddWithValue("$title", (object?)title ?? DBNull.Value);
-        command.Parameters.AddWithValue("$sort", title is null ? DBNull.Value : TitleParser.SortKey(title));
+        command.Parameters.AddWithValue("$name", (object?)sortTitle ?? DBNull.Value);
+        command.Parameters.AddWithValue("$sort", sortBy is null ? DBNull.Value : TitleParser.SortKey(sortBy));
         command.Parameters.AddWithValue("$description", (object?)values.Description ?? DBNull.Value);
         command.Parameters.AddWithValue("$release", (object?)values.ReleaseDate ?? DBNull.Value);
         command.Parameters.AddWithValue("$developer", (object?)values.Developer ?? DBNull.Value);

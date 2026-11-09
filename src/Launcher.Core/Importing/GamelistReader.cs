@@ -16,12 +16,14 @@ public sealed record GamelistMedia(string Kind, string Path);
 /// a value the launcher couldn't take (too long, not a date) is left out.
 /// </summary>
 /// <param name="Path">The ROM, as written (<c>./Game (USA).zip</c>).</param>
+/// <param name="SortName">The name it sorts by (<c>&lt;sortname&gt;</c>), when the gamelist gives one.</param>
 /// <param name="ReleaseDate">ISO 8601, possibly partial: '1989', '1989-11' or '1989-11-01'.</param>
 /// <param name="Rating">0 to 1, ES-DE's scale too; ES-DE's 0 (not rated) is left out.</param>
 /// <param name="ScreenScraperId">The game's ScreenScraper id, when the gamelist says ScreenScraper scraped it.</param>
 public sealed record GamelistEntry(
     string Path,
     string? Name,
+    string? SortName,
     string? Description,
     string? ReleaseDate,
     string? Developer,
@@ -120,6 +122,7 @@ public static class GamelistReader
         return new GamelistEntry(
             path,
             Line(game, "name", MetadataInput.CheckTitle),
+            Line(game, "sortname", MetadataInput.CheckTitle),
             Description(Text(game, "desc")),
             Text(game, "releasedate") is { } date ? ReleaseDate(date) : null,
             Line(game, "developer", MetadataInput.CheckField),

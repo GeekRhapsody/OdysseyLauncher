@@ -517,7 +517,7 @@ Everything else waits until after `interactive`, and nothing is scanned at boot.
   - **Not while it's in use:** the page refuses while a scan, a scrape or a gamelist import runs (`LibraryJobs.UsingMedia`), and the move is a dialog on top of the settings that Menu doesn't close, so nothing writes to the media folder meanwhile. A folder inside the media folder, or one holding it, is refused.
 - **Saved responses (2026-10-02)** are for debugging a scrape: off unless the app or `odyssey-scrape` is started with `--save-responses`. A ScreenScraper lookup that finds nothing saves what it was told too (status `not_found`): the file lookup's reply, and the title search's term, hit count and closest name. Without them a rebuild (or a re-added game) keeps its media, which is on disk, and its manual matches (`userdata.db`), but its scraped metadata and automatic matches come back only with the next scrape.
 - **Imported gamelists (2026-10-04).** A system's ES-DE `gamelist.xml` (its options, or `odyssey-scrape import-gamelist`) fills only what each game lacks:
-  - Its title and metadata are written as **the user's own edits** (`game_overrides` in `userdata.db`), so a rebuild keeps them, scraping never replaces them, the game's metadata panel shows them as the user's, and clearing the game removes them. A field the game has, scraped or the user's, is kept; a title is taken only when the game has neither the user's nor a scraped one, and not when it's the file's own name (an unscraped entry's) or the cleaned file-name title.
+  - Its title and metadata are written as **the user's own edits** (`game_overrides` in `userdata.db`), so a rebuild keeps them, scraping never replaces them, the game's metadata panel shows them as the user's, and clearing the game removes them. A field the game has, scraped or the user's, is kept; a title is taken only when the game has neither the user's nor a scraped one, and not when it's the file's own name (an unscraped entry's) or the cleaned file-name title. Its `sortname` becomes the game's sort title (2026-11-09) when the user hasn't given it one.
   - Its media is **copied** (the gamelist's files are only read) into the media folder as the game's own files: `thumbnail` the cover, `image` the screenshot, `marquee` the logo, `video` the video, `manual` the manual (2026-10-06); other tags (`fanart`, ...) aren't imported. A kind the game has a file for is skipped, and a file is never replaced (as a download: a temporary file, then a move that doesn't overwrite), so importing again only finishes what was left. They're ordinary media-folder files: a rebuild indexes them.
   - `<favorite>true</favorite>` makes the game a favourite (one never stops being one). `<game id>` is stored as the game's ScreenScraper match (method `gamelist`) when a `<scrap name="ScreenScraper">` says it's ScreenScraper's and the game has no ScreenScraper match, stored or manual; it's in `library.db`, so a rebuild drops it and the next scrape looks the game up again.
   - `<hidden>` isn't imported: the launcher has no way to show a hidden game again yet.
@@ -631,11 +631,14 @@ CREATE TABLE scrape_log (
 
 From 2026-10-01 `media.kind` can also be `video`: a scraped MP4, with no width or height (NULL), no derivative, and no slot; from 2026-10-02 the game's details screen plays it. From 2026-10-06 it can be `manual` too, a PDF, the same way; from 2026-10-27 the details screen shows it. No schema change.
 
-### `userdata.db` (schema version 3)
+### `userdata.db` (schema version 5)
 
-This DB can't be rebuilt. It's keyed by `(system_id, path_key)`, never by `library.db` ids. The shipped files are `Data/Migrations/User/0001_initial.sql`, `0002_scraping.sql` (M4) and `0003_game_template.sql` (2026-10-07):
+This DB can't be rebuilt. It's keyed by `(system_id, path_key)`, never by `library.db` ids. The shipped files are `Data/Migrations/User/0001_initial.sql`, `0002_scraping.sql` (M4), `0003_game_template.sql` (2026-10-07), `0004_astrocade_id.sql` (2026-10-16, a renamed system id) and `0005_sort_name.sql` (2026-11-09):
 
 ```sql
+-- 0005 (2026-11-09): the sort title the user typed (its metadata panel) or a gamelist import brought. NULL = it sorts
+-- by its title. sort_title is the key (TitleParser.SortKey) of sort_name, else of title, so the grid queries are unchanged.
+ALTER TABLE game_overrides ADD COLUMN sort_name TEXT;
 -- 0003 (2026-10-07): the template the user chose for the game (A7 Resolution order), a template id in the active
 -- theme, else the base theme. NULL = its system's. The grid queries return it with each row.
 ALTER TABLE game_overrides ADD COLUMN template TEXT;
@@ -652,7 +655,7 @@ CREATE TABLE scrape_jobs    (batch_id INTEGER NOT NULL REFERENCES scrape_batches
                              PRIMARY KEY (batch_id, seq)) STRICT, WITHOUT ROWID;
 ```
 
-**Clearing a game (M4)** deletes its scraped metadata, scrape state and log, every match (manual ones too), every media row, the title and metadata overrides, its media files (scraped or the user's own, and from M6 its model, with the model's processed copy in `CacheDir/models/`) and their derivatives, and its saved responses, except a file another game also uses (matched by stem; from 2026-10-06 also a file named without the ROM's extension when another ROM of that name is in the library, indexed or not). The title goes back to the file name. Favourite, play history, emulator override, chosen template (from 2026-10-07) and hidden stay.
+**Clearing a game (M4)** deletes its scraped metadata, scrape state and log, every match (manual ones too), every media row, the title, sort title and metadata overrides, its media files (scraped or the user's own, and from M6 its model, with the model's processed copy in `CacheDir/models/`) and their derivatives, and its saved responses, except a file another game also uses (matched by stem; from 2026-10-06 also a file named without the ROM's extension when another ROM of that name is in the library, indexed or not). The title goes back to the file name. Favourite, play history, emulator override, chosen template (from 2026-10-07) and hidden stay.
 
 ```sql
 CREATE TABLE favourites     (system_id TEXT NOT NULL, path_key TEXT NOT NULL, added_at INTEGER NOT NULL,
@@ -669,7 +672,7 @@ CREATE TABLE manual_matches (system_id TEXT NOT NULL, path_key TEXT NOT NULL, sc
                              scraper_game_id TEXT NOT NULL, matched_at INTEGER NOT NULL,   -- the latest is asked first (2026-10-01)
                              PRIMARY KEY (system_id, path_key, scraper)) STRICT, WITHOUT ROWID;
 CREATE TABLE game_overrides (system_id TEXT NOT NULL, path_key TEXT NOT NULL,
-                             title TEXT, sort_title TEXT,                     -- NULL = use the scraped or file-name title
+                             title TEXT, sort_title TEXT,                     -- NULL = use the scraped or file-name title; sort_title: the key
                              emulator TEXT,                                   -- NULL = the system default
                              hidden INTEGER NOT NULL DEFAULT 0,
                              PRIMARY KEY (system_id, path_key)) STRICT, WITHOUT ROWID;
@@ -684,7 +687,7 @@ CREATE TABLE game_overrides (system_id TEXT NOT NULL, path_key TEXT NOT NULL,
 ### Grid queries
 
 Each selects only what a cell draws: game id, effective title, cover path and root, and the favourite flag.
-- **A system:** `games` through `games_by_system`, LEFT JOINed on primary keys to `user.game_overrides`, `user.favourites` and `media` (kind `cover`), hidden games left out, ordered by `COALESCE(o.sort_title, g.sort_title)`. An overridden title sorts in its own place, at the cost of a temporary B-tree sort (2.4 ms for 10,000 rows).
+- **A system:** `games` through `games_by_system`, LEFT JOINed on primary keys to `user.game_overrides`, `user.favourites` and `media` (kind `cover`), hidden games left out, ordered by `COALESCE(o.sort_title, g.sort_title)`. An overridden title, or a sort title (2026-11-09: `o.sort_title` is the key of the user's sort title, else of their title), sorts in its own place, at the cost of a temporary B-tree sort (2.4 ms for 10,000 rows). Each row carries the sort title too, which the grid's letter jump goes by, so a game's letter group is the one it sorts in.
 - **A system in another order (2026-10-03, `[display] games_sort` or the system's own, A5):** the same query, joining what it sorts by (`user.play_stats` for last played and time played; `metadata` and the user's `release_date` override, which wins, for the release date; `games.added_ms` for added), sorted in a temporary B-tree: 20 to 27 ms for 10,000 games against 21 for title order (core-bench, export runtime). Descending reverses what the sort names; ties go by title, A to Z, then by id; a game never played (by last played), without a release date (ISO 8601 text, so `'1991'` sorts before `'1991-06'`), or whose creation time was never read comes last either way; a game never played has no play time (0).
 - **Favourites:** `user.favourites` joined to `games` through `UNIQUE (system_id, path_key)`, in title order.
 - **Recently played:** `user.play_stats` through `play_stats_recent`, newest first, with a limit.
@@ -1548,3 +1551,4 @@ The console theme's cards' build records (each card's construction, its clip, it
 | 2026-11-07 | **The settings show no config file keys** (no `[display] in settings.toml` subtitles or "Saved as …" captions), and the UI's labels were made consistent: the media slots' names everywhere (not ScreenScraper's "Wheel" or "Support texture"), "Reset this game" for Clear metadata, "Renderer" for Video driver, the power menu without "system", menu paths as Settings > Page. | The owner's request, after a review of the UI's text: the keys are for people editing the files, who have the files' own comments, and the old labels named the same thing several ways. |
 | 2026-11-08 | **Card videos are encoded without B-frames** (`-bf 0`; A6 Card videos; THEMING.md section 4). | Media Foundation ignores the MP4 edit list that takes back B-frames' two-frame reordering delay, so on Windows every card video ran two frames behind its clip, which showed once the Console theme's Vectrex handed its overlay from the model to the video. Without B-frames the first frame is at 0 on Windows and Linux alike, for files a little larger (197 KB rather than 182, the Vectrex's). |
 | 2026-11-09 | **A card video that starts mid-clip starts where the clip is** (A6 Card videos): `CardVideo` seeks to the clip's position and drops the frames already past until one is due. | The owner's report: closing the settings over a card playing its video made the video race until it caught up, since the clip plays on under the settings and a new decoder started at frame 0, each frame already due. Restarting the clip instead would make the model jump back. |
+| 2026-11-09 | **A game can have a sort title** (the owner's request; A4 userdata.db and Grid queries): the name it sorts by A to Z while it keeps its title, typed in its metadata panel (which starts from the title) or brought by an ES-DE gamelist's `sortname`. It's a new `game_overrides.sort_name` column (migration 0005), and `sort_title` becomes its key, else the title's. | Stylised titles sort badly by their own key. Reusing `sort_title` leaves every grid query's order as it was; the letter jump uses the sort title, so letter groups stay together. |

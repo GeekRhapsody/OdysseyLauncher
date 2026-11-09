@@ -10,6 +10,10 @@ it releases, and the Release workflow puts it on the release page (tools/release
 
 ## Unreleased
 
+### New
+
+- **Sort titles.** A game can now have a name it sorts by in A to Z order, and the grid still shows its own title, so "The Legend of Zelda" can sort as "Zelda 1" before "Zelda II". Set it in the game's options, under Edit the title and metadata: it starts from the game's title for you to change. Jumping by letter follows it, and importing an ES-DE gamelist brings in its sort names.
+
 ### Changed
 
 - **Clearer names in the menus.** The same things now have the same names everywhere: the media you choose to scrape uses the game's media names (Back cover, Spine, Disc or cartridge label, Logo, Hero art) instead of ScreenScraper's. Some options are renamed to say what they do: "Clear metadata" is now "Reset this game", "Scrape all missing metadata" is "Scrape what's missing", "Auto scan the library at launch" is "Rescan when the launcher starts", and "Video driver" is "Renderer". The power menu reads Restart, Shut down, Sleep and Quit Odyssey Launcher.

@@ -1,6 +1,7 @@
 using System.Net;
 using Launcher.Core.Library;
 using Launcher.Core.Media;
+using Launcher.Core.Scanning;
 using Launcher.Core.Scraping;
 using Launcher.Core.Tests.TestSupport;
 
@@ -664,6 +665,7 @@ public sealed class ScrapeServiceTests : IAsyncLifetime
         await _bed.ScanAsync();
         var key = Key(Sonic);
         await _bed.Library.SetTitleOverrideAsync(key, "My Sonic", Ct);
+        await _bed.Library.SetSortTitleOverrideAsync(key, "Sonic 3", Ct);
         await _bed.Library.SetMetadataOverrideAsync(key, new MetadataOverride(Description: "My own words.", Rating: 0.1), Ct);
         using var service = _bed.Service();
 
@@ -676,6 +678,8 @@ public sealed class ScrapeServiceTests : IAsyncLifetime
         Assert.Equal(0.1, game.Metadata.Rating!.Value, 3);
         Assert.Equal("Sonic Team", game.Metadata.Developer);                      // not overridden: the scraped value
         Assert.Equal("My Sonic", _bed.Query<string>("SELECT title FROM user.game_overrides"));
+        Assert.Equal(("Sonic 3", TitleParser.SortKey("Sonic 3")),
+            (_bed.Query<string>("SELECT sort_name FROM user.game_overrides"), _bed.Query<string>("SELECT sort_title FROM user.game_overrides")));
         Assert.Equal("My own words.", _bed.Query<string>("SELECT description FROM user.game_overrides"));
         Assert.StartsWith("Sonic and Tails", _bed.Query<string>("SELECT description FROM metadata"), StringComparison.Ordinal);
         Assert.Equal("My Sonic", (await _bed.Library.GetGamesAsync("megadrive", Ct)).Games.Single().Title);
@@ -1007,6 +1011,7 @@ public sealed class ScrapeServiceTests : IAsyncLifetime
         await _bed.ScanAsync();
         var key = Key(Sonic);
         await _bed.Library.SetTitleOverrideAsync(key, "My Sonic", Ct);
+        await _bed.Library.SetSortTitleOverrideAsync(key, "Sonic 3", Ct);
         await _bed.Library.SetMetadataOverrideAsync(key, new MetadataOverride(Genre: "Mine"), Ct);
         await _bed.Library.SetFavouriteAsync(key, true, Ct);
         await _bed.Library.SetEmulatorOverrideAsync(key, "blastem", Ct);
@@ -1037,6 +1042,8 @@ public sealed class ScrapeServiceTests : IAsyncLifetime
         Assert.Null(game.Metadata);
         Assert.Equal("Sonic the Hedgehog 3", game.Title);                          // the file-name title
         Assert.Null(game.TitleOverride);
+        Assert.Null((await _bed.Library.GetMetadataEditAsync(key, Ct))!.SortTitleOverride);
+        Assert.Null((await _bed.Library.GetGamesAsync("megadrive", Ct)).Games.Single().SortTitle);
         Assert.True(game.IsFavourite);
         Assert.Equal("blastem", game.EmulatorOverride);
         Assert.Equal("dvd_case", game.TemplateOverride);                          // a choice, like the emulator
