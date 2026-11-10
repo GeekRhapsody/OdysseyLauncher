@@ -10,6 +10,10 @@ it releases, and the Release workflow puts it on the release page (tools/release
 
 ## Unreleased
 
+### New
+
+- The Console theme has a card for the Nintendo Switch 2: when you move to it, it takes a Joy-Con 2 off and uses it on the table as a mouse to play a game on its screen. It shows for a system you add yourself with the id `switch2`, as the launcher doesn't have a Switch 2 system of its own yet.
+
 ### Changed
 
 - Nintendo DS, 3DS and Wii games now come in a white plastic case, Wii U games in a teal one, and Xbox and Xbox 360 games in an Xbox-green one.

@@ -169,6 +169,10 @@ model = "models/systems/wiiu.glb"              # built by tools/console-models/w
 [systems.switch]
 model = "models/systems/switch.glb"           # built by tools/console-models/switch.py, turned to a three-quarter view; its focused clip slides the right Joy-Con up its rail and back
 
+[systems.switch2]                             # no built-in system has this id yet: a user's own `switch2` system takes this card
+model = "models/systems/switch2.glb"          # built by tools/console-models/switch2.py: the Switch 2 with its Joy-Con 2, on its kickstand; its focused clip wakes it, takes the right Joy-Con 2 off and uses it on its side as a mouse (a made-up game's tile clicked, its targets shot), then snaps it back and puts the console to sleep
+video = "videos/switch2.mp4"                  # drawn by tools/console-models/switch2_video.py: the screen through the clip (the HOME Menu and its cursor, then Dusty Gulch's title and street, the cursor its sights), played on the screen's video material
+
 [systems.3do]
 model = "models/systems/3do.glb"               # built by tools/console-models/threedo.py: a Panasonic FZ-1 and its controller; its focused clip slides the tray out, drops a CD in, takes it in while ACCESS flickers, plays the pad, and later ejects the CD
 

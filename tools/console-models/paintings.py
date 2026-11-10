@@ -51,6 +51,12 @@ VGA_GAME = ("From a fictional 1992 DOS side-scrolling helicopter action game for
 ON_GREEN = (" Every panel's background is the same plain flat pure green (#00FF00), with no floor, shadow, scenery or "
             "lines between the panels, so they can be cut out.")
 RACER_98 = "From a fictional 1998 3D open-wheel racing game for Windows PCs, in the pre-rendered 3D style of the time: "
+GULCH_GAME = ("a fictional 2020s high-definition remake of an arcade light-gun western shooting game, as bright and "
+              "glossy as modern cartoon-styled 3D games (stylised characters, warm sunset light, clean detailed "
+              "rendering)")
+HD_GULCH = "From " + GULCH_GAME + ": "
+HD_GULCH_GRID = (" in a 2x2 grid of four equal square panels, each whole with a margin round it, facing the viewer, "
+                 "stylised modern 3D rendering in warm sunset light." + ON_GREEN)
 PAINTINGS = {
     # The DOS card's game, Rotorstorm: its layers and sprites (dos_screens.py).
     "dos_rotor_sky": VGA_GAME + "the far background layer: a stormy dusk sky over a jungle river valley, dark purple "
@@ -185,6 +191,30 @@ PAINTINGS = {
     "glowing amber eyes. Top left: prowling towards the camera, its head low. Top right: rearing up with a roar, its "
     "front paws raised. Bottom left: reeling back from a blow, its head thrown aside, a burst of light where it was "
     "struck. Bottom right: collapsed on its side on the ground, beaten.",
+    # The Switch 2 card's game, Dusty Gulch (tools/made-up-games) remade in HD and aimed with a Joy-Con 2 used as a
+    # mouse (switch2_print.py): the empty street, its outlaws and props cut out of their green, and its key art.
+    "sw2_gulch_street": HD_GULCH + "the first-person view straight down the middle of the dusty main street of a small "
+    "Wild West town at sunset, at eye level, with no people at all: a two-storey wooden saloon with a balcony and an "
+    "open upstairs window on the left, a general store with a porch on the right, barrels and crates along both sides, "
+    "a wooden water tower further down, red rock mesas and a big low orange sun far away at the end of the street, an "
+    "empty wooden fence rail in the right foreground and a barrel in the left foreground. Leave the top tenth as plain "
+    "warm sky: the score will be drawn over it later. Landscape 3:2.",
+    "sw2_gulch_outlaws": "Four poses of two original cartoonish outlaws from " + GULCH_GAME + ", each from the waist "
+    "up," + HD_GULCH_GRID + " Top left: a burly outlaw with a bushy black beard, a black hat, a red bandana round his "
+    "neck and a brown leather waistcoat, aiming a revolver straight at the viewer. Top right: the same burly outlaw "
+    "hit, thrown backwards with his eyes squeezed shut and his hat flying off. Bottom left: a skinny outlaw with a long "
+    "ginger moustache, a battered brown hat and a blue shirt, aiming a revolver at the viewer. Bottom right: the same "
+    "skinny outlaw hit, reeling backwards with his eyes squeezed shut and his hat flying off.",
+    "sw2_gulch_props": "Four objects from " + GULCH_GAME + "," + HD_GULCH_GRID + " Nothing green "
+    "anywhere. Top left: a dark brown glass bottle standing upright. Top right: a pale blue glass bottle standing "
+    "upright. Bottom left: a brown glass bottle bursting apart into flying shards. Bottom right: a battered brown "
+    "cowboy hat tumbling through the air.",
+    "sw2_gulch_keyart": "Key art for the title screen of a fictional 2020s high-definition remake of an arcade "
+    "light-gun western shooting game, as glossy and detailed as modern cartoon-styled game key art: a brave young "
+    "sheriff of an original design, in a wide tan hat and a waistcoat with a star on it, her revolver raised, standing "
+    "in the dusty main street of a Wild West town at sunset, two cartoonish outlaws peeking out from behind a barrel "
+    "and a saloon window, a big low orange sun and red rock mesas behind. Keep the top third calm warm sky: a title "
+    "will be printed there later. Landscape 3:2.",
 }
 
 
