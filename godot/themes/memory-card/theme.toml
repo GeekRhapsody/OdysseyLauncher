@@ -111,7 +111,7 @@ shape = "media"
 model = "models/templates/clamshell_green.glb"
 shape = "media"
 
-[templates.megadrive_clamshell]    # Mega Drive: Sega's clamshell with its hanger tab, its insert sized by the scraped art: 134 x 190 (205.4 with the tab) x 21.9 mm
+[templates.megadrive_clamshell]    # Mega Drive: Sega's clamshell with its hanger tab, its insert sized by the scraped art: 134 x 190 (205.4 with the tab) x 26 mm
 model = "models/templates/megadrive_clamshell.glb"  # built by tools/console-models/mega_drive_clamshell.py
 
 [templates.ps2_clamshell]          # PlayStation 2: Sony's black case, rounded, with its finger recess, its insert sized by the scraped art: 135 x 190 x 14.8 mm

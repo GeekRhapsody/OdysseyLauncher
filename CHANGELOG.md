@@ -18,6 +18,8 @@ it releases, and the Release workflow puts it on the release page (tools/release
 ### Changed
 
 - Nintendo DS, 3DS and Wii games now come in a white plastic case, Wii U games in a teal one, and Xbox and Xbox 360 games in an Xbox-green one.
+- The Console theme's All games card is a bigger pile: four more game boxes join it, a PlayStation 2, a PSP, a PlayStation and a Dreamcast case.
+- Mega Drive and Genesis cases are a little deeper, so their spine art shows in full instead of being cut off at the sides.
 - The plastic clamshell that 32X, SG-1000 and SuperGrafx games come in (and the new coloured cases) takes each game's shape from its cover and spine, as DOS big boxes do, so cases of every size show all their art. Its cover now folds straight round the spine to the back, with no black lines along the spine's edges.
 
 ## 1.1.0 (2026-11-09)

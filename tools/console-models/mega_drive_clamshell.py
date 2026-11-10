@@ -2,8 +2,9 @@
 
 The Sega plastic clamshell, European Mega Drive and US Genesis, as one solid: the case's outer hull, nothing inside it.
 The paper insert is sized by ScreenScraper's scans rather than a ruler, so none of the art is cropped: a 484 x 680
-front, a 481 x 680 back and an 81 x 680 spine make it 131 x 184 x 21.9 mm, and the case, 3 mm of black plastic
-showing round it at the top, the bottom and the opening side, 134 x 190 x 21.9 mm. Its shape follows reference photos of the case: 
+front, a 481 x 680 back and a 96 x 680 spine (952 of the owner's 954 Mega Drive spines are that size) make it
+131 x 184 x 26 mm, and the case, 3 mm of black plastic showing round it at the top, the bottom and the opening side,
+134 x 190 x 26 mm. Its shape follows reference photos of the case: 
 the spine is one flat wall, the paper insert's (under the clear sleeve); the top, the bottom and
 the opening side are the two halves' walls, set back between a rim round each face and meeting at a seam; and the shop
 hanger tab stands up from the back half's top edge, with its hook hole. The insert wraps the front, the spine and the
@@ -34,7 +35,7 @@ BORDER = 3.0                    # the case showing round the insert at the top, 
 INSERT_HEIGHT = HEIGHT - 2 * BORDER
 INSERT_WIDTH = INSERT_HEIGHT * 484 / 680  # the front scan's proportions: 131 mm
 WIDTH = INSERT_WIDTH + BORDER   # 134 mm
-DEPTH = INSERT_HEIGHT * 81 / 680  # the spine scan's: 21.9 mm, the insert's spine as deep as the case
+DEPTH = INSERT_HEIGHT * 96 / 680  # the spine scan's: 26 mm, the insert's spine as deep as the case
 EDGE = 0.6                      # the case's rounded edges
 RIM = 1.2                       # each face's rim, round the top, the bottom and the opening side
 SPINE_WALL = 1.2                # the spine wall's thickness, where the recess stops

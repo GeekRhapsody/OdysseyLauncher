@@ -27,10 +27,14 @@ import paint as P
 # Per system: the front, back and spine sizes (the spine's long side runs along the box's height for a side spine,
 # along its width for a top one) and the label's.
 FORMATS = {
-    "megadrive": dict(cover=(968, 1360), back=(962, 1360), spine=(162, 1360), label=(1036, 700)),
+    "megadrive": dict(cover=(968, 1360), back=(962, 1360), spine=(192, 1360), label=(1036, 700)),
     "snes": dict(cover=(1360, 994), back=(1360, 994), spine=(1360, 194), label=(1120, 700)),
     "n64": dict(cover=(1360, 994), back=(1360, 994), spine=(1360, 194), label=(1085, 700)),
     "ps2": dict(cover=(972, 1360), back=(966, 1360), spine=(110, 1360), label=(1200, 1200)),
+    # Drawn by boxes_cd.py.
+    "psx": dict(cover=(1360, 1360), back=(1530, 1360), spine=(130, 1360), label=(1200, 1200)),
+    "dreamcast": dict(cover=(1360, 1360), back=(1568, 1360), spine=(174, 1360), label=(1200, 1200)),
+    "psp": dict(cover=(796, 1360), back=(796, 1360), spine=(118, 1360), label=(1200, 1200)),
 }
 
 HEAD = "GOTHICB.TTF"     # Century Gothic Bold: the era's geometric sans, for headings
@@ -197,9 +201,9 @@ def disc_mark(size, colour="#ffffff"):
     return lay
 
 
-def wordmark(height, colour="#ffffff"):
-    """The PS2 boxes' platform word, made up: "128-BIT" in light geometric capitals."""
-    return text_layer("128-BIT", "GOTHIC.TTF", height, colour, tracking=0.06)
+def wordmark(height, colour="#ffffff", word="128-BIT"):
+    """A platform word, made up: the PS2's "128-BIT" in light geometric capitals."""
+    return text_layer(word, "GOTHIC.TTF", height, colour, tracking=0.06)
 
 
 def haloed(lay, r):
@@ -438,6 +442,56 @@ def _features(dst, feats, size, x, y, colour="#f2f2f4"):
     return y
 
 
+def body(out, game, logo, shot_img, area, margin):
+    """A back's body in area (x0, top, x1, body_bottom): on a tall back the logo, the screenshot and the copy down it;
+    on a wide one the logo and the description on the left, the screenshot and the features on the right (an N64
+    back's warnings box over its logo)."""
+    h, w = out.shape[:2]
+    unit = min(w, h)
+    x0, top, x1, body_bottom = area
+    wide = x1 - x0 + 2 * margin                      # the back's width, but for a strip down its side
+    if w < h:
+        lay = fit_layer(logo, (x1 - x0) * 0.8, h * 0.1)
+        put(out, lay, (x0 + x1) / 2, top + margin * 0.6, "mt")
+        y = top + margin * 0.6 + lay.shape[0] + margin * 0.5
+        shot_w = (x1 - x0) * 0.82
+        y = _framed(out, shot_img, (x0 + x1 - shot_w) / 2, y, shot_w, 4) + margin * 0.55
+        width = x1 - x0
+        size = _fit_size(game, unit * 0.03, width, body_bottom - y)
+        desc, feats, _, _ = _copy_lines(game, size, width)
+        y = _text_block(out, desc, BODY, size, x0, y, "#f2f2f4") + size * 0.8
+        _features(out, feats, size, x0, y)
+    else:
+        if game["system"] == "n64":
+            # The warnings box, top left, as the PAL N64 backs have, then the logo under it.
+            iw, ih = int(wide * 0.3), int(h * 0.13)
+            box = P.canvas(iw, ih, "#ffffff")
+            P.draw_text(box, "IMPORTANT", "ariblk.ttf", ih * 0.15, (iw * 0.04, ih * 0.08), "#000000")
+            lines = P.wrap("Please read the instruction booklet before you play, and keep it for reference. This game "
+                           "pak is made up and holds no game.", "arial.ttf", ih * 0.11, iw * 0.92)
+            for k, line in enumerate(lines):
+                P.draw_text(box, line, "arial.ttf", ih * 0.11, (iw * 0.04, ih * 0.32 + k * ih * 0.14), "#202020")
+            out[int(margin * 0.6):int(margin * 0.6) + ih, int(x0):int(x0) + iw] = box
+            y = margin * 0.6 + ih + margin * 0.35
+            lay = fit_layer(logo, wide * 0.4, h * 0.16)
+            put(out, lay, x0 + wide * 0.2, y, "mt")
+            y += lay.shape[0] + margin * 0.35
+        else:
+            lay = fit_layer(logo, wide * 0.4, h * 0.19)
+            put(out, lay, x0 + wide * 0.2, top + margin * 0.7, "mt")
+            y = top + margin * 0.7 + lay.shape[0] + margin * 0.45
+        col_w = wide * 0.42
+        size = _fit_size(game, unit * 0.031, col_w, body_bottom - y, parts=("desc",))
+        desc, _, _, _ = _copy_lines(game, size, col_w)
+        _text_block(out, desc, BODY, size, x0, y, "#f2f2f4")
+        shot_w = wide * 0.46
+        sx = x1 - shot_w
+        sy = _framed(out, shot_img, sx, top + margin * 0.8, shot_w, 4) + margin * 0.45
+        fsize = _fit_size(game, size, shot_w, body_bottom - sy, parts=("feats",))
+        _, feats, _, _ = _copy_lines(game, fsize, shot_w)
+        _features(out, feats, fsize, sx, sy)
+
+
 def back(game, art, logo, shot):
     """The back: the logo, the screenshot, the description and features, and along the foot the age badge, the
     publisher's mark, a barcode and the small print (which says the game is made up)."""
@@ -478,47 +532,7 @@ def back(game, art, logo, shot):
         out[:] = P.blur(bg, unit * 0.012) * 0.5 + P.rgb("#0a0a14") * 0.5
         x0, x1, top, bottom = margin, w - margin, 0, h
     foot = int(h * 0.12)
-    body_bottom = bottom - foot - margin * 0.3
-    if w < h:
-        lay = fit_layer(logo, (x1 - x0) * 0.8, h * 0.1)
-        put(out, lay, (x0 + x1) / 2, top + margin * 0.6, "mt")
-        y = top + margin * 0.6 + lay.shape[0] + margin * 0.5
-        shot_w = (x1 - x0) * 0.82
-        y = _framed(out, shot_img, (x0 + x1 - shot_w) / 2, y, shot_w, 4) + margin * 0.55
-        width = x1 - x0
-        size = _fit_size(game, unit * 0.03, width, body_bottom - y)
-        desc, feats, _, _ = _copy_lines(game, size, width)
-        y = _text_block(out, desc, BODY, size, x0, y, "#f2f2f4") + size * 0.8
-        _features(out, feats, size, x0, y)
-    else:
-        if system == "n64":
-            # The warnings box, top left, as the PAL N64 backs have, then the logo under it.
-            iw, ih = int(w * 0.3), int(h * 0.13)
-            box = P.canvas(iw, ih, "#ffffff")
-            P.draw_text(box, "IMPORTANT", "ariblk.ttf", ih * 0.15, (iw * 0.04, ih * 0.08), "#000000")
-            lines = P.wrap("Please read the instruction booklet before you play, and keep it for reference. This game "
-                           "pak is made up and holds no game.", "arial.ttf", ih * 0.11, iw * 0.92)
-            for k, line in enumerate(lines):
-                P.draw_text(box, line, "arial.ttf", ih * 0.11, (iw * 0.04, ih * 0.32 + k * ih * 0.14), "#202020")
-            out[int(margin * 0.6):int(margin * 0.6) + ih, int(x0):int(x0) + iw] = box
-            y = margin * 0.6 + ih + margin * 0.35
-            lay = fit_layer(logo, w * 0.4, h * 0.16)
-            put(out, lay, x0 + w * 0.2, y, "mt")
-            y += lay.shape[0] + margin * 0.35
-        else:
-            lay = fit_layer(logo, w * 0.4, h * 0.19)
-            put(out, lay, x0 + w * 0.2, top + margin * 0.7, "mt")
-            y = top + margin * 0.7 + lay.shape[0] + margin * 0.45
-        col_w = w * 0.42
-        size = _fit_size(game, unit * 0.031, col_w, body_bottom - y, parts=("desc",))
-        desc, _, _, _ = _copy_lines(game, size, col_w)
-        _text_block(out, desc, BODY, size, x0, y, "#f2f2f4")
-        shot_w = w * 0.46
-        sx = x1 - shot_w
-        sy = _framed(out, shot_img, sx, top + margin * 0.8, shot_w, 4) + margin * 0.45
-        fsize = _fit_size(game, size, shot_w, body_bottom - sy, parts=("feats",))
-        _, feats, _, _ = _copy_lines(game, fsize, shot_w)
-        _features(out, feats, fsize, sx, sy)
+    body(out, game, logo, shot_img, (x0, top, x1, bottom - foot - margin * 0.3), margin)
     # Along the foot: the age badge, the publisher's mark, a barcode, a seal (Nintendo's systems) and the small print.
     badge = int(foot * 0.5)
     fy = bottom - foot * 0.58
@@ -635,18 +649,18 @@ def label(game, art, logo):
     return out
 
 
-def disc(game, art, logo):
-    """A PS2 disc's label, as a transparent layer: the key art on the disc with the logo across its top, the age badge
-    and the publisher's mark either side of the hub, a black band across its foot with the platform word, and the
-    clear hub and the hole."""
+def disc(game, art, logo, word="128-BIT", band="#050506"):
+    """A disc's label (the PS2's, and boxes_cd.py's), as a transparent layer: the key art on the disc with the logo
+    across its top, the age badge and the publisher's mark either side of the hub, a band across its foot with the
+    platform word, and the clear hub and the hole."""
     w, h = FORMATS[game["system"]]["label"]
     c = (w / 2, h / 2)
     lay = P.layer(w, h)
     face = np.clip(P.disc(w, h, c, w * 0.495) - P.disc(w, h, c, w * 0.19), 0, 1)
     P.paint(lay, crop(art, w, h, tuple(game.get("crop", {}).get("label", (0.5, 0.5)))), face)
     rows = np.arange(h, dtype=np.float32)[:, None] * np.ones((1, w), np.float32)
-    P.paint(lay, "#050506", face * np.clip(rows - h * 0.79, 0, 1))
-    put(lay, fit_layer(wordmark(h * 0.06), w * 0.4, h * 0.055), w / 2, h * 0.86)
+    P.paint(lay, band, face * np.clip(rows - h * 0.79, 0, 1))
+    put(lay, fit_layer(wordmark(h * 0.06, word=word), w * 0.4, h * 0.055), w / 2, h * 0.86)
     put(lay, fit_layer(haloed(logo, w * 0.01), w * 0.6, h * 0.2), w / 2, h * 0.08, "mt")
     put(lay, age_badge(int(w * 0.07), game["age"]), w * 0.2, h / 2)
     put(lay, haloed(fit_layer(publisher_mark(game["publisher"], w * 0.03), w * 0.18, w * 0.04), w * 0.006), w * 0.8, h / 2)

@@ -109,14 +109,14 @@ public sealed class BuiltInModelTests
     [Fact]
     public void The_Mega_Drive_clamshells_faces_have_the_scraped_arts_proportions()
     {
-        // Sized by ScreenScraper's scans (a 484 x 680 front and back, an 81 x 680 spine), so none of the art is cropped.
+        // Sized by ScreenScraper's scans (a 484 x 680 front and back, a 96 x 680 spine), so none of the art is cropped.
         var theme = ThemeFixtures.Load(ThemeFixtures.BaseFolder);
         var model = Load(ThemeFixtures.BaseFolder, theme.Templates["megadrive_clamshell"].Model);
 
         Assert.Equal(["case", "cover", "back", "spine"], model.Materials);
         Assert.Equal(484 / 680f, model.Aspects["cover"], 0.001f);
         Assert.Equal(484 / 680f, model.Aspects["back"], 0.001f);
-        Assert.Equal(81 / 680f, model.Aspects["spine"], 0.001f);
+        Assert.Equal(96 / 680f, model.Aspects["spine"], 0.001f);
     }
 
     [Theory]

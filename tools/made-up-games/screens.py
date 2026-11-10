@@ -12,7 +12,10 @@ import paint as P
 
 NATIVE = {"megadrive": (320, 224), "snes": (256, 224), "n64": (320, 240), "arcade": (320, 224), "arcade_v": (224, 288),
           "arcade8": (256, 224), "arcade8_v": (224, 288), "arcade3d": (640, 480), "arcade_hd": (1280, 720),
-          "ps2": (640, 448)}
+          "ps2": (640, 448), "psx": (320, 240), "dreamcast": (640, 480), "psp": (480, 272)}
+
+# The looks whose games drew their HUDs smooth, in a typeface, rather than in a bitmap font.
+SMOOTH = ("ps2", "dreamcast", "psp")
 
 # The shape a look's screen was shown at, where its pixels weren't square.
 DISPLAY = {"arcade8": (4, 3), "arcade8_v": (3, 4)}
@@ -139,7 +142,7 @@ def native(painting, system, look, fit="crop", focus=(0.5, 0.5)):
 
         img = Image.fromarray(snap(a).astype(np.uint8)).quantize(16, Image.Quantize.MEDIANCUT, dither=Image.Dither.NONE)
         return snap(np.asarray(img.convert("RGB"), dtype=np.float32)).astype(np.uint8)
-    if look in ("arcade3d", "arcade_hd"):
+    if look in ("arcade3d", "arcade_hd", "dreamcast", "psp"):
         return np.asarray(img).copy()                            # 3D boards of the late 1990s on: 24-bit colour
     if look == "ps2":
         # 24-bit colour, softened down the screen as the console's flicker filter did for interlaced televisions.
@@ -155,7 +158,7 @@ def native(painting, system, look, fit="crop", focus=(0.5, 0.5)):
         a = np.round(a / 255 * 31) * 255 / 31
         img = Image.fromarray(a.astype(np.uint8)).quantize(192, Image.Quantize.MEDIANCUT, dither=Image.Dither.NONE)
         return np.asarray(img.convert("RGB")).copy()
-    # The N64: its 16-bit frame buffer, dithered, as it went to the screen.
+    # The N64 and the PlayStation: a 16-bit frame buffer, dithered, as it went to the screen.
     bayer = np.array([[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]], np.float32) / 16 - 0.5
     d = np.tile(bayer, (h // 4 + 1, w // 4 + 1))[:h, :w, None] * (255 / 31)
     return np.clip(np.round((a + d) / 255 * 31) * 255 / 31, 0, 255).astype(np.uint8)
@@ -396,7 +399,7 @@ def _hearts(img, full, total):
 
 def hud(img, kind, game):
     h, w = img.shape[:2]
-    if game.get("look") == "ps2" and kind in ("text", "dialogue"):
+    if game.get("look") in SMOOTH and kind in ("text", "dialogue"):
         if kind == "text":
             _items_smooth(img, game.get("hud_items", []))
         else:

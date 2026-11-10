@@ -2,12 +2,14 @@
 
 All games has no hardware: it's every game, so its card is a pile of them, made-up games from tools/made-up-games's
 library (no real game's art). Built in Blender from the base theme's own templates (memory-card's models/templates/: the
-Mega Drive case, the Super Nintendo box and the N64's box), each imported, scaled back to its real size, the faces of
-its slots (cover, back, spine) mapped onto its game's art in the two packed textures (all_games_print.py's), the rest
-its case's colour (the Mega Drive's black, the boxes' dark flaps), and leant, turned and laid where all_games_layout.py
-says: five stacked flat, each turned against the one under it, one leaning against the stack's right side, two on the
-table in front of it and at its left. The materials aren't named after slots (cover, back, spine), which on a system
-card would show the system's own art.
+Mega Drive case, the Super Nintendo box, the N64's box, the PS2 and PSP cases, and the PlayStation and Dreamcast jewel
+cases), each imported, scaled back to its real size, the faces of its slots (cover, back, spine) mapped onto its game's
+art in the two packed textures (all_games_print.py's), the rest its case's colour (CASES: the Mega Drive's, the PS2's
+and the jewel case's black, the PSP's grey, the boxes' dark flaps; the Dreamcast case keeps its own textured material,
+for its blue tray), and leant, turned and laid where all_games_layout.py says: five stacked flat, each turned against
+the one under it, one leaning against the stack's right side, two on the table in front of it and at its left, and two
+little stacks in front, a smaller case on the front half of a bigger one. The materials aren't named after slots (cover,
+back, spine), which on a system card would show the system's own art.
 
 A node tree: a root (the turn to a three-quarter view, TILT_YAW and TILT_PITCH; then the model spec's fit: standing on
 y = 0, centred, the largest side 1 m) holding the pile; the pile holding the case on top (its origin at its middle) and,
@@ -17,8 +19,8 @@ The `focused` clip (5 s, looping): the top case crouches, hops off the pile, tur
 with a squash; later the leaning box slips, tips forward till it nearly falls, and drops back against the pile with a
 bounce.
 
-Four materials (art, backs, case, shell) and two textures, within the system model budget. Run from the repo root, the
-made-up games' library made first (tools/made-up-games/README.md):
+Six materials (art, backs, case, shell, grey, dreamcast_case) and three textures, within the system model budget. Run
+from the repo root, the made-up games' library made first (tools/made-up-games/README.md):
 
     python tools/console-models/all_games_print.py artifacts/made-up-games/library artifacts/all_games
     blender -b --factory-startup --python tools/console-models/all_games.py -- artifacts/all_games godot/themes/console/models/systems/all_games.glb
@@ -41,6 +43,8 @@ TEMPLATES = os.path.normpath(os.path.join(HERE, "..", "..", "godot", "themes", "
 TILT_YAW = -22.0     # degrees about the vertical: the right end comes towards the viewer
 TILT_PITCH = 32.0    # degrees about the horizontal: the top tips up towards the viewer
 TOP, LEANING = "halcyon_strike", "budling"      # the boxes the clip moves
+CASES = dict(megadrive="shell", ps2="shell", psx="shell", psp="grey")   # the rest's material; others "case"
+OWN_CASE = ("dreamcast",)                         # keeps its template's own case material
 
 
 def bounds(points):
@@ -73,9 +77,14 @@ def dress(obj, box, m):
     textures, their UVs (0 to 1 across each face, upright) mapped into the art's region; the rest its case's colour."""
     mesh = obj.data
     kinds = [mat.name.split(".")[0] for mat in mesh.materials]
+    own = mesh.materials[kinds.index("case")]
     was = [p.material_index for p in mesh.polygons]
     mesh.materials.clear()
-    case = m["shell"] if box["system"] == "megadrive" else m["case"]
+    if box["system"] in OWN_CASE:
+        own.name = f"{box['system']}_case"
+        case = own
+    else:
+        case = m[CASES.get(box["system"], "case")]
     for mat in (m["art"], m["backs"], case):
         mesh.materials.append(mat)
     uv = mesh.uv_layers[0]
@@ -139,6 +148,7 @@ def main():
         "backs": material("backs", "#FFFFFF", 0.45, bpy.data.images.load(os.path.join(images, "all_games_backs.jpg"))),
         "case": material("case", "#1C1C20", 0.6),
         "shell": material("shell", "#0F0F11", 0.3),
+        "grey": material("grey", "#A4A8AE", 0.25),
     }
 
     boxes, turns = {}, {}

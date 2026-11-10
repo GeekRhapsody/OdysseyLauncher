@@ -9,7 +9,7 @@ are made, so delete one to have it painted again.
 
 --resplit cuts the kept grids into their games' screens again (after a change to how grids are split), painting nothing.
 
-Mega Drive games come first, then SNES, N64, arcade and PS2 ones, so that if Codex starts refusing (a usage limit), the
+Mega Drive games come first, then SNES, N64, arcade, PS2, PlayStation, Dreamcast and PSP ones, so that if Codex starts refusing (a usage limit), the
 games already painted are whole: it then stops starting new runs, lets the running ones finish, and says how many
 paintings it made. Needs the Codex CLI, logged in (a ChatGPT account will do); a run takes about two minutes. See
 README.md for the whole process.
@@ -31,7 +31,7 @@ from PIL import Image
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[1]
 PAINTINGS = REPO / "artifacts" / "made-up-games" / "paintings"
-PRIORITY = {"megadrive": 0, "snes": 1, "n64": 2, "arcade": 3, "ps2": 4}
+PRIORITY = {"megadrive": 0, "snes": 1, "n64": 2, "arcade": 3, "ps2": 4, "psx": 5, "dreamcast": 6, "psp": 7}
 LOOKS = {   # how a look's screens are painted: the grid, the panels' shape, and what the panels are
     "16bit": ("2x2", "Landscape, 3:2", "each a screenshot from a different fictional 16-bit console game of the early 1990s, exactly as "
               "the console drew it: about 320 x 224 pixels shown enlarged, every pixel crisp and square, a limited 16-bit palette, no "
@@ -42,6 +42,17 @@ LOOKS = {   # how a look's screens are painted: the grid, the panels' shape, and
     "ps2": ("2x2", "Landscape, 3:2", "each a screenshot from a different fictional 3D game for an early-2000s 128-bit "
             "console, exactly as the console drew it at 640 x 448: detailed polygon models and environments with soft, "
             "slightly blurry textures, bloom and glow, light shafts, real-time shadows and a slightly soft picture"),
+    # One game each so far on these three, so a screen is a whole painting rather than a quarter of a grid.
+    "psx": ("1x1", "Landscape, 3:2, the action in the middle 4:3 of the picture", "A screenshot from a fictional "
+            "late-1990s 3D game for a 32-bit CD console, exactly as the console drew it at 320 x 240: low-polygon models, "
+            "unfiltered pixelated textures that warp slightly, no fog, slightly wobbly edges and gentle colour dithering"),
+    "dreamcast": ("1x1", "Landscape, 3:2, the action in the middle 4:3 of the picture", "A screenshot from a fictional "
+                  "1999-2001 3D arcade-style game for a 128-bit console, exactly as the console drew it at 640 x 480 for a "
+                  "VGA screen: crisp, clean polygon models with sharp, colourful textures, bright saturated light and a sharp "
+                  "picture"),
+    "psp": ("1x1", "Landscape, 3:2, the action in the middle 16:9 band of the picture", "A screenshot from a fictional "
+            "mid-2000s 3D game for a handheld console, exactly as it drew it at 480 x 272 on its wide screen: polygon models "
+            "and environments like an early-2000s home console's, slightly soft textures, bloom and a little aliasing"),
     "arcade": ("2x2", "Landscape, 3:2", "each a screenshot from a different fictional 1990s arcade game, exactly as the arcade board "
                "drew it: about 320 x 224 pixels shown enlarged, every pixel crisp and square, rich colourful pixel art, no blur"),
     "arcade_v": ("1x2", "Landscape, 3:2", "each a screenshot from a different fictional vertical-screen arcade game of the early "
@@ -80,7 +91,7 @@ def look_of(game, version):
     if "screen" in version:
         return version["screen"]
     order = {"megadrive": ["16bit"], "snes": ["16bit"], "n64": ["n64", "16bit"], "arcade": ["arcade", "16bit"],
-             "ps2": ["ps2"]}
+             "ps2": ["ps2"], "psx": ["psx"], "dreamcast": ["dreamcast"], "psp": ["psp"]}
     return next((k for k in order[version["system"]] if k in game.get("screens", {})), "16bit")
 
 

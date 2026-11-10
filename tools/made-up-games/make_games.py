@@ -27,6 +27,7 @@ import numpy as np
 from PIL import Image, ImageDraw
 
 import boxes as B
+import boxes_cd as CD
 import logos as L
 import paint as P
 import screens as S
@@ -38,8 +39,9 @@ EXTENSIONS = {"cover": ".jpg", "back": ".jpg", "spine": ".jpg", "label": ".jpg",
               "hero": ".jpg"}
 FOLDERS = {"cover": "covers", "back": "backcovers", "spine": "spines", "label": "labels", "logo": "logos",
            "screenshot": "screenshots", "hero": "heroes"}
-ROM_EXTENSIONS = {"megadrive": ".md", "snes": ".sfc", "n64": ".z64", "arcade": ".zip", "ps2": ".chd"}
-SYSTEMS = ["megadrive", "snes", "n64", "arcade", "ps2"]
+ROM_EXTENSIONS = {"megadrive": ".md", "snes": ".sfc", "n64": ".z64", "arcade": ".zip", "ps2": ".chd", "psx": ".chd",
+                  "dreamcast": ".chd", "psp": ".iso"}
+SYSTEMS = ["megadrive", "snes", "n64", "arcade", "ps2", "psx", "dreamcast", "psp"]
 
 
 def releases(games):
@@ -75,11 +77,16 @@ def make(release, paintings, media):
               "screenshot": S.screenshot(release, Image.open(folder / f"screen-{release['look']}.png"), system, release["look"])}
     if system != "arcade":
         art = Image.open(folder / "keyart.png").convert("RGB")
-        pieces["cover"] = P.to_image(B.cover(release, art, logo))
-        pieces["back"] = P.to_image(B.back(release, art, logo, pieces["screenshot"]))
-        pieces["spine"] = P.to_image(B.spine(release, art, logo))
-        # A PS2 disc's label is round: a PNG with its corners and its hole transparent.
-        pieces["label"] = P.layer_image(B.disc(release, art, logo)) if system == "ps2" else P.to_image(B.label(release, art, logo))
+        box = CD if system in CD.WORDS else B
+        pieces["cover"] = P.to_image(box.cover(release, art, logo))
+        pieces["back"] = P.to_image(box.back(release, art, logo, pieces["screenshot"]))
+        pieces["spine"] = P.to_image(box.spine(release, art, logo))
+        # A disc's label is round: a PNG with its corners and its hole transparent.
+        round_label = system == "ps2" or box is CD
+        if round_label:
+            pieces["label"] = P.layer_image(box.disc(release, art, logo))
+        else:
+            pieces["label"] = P.to_image(B.label(release, art, logo))
         # 16:9, as ScreenScraper's fan art and LaunchBox's backgrounds are: the Showcase layout fills the screen with it.
         pieces["hero"] = P.to_image(B.crop(art, 1920, 1080, release.get("crop", {}).get("hero", (0.5, 0.5))))
     for kind, image in pieces.items():

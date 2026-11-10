@@ -1733,3 +1733,65 @@ versions = [{ system = "arcade", released = "1983-05-13", file = "chimchrl.zip",
 
 [games.screens]
 arcade8_v = """The front of a tall red-brick terraced house on black, its windows with ledges, a drainpipe up one side and chimney pots at the top; a tiny chimney sweep with a brush climbing the drainpipe, a flowerpot falling from a ledge, a black cat on another ledge, a white pigeon, a crescent moon. Leave the top eighth and the bottom sixteenth plain black: the score will be drawn over them later."""
+
+# PlayStation, Dreamcast and PSP: the All games card's pile (tools/console-models/all_games_layout.py) -----------------
+
+[[games]]
+id = "stringwood"
+title = "Stringwood"
+genre = "Action adventure"
+developer = "Hollowbrook"
+publisher = "Brightmoor"
+players = "1"
+rating = 0.82
+age = 7
+description = """When the old toymaker's theatre falls silent, Pip, a wooden knight no taller than a candle, cuts his own strings and sets out to wake the other puppets. Climb through the rigging, cross the painted backdrops and outwit the Ragged King in eight acts of puzzles and swordplay."""
+features = ["Eight acts on a haunted toy-theatre stage", "Swing, climb and glide on your own strings", "A sword, a shield and twelve trick props"]
+logo = { style = "cartoon_arch", title = "Stringwood", face = "orange", ribbon = "purple" }
+versions = [{ system = "psx", released = "1998-11-20", hud = "text", hud_items = [["ACT 3", "tl", "#ffd040"], ["BAR 0.6", "tl2"], ["X12", "tr"]] }]
+keyart = """Key art for a fictional 1998 3D action adventure game, in the style of late-1990s console game box art: a warm, glowing pre-rendered 3D scene in honey-coloured wood, deep velvet purple and gold. Landscape, 3:2, the hero in the middle third.
+
+A small wooden puppet knight with a round painted face, a tin helmet with a red plume and a little sword leaps across a toy-theatre stage, his cut strings trailing behind him; red velvet curtains, painted cardboard waves and a cardboard moon on a string, gilded footlights; in the shadows of the wings a tall ragged puppet king of patched cloth and buttons reaches out with long fingers. Original characters, not any famous puppet. Keep the top quarter of the picture plain dark curtain: a title will be printed there later."""
+
+[games.screens]
+psx = """A 3D action adventure on a toy-theatre stage, seen from behind and above the hero: a small wooden puppet knight with a red plume runs along a wooden beam in the rigging, ropes, sandbags and painted cardboard clouds around him, the velvet curtains and a gilded proscenium below, warm stage light. Leave the top eighth as plain dark rigging: the interface will be drawn over it later."""
+
+[[games]]
+id = "marlin-rush"
+title = "Marlin Rush"
+genre = "Fishing"
+developer = "Copperkite"
+publisher = "Quayside"
+players = "1-2"
+rating = 0.77
+age = 3
+description = """Take the Marlin Rush boat out to ten tropical fishing grounds and land the biggest billfish of your life. Fight each catch with the rod and the reel, chase the tournament trophies, and challenge a friend to the heaviest haul."""
+features = ["Ten fishing grounds, from reefs to the open ocean", "Over forty kinds of fish to land", "Tournaments and a two-player challenge"]
+logo = { style = "sports_block", title = "Marlin Rush", colours = ["#1a9cff", "#ffd23a"], font = "FRAHVIT.TTF" }
+versions = [{ system = "dreamcast", released = "2000-06-23", hud = "text", hud_items = [["LINE", "tl", "#ffd040"], ["BAR 0.8", "tl2"], ["148.6 KG", "tr", "#ffffff", 1.3], ["04:21", "br"]] }]
+keyart = """Key art for a fictional 2000 arcade fishing game, in the style of turn-of-the-millennium arcade game box art: a bright, sunny 3D render in turquoise, deep ocean blue and white spray. Landscape, 3:2, the fish in the middle third.
+
+A huge blue marlin bursts out of the sea in an arc, spray flying, a fishing line taut from its mouth; behind it a small white sport-fishing boat of no real make heels over, an angler in a sun hat braced in the fighting chair with a bent rod; a tropical island and a bright sky with towering white clouds. No words or numbers on the boat. Keep the top quarter of the picture plain blue sky: a title will be printed there later."""
+
+[games.screens]
+dreamcast = """A 3D arcade fishing game: a blue marlin leaps from bright turquoise water beside a white fishing boat, the fishing line glowing as it pulls tight, sunlit waves, spray and a tropical island on the horizon. Leave the top eighth as plain blue sky and the bottom eighth as plain water: the interface will be drawn over them later."""
+
+[[games]]
+id = "emberwild"
+title = "Emberwild"
+genre = "Action RPG"
+developer = "Fernhill"
+publisher = "Zephyrix"
+players = "1-4"
+rating = 0.84
+age = 12
+description = """Deep in the Emberwild, a jungle grown over sleeping volcanoes, beasts of fire and stone have begun to roam. Take up a lance, a hammer or a bow, hunt them with up to three friends, and carve armour and weapons from what they leave behind."""
+features = ["Forty great beasts to hunt", "Over three hundred weapons and armour pieces to forge", "Four hunters together, wirelessly"]
+logo = { style = "fire_brush", title = "Emberwild" }
+versions = [{ system = "psp", released = "2006-09-22", hud = "text", hud_items = [["BAR 0.75", "tl"], ["BAR 0.4", "tl2"], ["24:10", "tr"], ["X3", "br", "#ffd040"]] }]
+keyart = """Key art for a fictional 2006 monster-hunting action role-playing game, in the style of mid-2000s handheld game box art: a dramatic painted 3D render in jungle green, lava orange and smoke. Portrait, 2:3.
+
+A hunter in layered armour made from scales and bone, with a long lance and a round shield, crouches on a mossy rock as a giant beast with a body of black stone cracked with glowing lava and a crest of flames rears up out of the jungle behind; giant ferns, a smoking volcano and falling embers. Original designs, not any existing game's monsters or armour. Keep the top quarter of the picture plain smoky sky: a title will be printed there later."""
+
+[games.screens]
+psp = """A 3D monster-hunting game on a handheld console, seen from behind the hunter: a hunter in scale armour with a lance faces a huge beast of black stone and glowing lava in a jungle clearing with giant ferns, steam rising from cracks in the ground. Leave the top eighth and the bottom eighth as plain dark jungle: the interface will be drawn over them later."""
