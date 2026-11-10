@@ -141,7 +141,7 @@ public sealed class ConfigWriterTests : IDisposable
         Assert.Equal(GamesLayout.List, config.Settings.Display.GamesLayout);
         Assert.Equal(new GridSize(4, 0), config.Settings.Display.SystemsGrid);
         Assert.Equal(0, config.FindSystem("snes")!.GamesColumns);
-        Assert.Equal(GamesLayout.Carousel, config.Settings.Display.GamesLayoutFor(config.FindSystem("snes")));
+        Assert.Equal(GamesLayout.Carousel, config.Settings.Display.GamesLayoutFor(config.FindSystem("snes")?.View));
 
         // A system's 0 (automatic) is its own choice, so only null takes it back to [display]'s.
         var removed = writer.Save(
@@ -153,6 +153,36 @@ public sealed class ConfigWriterTests : IDisposable
         Assert.Null(removed.Config!.Config.FindSystem("snes")!.GamesColumns);
         Assert.Null(removed.Config!.Config.FindSystem("snes")!.GamesLayout);
         Assert.DoesNotContain("games_", File.ReadAllText(ConfigFile("systems.toml")), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Favourites_own_view_is_written_in_a_table_of_its_own_and_removed_again()
+    {
+        Write("settings.toml", "[display]\ntheme = \"retro-tv\"\n");
+        var writer = Writer();
+
+        var saved = writer.Save(
+        [
+            new ConfigEdit(ConfigFileKind.Settings, ["display", "favourites", "games_layout"], "list"),
+            new ConfigEdit(ConfigFileKind.Settings, ["display", "favourites", "games_sort"], "last_played"),
+        ]);
+
+        Assert.True(saved.Saved, saved.Problem);
+        Assert.Equal("[display]\ntheme = \"retro-tv\"\n\n[display.favourites]\ngames_layout = \"list\"\ngames_sort = \"last_played\"\n",
+            File.ReadAllText(ConfigFile("settings.toml")));
+        var display = saved.Config!.Config.Settings.Display;
+        Assert.Equal(GamesLayout.List, display.GamesLayoutFor(display.Favourites));
+        Assert.Equal(GameSort.LastPlayed, display.GamesSortFor(display.Favourites).Sort);
+        Assert.Equal(GamesView.None, display.AllGames);
+
+        var removed = writer.Save(
+        [
+            new ConfigEdit(ConfigFileKind.Settings, ["display", "favourites", "games_layout"], null),
+            new ConfigEdit(ConfigFileKind.Settings, ["display", "favourites", "games_sort"], null),
+        ]);
+        Assert.True(removed.Saved, removed.Problem);
+        Assert.Equal(GamesView.None, removed.Config!.Config.Settings.Display.Favourites);
+        Assert.DoesNotContain("favourites", File.ReadAllText(ConfigFile("settings.toml")), StringComparison.Ordinal);
     }
 
     [Fact]

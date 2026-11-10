@@ -756,11 +756,21 @@ public partial class Main : Node3D
         };
 
         // X on a system or a game: its options (M7 part 2). Scrapes and edits rename games in the grid in place.
+        // Favourites and All games have a page of their own: their view and order (2026-11-10).
         var options = new ItemOptions(_settings, navigator);
         _settings.Options = options;
         navigator.SystemOptionsRequested += id =>
         {
-            if (!_ui!.IsOpen)
+            if (_ui!.IsOpen)
+            {
+                return;
+            }
+
+            if (id is Navigator.FavouritesId or Navigator.AllGamesId)
+            {
+                options.OpenList(id);
+            }
+            else
             {
                 options.OpenSystem(id);
             }

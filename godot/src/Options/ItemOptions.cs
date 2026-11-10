@@ -58,6 +58,9 @@ public sealed class ItemOptions
         return page;
     }
 
+    /// <summary>Opens Favourites' or All games' options (their view and order). Main thread.</summary>
+    public void OpenList(string id) => Layer.Push(new VirtualListPage(Settings, id));
+
     /// <summary>Opens a game's options once its details are read (off the main thread). Main thread.</summary>
     public void OpenGame(long gameId)
     {

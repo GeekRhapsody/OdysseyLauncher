@@ -134,12 +134,18 @@ public sealed record DisplaySettings(string Theme, ScreenMode ScreenMode = Scree
     /// <summary><c>games_columns</c> and <c>games_rows</c>: the games grid's size; 0 is automatic. A system can have its own.</summary>
     public GridSize GamesGrid { get; init; }
 
-    /// <summary>How a system's games are shown: its own <c>games_layout</c>, else these settings'. Null: Favourites, Recently played and All games.</summary>
-    public GamesLayout GamesLayoutFor(SystemConfig? system) => system?.GamesLayout ?? GamesLayout;
+    /// <summary><c>[display.favourites]</c> (2026-11-10): Favourites' own view and order; what it leaves unset is these settings'.</summary>
+    public GamesView Favourites { get; init; } = GamesView.None;
 
-    /// <summary>The games grid's size for a system: its own columns and rows where it sets them, else these settings'.</summary>
-    public GridSize GamesGridFor(SystemConfig? system) =>
-        new(system?.GamesColumns ?? GamesGrid.Columns, system?.GamesRows ?? GamesGrid.Rows);
+    /// <summary><c>[display.all_games]</c> (2026-11-10): All games' own view and order; what it leaves unset is these settings'.</summary>
+    public GamesView AllGames { get; init; } = GamesView.None;
+
+    /// <summary>How a list's games are shown: its own <c>games_layout</c>, else these settings'. Null: Recently played.</summary>
+    public GamesLayout GamesLayoutFor(GamesView? view) => view?.Layout ?? GamesLayout;
+
+    /// <summary>The games grid's size for a list: its own columns and rows where it sets them, else these settings'.</summary>
+    public GridSize GamesGridFor(GamesView? view) =>
+        new(view?.Columns ?? GamesGrid.Columns, view?.Rows ?? GamesGrid.Rows);
 
     /// <summary><c>systems_sort</c> and <c>systems_sort_order</c>: the systems' order (Favourites, Recently played and All games always come first).</summary>
     public SystemsOrdering SystemsSort { get; init; }
@@ -147,9 +153,24 @@ public sealed record DisplaySettings(string Theme, ScreenMode ScreenMode = Scree
     /// <summary><c>games_sort</c> and <c>games_sort_order</c>: a system's games' order, unless the system has its own (<see cref="GamesSortFor"/>).</summary>
     public GamesOrdering GamesSort { get; init; }
 
-    /// <summary>A system's games' order: its own <c>games_sort</c> and <c>games_sort_order</c> where it sets them, else these settings'.</summary>
-    public GamesOrdering GamesSortFor(SystemConfig? system) =>
-        new(system?.GamesSort ?? GamesSort.Sort, system?.GamesSortOrder ?? GamesSort.Order);
+    /// <summary>A list's games' order: its own <c>games_sort</c> and <c>games_sort_order</c> where it sets them, else these settings'.</summary>
+    public GamesOrdering GamesSortFor(GamesView? view) =>
+        new(view?.Sort ?? GamesSort.Sort, view?.Order ?? GamesSort.Order);
+}
+
+/// <summary>
+/// A list's own view and order, each null where <c>[display]</c>'s applies: a system's (systems.toml) or Favourites' or
+/// All games' (<c>[display.favourites]</c>, <c>[display.all_games]</c>), with the same keys.
+/// </summary>
+/// <param name="Layout"><c>games_layout</c>.</param>
+/// <param name="Columns"><c>games_columns</c> (0 automatic).</param>
+/// <param name="Rows"><c>games_rows</c> (0 automatic).</param>
+/// <param name="Sort"><c>games_sort</c>.</param>
+/// <param name="Order"><c>games_sort_order</c>.</param>
+public sealed record GamesView(GamesLayout? Layout, int? Columns, int? Rows, GameSort? Sort, SortOrder? Order)
+{
+    /// <summary>Nothing of its own: <c>[display]</c>'s everything.</summary>
+    public static GamesView None { get; } = new(null, null, null, null, null);
 }
 
 /// <summary>What the systems are sorted by (<c>[display] systems_sort</c>). Ties are broken by name, A to Z.</summary>
@@ -603,6 +624,9 @@ public sealed record SystemConfig(
     IReadOnlyList<string>? LaunchBoxPlatforms = null,
     string? Group = null)
 {
+    /// <summary>Its own games view and order (<c>games_layout</c> and the rest), for <see cref="DisplaySettings.GamesLayoutFor"/> and the others.</summary>
+    public GamesView View => new(GamesLayout, GamesColumns, GamesRows, GamesSort, GamesSortOrder);
+
     /// <summary>
     /// The built-in definition's <c>emulator</c>, when it's a configured profile; null for a system the user defined, or
     /// one whose built-in emulator is gone. It's <see cref="Emulator"/> unless the user chose another.

@@ -48,6 +48,9 @@ public sealed partial class ConfigLoader
                 WarnUnknownKeys(display, "display", DisplayKeys);
             }
 
+            var favouritesView = ListView(display, FavouritesView);
+            var allGamesView = ListView(display, AllGamesView);
+
             var ui = SubTable(tree, "ui", "ui");
             if (ui is not null)
             {
@@ -158,6 +161,8 @@ public sealed partial class ConfigLoader
                     SystemsSort = systemsSort,
                     GamesSort = gamesSort,
                     GroupSystems = groupSystems,
+                    Favourites = favouritesView,
+                    AllGames = allGamesView,
                 },
                 new ScrapingSettings(provider, fallback, regions, languages, media, hashLimitMb * 1024 * 1024),
                 new ScanningSettings(_globalExcludes, SettingBool(tree, defaults, "scanning", "scan_at_launch") ?? false),
@@ -168,6 +173,19 @@ public sealed partial class ConfigLoader
         }
 
         private readonly record struct Located(string Value, TomlNode Node);
+
+        /// <summary><c>[display.favourites]</c> or <c>[display.all_games]</c>: that list's own view and order, as a system's.</summary>
+        private GamesView ListView(TomlTableNode? display, string key)
+        {
+            if (display is null || SubTable(display, key, $"display.{key}") is not { } table)
+            {
+                return GamesView.None;
+            }
+
+            var prefix = $"display.{key}";
+            WarnUnknownKeys(table, prefix, ViewKeys);
+            return ViewOverride(table, prefix);
+        }
 
         /// <summary>
         /// <c>[display] screen_mode</c>. A user's settings.toml without one may have the key it replaced (2026-10-08),

@@ -239,13 +239,17 @@ public interface ILibrary
     /// <summary>Every game's media of the given kinds (All games): one query on <c>media</c>.</summary>
     Task<IReadOnlyList<GameMediaRow>> GetAllGameMediaAsync(IReadOnlyList<string> kinds, CancellationToken cancellationToken);
 
-    Task<IReadOnlyList<VirtualGameRow>> GetFavouritesAsync(CancellationToken cancellationToken);
+    /// <summary>
+    /// Favourites: every visible favourite of every enabled system, in <paramref name="ordering"/>'s order (its own
+    /// <c>[display.favourites]</c>, else settings.toml's <c>games_sort</c>), as All games' list is (A4 Grid queries).
+    /// </summary>
+    Task<IReadOnlyList<VirtualGameRow>> GetFavouritesAsync(GamesOrdering ordering, CancellationToken cancellationToken);
 
     Task<IReadOnlyList<VirtualGameRow>> GetRecentlyPlayedAsync(int limit, CancellationToken cancellationToken);
 
     /// <summary>
-    /// All games: every visible game of every enabled system, in <paramref name="ordering"/>'s order (settings.toml's
-    /// <c>games_sort</c>), as a system's list is (A4 Grid queries).
+    /// All games: every visible game of every enabled system, in <paramref name="ordering"/>'s order (its own
+    /// <c>[display.all_games]</c>, else settings.toml's <c>games_sort</c>), as a system's list is (A4 Grid queries).
     /// </summary>
     Task<IReadOnlyList<VirtualGameRow>> GetAllGamesAsync(GamesOrdering ordering, CancellationToken cancellationToken);
 

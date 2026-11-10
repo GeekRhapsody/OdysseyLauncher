@@ -29,7 +29,7 @@ namespace Launcher.App.Settings;
 /// folders, and X on a system in the grid opens it too. Saving folders rescans the system; a model change reloads the
 /// theme, so the grid shows it without a restart.
 /// </summary>
-public sealed partial class SystemPage : ListPanel
+public sealed partial class SystemPage : GamesViewPanel
 {
     private const string OwnTemplate = "*own";
     private const string ThemesChoice = "";
@@ -44,18 +44,13 @@ public sealed partial class SystemPage : ListPanel
     private SettingRow? _template;
     private readonly List<(SettingRow Row, SystemScrapeFilter Filter)> _scrapeRows = [];
     private SettingRow? _import;
-    private SettingRow? _view;
-    private SettingRow? _columns;
-    private SettingRow? _rows;
-    private SettingRow? _sort;
-    private SettingRow? _order;
     private ModelReport? _ownCard;
     private ModelReport? _ownTemplate;
     private SystemScrapeCount? _count;
     private int _infoGeneration;
 
     public SystemPage(SettingsController settings, string systemId)
-        : base(settings.Services.Config.FindSystem(systemId)?.Name ?? systemId)
+        : base(settings.Services.Config.FindSystem(systemId)?.Name ?? systemId, settings, ConfigFileKind.Systems, ["systems", systemId])
     {
         _settings = settings;
         _systemId = systemId;
@@ -129,20 +124,7 @@ public sealed partial class SystemPage : ListPanel
 
         AddSection("Games view");
         AddGroupRows(config, system);
-        var display = config.Settings.Display;
-        _view = AddViewRow(system.GamesLayout, display.GamesLayout);
-        _columns = AddGridRow("Columns", "games_columns", DisplaySettings.MaxColumns, system.GamesColumns, display.GamesGrid.Columns);
-        _rows = AddGridRow("Rows", "games_rows", DisplaySettings.MaxRows, system.GamesRows, display.GamesGrid.Rows);
-        if (!Layouts.IsGrid(display.GamesLayoutFor(system)))
-        {
-            AddNote("Columns and rows are for the grid views.");
-        }
-
-        var sortedBy = display.GamesSortFor(system).Sort;
-        _sort = AddSortRow("Sort by", "games_sort", Sorts.GamesNames, (int?)system.GamesSort, (int)display.GamesSort.Sort,
-            i => AppearancePage.GamesSortTitle((GameSort)i), i => AppearancePage.GamesSortDetail((GameSort)i));
-        _order = AddSortRow("Order", "games_sort_order", Sorts.OrderNames, (int?)system.GamesSortOrder, (int)display.GamesSort.Order,
-            i => AppearancePage.OrderTitle((SortOrder)i), i => AppearancePage.GamesOrderDetail(sortedBy, (SortOrder)i));
+        AddGamesViewRows($"{system.Name}'s", system.View);
 
         if (Options is null)
         {
@@ -192,21 +174,8 @@ public sealed partial class SystemPage : ListPanel
             }
         }
 
-        if (focused is not null && focused == _view)
+        if (ResetGamesView(focused))
         {
-            SaveView(null);
-            return true;
-        }
-
-        if (focused is not null && (focused == _columns || focused == _rows))
-        {
-            SaveGrid(focused == _columns ? "games_columns" : "games_rows", null);
-            return true;
-        }
-
-        if (focused is not null && (focused == _sort || focused == _order))
-        {
-            SaveSort(focused == _sort ? "games_sort" : "games_sort_order", null, null);
             return true;
         }
 
@@ -453,139 +422,6 @@ public sealed partial class SystemPage : ListPanel
         var parent = config.FindSystem(parentId)?.Name ?? parentId;
         _settings.Save(this, [new ConfigEdit(ConfigFileKind.Systems, ["systems", systemId, "group"], value)],
             wanted ? $"{system.Name}'s games are in {parent}'s card." : $"{system.Name} has a card of its own.");
-    }
-
-    /// <summary>
-    /// How the system's games are shown: its own <c>games_layout</c>, or the Appearance page's when unset (the default).
-    /// A chooses, left and right step through Default, Grid, Grid with labels, Carousel, List, Coverflow and Showcase, Y goes back to the default.
-    /// </summary>
-    private SettingRow AddViewRow(GamesLayout? own, GamesLayout settings)
-    {
-        var inherited = AppearancePage.GamesTitle(settings).ToLowerInvariant();
-        var row = AddRow("View", own is null ? $"As in Settings: {inherited}" : $"Its own · Y goes back to the default ({inherited})",
-            own is { } value ? AppearancePage.GamesTitle(value) : "Default", () =>
-        {
-            var choices = new List<Choice> { new(string.Empty, "As in Settings", $"{AppearancePage.GamesTitle(settings)}, the Appearance page's") };
-            foreach (var layout in Enum.GetValues<GamesLayout>())
-            {
-                choices.Add(new Choice(Layouts.Name(layout), AppearancePage.GamesTitle(layout), AppearancePage.GamesDetail(layout)));
-            }
-
-            Layer.Push(new ChoicePanel("How its games are shown", null, choices,
-                own is { } current ? Layouts.Name(current) : string.Empty,
-                choice => SaveView(Layouts.TryParse(choice.Id, out GamesLayout chosen) ? chosen : null)));
-        });
-
-        // Left and right step through Default, then each layout.
-        row.Adjuster = direction =>
-        {
-            var at = own is { } current ? (int)current + 1 : 0;
-            var next = Math.Clamp(at + Math.Sign(direction), 0, Enum.GetValues<GamesLayout>().Length);
-            if (next != at)
-            {
-                SaveView(next == 0 ? null : (GamesLayout)(next - 1));
-            }
-        };
-        return row;
-    }
-
-    /// <summary>Saves the system's own games layout (null: the Appearance page's again).</summary>
-    private void SaveView(GamesLayout? layout)
-    {
-        var name = _settings.Services.Config.FindSystem(_systemId)?.Name ?? _systemId;
-        _settings.Save(this, [new ConfigEdit(ConfigFileKind.Systems, ["systems", _systemId, "games_layout"], layout is { } l ? Layouts.Name(l) : null)],
-            layout is { } chosen ? $"{name}'s games: {AppearancePage.GamesTitle(chosen).ToLowerInvariant()}." : $"{name}'s games: as in Settings.");
-    }
-
-    /// <summary>
-    /// The system's games grid columns or rows: its own (<c>games_columns</c>, <c>games_rows</c>; 0 automatic), or
-    /// the Appearance page's when unset. A chooses, left and right step (from the Appearance page's value), Y goes back to it.
-    /// </summary>
-    private SettingRow AddGridRow(string title, string key, int max, int? own, int settings)
-    {
-        var what = key == "games_rows" ? "rows" : "columns";
-        var inherited = $"As in Settings: {AppearancePage.SizeText(settings).ToLowerInvariant()}";
-        var row = AddRow(title, own is null ? inherited : $"{SystemName()}'s own · Y goes back to the default ({AppearancePage.SizeText(settings).ToLowerInvariant()})",
-            own is { } value ? AppearancePage.SizeText(value) : "Default", () =>
-        {
-            var choices = AppearancePage.SizeChoices(max, what);
-            choices.Insert(0, new Choice(string.Empty, "As in Settings", $"{AppearancePage.SizeText(settings)}, the Appearance page's"));
-            Layer.Push(new ChoicePanel($"{title} of {SystemName()}'s games", null, choices,
-                own?.ToString(CultureInfo.InvariantCulture) ?? string.Empty,
-                choice => SaveGrid(key, choice.Id.Length == 0 ? null : int.Parse(choice.Id, CultureInfo.InvariantCulture))));
-        });
-        row.Adjuster = direction =>
-        {
-            var current = own ?? settings;
-            var next = Math.Clamp(current + Math.Sign(direction), 0, max);
-            if (next != current || own is null)
-            {
-                SaveGrid(key, next);
-            }
-        };
-        return row;
-
-        string SystemName() => _settings.Services.Config.FindSystem(_systemId)?.Name ?? _systemId;
-    }
-
-    /// <summary>Saves the system's own games grid columns or rows (null: the Appearance page's again).</summary>
-    private void SaveGrid(string key, int? value)
-    {
-        var name = _settings.Services.Config.FindSystem(_systemId)?.Name ?? _systemId;
-        var what = key == "games_rows" ? "rows" : "columns";
-        _settings.Save(this, [new ConfigEdit(ConfigFileKind.Systems, ["systems", _systemId, key], value is { } v ? (long)v : null)],
-            value switch
-            {
-                null => $"{name}'s games grid: {what} as in Settings.",
-                0 => $"{name}'s games grid: automatic {what}.",
-                1 => $"{name}'s games grid: 1 {what[..^1]}.",
-                _ => $"{name}'s games grid: {value} {what}.",
-            });
-    }
-
-    /// <summary>
-    /// What the system's games are sorted by, or which way: its own (<c>games_sort</c>, <c>games_sort_order</c>), or the
-    /// Appearance page's when unset. A chooses, left and right step through Default and each value, Y goes back to the default.
-    /// </summary>
-    private SettingRow AddSortRow(string title, string key, IReadOnlyList<string> names, int? own, int settings, Func<int, string> titleOf, Func<int, string> detailOf)
-    {
-        var inherited = titleOf(settings);
-        var row = AddRow(title, own is null ? $"As in Settings: {inherited.ToLowerInvariant()}" : $"Its own · Y goes back to the default ({inherited.ToLowerInvariant()})",
-            own is { } value ? titleOf(value) : "Default", () =>
-        {
-            var choices = new List<Choice> { new(string.Empty, "As in Settings", $"{inherited}, the Appearance page's") };
-            for (var i = 0; i < names.Count; i++)
-            {
-                choices.Add(new Choice(names[i], titleOf(i), detailOf(i)));
-            }
-
-            Layer.Push(new ChoicePanel(key == "games_sort" ? "Sort its games by" : "Its games' order", null, choices,
-                own is { } current ? names[current] : string.Empty,
-                choice => SaveSort(key, choice.Id.Length == 0 ? null : choice.Id, choice.Id.Length == 0 ? null : choice.Title)));
-        });
-
-        // Left and right step through Default, then each value.
-        row.Adjuster = direction =>
-        {
-            var at = own is { } current ? current + 1 : 0;
-            var next = Math.Clamp(at + Math.Sign(direction), 0, names.Count);
-            if (next != at)
-            {
-                SaveSort(key, next == 0 ? null : names[next - 1], next == 0 ? null : titleOf(next - 1));
-            }
-        };
-        return row;
-    }
-
-    /// <summary>Saves the system's own <paramref name="key"/> (null: the Appearance page's again).</summary>
-    private void SaveSort(string key, string? name, string? title)
-    {
-        var system = _settings.Services.Config.FindSystem(_systemId)?.Name ?? _systemId;
-        var what = key == "games_sort" ? "sorted" : "order";
-        _settings.Save(this, [new ConfigEdit(ConfigFileKind.Systems, ["systems", _systemId, key], name)],
-            title is null
-                ? $"{system}'s games: {what} as in Settings."
-                : key == "games_sort" ? $"{system}'s games: sorted by {title.ToLowerInvariant()}." : $"{system}'s games: {title.ToLowerInvariant()}.");
     }
 
     // ---- Models ----------------------------------------------------------------------------------------

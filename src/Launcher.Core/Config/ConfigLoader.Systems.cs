@@ -196,13 +196,8 @@ public sealed partial class ConfigLoader
                     gameModel = null;
                 }
 
-                // The system's own games grid size: a bad one is only a warning (it's a matter of taste, so the system
-                // stays enabled), and [display]'s is used.
-                var gamesLayout = LayoutOverride(entry, prefix);
-                var gamesColumns = GridOverride(entry, prefix, "games_columns", DisplaySettings.MaxColumns);
-                var gamesRows = GridOverride(entry, prefix, "games_rows", DisplaySettings.MaxRows);
-                var gamesSort = NameOverride(entry, prefix, "games_sort", Sorts.GamesNames, "sort", out var sortIndex) ? (GameSort?)sortIndex : null;
-                var gamesSortOrder = NameOverride(entry, prefix, "games_sort_order", Sorts.OrderNames, "order", out var orderIndex) ? (SortOrder?)orderIndex : null;
+                // The system's own games view and order: a bad one is only a warning, so the system stays enabled.
+                var view = ViewOverride(entry, prefix);
 
                 var romDirs = new List<string>();
                 var romDirSource = RomDirSource.Default;
@@ -258,8 +253,8 @@ public sealed partial class ConfigLoader
 
                 result.Add(new SystemConfig(
                     id, name, manufacturer, (int?)year, aliases, extensions, emulator, altEmulators, gameModel,
-                    (int?)screenScraperId, romDirs, romDirSource, recursive, exclude, igdbPlatforms, steamStore, gamesColumns, gamesRows, gamesLayout,
-                    gamesSort, gamesSortOrder, string.IsNullOrWhiteSpace(description) ? null : description, autoControllers, swapFaceButtons,
+                    (int?)screenScraperId, romDirs, romDirSource, recursive, exclude, igdbPlatforms, steamStore, view.Columns, view.Rows, view.Layout,
+                    view.Sort, view.Order, string.IsNullOrWhiteSpace(description) ? null : description, autoControllers, swapFaceButtons,
                     launchBoxPlatforms, string.IsNullOrEmpty(group) ? null : group)
                 {
                     // The built-in definition's own emulator, offered with the alternatives once the user has chosen another.

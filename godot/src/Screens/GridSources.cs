@@ -30,10 +30,10 @@ public sealed record SystemEntry(
     IReadOnlyList<string>? Members = null)
 {
     /// <summary>
-    /// Its list follows <c>games_sort</c> (a system, and All games) and can be cached; Favourites' and Recently played's
-    /// keep their own order and change with every favourite and play.
+    /// Its list follows <c>games_sort</c>, its own or settings.toml's (a system, Favourites and All games); Recently
+    /// played keeps its own order, newest first.
     /// </summary>
-    public bool Sorted => Virtual is VirtualKind.None or VirtualKind.AllGames;
+    public bool Sorted => Virtual != VirtualKind.RecentlyPlayed;
 }
 
 /// <summary>
@@ -235,7 +235,7 @@ public sealed class GamesSource : IGridSource
     /// <summary>The media kinds this list was loaded with (the theme's, when it was built).</summary>
     public IReadOnlyList<string> Kinds { get; }
 
-    /// <summary>The order a system's or All games' list was read in (<c>games_sort</c>); Favourites' and Recently played's own order is fixed.</summary>
+    /// <summary>The order a system's, Favourites' or All games' list was read in (<c>games_sort</c>); Recently played's own order is fixed.</summary>
     public GamesOrdering Ordering { get; private init; }
 
     /// <summary>A group's list (A5 Grouped systems): the systems it was read from, as its card's <see cref="SystemEntry.Members"/>; null otherwise.</summary>
@@ -283,7 +283,7 @@ public sealed class GamesSource : IGridSource
         return new GamesSource(id, name, rows, media, kinds, colourOf, _ => name) { Ordering = ordering };
     }
 
-    /// <param name="ordering">The order All games or a group was read in; the default for Favourites and Recently played.</param>
+    /// <param name="ordering">The order Favourites, All games or a group was read in; the default for Recently played.</param>
     /// <param name="members">A group's systems (<see cref="Members"/>).</param>
     public static GamesSource ForVirtual(
         string id, string name, IReadOnlyList<VirtualGameRow> list, IReadOnlyList<GameMediaRow> media, IReadOnlyList<string> kinds,

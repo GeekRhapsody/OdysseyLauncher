@@ -175,7 +175,10 @@ public sealed partial class Navigator : Node
     /// <summary>View (Select) or P in either grid: the power menu should open.</summary>
     public event Action? PowerRequested;
 
-    /// <summary>X on a system, or Menu in its games: its options panel should open (M7). The system's id.</summary>
+    /// <summary>
+    /// X on a system, Favourites or All games, or Menu in its games: its options panel should open (M7). Its id
+    /// (<see cref="FavouritesId"/> and <see cref="AllGamesId"/> for those two, 2026-11-10).
+    /// </summary>
     public event Action<string>? SystemOptionsRequested;
 
     /// <summary>X on a game: its options panel should open (M7). The game's id.</summary>
@@ -202,14 +205,19 @@ public sealed partial class Navigator : Node
 
     private GridLayout SystemsLayout() => GridLayout.Systems(Display);
 
-    /// <summary>A list's layout: the games layout, with the system's own grid size (the virtual lists use settings.toml's).</summary>
-    private GridLayout GamesLayout(string id) => GridLayout.Games(Display, _services.Config.FindSystem(id));
+    /// <summary>A list's own view and order: a system's, Favourites' or All games'; null for Recently played, which has none.</summary>
+    private GamesView? ViewOf(string id) => id switch
+    {
+        FavouritesId => Display.Favourites,
+        AllGamesId => Display.AllGames,
+        _ => _services.Config.FindSystem(id)?.View,
+    };
 
-    /// <summary>
-    /// A system's games' order: its own <c>games_sort</c>, else settings.toml's, which All games follows too (Favourites
-    /// and Recently played have their own).
-    /// </summary>
-    private GamesOrdering GamesSort(string id) => Display.GamesSortFor(_services.Config.FindSystem(id));
+    /// <summary>A list's layout: its own, else settings.toml's games layout and grid size.</summary>
+    private GridLayout GamesLayout(string id) => GridLayout.Games(Display, ViewOf(id));
+
+    /// <summary>A list's games' order: its own <c>games_sort</c>, else settings.toml's (Recently played has its own, newest first).</summary>
+    private GamesOrdering GamesSort(string id) => Display.GamesSortFor(ViewOf(id));
 
     /// <summary>The media streamer, for evicting textures while a game runs and for a theme's layout.</summary>
     public TextureStreamer? Streamer { get; set; }
@@ -449,9 +457,9 @@ public sealed partial class Navigator : Node
             case NavCommand.NextTheme when _screen == Screen.Systems:
                 SwitchTheme(null);
                 break;
-            // In a system's games, Menu opens that system's page (2026-11-07); Favourites, Recently played and All games
-            // have none, so theirs is the app's settings, as on the systems screen.
-            case NavCommand.Menu when _screen == Screen.Games && _games is not null && FindEntry(_games.Id) is { Virtual: VirtualKind.None }:
+            // In a system's games, Menu opens that system's page (2026-11-07), and in Favourites' or All games' theirs
+            // (2026-11-10); Recently played has none, so its is the app's settings, as on the systems screen.
+            case NavCommand.Menu when _screen == Screen.Games && _games is not null && FindEntry(_games.Id) is { Virtual: not VirtualKind.RecentlyPlayed }:
                 SystemOptionsRequested?.Invoke(_games.Id);
                 break;
             case NavCommand.Menu:
@@ -467,18 +475,18 @@ public sealed partial class Navigator : Node
         }
     }
 
-    /// <summary>X: the focused system's or game's options. Favourites, Recently played and All games have none.</summary>
+    /// <summary>X: the focused system's, Favourites', All games' or game's options. Recently played has none.</summary>
     private void RequestOptions()
     {
         if (_screen == Screen.Systems)
         {
-            if (_systemsGrid.FocusIndex >= 0 && _systems.Entries[_systemsGrid.FocusIndex] is { Virtual: VirtualKind.None } entry)
+            if (_systemsGrid.FocusIndex >= 0 && _systems.Entries[_systemsGrid.FocusIndex] is { Virtual: not VirtualKind.RecentlyPlayed } entry)
             {
                 SystemOptionsRequested?.Invoke(entry.Id);
             }
             else
             {
-                ShowStatus("Favourites, Recently played and All games have no options. Press X on a system or a game.");
+                ShowStatus("Recently played has no options. Press X on a system or a game.");
             }
 
             return;

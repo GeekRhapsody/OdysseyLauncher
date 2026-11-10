@@ -603,7 +603,7 @@ public sealed record DebugOptions
 /// <summary><c>--layout</c>: the layouts for one run, and the grid sizes it names (null keeps settings.toml's).</summary>
 public sealed record LayoutOverride(SystemsLayout Systems, GridSize? SystemsGrid, GamesLayout Games, GridSize? GamesGrid)
 {
-    /// <summary>The display settings with this run's layouts. A system's own games layout and grid size still win (<see cref="DisplaySettings.GamesLayoutFor"/>).</summary>
+    /// <summary>The display settings with this run's layouts. A list's own games layout and grid size (a system's, Favourites' or All games') still win (<see cref="DisplaySettings.GamesLayoutFor"/>).</summary>
     public DisplaySettings ApplyTo(DisplaySettings display)
     {
         ArgumentNullException.ThrowIfNull(display);

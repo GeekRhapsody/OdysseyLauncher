@@ -65,7 +65,7 @@ public sealed partial class AppearancePage : ListPanel
         _systemsSort = AddSortRow("Sort by", "systems_sort", "Sort systems by", Sorts.SystemsNames, () => SystemsSortChoices());
         _systemsOrder = AddSortRow("Order", "systems_sort_order", "Systems' order", Sorts.OrderNames,
             () => OrderChoices(sort => SystemsOrderDetail((SystemSort)Current("systems_sort", (int)Display.SystemsSort.Sort), sort)));
-        AddNote("Favourites, Recently played and All games always come first. All games follows the games' sort.");
+        AddNote("Favourites, Recently played and All games always come first.");
 
         AddSection("Games");
         _games = AddRow("Games view", activated: () => ChooseLayout("games_layout", "Games view", GamesChoices()));
@@ -75,7 +75,7 @@ public sealed partial class AppearancePage : ListPanel
         _gamesSort = AddSortRow("Sort by", "games_sort", "Sort games by", Sorts.GamesNames, () => GamesSortChoices());
         _gamesOrder = AddSortRow("Order", "games_sort_order", "Games' order", Sorts.OrderNames,
             () => OrderChoices(sort => GamesOrderDetail((GameSort)Current("games_sort", (int)Display.GamesSort.Sort), sort)));
-        AddNote("A system can have its own view, columns, rows and order: press X on it in the systems view, or choose it in Settings > Systems.");
+        AddNote("A system, Favourites and All games can have their own view, columns, rows and order: press X on its card in the systems view (a system's are in Settings > Systems too).");
 
         SetHints(CommonHints.ChooseChangeBack);
         _settings.ConfigApplied += OnConfigApplied;

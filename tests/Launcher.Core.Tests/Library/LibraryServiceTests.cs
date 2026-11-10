@@ -310,14 +310,14 @@ public sealed class LibraryServiceTests : IAsyncLifetime
         Assert.Equal(["Gamma", "Zeta"], games.Select(g => g.Title));
         Assert.Equal([true, false], games.Select(g => g.IsFavourite));
 
-        var favourites = await _library.GetFavouritesAsync(Ct);
+        var favourites = await _library.GetFavouritesAsync(default, Ct);
         Assert.Equal([("nes", "Delta"), ("snes", "Gamma")], favourites.Select(f => (f.SystemId, f.Game.Title)));
 
         await _library.SetTitleOverrideAsync(new GameKey("snes", "alpha.sfc"), null, Ct);
         await _library.SetHiddenAsync(new GameKey("snes", "beta.sfc"), false, Ct);
         await _library.SetFavouriteAsync(new GameKey("snes", "gamma.sfc"), false, Ct);
         Assert.Equal(["Alpha", "Beta", "Gamma"], await Titles("snes"));
-        Assert.Single(await _library.GetFavouritesAsync(Ct));
+        Assert.Single(await _library.GetFavouritesAsync(default, Ct));
     }
 
     [Fact]
@@ -336,7 +336,7 @@ public sealed class LibraryServiceTests : IAsyncLifetime
 
         var games = (await _library.GetGamesAsync("snes", Ct)).Games;
         Assert.Equal([("Beta", null), ("Gamma", null), ("Alpha", "The Zeta 2")], games.Select(g => (g.Title, g.SortTitle)));
-        Assert.Equal(["Delta", "Alpha"], (await _library.GetFavouritesAsync(Ct)).Select(f => f.Game.Title));
+        Assert.Equal(["Delta", "Alpha"], (await _library.GetFavouritesAsync(default, Ct)).Select(f => f.Game.Title));
         Assert.Equal(["Beta", "Delta", "Gamma", "Alpha"], (await _library.GetAllGamesAsync(default, Ct)).Select(r => r.Game.Title));
         Assert.Equal(["Alpha", "Gamma", "Beta"],
             (await _library.GetGamesAsync("snes", new GamesOrdering(GameSort.Alphabetical, SortOrder.Descending), Ct)).Games.Select(g => g.Title));
@@ -388,7 +388,7 @@ public sealed class LibraryServiceTests : IAsyncLifetime
         UserData("INSERT INTO play_stats (system_id, path_key, play_count, last_played_at) VALUES ('snes', 'alpha.sfc', 1, 100)");
 
         Assert.Equal([("Alpha Two", "snes_box_vertical"), ("Beta", "dvd_case")], (await _library.GetGamesAsync("snes", Ct)).Games.Select(g => (g.Title, g.Template)));
-        Assert.Equal("snes_box_vertical", (await _library.GetFavouritesAsync(Ct)).Single().Game.Template);
+        Assert.Equal("snes_box_vertical", (await _library.GetFavouritesAsync(default, Ct)).Single().Game.Template);
         Assert.Equal("snes_box_vertical", (await _library.GetRecentlyPlayedAsync(10, Ct)).Single().Game.Template);
         Assert.Equal("snes_box_vertical", (await _library.GetGameAsync(alpha, Ct))!.TemplateOverride);
         Assert.Equal(["dvd_case", "snes_box_vertical"], await _library.GetChosenGameTemplatesAsync(Ct));
@@ -455,6 +455,34 @@ public sealed class LibraryServiceTests : IAsyncLifetime
         // A disabled system's games leave All games at once, before a full rescan drops them.
         _library.Config = LoadConfig("[systems.nes]\nenabled = false\n");
         Assert.Equal(["Alpha", "Epsilon", "Gamma"], (await _library.GetAllGamesAsync(default, Ct)).Select(r => r.Game.Title));
+    }
+
+    [Fact]
+    public async Task Favourites_are_listed_in_the_order_asked_for_with_hidden_ones_left_out()
+    {
+        Rom("snes/Gamma.sfc");
+        Rom("snes/Alpha.sfc");
+        Rom("snes/Hidden.sfc");
+        Rom("snes/Unloved.sfc");
+        Rom("nes/Beta.nes");
+        await _library.RescanAsync(null, null, Ct);
+        foreach (var key in (GameKey[])[new("snes", "gamma.sfc"), new("snes", "alpha.sfc"), new("snes", "hidden.sfc"), new("nes", "beta.nes")])
+        {
+            await _library.SetFavouriteAsync(key, true, Ct);
+        }
+
+        await _library.SetHiddenAsync(new GameKey("snes", "hidden.sfc"), true, Ct);
+        UserData("INSERT INTO play_stats (system_id, path_key, play_count, last_played_at, total_seconds) VALUES ('snes', 'gamma.sfc', 1, 200, 60), ('nes', 'beta.nes', 1, 100, 600)");
+
+        var favourites = await _library.GetFavouritesAsync(default, Ct);
+        Assert.Equal([("snes", "Alpha"), ("nes", "Beta"), ("snes", "Gamma")], favourites.Select(r => (r.SystemId, r.Game.Title)));
+        Assert.All(favourites, r => Assert.True(r.Game.IsFavourite));
+        Assert.Equal(["Gamma", "Beta", "Alpha"],
+            (await _library.GetFavouritesAsync(new GamesOrdering(GameSort.Alphabetical, SortOrder.Descending), Ct)).Select(r => r.Game.Title));
+        Assert.Equal(["Gamma", "Beta", "Alpha"],
+            (await _library.GetFavouritesAsync(new GamesOrdering(GameSort.LastPlayed, SortOrder.Descending), Ct)).Select(r => r.Game.Title));
+        Assert.Equal(["Beta", "Gamma", "Alpha"],
+            (await _library.GetFavouritesAsync(new GamesOrdering(GameSort.PlayTime, SortOrder.Descending), Ct)).Select(r => r.Game.Title));
     }
 
     [Fact]

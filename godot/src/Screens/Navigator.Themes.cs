@@ -349,11 +349,11 @@ public sealed partial class Navigator
         });
     }
 
-    /// <summary>A virtual card's games: Favourites, Recently played, or All games in <paramref name="ordering"/>'s order. Thread pool.</summary>
+    /// <summary>A virtual card's games: Favourites or All games in <paramref name="ordering"/>'s order, or Recently played. Thread pool.</summary>
     public static Task<IReadOnlyList<VirtualGameRow>> VirtualGamesAsync(ILibrary library, VirtualKind kind, GamesOrdering ordering, CancellationToken token) =>
         kind switch
         {
-            VirtualKind.Favourites => library.GetFavouritesAsync(token),
+            VirtualKind.Favourites => library.GetFavouritesAsync(ordering, token),
             VirtualKind.RecentlyPlayed => library.GetRecentlyPlayedAsync(RecentlyPlayedLimit, token),
             _ => library.GetAllGamesAsync(ordering, token),
         };

@@ -132,15 +132,15 @@ public static class DetailsFormatter
         Add(rows, "Also known as", system.Aliases.Count == 0 ? null : string.Join(", ", system.Aliases));
 
         var display = config.Settings.Display;
-        var layout = display.GamesLayoutFor(system);
+        var layout = display.GamesLayoutFor(system.View);
         Add(rows, "Games view", Own(Settings.AppearancePage.GamesTitle(layout), system.GamesLayout is not null));
         if (Layouts.IsGrid(layout))
         {
-            var size = display.GamesGridFor(system);
+            var size = display.GamesGridFor(system.View);
             Add(rows, "Grid size", Own(GridSize(size.Columns, size.Rows), system.GamesColumns is not null || system.GamesRows is not null));
         }
 
-        var sort = display.GamesSortFor(system);
+        var sort = display.GamesSortFor(system.View);
         Add(rows, "Games sorted", Own(
             $"{Settings.AppearancePage.GamesSortTitle(sort.Sort)}: {Settings.AppearancePage.GamesOrderDetail(sort.Sort, sort.Order)}",
             system.GamesSort is not null || system.GamesSortOrder is not null));

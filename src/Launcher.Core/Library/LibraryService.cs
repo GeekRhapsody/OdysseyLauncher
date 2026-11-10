@@ -200,10 +200,10 @@ public sealed class LibraryService : ILibrary, IPlayHistory, IDisposable
             : _readers.RunAsync<IReadOnlyList<GameMediaRow>>(c => LibraryStore.GetAllGameMedia(c, kinds), cancellationToken);
     }
 
-    public Task<IReadOnlyList<VirtualGameRow>> GetFavouritesAsync(CancellationToken cancellationToken)
+    public Task<IReadOnlyList<VirtualGameRow>> GetFavouritesAsync(GamesOrdering ordering, CancellationToken cancellationToken)
     {
         var config = Config;
-        return _readers.RunAsync<IReadOnlyList<VirtualGameRow>>(c => LibraryStore.GetFavourites(c, config), cancellationToken);
+        return _readers.RunAsync<IReadOnlyList<VirtualGameRow>>(c => LibraryStore.GetFavourites(c, ordering, config), cancellationToken);
     }
 
     public Task<IReadOnlyList<VirtualGameRow>> GetRecentlyPlayedAsync(int limit, CancellationToken cancellationToken)

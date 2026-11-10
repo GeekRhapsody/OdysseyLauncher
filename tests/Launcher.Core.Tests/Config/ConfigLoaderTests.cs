@@ -1234,8 +1234,8 @@ public class ConfigLoaderTests
         Assert.Equal(SystemsLayout.GridWithLabels, display.SystemsLayout);
         Assert.Equal(new GridSize(4, 0), display.SystemsGrid);
         Assert.Equal(GamesLayout.GridWithLabels, display.GamesLayout);
-        Assert.Equal(GamesLayout.GridWithLabels, display.GamesLayoutFor(config.FindSystem("snes")));
-        Assert.Equal(new GridSize(0, 2), display.GamesGridFor(config.FindSystem("snes")));
+        Assert.Equal(GamesLayout.GridWithLabels, display.GamesLayoutFor(config.FindSystem("snes")?.View));
+        Assert.Equal(new GridSize(0, 2), display.GamesGridFor(config.FindSystem("snes")?.View));
         Assert.True(Layouts.IsGrid(display.SystemsLayout));
         Assert.True(Layouts.IsGrid(display.GamesLayout));
         Assert.False(Layouts.IsGrid(SystemsLayout.Carousel));
@@ -1263,7 +1263,7 @@ public class ConfigLoaderTests
         var display = config.Settings.Display;
         Assert.Equal(SystemsLayout.Coverflow, display.SystemsLayout);
         Assert.Equal(GamesLayout.Coverflow, display.GamesLayout);
-        Assert.Equal(GamesLayout.Coverflow, display.GamesLayoutFor(config.FindSystem("snes")));
+        Assert.Equal(GamesLayout.Coverflow, display.GamesLayoutFor(config.FindSystem("snes")?.View));
         Assert.False(Layouts.IsGrid(SystemsLayout.Coverflow));
         Assert.False(Layouts.IsGrid(GamesLayout.Coverflow));
         Assert.Equal("coverflow", Layouts.Name(SystemsLayout.Coverflow));
@@ -1287,7 +1287,7 @@ public class ConfigLoaderTests
         var config = result.Config;
         var display = config.Settings.Display;
         Assert.Equal(GamesLayout.Showcase, display.GamesLayout);
-        Assert.Equal(GamesLayout.Showcase, display.GamesLayoutFor(config.FindSystem("snes")));
+        Assert.Equal(GamesLayout.Showcase, display.GamesLayoutFor(config.FindSystem("snes")?.View));
         Assert.False(Layouts.IsGrid(GamesLayout.Showcase));
         Assert.Equal("showcase", Layouts.Name(GamesLayout.Showcase));
         Assert.False(Layouts.TryParse("showcase", out SystemsLayout _));
@@ -1341,9 +1341,9 @@ public class ConfigLoaderTests
         Assert.Empty(result.Diagnostics);
         var config = result.Config;
         var display = config.Settings.Display;
-        Assert.Equal(new GridSize(4, 3), display.GamesGridFor(config.FindSystem("megadrive")));
-        Assert.Equal(new GridSize(0, 2), display.GamesGridFor(config.FindSystem("snes")));
-        Assert.Equal(new GridSize(7, 3), display.GamesGridFor(config.FindSystem("psx")));
+        Assert.Equal(new GridSize(4, 3), display.GamesGridFor(config.FindSystem("megadrive")?.View));
+        Assert.Equal(new GridSize(0, 2), display.GamesGridFor(config.FindSystem("snes")?.View));
+        Assert.Equal(new GridSize(7, 3), display.GamesGridFor(config.FindSystem("psx")?.View));
         Assert.Equal(new GridSize(7, 3), display.GamesGridFor(null));
     }
 
@@ -1367,10 +1367,10 @@ public class ConfigLoaderTests
         var config = result.Config;
         var display = config.Settings.Display;
         Assert.Equal(GamesLayout.List, config.FindSystem("megadrive")!.GamesLayout);
-        Assert.Equal(GamesLayout.List, display.GamesLayoutFor(config.FindSystem("megadrive")));
-        Assert.Equal(GamesLayout.Grid, display.GamesLayoutFor(config.FindSystem("snes")));
+        Assert.Equal(GamesLayout.List, display.GamesLayoutFor(config.FindSystem("megadrive")?.View));
+        Assert.Equal(GamesLayout.Grid, display.GamesLayoutFor(config.FindSystem("snes")?.View));
         Assert.Null(config.FindSystem("psx")!.GamesLayout);
-        Assert.Equal(GamesLayout.Carousel, display.GamesLayoutFor(config.FindSystem("psx")));
+        Assert.Equal(GamesLayout.Carousel, display.GamesLayoutFor(config.FindSystem("psx")?.View));
         Assert.Equal(GamesLayout.Carousel, display.GamesLayoutFor(null));
     }
 
@@ -1416,7 +1416,7 @@ public class ConfigLoaderTests
         var display = result.Config.Settings.Display;
         Assert.Equal(new SystemsOrdering(SystemSort.Alphabetical, SortOrder.Ascending), display.SystemsSort);
         Assert.Equal(new GamesOrdering(GameSort.Alphabetical, SortOrder.Ascending), display.GamesSort);
-        Assert.Equal(display.GamesSort, display.GamesSortFor(result.Config.FindSystem("snes")));
+        Assert.Equal(display.GamesSort, display.GamesSortFor(result.Config.FindSystem("snes")?.View));
         Assert.Equal(display.GamesSort, display.GamesSortFor(null));
     }
 
@@ -1509,9 +1509,59 @@ public class ConfigLoaderTests
         var display = config.Settings.Display;
         Assert.Equal(GameSort.PlayTime, config.FindSystem("megadrive")!.GamesSort);
         Assert.Null(config.FindSystem("megadrive")!.GamesSortOrder);
-        Assert.Equal(new GamesOrdering(GameSort.PlayTime, SortOrder.Descending), display.GamesSortFor(config.FindSystem("megadrive")));
-        Assert.Equal(new GamesOrdering(GameSort.Added, SortOrder.Ascending), display.GamesSortFor(config.FindSystem("snes")));
-        Assert.Equal(new GamesOrdering(GameSort.Added, SortOrder.Descending), display.GamesSortFor(config.FindSystem("psx")));
+        Assert.Equal(new GamesOrdering(GameSort.PlayTime, SortOrder.Descending), display.GamesSortFor(config.FindSystem("megadrive")?.View));
+        Assert.Equal(new GamesOrdering(GameSort.Added, SortOrder.Ascending), display.GamesSortFor(config.FindSystem("snes")?.View));
+        Assert.Equal(new GamesOrdering(GameSort.Added, SortOrder.Descending), display.GamesSortFor(config.FindSystem("psx")?.View));
+    }
+
+    [Fact]
+    public void Favourites_and_all_games_can_have_their_own_view_and_order_and_follow_the_display_settings_without_them()
+    {
+        var result = Load(settings: """
+            [display]
+            games_layout = "carousel"
+            games_rows = 3
+            games_sort = "added"
+
+            [display.favourites]
+            games_layout = "grid"
+            games_columns = 5
+            games_sort = "last_played"
+            games_sort_order = "descending"
+
+            [display.all_games]
+            games_layout = "list"
+            """);
+
+        Assert.Empty(result.Diagnostics);
+        var display = result.Config.Settings.Display;
+        Assert.Equal(new GamesView(GamesLayout.Grid, 5, null, GameSort.LastPlayed, SortOrder.Descending), display.Favourites);
+        Assert.Equal(GamesLayout.Grid, display.GamesLayoutFor(display.Favourites));
+        Assert.Equal(new GridSize(5, 3), display.GamesGridFor(display.Favourites));
+        Assert.Equal(new GamesOrdering(GameSort.LastPlayed, SortOrder.Descending), display.GamesSortFor(display.Favourites));
+        Assert.Equal(GamesLayout.List, display.GamesLayoutFor(display.AllGames));
+        Assert.Equal(new GamesOrdering(GameSort.Added, SortOrder.Ascending), display.GamesSortFor(display.AllGames));
+
+        Assert.Equal(GamesView.None, Load().Config.Settings.Display.Favourites);
+    }
+
+    [Fact]
+    public void A_bad_value_in_favourites_own_view_is_a_warning_and_the_display_setting_is_used()
+    {
+        var result = Load(settings: """
+            [display.favourites]
+            games_layout = "single"
+            games_rows = 40
+            games_sort = "manufacturer"
+            colour = "red"
+            """);
+
+        Assert.DoesNotContain(result.Diagnostics, d => d.IsError);
+        Assert.Contains("[display] games_layout is used", Assert.Single(result.Diagnostics, d => d.Key == "display.favourites.games_layout").Message, StringComparison.Ordinal);
+        Assert.Single(result.Diagnostics, d => d.Key == "display.favourites.games_rows");
+        Assert.Single(result.Diagnostics, d => d.Key == "display.favourites.games_sort");
+        Assert.Contains("unknown key", Assert.Single(result.Diagnostics, d => d.Key == "display.favourites.colour").Message, StringComparison.Ordinal);
+        Assert.Equal(GamesView.None, result.Config.Settings.Display.Favourites);
     }
 
     [Fact]

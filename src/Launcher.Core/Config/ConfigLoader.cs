@@ -34,7 +34,16 @@ public sealed partial class ConfigLoader : IConfigLoader
         "hide_empty_systems", "group_systems",
         "systems_layout", "systems_columns", "systems_rows", "games_layout", "games_columns", "games_rows",
         "systems_sort", "systems_sort_order", "games_sort", "games_sort_order",
+        FavouritesView, AllGamesView,
     ];
+
+    /// <summary>The tables in <c>[display]</c> for Favourites' and All games' own view and order (2026-11-10).</summary>
+    public const string FavouritesView = "favourites";
+
+    /// <inheritdoc cref="FavouritesView"/>
+    public const string AllGamesView = "all_games";
+
+    private static readonly string[] ViewKeys = ["games_layout", "games_columns", "games_rows", "games_sort", "games_sort_order"];
     // show_performance, the FPS and VRAM readout's (2026-10-08 to 2026-11-07), is still known so a file that turned it on
     // loads without a warning; nothing reads it.
     private static readonly string[] UiKeys = ["show_clock", "show_battery", "show_network", "show_performance", "navigation_sounds", "button_icons", "size"];
@@ -279,6 +288,20 @@ public sealed partial class ConfigLoader : IConfigLoader
             }
 
             return value;
+        }
+
+        /// <summary>
+        /// A list's own view and order (<see cref="ViewKeys"/>): a system's, or Favourites' or All games'. A bad value is
+        /// only a warning (it's a matter of taste), and <c>[display]</c>'s is used.
+        /// </summary>
+        private GamesView ViewOverride(TomlTableNode table, string prefix)
+        {
+            var layout = LayoutOverride(table, prefix);
+            var columns = GridOverride(table, prefix, "games_columns", DisplaySettings.MaxColumns);
+            var rows = GridOverride(table, prefix, "games_rows", DisplaySettings.MaxRows);
+            var sort = NameOverride(table, prefix, "games_sort", Sorts.GamesNames, "sort", out var sortIndex) ? (GameSort?)sortIndex : null;
+            var order = NameOverride(table, prefix, "games_sort_order", Sorts.OrderNames, "order", out var orderIndex) ? (SortOrder?)orderIndex : null;
+            return new GamesView(layout, columns, rows, sort, order);
         }
 
         /// <summary>A system's <c>games_layout</c>; anything but a games layout warns and is ignored.</summary>

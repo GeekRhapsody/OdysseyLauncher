@@ -12,11 +12,13 @@ it releases, and the Release workflow puts it on the release page (tools/release
 
 ### New
 
+- Favourites and All games have options of their own, as a system does: press X on their card, or Menu while you're in them, to give them their own view, columns, rows and sort order.
 - W, A, S and D turn the focused game or system on the keyboard, as the right stick does, including a game you've brought up close with Z. In a system's details they turn its model, and on a zoomed manual page W and S scroll it.
 - The Console theme has a card for the Nintendo Switch 2: when you move to it, it takes a Joy-Con 2 off and uses it on the table as a mouse to play a game on its screen. It shows for a system you add yourself with the id `switch2`, as the launcher doesn't have a Switch 2 system of its own yet.
 
 ### Changed
 
+- Favourites are sorted the way Settings > Appearance sorts games, as All games is, unless you give them an order of their own. Before, they were always A to Z.
 - Nintendo DS, 3DS and Wii games now come in a white plastic case, Wii U games in a teal one, and Xbox and Xbox 360 games in an Xbox-green one.
 - The Console theme's PlayStation looks like the real one: POWER and OPEN line up across the front of its top, with RESET behind POWER, and the lid is centred and as wide as the real one's, cutting into the raised ends. Its memory card slots and controller ports, the sockets on its back and the vents on both its ends match the real console too, and while it's focused it presses POWER to switch on and off.
 - The Console theme's All games card is a bigger pile: four more game boxes join it, a PlayStation 2, a PSP, a PlayStation and a Dreamcast case.

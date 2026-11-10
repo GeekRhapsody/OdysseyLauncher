@@ -74,6 +74,9 @@ games_sort = "alphabetical"
 # "ascending" (A to Z, oldest first, least played first) or "descending". Games never played (by last played) or
 # without a release date come last either way. A system can have its own: games_sort_order in systems.toml.
 games_sort_order = "ascending"
+# Favourites and All games can have their own games_layout, games_columns, games_rows, games_sort and
+# games_sort_order, in a [display.favourites] or [display.all_games] table; what they leave out is the above.
+# Recently played is always newest first.
 
 [ui]
 # The status indicators, top right: the time (in your Windows time format), the battery's charge (only on a

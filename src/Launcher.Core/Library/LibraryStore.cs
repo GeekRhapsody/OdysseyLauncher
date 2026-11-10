@@ -123,12 +123,14 @@ internal static class LibraryStore
     /// More than 0: the games of that many systems (a group's card, A5 Grouped systems), <c>$s0</c> on, each row
     /// starting with its system's id as in All games.
     /// </param>
-    internal static string GamesSql(GamesOrdering ordering, bool allSystems = false, int systemSet = 0)
+    /// <param name="favourites">Every system's favourites (Favourites, 2026-11-10), each row starting with its system's id.</param>
+    internal static string GamesSql(GamesOrdering ordering, bool allSystems = false, int systemSet = 0, bool favourites = false)
     {
         var direction = ordering.Order == SortOrder.Descending ? " DESC" : string.Empty;
-        var several = allSystems || systemSet > 0;
+        var several = allSystems || favourites || systemSet > 0;
         var select = $"SELECT {(several ? "g.system_id, " : string.Empty)}{GamesColumns}\n{GamesFrom}";
-        var where = allSystems ? $"WHERE {Visible}"
+        var where = favourites ? $"WHERE f.added_at IS NOT NULL AND {Visible}"
+            : allSystems ? $"WHERE {Visible}"
             : systemSet > 0 ? $"WHERE g.system_id IN ({ParameterList(systemSet)}) AND {Visible}"
             : $"WHERE g.system_id = $system AND {Visible}";
         return ordering.Sort switch
@@ -163,16 +165,6 @@ internal static class LibraryStore
                 """,
         };
     }
-
-    private const string FavouritesSql = """
-        SELECT g.system_id, g.game_id, COALESCE(o.title, g.title), m.path, 1, m.width, m.height, m.size_bytes, m.mtime_ms, o.template, o.sort_name
-        FROM user.favourites f
-        JOIN games g ON g.system_id = f.system_id AND g.path_key = f.path_key
-        LEFT JOIN user.game_overrides o ON o.system_id = g.system_id AND o.path_key = g.path_key
-        LEFT JOIN media m ON m.game_id = g.game_id AND m.kind = 'cover'
-        WHERE COALESCE(o.hidden, 0) = 0
-        ORDER BY COALESCE(o.sort_title, g.sort_title), g.system_id, g.game_id
-        """;
 
     // Uses the partial index play_stats_recent.
     private const string RecentSql = """
@@ -370,8 +362,9 @@ internal static class LibraryStore
         }
     }
 
-    public static List<VirtualGameRow> GetFavourites(SqliteConnection connection, AppConfig config) =>
-        ReadVirtual(connection, FavouritesSql, null, config);
+    /// <summary>Every visible favourite (Favourites), in <paramref name="ordering"/>'s order.</summary>
+    public static List<VirtualGameRow> GetFavourites(SqliteConnection connection, GamesOrdering ordering, AppConfig config) =>
+        ReadVirtual(connection, GamesSql(ordering, favourites: true), null, config);
 
     public static List<VirtualGameRow> GetRecentlyPlayed(SqliteConnection connection, int limit, AppConfig config) =>
         ReadVirtual(connection, RecentSql, limit, config);

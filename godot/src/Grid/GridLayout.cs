@@ -44,11 +44,11 @@ public readonly record struct GridLayout(GridShape Shape, int Columns = 0, int R
         _ => new GridLayout(GridShape.Grid, display.SystemsGrid.Columns, display.SystemsGrid.Rows, display.SystemsLayout == SystemsLayout.GridWithLabels),
     };
 
-    /// <param name="system">The system shown, for its own layout and grid size; null for Favourites, Recently played and All games.</param>
-    public static GridLayout Games(DisplaySettings display, SystemConfig? system)
+    /// <param name="view">The list's own layout and grid size: a system's, Favourites' or All games'; null for Recently played.</param>
+    public static GridLayout Games(DisplaySettings display, GamesView? view)
     {
-        var size = display.GamesGridFor(system);
-        return display.GamesLayoutFor(system) switch
+        var size = display.GamesGridFor(view);
+        return display.GamesLayoutFor(view) switch
         {
             GamesLayout.Carousel => new GridLayout(GridShape.Carousel),
             GamesLayout.List => new GridLayout(GridShape.List),
