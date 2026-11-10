@@ -98,9 +98,8 @@ jobs:
 
       - uses: actions/setup-dotnet@v6
         with:
-          # The SDK from global.json, and the .NET 8 runtime the fake emulator in the launch smoke test runs on.
+          # The SDK from global.json, with the .NET 10 runtime the fake emulator in the launch smoke test runs on.
           global-json-file: global.json
-          dotnet-version: 8.0.x
 
       - name: Install Godot
         env:

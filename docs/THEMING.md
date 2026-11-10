@@ -404,7 +404,7 @@ Blender 4.x's glTF exporter produces everything the launcher needs.
 **Check a model** from the repo, after `dotnet build`:
 
 ```
-.\tools\scrape-cli\bin\Debug\net8.0\odyssey-scrape.exe inspect-model --kind=template path\to\crt_tv.glb
+.\tools\scrape-cli\bin\Debug\net10.0\odyssey-scrape.exe inspect-model --kind=template path\to\crt_tv.glb
 ```
 
 It prints the triangle, material and texture counts against the budget, the slots and clips it found, the size, and every warning and error, without changing anything. Use `--kind=system` for a system model. Without `--kind`, the model is checked as a per-game model.
@@ -474,7 +474,7 @@ It scrolls the biggest system from the first row to the last, and reports frame 
 **Check it** with the command the list's owner runs, from this repository after `dotnet build`:
 
 ```
-.\tools\scrape-cli\bin\Debug\net8.0\odyssey-scrape.exe inspect-theme --json <your theme's folder>
+.\tools\scrape-cli\bin\Debug\net10.0\odyssey-scrape.exe inspect-theme --json <your theme's folder>
 ```
 
 It loads the theme as the launcher does (with every error and warning, and its line), checks each model against its budget, and prints the theme's size and an optional `covers` block listing what your theme brings (system cards and logos, templates, its own menus, videos), which the list can show. Fix every error, and name the folder after the id you want.

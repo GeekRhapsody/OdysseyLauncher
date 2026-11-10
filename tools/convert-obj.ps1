@@ -26,7 +26,7 @@ param(
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path $PSScriptRoot -Parent
 $script = Join-Path $PSScriptRoot 'convert-obj\obj_to_glb.py'
-$inspector = Join-Path $repo 'tools\scrape-cli\bin\Debug\net8.0\odyssey-scrape.exe'
+$inspector = Join-Path $repo 'tools\scrape-cli\bin\Debug\net10.0\odyssey-scrape.exe'
 
 if (-not $Blender) {
     $Blender = Get-ChildItem 'C:\Program Files\Blender Foundation\Blender *\blender.exe' -ErrorAction SilentlyContinue |

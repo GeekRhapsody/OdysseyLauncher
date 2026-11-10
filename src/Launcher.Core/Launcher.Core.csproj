@@ -1,8 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <!-- Follows the TFM Godot generates (4.7: net8.0). Bump every project together. -->
-    <TargetFramework>net8.0</TargetFramework>
+    <!-- Above the net8.0 Godot 4.7 generates, which it keeps (docs/ARCHITECTURE.md decisions log, 2026-11-09). Bump every project together. -->
+    <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <Configurations>Debug;ExportDebug;ExportRelease</Configurations>

@@ -118,8 +118,8 @@ def write_library(root, made):
     (root / "README.txt").write_text(
         "Made by tools/made-up-games/make_games.py: made-up games for the README's captures. Safe to delete.\n\n"
         "Scan the library and bring in the games' details (titles, descriptions, release dates...) once, from the repo root:\n\n"
-        f"  .\\tools\\scrape-cli\\bin\\Debug\\net8.0\\odyssey-scrape.exe --user-dir={root} scan\n"
-        + "".join(f"  .\\tools\\scrape-cli\\bin\\Debug\\net8.0\\odyssey-scrape.exe --user-dir={root} import-gamelist {s}\n"
+        f"  .\\tools\\scrape-cli\\bin\\Debug\\net10.0\\odyssey-scrape.exe --user-dir={root} scan\n"
+        + "".join(f"  .\\tools\\scrape-cli\\bin\\Debug\\net10.0\\odyssey-scrape.exe --user-dir={root} import-gamelist {s}\n"
                   for s in systems)
         + f"\nThen run the app with --user-dir={root}\n", encoding="utf-8", newline="\n")
 

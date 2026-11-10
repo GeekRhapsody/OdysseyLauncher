@@ -31,7 +31,7 @@ $root = Split-Path -Parent $PSScriptRoot
 if (-not $UserDir) { $UserDir = [IO.Path]::Combine($root, 'artifacts', 'launch-smoke') }
 $UserDir = [IO.Path]::GetFullPath($UserDir)
 
-$fakeBuild = [IO.Path]::Combine($root, 'tests', 'FakeEmulator', 'bin', 'Debug', 'net8.0')
+$fakeBuild = [IO.Path]::Combine($root, 'tests', 'FakeEmulator', 'bin', 'Debug', 'net10.0')
 $fakeName = if ([IO.Path]::DirectorySeparatorChar -eq '\') { 'FakeEmulator.exe' } else { 'FakeEmulator' }
 if (-not (Test-Path ([IO.Path]::Combine($fakeBuild, $fakeName)))) { throw "Build the fake emulator first (dotnet build): $fakeBuild" }
 

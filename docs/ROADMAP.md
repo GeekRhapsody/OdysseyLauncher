@@ -185,7 +185,7 @@ The hitch target was met by the chosen configuration, but it's reworded (see abo
   - to M6: the LRU texture cache and the focused item's full-resolution upgrade; theme loading and per-system looks (M5 uses the default look)
   - still to do, needing the owner or the hardware: handheld (undocked) mode; 3840×2160 docked (the desktop ran at 2560×1440); PresentMon; a real game launched from the grid (the owner's manual test; the launch path itself passes the headless smoke test)
   - FSR1: not available on the Mobile renderer, so bilinear stays
-  - the Godot side of the net10.0 comparison: needs every project's TFM changed on a branch; Core alone gained nothing
+  - the Godot side of the net10.0 comparison: needs every project's TFM changed on a branch; Core alone gained nothing (2026-11-09: net10.0 adopted, so the comparison is now the before-and-after bench on the Deck, the owner's)
 
 ## M6: Theming and custom models
 

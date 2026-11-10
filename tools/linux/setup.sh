@@ -2,8 +2,8 @@
 # Installs what the Linux build needs (docs/ARCHITECTURE.md decisions log, 2026-11-02), as root in WSL's distro, or as a
 # user with sudo for apt (the Release workflow's runner: decisions log, 2026-11-05):
 #
-#   ~/.dotnet                                     the .NET SDK global.json names (its major.minor, the newest patch)
-#                                                 and the .NET 8 runtime the tests and the fake emulator run on, by
+#   ~/.dotnet                                     the .NET SDK global.json names (its major.minor, the newest patch),
+#                                                 with the runtime the tests and the fake emulator run on, by
 #                                                 Microsoft's dotnet-install.sh
 #   ~/.cache/odyssey-linux/tools/powershell-<v>/  PowerShell 7, for the repo's .ps1 scripts (tools/launch-smoke.ps1)
 #   ~/.cache/odyssey-linux/tools/appimagetool-<v>-x86_64.AppImage, runtime-<v>-x86_64
@@ -34,7 +34,6 @@ mkdir -p "$TOOLS_DIR"
 curl --fail --location --silent --show-error --output "$installer" https://dot.net/v1/dotnet-install.sh
 sdk_channel="$(sed -n 's/.*"version": *"\([0-9]*\.[0-9]*\)\..*/\1/p' "$repo/global.json" | head -n 1)"
 bash "$installer" --channel "$sdk_channel" --install-dir "$DOTNET_ROOT" --no-path
-bash "$installer" --channel 8.0 --runtime dotnet --install-dir "$DOTNET_ROOT" --no-path
 
 echo "==> PowerShell $POWERSHELL_VERSION"
 tarball="$TOOLS_DIR/powershell-$POWERSHELL_VERSION-linux-x64.tar.gz"

@@ -44,8 +44,8 @@ layout fills the screen with. Not made: videos and manuals.
 5. **Review** `artifacts/made-up-games/sheets/<system>-<kind>.jpg` (every game's piece of one kind side by side).
 6. **Bring them into the app**, once, from the repo root (the library's `README.txt` has the exact lines):
    ```powershell
-   .\tools\scrape-cli\bin\Debug\net8.0\odyssey-scrape.exe --user-dir=$PWD\artifacts\made-up-games\library scan
-   .\tools\scrape-cli\bin\Debug\net8.0\odyssey-scrape.exe --user-dir=$PWD\artifacts\made-up-games\library import-gamelist megadrive
+   .\tools\scrape-cli\bin\Debug\net10.0\odyssey-scrape.exe --user-dir=$PWD\artifacts\made-up-games\library scan
+   .\tools\scrape-cli\bin\Debug\net10.0\odyssey-scrape.exe --user-dir=$PWD\artifacts\made-up-games\library import-gamelist megadrive
    ```
    and `import-gamelist` for `snes`, `n64`, `arcade` and `ps2` too. Run `scan` again after making new pieces.
 7. **Capture** the README's images: `python tools/made-up-games/readme_captures.py` (about fifteen minutes; leave the

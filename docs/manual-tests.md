@@ -34,7 +34,7 @@ It uses the RetroArch that RetroBat installed (`C:\RetroBat\emulators\retroarch`
    ```toml
    [emulators.stub-retroarch]
    name = "Stub, then RetroArch"
-   executable = 'C:\Users\claudio\Coding\OdysseyLauncher\tests\FakeEmulator\bin\Debug\net8.0\FakeEmulator.exe'
+   executable = 'C:\Users\claudio\Coding\OdysseyLauncher\tests\FakeEmulator\bin\Debug\net10.0\FakeEmulator.exe'
    core = "{retroarch}/cores/genesis_plus_gx_libretro.dll"
    args = ["--fake-start={retroarch}/retroarch.exe", "--", "-L", "{core}", "--fullscreen", "{rom}"]
    ```
@@ -192,7 +192,7 @@ This is the M4 acceptance's live scrape of a 50-game set, and the check of the b
 
    ```powershell
    dotnet build
-   $cli = ".\tools\scrape-cli\bin\Debug\net8.0\odyssey-scrape.exe"
+   $cli = ".\tools\scrape-cli\bin\Debug\net10.0\odyssey-scrape.exe"
    & $cli --user-dir=C:\OdysseyTest providers
    & $cli --user-dir=C:\OdysseyTest ss-systems
    ```
@@ -244,7 +244,7 @@ This checks what captures can't: switching themes on the real display, the look 
 
 ## M6 part 2: your own models, the sample theme and clips
 
-This checks what the scripts can't: a model made in Blender (or downloaded) imported for a real game, the sample theme's clips on the real display, and the model log. It uses the M3 set-up (`C:\OdysseyTest`) with the M5 Mega Drive ROMs. Build the tools first (`dotnet build`), and set `$cli = '.\tools\scrape-cli\bin\Debug\net8.0\odyssey-scrape.exe'`.
+This checks what the scripts can't: a model made in Blender (or downloaded) imported for a real game, the sample theme's clips on the real display, and the model log. It uses the M3 set-up (`C:\OdysseyTest`) with the M5 Mega Drive ROMs. Build the tools first (`dotnet build`), and set `$cli = '.\tools\scrape-cli\bin\Debug\net10.0\odyssey-scrape.exe'`.
 
 1. **Check a model.** Pick a `.glb` of your own (or export one from Blender as [THEMING.md](THEMING.md#9-making-models-in-blender) says), and run `& $cli --user-dir=C:\OdysseyTest inspect-model <file>`. It prints the triangles, materials and textures against the per-game budget, the slots and clips found, and any warnings. Nothing is changed.
 2. **Import it.** `& $cli --user-dir=C:\OdysseyTest import-model --from=<file> "megadrive/<a ROM's file name>"`. It says `Imported:` and where the model went (`C:\OdysseyTest\models\games\megadrive\<ROM file name>.glb`). A textures-too-large model is imported with its textures scaled down (a `note:` line says so).
@@ -385,7 +385,7 @@ This checks what the fixtures can't: that ScreenScraper really names its media a
 
 ## Steam store scraping
 
-This checks what the fixtures can't: Steam's live store answering searches, its art arriving, and its titles matching your shortcuts' names. It needs no credentials. It uses the M3 set-up (`C:\OdysseyTest`) with the Steam shortcuts from [Windows and Steam games](#windows-and-steam-games), and the scrape CLI built with `dotnet build`: `$cli = '.\tools\scrape-cli\bin\Debug\net8.0\odyssey-scrape.exe'`.
+This checks what the fixtures can't: Steam's live store answering searches, its art arriving, and its titles matching your shortcuts' names. It needs no credentials. It uses the M3 set-up (`C:\OdysseyTest`) with the Steam shortcuts from [Windows and Steam games](#windows-and-steam-games), and the scrape CLI built with `dotnet build`: `$cli = '.\tools\scrape-cli\bin\Debug\net10.0\odyssey-scrape.exe'`.
 
 1. **Opt in.** Under `[scraping]` in `C:\OdysseyTest\settings.toml`, set `provider = "steam"` and `fallback = ["screenscraper", "launchbox", "igdb", "steamgriddb"]`, and add `"hero"` to `media`. `& $cli --user-dir=C:\OdysseyTest providers` lists "Steam store: Ready" first. (Or in the app: Settings, Scraping, Default provider, then right until it says Steam store; Steam store's own page says no credentials are needed, and Test connection says "The Steam store answered.")
 2. **One game.** `& $cli --user-dir=C:\OdysseyTest game "steam/<a shortcut>.url"`, then `show` for it: the title, description, developer, publisher and release date are Steam's, the metadata source is `steam`, and the cover, hero, logo and screenshot are from `steam`. Genre and players come from ScreenScraper or IGDB.
@@ -400,7 +400,7 @@ This checks what the fixtures can't: Steam's live store answering searches, its 
 
 ## LaunchBox scraping
 
-This checks what the fixtures can't (2026-11-01): LaunchBox's real dump downloading and indexing, its matches on your own files, its art arriving, and its job card. It needs no credentials. It uses the M3 set-up (`C:\OdysseyTest`) and the scrape CLI built with `dotnet build`: `$cli = '.\tools\scrape-cli\bin\Debug\net8.0\odyssey-scrape.exe'`. Note the first download's time: it's about 110 MB.
+This checks what the fixtures can't (2026-11-01): LaunchBox's real dump downloading and indexing, its matches on your own files, its art arriving, and its job card. It needs no credentials. It uses the M3 set-up (`C:\OdysseyTest`) and the scrape CLI built with `dotnet build`: `$cli = '.\tools\scrape-cli\bin\Debug\net10.0\odyssey-scrape.exe'`. Note the first download's time: it's about 110 MB.
 
 1. **The first download, in the app.** Delete `C:\OdysseyTest\cache\launchbox\` if it's there. In the export, Settings, Scraping, LaunchBox Games DB: "Local copy" says "Not downloaded". Press A: a job card, "Updating LaunchBox's database", counts the megabytes downloaded, then indexed, and ends "Done: LaunchBox's database is ready." The row then shows about 190,000 games and today's dates. Press A again: the card ends "LaunchBox's database is up to date." Test connection says it's reachable and how many games the copy has.
 2. **LaunchBox alone.** Under `[scraping]` in `C:\OdysseyTest\settings.toml`, set `provider = "launchbox"` and `fallback = []`, and add `"hero"` and `"label"` to `media`. `& $cli --user-dir=C:\OdysseyTest system megadrive` (or a system you have more games for): note the time, the games not found, and any matched to the wrong game. `show` a few: the metadata source is `launchbox`, and the cover, back, spine, logo, fan art and cartridge or disc art are from `launchbox`.
@@ -646,7 +646,7 @@ This checks what the tests can't: the published list on GitHub, a real theme's c
 3. **Offline.** Turn the network off and open Download themes again: the list from last time shows, with a line saying it couldn't be brought up to date. Turn it back on.
 4. **Update.** A on the installed theme: "up to date". Change a line of its `theme.toml` by hand and press A again: still "up to date", and your change is kept (there's nothing new to overwrite it).
 5. **Remove.** Choose another theme under Theme, then Y on the downloaded one and Remove it: its folder is gone. Y on the theme in use says to choose another first.
-6. **From the command line.** `.\tools\scrape-cli\bin\Debug\net8.0\odyssey-scrape.exe --user-dir=C:\OdysseyThemesTest themes` lists the same themes and states.
+6. **From the command line.** `.\tools\scrape-cli\bin\Debug\net10.0\odyssey-scrape.exe --user-dir=C:\OdysseyThemesTest themes` lists the same themes and states.
 
 ### Send back
 

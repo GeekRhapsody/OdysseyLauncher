@@ -19,7 +19,7 @@ dotnet build --nologo
 
 # The native libraries the AppImage carries, where the tests load them from (beside Launcher.Core), with the struct
 # offsets FfmpegAbiTests compares with the bindings'.
-tests_out="$work/tests/Launcher.Core.Tests/bin/Debug/net8.0"
+tests_out="$work/tests/Launcher.Core.Tests/bin/Debug/net10.0"
 native=("${FFMPEG_LIBS[@]/#/$FFMPEG_DIR/lib/}" "$FFMPEG_DIR/ffmpeg-abi.txt" "$PDFIUM_DIR/lib/libpdfium.so")
 for file in "${native[@]}"; do
     if [[ ! -f $file ]]; then
