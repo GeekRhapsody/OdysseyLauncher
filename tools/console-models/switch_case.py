@@ -33,8 +33,10 @@ RADIUS, SEGMENTS = 3.5, 3       # the corners, seen from the front
 FRONT_CHAMFER = (0.798, 1.091)  # how far each chamfer is set in from the side, and how deep it is
 BACK_CHAMFER = (0.798, 1.999)
 
-# The insert: where its art starts and ends up the case, and how much case shows between it and the opening side.
-ART_BOTTOM, ART_TOP, ART_OPENING = 6.509, 166.275, 2.728
+# The insert: where its art starts and ends up the case, and how much case shows between it and the opening side. Its
+# front is the shape of ScreenScraper's box scans (396 x 640, as most of the owner's library has them), so a cover isn't
+# cropped: the hand-made model's insert (6.509 to 166.275 mm) cut about 1% off the top and the bottom.
+ART_BOTTOM, ART_TOP, ART_OPENING = 5.111, 167.673, 2.728
 SPINE_ASPECT = 0.0613           # the spine's art spans this much of the wrap (width over the art's height), centred
 
 # The groove in the opening side: where it starts and ends up the case, how deep it is, its mouth (the front's and the
