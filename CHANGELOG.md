@@ -10,6 +10,8 @@ it releases, and the Release workflow puts it on the release page (tools/release
 
 ## Unreleased
 
+## 1.2.0 (2026-11-10)
+
 ### New
 
 - Favourites and All games have their own options, like a system: press X on their card, or Menu inside them, to set their view, columns, rows and sort order.
