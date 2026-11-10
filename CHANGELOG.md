@@ -18,6 +18,7 @@ it releases, and the Release workflow puts it on the release page (tools/release
 ### Changed
 
 - Nintendo DS, 3DS and Wii games now come in a white plastic case, Wii U games in a teal one, and Xbox and Xbox 360 games in an Xbox-green one.
+- The Console theme's PlayStation looks like the real one: POWER and OPEN line up across the front of its top, with RESET behind POWER, and the lid is centred and as wide as the real one's, cutting into the raised ends. Its memory card slots and controller ports, the sockets on its back and the vents on both its ends match the real console too, and while it's focused it presses POWER to switch on and off.
 - The Console theme's All games card is a bigger pile: four more game boxes join it, a PlayStation 2, a PSP, a PlayStation and a Dreamcast case.
 - Switch cases show their covers in full: the top and the bottom of the cover art are no longer cut off.
 - Mega Drive and Genesis cases are a little deeper, so their spine art shows in full instead of being cut off at the sides.
