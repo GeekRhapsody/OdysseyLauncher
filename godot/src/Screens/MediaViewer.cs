@@ -92,7 +92,7 @@ public sealed partial class MediaViewer : UiPanel
         var line = new HBoxContainer { MouseFilter = MouseFilterEnum.Ignore };
         line.AddThemeConstantOverride("separation", 16);
         lines.AddChild(line);
-        _name = UiStyle.Label(string.Empty, new LabelSettings { FontSize = UiStyle.RowSize, FontColor = UiStyle.Text, ShadowColor = UiStyle.Glow, ShadowSize = 6, ShadowOffset = Vector2.Zero });
+        _name = UiStyle.Label(string.Empty, new LabelSettings { FontSize = UiStyle.RowSize, FontColor = UiStyle.Text });
         line.AddChild(_name);
         _place = UiStyle.Label(string.Empty, UiStyle.Detail);
         _place.SizeFlagsHorizontal = SizeFlags.ExpandFill;

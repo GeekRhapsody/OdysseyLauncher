@@ -258,7 +258,7 @@ public sealed partial class GameDetailsPanel : UiPanel
 
     private static Label Section(string text)
     {
-        var label = UiStyle.Label(text.ToUpperInvariant(), UiStyle.Section);
+        var label = UiStyle.Label(text, UiStyle.Section);
         label.CustomMinimumSize = new Vector2(0, 26);
         label.VerticalAlignment = VerticalAlignment.Bottom;
         return label;
@@ -266,7 +266,8 @@ public sealed partial class GameDetailsPanel : UiPanel
 
     private static StyleBoxFlat InfoBox(bool focused)
     {
-        var box = UiStyle.RowBox(UiStyle.Colour(focused ? MenuRole.CardFocused : MenuRole.CardPlain), focused ? UiStyle.Accent : default, focused ? 2 : 0, focused ? 8 : 0);
+        // A row's focus fill would make the whole block a slab of colour: a lighter one is enough for something this big.
+        var box = UiStyle.RowBox(UiStyle.Colour(focused ? MenuRole.RowHover : MenuRole.CardPlain));
         box.ContentMarginLeft = box.ContentMarginRight = 18;
         box.ContentMarginTop = box.ContentMarginBottom = 12;
         return box;

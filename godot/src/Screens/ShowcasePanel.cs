@@ -58,7 +58,6 @@ public sealed partial class ShowcasePanel : Control
     private readonly GridContainer _facts;
     private readonly Label[] _factLabels = new Label[MaxFields];
     private readonly Label[] _factValues = new Label[MaxFields];
-    private readonly LabelSettings _nameStyle;
     private readonly LabelSettings _factLabelStyle;
     private readonly AspectRatioContainer _screen;
     private readonly TextureRect _screenshot;
@@ -100,10 +99,10 @@ public sealed partial class ShowcasePanel : Control
 
         var head = new Control { CustomMinimumSize = new Vector2(0, HeadHeight), MouseFilter = MouseFilterEnum.Ignore };
         _column.AddChild(head);
-        _nameStyle = new LabelSettings { FontSize = 38, FontColor = Colors.White, ShadowSize = 10, ShadowOffset = Vector2.Zero };
+        var nameStyle = new LabelSettings { FontSize = 38, FontColor = Colors.White, ShadowColor = new Color(0, 0, 0, 0.6f), ShadowSize = 4, ShadowOffset = Vector2.Zero };
         _name = new Label
         {
-            LabelSettings = _nameStyle,
+            LabelSettings = nameStyle,
             AutowrapMode = TextServer.AutowrapMode.WordSmart,
             MaxLinesVisible = 2,
             TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis,
@@ -173,9 +172,8 @@ public sealed partial class ShowcasePanel : Control
         _screen.OffsetTop = Top;
         Backdrop.AddChild(_screen);
         var frame = new PanelContainer { MouseFilter = MouseFilterEnum.Ignore };
-        var box = new StyleBoxFlat { BgColor = new Color("#0B0F1C"), BorderColor = new Color(0.6f, 0.68f, 0.95f, 0.28f), ShadowColor = new Color(0, 0, 0, 0.6f), ShadowSize = 18 };
-        box.SetBorderWidthAll(1);
-        box.SetCornerRadiusAll(6);
+        var box = new StyleBoxFlat { BgColor = new Color("#0B0F1C"), ShadowColor = new Color(0, 0, 0, 0.6f), ShadowSize = 18 };
+        box.SetCornerRadiusAll(4);
         box.SetContentMarginAll(7);
         frame.AddThemeStyleboxOverride("panel", box);
         _screen.AddChild(frame);
@@ -196,7 +194,6 @@ public sealed partial class ShowcasePanel : Control
     /// <summary>Main thread: the panel takes the theme's colours (A6 Menus).</summary>
     public void Use(OverlayPalette palette)
     {
-        _nameStyle.ShadowColor = UiStyle.Colour(palette.Glow);
         _factLabelStyle.FontColor = UiStyle.Colour(palette.Subtitle);
     }
 

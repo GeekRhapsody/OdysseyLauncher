@@ -10,11 +10,11 @@ namespace Launcher.App.Screens;
 public sealed record OverlayDetails(long Key, bool Favourite);
 
 /// <summary>
-/// The PS2-style text over the grid: the focused item's title top left with a soft glow, what it belongs to under
-/// it, "Favourite" top right on a favourite game, and the controls bottom right. A system's and a game's details are on
-/// their details screens (Y: <see cref="SystemDetailsPanel"/>, <see cref="GameDetailsPanel"/>). 2D, at the project's
-/// base size (1280×800) and stretched, so it's native resolution at 4K. Its colours are the theme's (<see
-/// cref="OverlayPalette"/>, from <c>[ui.menu]</c>): the launcher's own blue unless the theme sets menu colours.
+/// The PS2-style text over the grid: the focused item's title top left, what it belongs to under it, "Favourite" top
+/// right on a favourite game, and the controls bottom right. A system's and a game's details are on their details
+/// screens (Y: <see cref="SystemDetailsPanel"/>, <see cref="GameDetailsPanel"/>). 2D, at the project's base size
+/// (1280×800) and stretched, so it's native resolution at 4K. Its colours are the theme's (<see cref="OverlayPalette"/>,
+/// from <c>[ui.menu]</c>): the launcher's own blue unless the theme sets menu colours.
 /// </summary>
 public sealed partial class InfoOverlay : CanvasLayer
 {
@@ -158,7 +158,7 @@ public sealed partial class InfoOverlay : CanvasLayer
 
         _title = new Label
         {
-            LabelSettings = new LabelSettings { FontSize = 34, FontColor = Colors.White, ShadowSize = 10, ShadowOffset = Vector2.Zero },
+            LabelSettings = new LabelSettings { FontSize = 34, FontColor = Colors.White, ShadowColor = new Color(0, 0, 0, 0.6f), ShadowSize = 4, ShadowOffset = Vector2.Zero },
             AutowrapMode = TextServer.AutowrapMode.WordSmart,
             MaxLinesVisible = 2,
             TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis,
@@ -191,7 +191,7 @@ public sealed partial class InfoOverlay : CanvasLayer
         _hints.OffsetTop = -48;
         _hints.OffsetBottom = -16;
 
-        _status = AddLabel(new LabelSettings { FontSize = 20, FontColor = Colors.White, ShadowSize = 8, ShadowOffset = Vector2.Zero });
+        _status = AddLabel(new LabelSettings { FontSize = 20, FontColor = Colors.White, ShadowColor = new Color(0, 0, 0, 0.6f), ShadowSize = 4, ShadowOffset = Vector2.Zero });
         _status.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.Center);
         _status.OffsetLeft = -400;
         _status.OffsetRight = 400;
@@ -288,11 +288,8 @@ public sealed partial class InfoOverlay : CanvasLayer
 
     private void Paint()
     {
-        var glow = UiStyle.Colour(_palette.Glow);
-        _title.LabelSettings.ShadowColor = glow;
         _subtitle.LabelSettings.FontColor = UiStyle.Colour(_palette.Subtitle);
         _hints.Settings.FontColor = UiStyle.Colour(_palette.Hint);
-        _status.LabelSettings.ShadowColor = glow;
         List.Use(_palette);
         Showcase.Use(_palette);
         SystemLabels.Use(_palette);

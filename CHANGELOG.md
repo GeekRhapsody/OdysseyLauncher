@@ -18,6 +18,7 @@ it releases, and the Release workflow puts it on the release page (tools/release
 
 ### Changed
 
+- The menus have a cleaner look: the focused item has a solid highlight instead of an outline and glow, panels have no borders, and headings are no longer in capitals. Titles over the games and systems have a plain shadow instead of a coloured glow.
 - Favourites are sorted the way Settings > Appearance sorts games, as All games is, unless you give them an order of their own. Before, they were always A to Z.
 - Nintendo DS, 3DS and Wii games now come in a white plastic case, Wii U games in a teal one, and Xbox and Xbox 360 games in an Xbox-green one.
 - The Console theme's PlayStation looks like the real one: POWER and OPEN line up across the front of its top, with RESET behind POWER, and the lid is centred and as wide as the real one's, cutting into the raised ends. Its memory card slots and controller ports, the sockets on its back and the vents on both its ends match the real console too, and while it's focused it presses POWER to switch on and off.

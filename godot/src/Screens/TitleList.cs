@@ -45,16 +45,15 @@ public sealed partial class TitleList : Control
         OffsetBottom = -64;
 
         // The colours are the theme's, set by Use: the launcher's own until then.
-        _box = new StyleBoxFlat { ShadowSize = 8 };
-        _box.SetBorderWidthAll(1);
-        _box.SetCornerRadiusAll(8);
+        _box = new StyleBoxFlat();
+        _box.SetCornerRadiusAll(4);
         _highlight = new Panel { MouseFilter = MouseFilterEnum.Ignore, Size = new Vector2(540, RowHeight) };
         _highlight.AddThemeStyleboxOverride("panel", _box);
         AddChild(_highlight);
 
         var shadow = new Color(0, 0, 0, 0.7f);
         _plain = new LabelSettings { FontSize = 19, ShadowColor = shadow, ShadowSize = 3, ShadowOffset = Vector2.Zero };
-        _focused = new LabelSettings { FontSize = 19, FontColor = Colors.White, ShadowSize = 6, ShadowOffset = Vector2.Zero };
+        _focused = new LabelSettings { FontSize = 19, FontColor = Colors.White, ShadowColor = shadow, ShadowSize = 3, ShadowOffset = Vector2.Zero };
         _systemStyle = new LabelSettings { FontSize = 14, ShadowColor = shadow, ShadowSize = 3, ShadowOffset = Vector2.Zero };
         Use(OverlayPalette.Legacy);
 
@@ -96,10 +95,7 @@ public sealed partial class TitleList : Control
     public void Use(OverlayPalette palette)
     {
         _box.BgColor = UiStyle.Colour(palette.ListFocusBox);
-        _box.BorderColor = UiStyle.Colour(palette.ListFocusBorder);
-        _box.ShadowColor = UiStyle.Colour(palette.ListFocusShadow);
         _plain.FontColor = UiStyle.Colour(palette.ListPlain);
-        _focused.ShadowColor = UiStyle.Colour(palette.Glow);
         _systemStyle.FontColor = UiStyle.Colour(palette.ListSystem);
     }
 

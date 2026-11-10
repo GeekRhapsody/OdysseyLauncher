@@ -31,10 +31,10 @@ public sealed partial class VirtualList : Control
 {
     public const float RowHeight = 40;
 
-    // The focused button's colours without its glow or vertical padding: a row's box must fit inside the row, or it
-    // spills over the rows above and below.
-    private static readonly StyleBoxFlat Selected = UiStyle.Keep(RowBox(UiStyle.Colour(MenuRole.RowFocus), UiStyle.Accent, 2));
-    private static readonly StyleBoxFlat SelectedUnfocused = UiStyle.Keep(RowBox(UiStyle.Colour(MenuRole.SelectedUnfocused), UiStyle.Colour(MenuRole.FieldBorder), 1));
+    // The focused button's colours without its vertical padding: a row's box must fit inside the row, or it spills over
+    // the rows above and below.
+    private static readonly StyleBoxFlat Selected = UiStyle.Keep(RowBox(UiStyle.Colour(MenuRole.RowFocus)));
+    private static readonly StyleBoxFlat SelectedUnfocused = UiStyle.Keep(RowBox(UiStyle.Colour(MenuRole.SelectedUnfocused)));
     private static readonly StyleBoxFlat Empty = RowBox(Colors.Transparent);
     private static readonly StringName PanelStyle = "panel";
 
@@ -223,9 +223,9 @@ public sealed partial class VirtualList : Control
         }
     }
 
-    private static StyleBoxFlat RowBox(Color background, Color border = default, int borderWidth = 0)
+    private static StyleBoxFlat RowBox(Color background)
     {
-        var box = UiStyle.RowBox(background, border, borderWidth);
+        var box = UiStyle.RowBox(background);
         box.ContentMarginTop = box.ContentMarginBottom = 0;
         return box;
     }

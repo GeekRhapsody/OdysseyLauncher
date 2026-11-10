@@ -86,7 +86,7 @@ public sealed partial class ManualViewer : UiPanel
         var line = new HBoxContainer { MouseFilter = MouseFilterEnum.Ignore };
         line.AddThemeConstantOverride("separation", 16);
         bar.AddChild(line);
-        line.AddChild(UiStyle.Label(name, new LabelSettings { FontSize = UiStyle.RowSize, FontColor = UiStyle.Text, ShadowColor = UiStyle.Glow, ShadowSize = 6, ShadowOffset = Vector2.Zero }));
+        line.AddChild(UiStyle.Label(name, new LabelSettings { FontSize = UiStyle.RowSize, FontColor = UiStyle.Text }));
         _place = UiStyle.Label(string.Empty, UiStyle.Detail);
         _place.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         _place.VerticalAlignment = VerticalAlignment.Center;

@@ -156,7 +156,7 @@ public abstract partial class ListPanel : UiPanel
 
     protected Label AddSection(string text)
     {
-        var label = UiStyle.Label(text.ToUpperInvariant(), UiStyle.Section);
+        var label = UiStyle.Label(text, UiStyle.Section);
         label.CustomMinimumSize = new Vector2(0, 30);
         label.VerticalAlignment = VerticalAlignment.Bottom;
         Rows.AddChild(label);

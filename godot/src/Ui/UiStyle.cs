@@ -9,9 +9,9 @@ using Theme = Godot.Theme;
 namespace Launcher.App.Ui;
 
 /// <summary>
-/// The menus' look (M7), built in code: translucent panels over the dimmed grid, rows that light up with a soft glow
-/// when focused, as the PS2 browser's text does. Sizes are at the project's base resolution (1280×800), which the
-/// canvas stretches, so they're native at 4K.
+/// The menus' look (M7), built in code: translucent panels over the dimmed grid, and a flat fill behind the focused row.
+/// No outlines, glows or capitals (decisions log, 2026-11-10: they read as a stock template). Sizes are at the
+/// project's base resolution (1280×800), which the canvas stretches, so they're native at 4K.
 /// <para>
 /// The colours and the font are the active theme's (A6 Menus, <see cref="MenuPalette"/>): the launcher's own deep blue
 /// unless the theme sets its own. <see cref="Apply"/> switches them in place: the shared style boxes and label settings
@@ -65,11 +65,8 @@ public static class UiStyle
     /// <summary>Notes, placeholders and what's off.</summary>
     public static Color Faint => Colour(MenuRole.Faint);
 
-    /// <summary>The focus's border, section headings and values.</summary>
+    /// <summary>Values and row actions ("Change", "Open"), and a text field's caret.</summary>
     public static Color Accent => Colour(MenuRole.Accent);
-
-    /// <summary>The glow around a heading.</summary>
-    public static Color Glow => Colour(MenuRole.Glow);
 
     public static Color PanelColour => Colour(MenuRole.Panel);
 
@@ -86,7 +83,7 @@ public static class UiStyle
         _ => 1,
     };
 
-    public static LabelSettings Title { get; } = Keep(new LabelSettings { FontSize = TitleSize, FontColor = Text, ShadowColor = Glow, ShadowSize = 10, ShadowOffset = Vector2.Zero });
+    public static LabelSettings Title { get; } = Keep(new LabelSettings { FontSize = TitleSize, FontColor = Text });
 
     public static LabelSettings Subtitle { get; } = Keep(new LabelSettings { FontSize = DetailSize, FontColor = Dim });
 
@@ -96,13 +93,13 @@ public static class UiStyle
 
     public static LabelSettings Detail { get; } = Keep(new LabelSettings { FontSize = DetailSize, FontColor = Dim });
 
-    public static LabelSettings Section { get; } = Keep(new LabelSettings { FontSize = HintSize, FontColor = Accent });
+    public static LabelSettings Section { get; } = Keep(new LabelSettings { FontSize = DetailSize, FontColor = Dim });
 
-    public static StyleBoxFlat Focused { get; } = Keep(RowBox(Colour(MenuRole.RowFocus), Accent, 2, 10));
+    public static StyleBoxFlat Focused { get; } = Keep(RowBox(Colour(MenuRole.RowFocus)));
 
     public static StyleBoxFlat Hovered { get; } = Keep(RowBox(Colour(MenuRole.RowHover)));
 
-    public static StyleBoxFlat Plain { get; } = Keep(RowBox(Colour(MenuRole.RowPlain)));
+    public static StyleBoxFlat Plain { get; } = Keep(RowBox(Colors.Transparent));
 
     /// <summary>One colour of the palette in use.</summary>
     public static Color Colour(MenuRole role) => _colours[(int)role];
@@ -111,28 +108,22 @@ public static class UiStyle
     public static Color Colour(Rgba colour) => new(colour.R, colour.G, colour.B, colour.A);
 
     /// <summary>A panel's frame: a new box each time, so its caller can change its margins.</summary>
-    public static StyleBoxFlat PanelBox(float radius = 16) => new()
+    public static StyleBoxFlat PanelBox(float radius = 6) => new()
     {
         BgColor = PanelColour,
-        BorderColor = Colour(MenuRole.PanelBorder),
-        BorderWidthLeft = 1,
-        BorderWidthRight = 1,
-        BorderWidthTop = 1,
-        BorderWidthBottom = 1,
         CornerRadiusTopLeft = (int)radius,
         CornerRadiusTopRight = (int)radius,
         CornerRadiusBottomLeft = (int)radius,
         CornerRadiusBottomRight = (int)radius,
         ShadowColor = Colour(MenuRole.PanelShadow),
-        ShadowSize = 24,
         ContentMarginLeft = 28,
         ContentMarginRight = 28,
         ContentMarginTop = 22,
         ContentMarginBottom = 18,
     };
 
-    /// <summary>A row's box in one state: transparent, hovered, focused (glowing) or pressed.</summary>
-    public static StyleBoxFlat RowBox(Color background, Color border = default, int borderWidth = 0, int glow = 0) => new()
+    /// <summary>A row's box in one state: transparent, hovered, focused or pressed. Only a text field has a border.</summary>
+    public static StyleBoxFlat RowBox(Color background, Color border = default, int borderWidth = 0) => new()
     {
         BgColor = background,
         BorderColor = border,
@@ -140,12 +131,10 @@ public static class UiStyle
         BorderWidthRight = borderWidth,
         BorderWidthTop = borderWidth,
         BorderWidthBottom = borderWidth,
-        CornerRadiusTopLeft = 8,
-        CornerRadiusTopRight = 8,
-        CornerRadiusBottomLeft = 8,
-        CornerRadiusBottomRight = 8,
-        ShadowColor = glow > 0 ? Colour(MenuRole.FocusGlow) : Colors.Transparent,
-        ShadowSize = glow,
+        CornerRadiusTopLeft = 4,
+        CornerRadiusTopRight = 4,
+        CornerRadiusBottomLeft = 4,
+        CornerRadiusBottomRight = 4,
         ContentMarginLeft = 16,
         ContentMarginRight = 16,
         ContentMarginTop = 8,
@@ -153,7 +142,7 @@ public static class UiStyle
     };
 
     /// <summary>A frame around a picture (a thumbnail, a cover): a new box each time.</summary>
-    public static StyleBoxFlat FrameBox() => RowBox(Colour(MenuRole.Frame), Colour(MenuRole.FrameBorder), 1);
+    public static StyleBoxFlat FrameBox() => RowBox(Colour(MenuRole.Frame));
 
     /// <summary>
     /// Keeps <paramref name="resource"/> (a <see cref="LabelSettings"/> or <see cref="StyleBoxFlat"/> made from this
@@ -266,7 +255,7 @@ public static class UiStyle
             {
                 theme.SetStylebox("normal", type, Plain);
                 theme.SetStylebox("hover", type, Hovered);
-                var pressed = Keep(RowBox(Colour(MenuRole.RowPressed), Accent, 2, 6));
+                var pressed = Keep(RowBox(Colour(MenuRole.RowPressed)));
                 theme.SetStylebox("pressed", type, pressed);
                 theme.SetStylebox("hover_pressed", type, pressed);
                 theme.SetStylebox("disabled", type, Keep(RowBox(Colour(MenuRole.RowDisabled))));
@@ -294,7 +283,7 @@ public static class UiStyle
 
         var track = Keep(RowBox(Colour(MenuRole.Track)));
         track.ContentMarginTop = track.ContentMarginBottom = 0;
-        var fill = Keep(RowBox(Colour(MenuRole.Fill), default, 0, 6));
+        var fill = Keep(RowBox(Colour(MenuRole.Fill)));
         fill.ContentMarginTop = fill.ContentMarginBottom = 0;
         theme.SetStylebox("background", "ProgressBar", track);
         theme.SetStylebox("fill", "ProgressBar", fill);

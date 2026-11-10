@@ -53,7 +53,7 @@ public sealed partial class JobsHud : CanvasLayer
     private static PanelContainer Card(BackgroundJob job)
     {
         var card = new PanelContainer { MouseFilter = Control.MouseFilterEnum.Ignore, CustomMinimumSize = new Vector2(Width, 0) };
-        var box = UiStyle.PanelBox(10);
+        var box = UiStyle.PanelBox(4);
         box.ContentMarginLeft = box.ContentMarginRight = 16;
         box.ContentMarginTop = box.ContentMarginBottom = 10;
         box.ShadowSize = 10;

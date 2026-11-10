@@ -46,9 +46,9 @@ public sealed partial class SystemDetailsPanel : UiPanel
 
         // The card's model, in the system's look, as it stands in the grid when focused.
         var frame = new PanelContainer { CustomMinimumSize = new Vector2(ModelWidth, 0), MouseFilter = MouseFilterEnum.Ignore };
-        var border = UiStyle.RowBox(new Color(0, 0, 0, 0), UiStyle.Colour(MenuRole.FrameBorder), 1);
-        border.ContentMarginLeft = border.ContentMarginRight = border.ContentMarginTop = border.ContentMarginBottom = 1;
-        frame.AddThemeStyleboxOverride("panel", border);
+        var area = UiStyle.FrameBox();
+        area.ContentMarginLeft = area.ContentMarginRight = area.ContentMarginTop = area.ContentMarginBottom = 0;
+        frame.AddThemeStyleboxOverride("panel", area);
         row.AddChild(frame);
         var templates = theme.CardTemplates;
         _model = ModelView.Show(
@@ -198,7 +198,7 @@ public sealed partial class SystemDetailsPanel : UiPanel
 
     private static Label Section(string text)
     {
-        var label = UiStyle.Label(text.ToUpperInvariant(), UiStyle.Section);
+        var label = UiStyle.Label(text, UiStyle.Section);
         label.CustomMinimumSize = new Vector2(0, 26);
         label.VerticalAlignment = VerticalAlignment.Bottom;
         return label;
@@ -206,7 +206,8 @@ public sealed partial class SystemDetailsPanel : UiPanel
 
     private static StyleBoxFlat InfoBox(bool focused)
     {
-        var box = UiStyle.RowBox(UiStyle.Colour(focused ? MenuRole.CardFocused : MenuRole.CardPlain), focused ? UiStyle.Accent : default, focused ? 2 : 0, focused ? 8 : 0);
+        // A row's focus fill would make the whole block a slab of colour: a lighter one is enough for something this big.
+        var box = UiStyle.RowBox(UiStyle.Colour(focused ? MenuRole.RowHover : MenuRole.CardPlain));
         box.ContentMarginLeft = box.ContentMarginRight = 18;
         box.ContentMarginTop = box.ContentMarginBottom = 12;
         return box;

@@ -141,9 +141,9 @@ bottom_right = "#100A08"
 wallpaper    = "wallpapers/ps2.png"   # optional; without one, its games show the corners only
 
 [ui.menu]                             # optional: the menus' look; every key is optional
-background = "#141414"                # the panels; their rows, frames and borders are mixed from this and accent
+background = "#141414"                # the panels; their rows, frames and fields' borders are mixed from this and accent
 text = "#ECECEC"                      # the text; dim and faint text are mixed from this towards background
-accent = "#C8C8C8"                    # the focused row's border and glow, section headings and values
+accent = "#C8C8C8"                    # the focused row's fill is mixed from it; values and row actions
 font = "fonts/menu.ttf"               # a TTF, OTF, WOFF or WOFF2 file of at most 4 MB
 
 [motion]                              # optional: the grids' motion; every key is optional

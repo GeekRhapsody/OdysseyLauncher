@@ -82,7 +82,7 @@ public sealed partial class GameArtPanel : UiPanel
         var margins = new MarginContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill, MouseFilter = MouseFilterEnum.Ignore };
         foreach (var side in (ReadOnlySpan<string>)["margin_left", "margin_right", "margin_top", "margin_bottom"])
         {
-            // Room for the focused tile's glow.
+            // Room around the tiles, clear of the scroll's edges.
             margins.AddThemeConstantOverride(side, 10);
         }
 
