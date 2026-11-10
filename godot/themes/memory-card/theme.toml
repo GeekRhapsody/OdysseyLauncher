@@ -95,7 +95,7 @@ shape = "media"                    # the cover's proportions; it has no thicknes
 model = "models/templates/flat_screenshot.glb"
 shape = "media"                    # no cover material, so the screenshot's proportions
 
-[templates.clamshell]              # 32X, SG-1000, SuperGrafx: a plastic clamshell shaped by each game's art, its insert round the front, spine and back, the spine's edges sharp; 136 x 190 x 24 mm without any
+[templates.clamshell]              # SG-1000, SuperGrafx: a plastic clamshell shaped by each game's art, its insert round the front, spine and back, the spine's edges sharp; 136 x 190 x 24 mm without any
 model = "models/templates/clamshell.glb"
 shape = "media"                    # the front takes the cover's proportions, the depth the spine's (A6)
 
@@ -938,7 +938,6 @@ colour = "#8F5C9E"
 
 [systems.sega32x]                       # 32X
 colour = "#5C7C9E"
-game_template = "clamshell"
 
 [systems.megacd]                       # Mega-CD: the PAL case
 colour = "#5C7D9E"
