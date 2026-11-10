@@ -63,7 +63,7 @@ neon-arcade/                      the folder name is the theme's id: lower-case 
 Every theme builds on Memory Card, so a theme can be as small as a single `name` line. Anything your theme leaves out comes from Memory Card:
 
 - **Look:** each of `[look.background]`, `[look.ambient]` and `[look.lights]` that you leave out or get wrong, and `look_transition_ms` (300). A system with no look of its own uses your theme's look.
-- **Templates:** `game_template` can name any of Memory Card's templates as well as your own: `dvd_case`, `jewel_case`, `psx_jewel_case`, `dreamcast_jewel_case`, `megacd_case`, `segacd_case`, `cartridge_box`, `gameboy_box`, `generic_box_spine`, `generic_box_top_spine`, `generic_box_logo`, `snes_box_horizontal`, `snes_box_vertical`, `clamshell`, `megadrive_clamshell`, `ps2_clamshell`, `ps2_clamshell_blue`, `psp_clamshell`, `umd_case`, `switch_case`, `arcade_cabinet`, `crt_tv_90s`, `flat_cover` and `flat_screenshot`. A `[templates.<id>]` table that uses one of these ids **extends** that template: each key you leave out (`model`, `shape`, or a slot's chain or `fit`) keeps Memory Card's value. For example, this keeps Memory Card's DVD case and changes only what its back shows:
+- **Templates:** `game_template` can name any of Memory Card's templates as well as your own: `dvd_case`, `jewel_case`, `psx_jewel_case`, `dreamcast_jewel_case`, `megacd_case`, `segacd_case`, `cartridge_box`, `gameboy_box`, `generic_box_spine`, `generic_box_top_spine`, `generic_box_logo`, `snes_box_horizontal`, `snes_box_vertical`, `clamshell`, `clamshell_white`, `clamshell_teal`, `clamshell_green`, `megadrive_clamshell`, `ps2_clamshell`, `ps2_clamshell_blue`, `psp_clamshell`, `umd_case`, `switch_case`, `arcade_cabinet`, `crt_tv_90s`, `flat_cover` and `flat_screenshot`. A `[templates.<id>]` table that uses one of these ids **extends** that template: each key you leave out (`model`, `shape`, or a slot's chain or `fit`) keeps Memory Card's value. For example, this keeps Memory Card's DVD case and changes only what its back shows:
 
   ```toml
   [templates.dvd_case.slots]
@@ -272,7 +272,7 @@ Box art doesn't come in one size: DOS big boxes alone range from tall to square 
 - Without a cover or a spine image, the model's own proportions are used. Covers are clamped to between 1:4 and 4:1, and the depth to between 2% and 50% of the side that the spine runs along.
 - The grid's cells fit the widest and tallest box in the list, and the back's art is cropped to the cover's shape.
 
-Memory Card's `generic_box_spine` (DOS), `generic_box_logo` (Windows and Steam), `generic_box_top_spine` (N64), `flat_cover` and `flat_screenshot` use this. To make a model for it:
+Memory Card's `generic_box_spine` (DOS), `generic_box_logo` (Windows and Steam), `generic_box_top_spine` (N64), `clamshell` (32X, SG-1000 and SuperGrafx), `clamshell_white` (Nintendo DS, 3DS and Wii), `clamshell_teal` (Wii U), `clamshell_green` (Xbox and Xbox 360), `flat_cover` and `flat_screenshot` use this. To make a model for it:
 
 - **It must have a `cover` material**, or else a `screenshot` one. Otherwise the key is ignored, with a warning.
 - **The spine can be on the sides, or on the top and bottom.** If the `spine` face is wider than it is high, it's a top and bottom: map a top's UVs left to right with the front at the image's bottom edge, and a bottom's with the front at its top edge, so both read from the front. On such a face, the generated title and logos read left to right.

@@ -41,6 +41,18 @@ public partial class BoxTemplateGenerator : Node
     /// <summary>The sample theme for theme authors (M6 part 2), relative to the project folder.</summary>
     public const string SampleThemeDir = "../samples/themes/retro-tv/models";
 
+    /// <summary>
+    /// A plastic clamshell with a thick rim. Clamshells came in many sizes, so the theme gives it shape = "media", as the
+    /// big box; 136 x 190 x 24 mm (the European Mega Drive case) is only the shape of one with no art. Its insert wraps
+    /// the front, the spine and the back: the spine's edges are sharp, with no chamfer, so its art meets the cover's and
+    /// the back's at a fold; theirs spans the caps, inside the rim at the top, the bottom and the opening side, so none
+    /// of it is hidden. The spine's corners' radius is the bevel's, as sharp edges need.
+    /// </summary>
+    private static readonly BoxSpec Clamshell =
+        new("clamshell", 136, 190, 24, SpineRadius: 2.5f, OpeningRadius: 6, Bevel: 2.5f,
+            CaseColour: new Color("#0E0E10"), CaseRoughness: 0.45f, ArtRoughness: 0.3f, ArtInsideBevels: true,
+            SharpSpineEdges: true);
+
     // Sizes are in millimetres, from real cases (width x height x depth).
     public static readonly BoxSpec[] Templates =
     [
@@ -105,9 +117,12 @@ public partial class BoxTemplateGenerator : Node
             CaseColour: new Color("#D6D3CB"), CaseRoughness: 0.85f, ArtRoughness: 0.7f, PrintedOpeningSide: true,
             PrintedBevels: true),
 
-        // Mega Drive (and Master System): the European plastic clamshell, 136 x 190 x 24, with a thick rim.
-        new("clamshell", 136, 190, 24, SpineRadius: 3, OpeningRadius: 6, Bevel: 2.5f,
-            CaseColour: new Color("#0E0E10"), CaseRoughness: 0.45f, ArtRoughness: 0.3f),
+        // 32X, SG-1000 and SuperGrafx: the clamshell in black. Nintendo DS, 3DS and Wii: in white. Wii U: in teal. Xbox and
+        // Xbox 360: in Xbox green.
+        Clamshell,
+        Clamshell with { Id = "clamshell_white", CaseColour = new Color("#E4E5E7"), CaseRoughness = 0.35f },
+        Clamshell with { Id = "clamshell_teal", CaseColour = new Color("#1A9AAE"), CaseRoughness = 0.35f },
+        Clamshell with { Id = "clamshell_green", CaseColour = new Color("#107C10"), CaseRoughness = 0.35f },
 
         // PSP: a UMD case, 104 x 180 x 14, with large rounded corners on the opening side.
         new("umd_case", 104, 180, 14, SpineRadius: 4, OpeningRadius: 14, Bevel: 1.4f,

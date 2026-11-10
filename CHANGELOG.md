@@ -10,6 +10,11 @@ it releases, and the Release workflow puts it on the release page (tools/release
 
 ## Unreleased
 
+### Changed
+
+- Nintendo DS, 3DS and Wii games now come in a white plastic case, Wii U games in a teal one, and Xbox and Xbox 360 games in an Xbox-green one.
+- The plastic clamshell that 32X, SG-1000 and SuperGrafx games come in (and the new coloured cases) takes each game's shape from its cover and spine, as DOS big boxes do, so cases of every size show all their art. Its cover now folds straight round the spine to the back, with no black lines along the spine's edges.
+
 ## 1.1.0 (2026-11-09)
 
 ### New

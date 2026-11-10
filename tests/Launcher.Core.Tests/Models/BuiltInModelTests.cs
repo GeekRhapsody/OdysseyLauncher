@@ -120,6 +120,46 @@ public sealed class BuiltInModelTests
     }
 
     [Theory]
+    [InlineData("clamshell")]
+    [InlineData("clamshell_white")]
+    [InlineData("clamshell_teal")]
+    [InlineData("clamshell_green")]
+    public void The_generic_clamshells_are_shaped_by_the_art_and_their_inserts_fold_round_a_sharp_spine(string id)
+    {
+        // Clamshells come in many sizes, so each game's case takes its cover's and spine's proportions. Its insert runs
+        // from the front round the spine to the back with no chamfer between them: the spine is one flat face as deep as
+        // the case and as tall as the cover's art, and the cover's and back's art reach its edges.
+        var template = ThemeFixtures.Load(ThemeFixtures.BaseFolder).Templates[id];
+        var model = Load(ThemeFixtures.BaseFolder, template.Model);
+        var (cover, back, spine) = (model.Bounds["cover"], model.Bounds["back"], model.Bounds["spine"]);
+
+        Assert.True(template.ShapeFromMedia);
+        Assert.Equal((model.Min[0], model.Min[0]), (spine.Min[0], spine.Max[0]));
+        Assert.Equal((model.Min[2], model.Max[2]), (spine.Min[2], spine.Max[2]));
+        Assert.Equal((cover.Min[1], cover.Max[1]), (spine.Min[1], spine.Max[1]));
+        Assert.Equal(model.Min[0], cover.Min[0]);
+        Assert.Equal(model.Min[0], back.Min[0]);
+
+        // Each face's art spans it whole, none of it under the chamfers, and its aspect is the face's.
+        Assert.All(["cover", "back", "spine"], slot => Assert.Equal((0f, 1f), model.SlotUvRanges[slot]));
+        Assert.Equal((cover.Max[0] - cover.Min[0]) / (cover.Max[1] - cover.Min[1]), model.Aspects["cover"], 0.001f);
+        Assert.Equal((back.Max[0] - back.Min[0]) / (back.Max[1] - back.Min[1]), model.Aspects["back"], 0.001f);
+        Assert.Equal((spine.Max[2] - spine.Min[2]) / (spine.Max[1] - spine.Min[1]), model.Aspects["spine"], 0.001f);
+    }
+
+    [Theory]
+    [InlineData("nds", "clamshell_white")]
+    [InlineData("n3ds", "clamshell_white")]
+    [InlineData("wii", "clamshell_white")]
+    [InlineData("wiiu", "clamshell_teal")]
+    [InlineData("xbox", "clamshell_green")]
+    [InlineData("xbox360", "clamshell_green")]
+    public void Nintendo_and_Xbox_games_are_in_the_clamshell_in_their_cases_colour(string system, string template)
+    {
+        Assert.Equal(template, ThemeFixtures.Load(ThemeFixtures.BaseFolder).Systems[system].GameTemplate);
+    }
+
+    [Theory]
     [InlineData("ps2_clamshell", 486, 55)]
     [InlineData("ps2_clamshell_blue", 486, 55)]
     [InlineData("psp_clamshell", 398, 59)]
@@ -241,6 +281,7 @@ public sealed class BuiltInModelTests
         }
     }
 
+    /// <param name="Bounds">Each material's positions' bounds, over all its primitives.</param>
     private sealed record Model(
         List<string> Materials,
         int Triangles,
@@ -248,7 +289,8 @@ public sealed class BuiltInModelTests
         float[] Min,
         float[] Max,
         Dictionary<string, (float Min, float Max)> SlotUvRanges,
-        Dictionary<string, float> Aspects);
+        Dictionary<string, float> Aspects,
+        Dictionary<string, (float[] Min, float[] Max)> Bounds);
 
     /// <param name="whiteSlots">Slot materials are white, as art multiplies them (every model but one made to show logos only).</param>
     private static Model Load(string folder, string relative, bool whiteSlots = true)
@@ -289,6 +331,7 @@ public sealed class BuiltInModelTests
         var min = new[] { float.MaxValue, float.MaxValue, float.MaxValue };
         var max = new[] { float.MinValue, float.MinValue, float.MinValue };
         var uvs = new Dictionary<string, (float Min, float Max)>(StringComparer.Ordinal);
+        var bounds = new Dictionary<string, (float[] Min, float[] Max)>(StringComparer.Ordinal);
         var triangles = 0;
         foreach (var mesh in root.GetProperty("meshes").EnumerateArray())
         {
@@ -296,14 +339,22 @@ public sealed class BuiltInModelTests
             {
                 var attributes = primitive.GetProperty("attributes");
                 var position = accessors[attributes.GetProperty("POSITION").GetInt32()];
+                var name = materials[primitive.GetProperty("material").GetInt32()];
+                if (!bounds.TryGetValue(name, out var box))
+                {
+                    box = (new[] { float.MaxValue, float.MaxValue, float.MaxValue }, new[] { float.MinValue, float.MinValue, float.MinValue });
+                    bounds[name] = box;
+                }
+
                 for (var axis = 0; axis < 3; axis++)
                 {
-                    min[axis] = Math.Min(min[axis], position.GetProperty("min")[axis].GetSingle());
-                    max[axis] = Math.Max(max[axis], position.GetProperty("max")[axis].GetSingle());
+                    var lowest = position.GetProperty("min")[axis].GetSingle();
+                    var highest = position.GetProperty("max")[axis].GetSingle();
+                    (min[axis], max[axis]) = (Math.Min(min[axis], lowest), Math.Max(max[axis], highest));
+                    (box.Min[axis], box.Max[axis]) = (Math.Min(box.Min[axis], lowest), Math.Max(box.Max[axis], highest));
                 }
 
                 triangles += accessors[primitive.GetProperty("indices").GetInt32()].GetProperty("count").GetInt32() / 3;
-                var name = materials[primitive.GetProperty("material").GetInt32()];
                 if (Slots.Contains(name))
                 {
                     var uv = accessors[attributes.GetProperty("TEXCOORD_0").GetInt32()];
@@ -321,6 +372,6 @@ public sealed class BuiltInModelTests
             }
         }
 
-        return new Model(materials, triangles, root.GetProperty("scenes").GetArrayLength(), min, max, uvs, aspects);
+        return new Model(materials, triangles, root.GetProperty("scenes").GetArrayLength(), min, max, uvs, aspects, bounds);
     }
 }

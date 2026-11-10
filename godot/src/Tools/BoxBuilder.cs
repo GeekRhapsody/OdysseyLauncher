@@ -45,6 +45,12 @@ public enum FrontSplit
 /// The front and back slots' art spans their caps, inside the chamfers, rather than the whole outline, so the chamfers
 /// hide none of it (the corners neither, when their radii are the bevel's). Their aspects are the caps'.
 /// </param>
+/// <param name="SharpSpineEdges">
+/// No chamfers between the spine and the front and back: the spine spans the whole depth and meets the caps at sharp
+/// edges, so its art meets the cover's and the back's there (with <see cref="ArtInsideBevels"/>, their art spans the
+/// caps to the spine, and inside the chamfers elsewhere). The top and bottom chamfers run out round the spine's
+/// corners, whose radius must be the bevel's. Only for a spine on the side.
+/// </param>
 /// <param name="LowerSlot">For <see cref="FrontSplit.LowerPanel"/>, the lower part's slot.</param>
 /// <param name="TestCardOnLowerSlot">Give the lower slot's material an authored texture (a test card), its last fallback.</param>
 /// <param name="SlotColour">
@@ -71,6 +77,7 @@ public sealed record BoxSpec(
     bool SpineOnTop = false,
     bool PrintedBevels = false,
     bool ArtInsideBevels = false,
+    bool SharpSpineEdges = false,
     string? LowerSlot = null,
     bool TestCardOnLowerSlot = false,
     Color? SlotColour = null);
@@ -105,22 +112,30 @@ public sealed class BoxBuilder
     /// <summary>A face's width over its height, for a slot material's <c>extras.aspect</c>.</summary>
     public static float SlotAspect(BoxSpec spec, string slot) => slot switch
     {
-        // The spine's UVs span the straight wall: the depth less both chamfers, and the height (or on top, the width)
-        // less both corners.
+        // The spine's UVs span the straight wall: the depth less both chamfers (with sharp edges, the whole depth), and
+        // the height (or on top, the width) less both corners.
         "spine" when spec.SpineOnTop => (spec.Width - spec.SpineRadius - spec.OpeningRadius) / (spec.Depth - 2 * spec.Bevel),
+        "spine" when spec.SharpSpineEdges => spec.Depth / (spec.Height - 2 * spec.SpineRadius),
         "spine" => (spec.Depth - 2 * spec.Bevel) / (spec.Height - 2 * spec.SpineRadius),
-        "back" => (spec.Width - 2 * ArtInset(spec)) / (spec.Height - 2 * ArtInset(spec)),
-        _ when slot == spec.LowerSlot => (spec.Width - 2 * ArtInset(spec)) / (spec.SplitAt - ArtInset(spec)),
+        "back" => ArtWidth(spec) / (spec.Height - 2 * ArtInset(spec)),
+        _ when slot == spec.LowerSlot => ArtWidth(spec) / (spec.SplitAt - ArtInset(spec)),
         _ => spec.Split switch
         {
             FrontSplit.SpineStrip => (spec.Width - spec.SplitAt - ArtInset(spec)) / (spec.Height - 2 * ArtInset(spec)),
-            FrontSplit.TopLabel or FrontSplit.LowerPanel => (spec.Width - 2 * ArtInset(spec)) / (spec.Height - spec.SplitAt - ArtInset(spec)),
-            _ => (spec.Width - 2 * ArtInset(spec)) / (spec.Height - 2 * ArtInset(spec)),
+            FrontSplit.TopLabel or FrontSplit.LowerPanel => ArtWidth(spec) / (spec.Height - spec.SplitAt - ArtInset(spec)),
+            _ => ArtWidth(spec) / (spec.Height - 2 * ArtInset(spec)),
         },
     };
 
     /// <summary>How far in from the outline the front and back art starts (<see cref="BoxSpec.ArtInsideBevels"/>).</summary>
     private static float ArtInset(BoxSpec spec) => spec.ArtInsideBevels ? spec.Bevel : 0;
+
+    /// <summary>How far in from the spine side the front and back art starts: the inset, or none at a sharp edge.</summary>
+    private static float SpineArtInset(BoxSpec spec) => spec.SharpSpineEdges ? 0 : ArtInset(spec);
+
+    /// <summary>The front and back art's width: the outline's less its insets.</summary>
+    private static float ArtWidth(BoxSpec spec) =>
+        spec.SharpSpineEdges ? spec.Width - ArtInset(spec) : spec.Width - 2 * ArtInset(spec);
 
     private void BuildAll()
     {
@@ -129,7 +144,7 @@ public sealed class BoxBuilder
         var outer = Outline(0);
         var inner = Outline(s.Bevel);
 
-        // Front and back caps, inset by the bevel.
+        // Front and back caps, inset by the bevel (but at a sharp spine).
         FrontCap(inner, halfDepth);
         BackCap(inner, -halfDepth);
 
@@ -140,19 +155,22 @@ public sealed class BoxBuilder
         var right = s.Width / 2 - inset;
         var printFront = s.PrintedBevels && s.Split == FrontSplit.None;
         var printBack = s.PrintedBevels && s.HasBackSlot;
-        Ring(inner, halfDepth, outer, halfDepth - s.Bevel, +1,
+        Ring(inner, outer, +1,
             printFront ? s.FrontSlot : "case", printFront ? i => PlanarUv(inner[i].Position, left, right, inset, s.Height - inset) : null);
-        Ring(outer, -halfDepth + s.Bevel, inner, -halfDepth, -1,
+        Ring(inner, outer, -1,
             printBack ? "back" : "case", printBack ? i => PlanarUv(inner[i].Position, right, left, inset, s.Height - inset) : null);
 
         // The sides.
-        Walls(outer, halfDepth - s.Bevel, -halfDepth + s.Bevel);
+        Walls(outer);
     }
 
     // ---- Outline ----------------------------------------------------------------------------------
 
-    /// <summary>A point on the front outline, with its outward normal and which side it belongs to.</summary>
-    private readonly record struct OutlinePoint(Vector2 Position, Vector2 Normal, Side Side);
+    /// <summary>
+    /// A point on the front outline, with its outward normal, which side it belongs to, and how far back from the cap
+    /// the chamfer reaches there: the bevel, but none along a sharp spine and less round its corners.
+    /// </summary>
+    private readonly record struct OutlinePoint(Vector2 Position, Vector2 Normal, Side Side, float Bevel);
 
     private enum Side
     {
@@ -182,8 +200,17 @@ public sealed class BoxBuilder
         // Counter-clockwise from the front: bottom-right, top-right, top-left, bottom-left, with the spine on the left.
         Corner(new Vector2(right - openingRadius, bottom + openingRadius), openingRadius, -90);
         Corner(new Vector2(right - openingRadius, top - openingRadius), openingRadius, 0);
-        Corner(new Vector2(left + spineRadius, top - spineRadius), spineRadius, 90);
-        Corner(new Vector2(left + spineRadius, bottom + spineRadius), spineRadius, 180);
+        if (s.SharpSpineEdges)
+        {
+            SharpSpineCorner(s.Height - s.SpineRadius, 1);
+            SharpSpineCorner(s.SpineRadius, -1);
+        }
+        else
+        {
+            Corner(new Vector2(left + spineRadius, top - spineRadius), spineRadius, 90);
+            Corner(new Vector2(left + spineRadius, bottom + spineRadius), spineRadius, 180);
+        }
+
         return points;
 
         void Corner(Vector2 centre, float radius, float startDegrees)
@@ -192,7 +219,25 @@ public sealed class BoxBuilder
             {
                 var angle = Mathf.DegToRad(startDegrees + 90f * i / CornerSegments);
                 var normal = new Vector2(MathF.Cos(angle), MathF.Sin(angle));
-                points.Add(new OutlinePoint(centre + normal * radius, normal, Side.Corner));
+                points.Add(new OutlinePoint(centre + normal * radius, normal, Side.Corner, s.Bevel));
+            }
+        }
+
+        // A corner of a sharp spine (up: 1 at the top, -1 at the bottom), its radius the bevel's. The cap's outline is inset
+        // only upright there, so its corner is square and reaches the spine; the chamfer, in the plane of the top's (or the
+        // bottom's), runs out from the bevel's depth to none at the spine, and takes that chamfer's normal. Each sine is of
+        // a whole part of a quarter-turn, so the ends come out exactly 0 and 1 (cos(pi/2) in floats isn't 0).
+        void SharpSpineCorner(float centreY, float up)
+        {
+            var centre = new Vector2(-s.Width / 2 + s.SpineRadius, centreY);
+            for (var i = 0; i <= CornerSegments; i++)
+            {
+                var k = up > 0 ? i : CornerSegments - i;
+                var across = MathF.Sin(Mathf.DegToRad(90f * k / CornerSegments));
+                var upright = MathF.Sin(Mathf.DegToRad(90f * (CornerSegments - k) / CornerSegments));
+                var position = centre + new Vector2(-across * s.SpineRadius, up * upright * (s.SpineRadius - inset));
+                var normal = inset > 0 ? new Vector2(0, up) : new Vector2(-across, up * upright);
+                points.Add(new OutlinePoint(position, normal, Side.Corner, s.Bevel * upright));
             }
         }
     }
@@ -228,7 +273,7 @@ public sealed class BoxBuilder
         }
 
         var inset = ArtInset(s);
-        var left = -s.Width / 2 + inset;
+        var left = -s.Width / 2 + SpineArtInset(s);
         var right = s.Width / 2 - inset;
         var bottom = inset;
         var top = s.Height - inset;
@@ -271,7 +316,7 @@ public sealed class BoxBuilder
         // Seen from behind, +X is on the left.
         var inset = ArtInset(s);
         Cap(polygon, z, Vector3.Forward, s.HasBackSlot ? "back" : "case",
-            p => PlanarUv(p, s.Width / 2 - inset, -s.Width / 2 + inset, inset, s.Height - inset));
+            p => PlanarUv(p, s.Width / 2 - inset, -s.Width / 2 + SpineArtInset(s), inset, s.Height - inset));
     }
 
     /// <summary>u across the face from <paramref name="uFrom"/> to <paramref name="uTo"/>; v from the top down.</summary>
@@ -295,7 +340,11 @@ public sealed class BoxBuilder
 
         for (var i = 1; i < polygon.Count - 1; i++)
         {
-            surface.Triangle(first, first + i, first + i + 1);
+            // A sharp spine's corners put points in line along the cap's edge: no triangle between those and the first.
+            if ((polygon[i] - polygon[0]).Cross(polygon[i + 1] - polygon[0]) != 0)
+            {
+                surface.Triangle(first, first + i, first + i + 1);
+            }
         }
     }
 
@@ -328,35 +377,59 @@ public sealed class BoxBuilder
     // ---- Chamfers and sides ----------------------------------------------------------------------------
 
     /// <summary>
-    /// A band between two outlines of the same length, the first nearer the front. With <paramref name="uv"/>, both
-    /// rows of outline point i take its UV; without, each quad spans 0..1.
+    /// The chamfer from the cap's outline to the sides', on the front (<paramref name="facing"/> +1) or the back (-1):
+    /// each point of the sides' outline is its own bevel back from the cap, and the cap's outline faces the chamfer's
+    /// way. With <paramref name="uv"/>, both rows of outline point i take its UV; without, each quad spans 0..1.
     /// </summary>
-    private void Ring(List<OutlinePoint> front, float frontZ, List<OutlinePoint> back, float backZ, float facing, string material, Func<int, Vector2>? uv)
+    private void Ring(List<OutlinePoint> cap, List<OutlinePoint> sides, float facing, string material, Func<int, Vector2>? uv)
     {
         var surface = SurfaceFor(material);
-        for (var i = 0; i < front.Count; i++)
+        var halfDepth = _spec.Depth / 2;
+        for (var i = 0; i < cap.Count; i++)
         {
-            var j = (i + 1) % front.Count;
-            var n0 = new Vector3(front[i].Normal.X, front[i].Normal.Y, facing).Normalized();
-            var n1 = new Vector3(front[j].Normal.X, front[j].Normal.Y, facing).Normalized();
+            var j = (i + 1) % cap.Count;
+            if (sides[i].Bevel == 0 && sides[j].Bevel == 0)
+            {
+                continue; // along a sharp spine: no chamfer
+            }
+
+            var n0 = new Vector3(cap[i].Normal.X, cap[i].Normal.Y, facing).Normalized();
+            var n1 = new Vector3(cap[j].Normal.X, cap[j].Normal.Y, facing).Normalized();
             var (uvI0, uvJ0, uvJ1, uvI1) = uv is null
                 ? (new Vector2(0, 0), new Vector2(1, 0), new Vector2(1, 1), new Vector2(0, 1))
                 : (uv(i), uv(j), uv(j), uv(i));
-            var v = surface.Vertices.Count;
-            surface.Add(Metres(front[i].Position.X, front[i].Position.Y, frontZ), n0, uvI0);
-            surface.Add(Metres(front[j].Position.X, front[j].Position.Y, frontZ), n1, uvJ0);
-            surface.Add(Metres(back[j].Position.X, back[j].Position.Y, backZ), n1, uvJ1);
-            surface.Add(Metres(back[i].Position.X, back[i].Position.Y, backZ), n0, uvI1);
 
-            // Front outline runs counter-clockwise seen from the front; seen from outside the band, i -> j is to the right.
-            surface.Triangle(v, v + 3, v + 2);
-            surface.Triangle(v, v + 2, v + 1);
+            // The row nearer the front first: on the front the cap's, on the back the sides'.
+            var capI = Metres(cap[i].Position.X, cap[i].Position.Y, facing * halfDepth);
+            var capJ = Metres(cap[j].Position.X, cap[j].Position.Y, facing * halfDepth);
+            var sideI = Metres(sides[i].Position.X, sides[i].Position.Y, facing * (halfDepth - sides[i].Bevel));
+            var sideJ = Metres(sides[j].Position.X, sides[j].Position.Y, facing * (halfDepth - sides[j].Bevel));
+            var (frontI, frontJ, backJ, backI) = facing > 0 ? (capI, capJ, sideJ, sideI) : (sideI, sideJ, capJ, capI);
+            var v = surface.Vertices.Count;
+            surface.Add(frontI, n0, uvI0);
+            surface.Add(frontJ, n1, uvJ0);
+            surface.Add(backJ, n1, uvJ1);
+            surface.Add(backI, n0, uvI1);
+
+            // The front row runs counter-clockwise seen from the front; seen from outside the band, i -> j is to the
+            // right. Where a point has no chamfer, its two corners of the quad are one, and only the other triangle has an area.
+            if (sides[i].Bevel > 0)
+            {
+                surface.Triangle(v, v + 3, v + 2);
+            }
+
+            if (sides[j].Bevel > 0)
+            {
+                surface.Triangle(v, v + 2, v + 1);
+            }
         }
     }
 
-    private void Walls(List<OutlinePoint> outline, float frontZ, float backZ)
+    /// <summary>The sides, each point from its bevel behind the front to its bevel before the back.</summary>
+    private void Walls(List<OutlinePoint> outline)
     {
         var s = _spec;
+        var halfDepth = s.Depth / 2;
         var straightTop = s.Height - s.SpineRadius;
         var straightBottom = s.SpineRadius;
         for (var i = 0; i < outline.Count; i++)
@@ -410,10 +483,12 @@ public sealed class BoxBuilder
             var v = surface.Vertices.Count;
             var na = new Vector3(a.Normal.X, a.Normal.Y, 0);
             var nb = new Vector3(b.Normal.X, b.Normal.Y, 0);
-            surface.Add(Metres(a.Position.X, a.Position.Y, frontZ), na, uvA0);
-            surface.Add(Metres(b.Position.X, b.Position.Y, frontZ), nb, uvB0);
-            surface.Add(Metres(b.Position.X, b.Position.Y, backZ), nb, uvB1);
-            surface.Add(Metres(a.Position.X, a.Position.Y, backZ), na, uvA1);
+            var frontA = halfDepth - a.Bevel;
+            var frontB = halfDepth - b.Bevel;
+            surface.Add(Metres(a.Position.X, a.Position.Y, frontA), na, uvA0);
+            surface.Add(Metres(b.Position.X, b.Position.Y, frontB), nb, uvB0);
+            surface.Add(Metres(b.Position.X, b.Position.Y, -frontB), nb, uvB1);
+            surface.Add(Metres(a.Position.X, a.Position.Y, -frontA), na, uvA1);
             surface.Triangle(v, v + 3, v + 2);
             surface.Triangle(v, v + 2, v + 1);
         }

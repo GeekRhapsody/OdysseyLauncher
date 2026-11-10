@@ -95,8 +95,21 @@ shape = "media"                    # the cover's proportions; it has no thicknes
 model = "models/templates/flat_screenshot.glb"
 shape = "media"                    # no cover material, so the screenshot's proportions
 
-[templates.clamshell]              # Master System and other Sega plastic cases: 136 x 190 x 24 mm
+[templates.clamshell]              # 32X, SG-1000, SuperGrafx: a plastic clamshell shaped by each game's art, its insert round the front, spine and back, the spine's edges sharp; 136 x 190 x 24 mm without any
 model = "models/templates/clamshell.glb"
+shape = "media"                    # the front takes the cover's proportions, the depth the spine's (A6)
+
+[templates.clamshell_white]        # Nintendo DS, 3DS, Wii: the same clamshell in white
+model = "models/templates/clamshell_white.glb"
+shape = "media"
+
+[templates.clamshell_teal]         # Wii U: the same clamshell in teal
+model = "models/templates/clamshell_teal.glb"
+shape = "media"
+
+[templates.clamshell_green]        # Xbox, Xbox 360: the same clamshell in Xbox green
+model = "models/templates/clamshell_green.glb"
+shape = "media"
 
 [templates.megadrive_clamshell]    # Mega Drive: Sega's clamshell with its hanger tab, its insert sized by the scraped art: 134 x 190 (205.4 with the tab) x 21.9 mm
 model = "models/templates/megadrive_clamshell.glb"  # built by tools/console-models/mega_drive_clamshell.py
@@ -798,6 +811,7 @@ colour = "#9E5C7C"
 
 [systems.n3ds]                       # Nintendo 3DS
 colour = "#9E725C"
+game_template = "clamshell_white"
 
 [systems.n64dd]                       # 64DD
 colour = "#9E6A5C"
@@ -816,6 +830,7 @@ game_template = "arcade_cabinet"
 
 [systems.nds]                       # Nintendo DS
 colour = "#9E665C"
+game_template = "clamshell_white"
 
 [systems.neogeo]                       # Neo Geo
 colour = "#9E815C"
@@ -1032,11 +1047,11 @@ colour = "#5C9E96"
 
 [systems.wii]                       # Wii
 colour = "#9E6A5C"
-game_template = "dvd_case"
+game_template = "clamshell_white"
 
 [systems.wiiu]                       # Wii U
 colour = "#9E5C65"
-game_template = "dvd_case"
+game_template = "clamshell_teal"
 
 [systems.windows]                       # Windows
 colour = "#629E5C"
@@ -1066,11 +1081,11 @@ game_template = "dvd_case"
 
 [systems.xbox]                       # Xbox
 colour = "#5C9E68"
-game_template = "dvd_case"
+game_template = "clamshell_green"
 
 [systems.xbox360]                       # Xbox 360
 colour = "#5C9E5E"
-game_template = "dvd_case"
+game_template = "clamshell_green"
 
 [systems.zmachine]                       # Infocom Z-machine
 colour = "#9E9C5C"
