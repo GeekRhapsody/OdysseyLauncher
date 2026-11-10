@@ -12,7 +12,7 @@ public readonly record struct Hint(string Text, Prompt First, Prompt? Second = n
 /// docs/ARCHITECTURE.md A1 "Button icons") and its words, right-aligned. The glyphs take the words' colour (their
 /// <see cref="LabelSettings"/>' font colour, followed when it changes), so a theme's palette tints both. Callers keep
 /// their hints in static arrays: <see cref="Show"/> with the array already shown does nothing, so a screen can show its
-/// hints as often as it likes. A hint none of whose buttons the device has (the right stick, on a keyboard) is left out.
+/// hints as often as it likes. A hint none of whose buttons the device has (LT alone, on a keyboard) is left out.
 /// </summary>
 public sealed partial class HintBar : HBoxContainer
 {

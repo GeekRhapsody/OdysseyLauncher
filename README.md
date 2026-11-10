@@ -143,7 +143,7 @@ The hints along the bottom of each screen show the buttons for the controller yo
 | Details | Y | I |
 | Favourite | L3 | F |
 | Inspect (bring the game up close) | R3 | Z |
-| Turn the focused item | Right stick | |
+| Turn the focused item | Right stick | W, A, S, D |
 | Page up, page down | LB, RB | Page Up, Page Down |
 | Previous, next letter | LT, RT | <kbd>[</kbd>, <kbd>]</kbd> |
 | Settings (in a system's games, that system's settings) | Menu | F1 |

@@ -500,6 +500,21 @@ This checks what a capture can't: a real pad's R3 (pressing the right stick), an
 - A game that leaves the screen when inspected without being turned (which system and game), one that's clearly smaller than the screen, and whether the size feels right on the Deck and docked.
 - Whether pressing R3 turns the game noticeably.
 
+## Turning an item with W, A, S and D
+
+This checks what a capture can't: how held keys feel, since a key is the stick at full tilt with nothing in between. Use the export on a PC, with the keyboard only.
+
+1. **A game, inspected.** In a system's games, press Z, then hold D: the game turns round its vertical, the front going right, as the right stick turns it; A turns it the other way. W tips its front up, S down, each stopping before it turns over. Hold W and D together: it turns both ways at once. Let go: it stays where you left it. The arrow keys still move to the next game, which ends the inspection.
+2. **The grids.** Without inspecting, W, A, S and D turn the focused game, and on the systems screen the focused system, and moving on sets it square.
+3. **A system's details.** Press I on a system: W, A, S and D turn its model; the arrows still turn it a step and scroll.
+4. **A manual.** Open a game's manual and zoom a page (Enter): W and S scroll it, as up and down do.
+5. **The hints.** In a system's details, the "Turn the model" hint shows the arrows and W A S D; with a pad last used, the D-pad and the right stick.
+6. **Typing.** In the settings, open any setting that takes text (the on-screen keyboard): typing W, A, S and D types them, and nothing behind turns.
+
+### Send back
+
+- Whether a held key turns too fast to stop where you want, and anything that turns or scrolls while typing.
+
 ## A system's details
 
 This checks what a capture can't: a real pad on the screen, and how the model looks on the Deck and docked. Use the export on your own library, with the console theme.

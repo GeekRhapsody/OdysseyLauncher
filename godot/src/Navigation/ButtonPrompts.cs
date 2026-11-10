@@ -40,7 +40,7 @@ public enum Prompt
     UpDown,
     LeftRight,
 
-    /// <summary>The right stick; nothing on the keyboard.</summary>
+    /// <summary>The right stick, or W, A, S and D.</summary>
     RightStick,
 
     /// <summary>LT alone (the on-screen keyboard's shift); nothing on the keyboard.</summary>
@@ -80,7 +80,7 @@ public static class ButtonPrompts
     private static readonly string[][] KeyGlyphs =
     [
         ["enter"], ["escape"], ["i"], ["o"], ["f1"], ["p"], ["f"], ["z"], ["page_up", "page_down"], ["bracket_open", "bracket_close"],
-        ["arrows_vertical"], ["arrows_horizontal"], [], [], [],
+        ["arrows_vertical"], ["arrows_horizontal"], ["w", "a", "s", "d"], [], [],
     ];
 
     private static readonly List<(long Device, ButtonIcons Icons)> Pads = [];

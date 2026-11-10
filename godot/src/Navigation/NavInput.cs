@@ -76,8 +76,10 @@ public sealed class NavInput
     /// <summary>The right stick turns the focused item (<see cref="ReadTurn"/>), so it can lean further before it counts.</summary>
     private const float TurnDeadzone = 0.2f;
 
-    // The right stick's four directions, gamepad only: left, right, up, down.
-    private static readonly StringName[] Turn = ["nav_turn_left_pad", "nav_turn_right_pad", "nav_turn_up_pad", "nav_turn_down_pad"];
+    // The turn's four directions, left, right, up and down: the right stick's, and A, D, W and S (2026-11-10). One
+    // action each for both: the grids (with no panel open) and the top panel read them, and none of those takes typing
+    // (only the on-screen keyboard does).
+    private static readonly StringName[] Turn = ["nav_turn_left", "nav_turn_right", "nav_turn_up", "nav_turn_down"];
 
     private static readonly Binding[] Repeating =
     [
@@ -114,7 +116,7 @@ public sealed class NavInput
     /// <summary>
     /// Adds the <c>nav_*</c> actions to the input map, once at boot: arrows, Enter/Space, Escape/Backspace and the
     /// rest on the keyboard; the D-pad, left stick (and its click), A/B/X/Y, shoulders, triggers, View and Menu on a gamepad;
-    /// and the right stick's four directions, which turn the focused item, and its click.
+    /// and the right stick's four directions (or W, A, S and D), which turn the focused item, and its click.
     /// </summary>
     public static void RegisterActions()
     {
@@ -139,10 +141,10 @@ public sealed class NavInput
         AddPress(10, [Key.P], [JoyButton.Back]);
         AddPress(11, [Key.F], [JoyButton.LeftStick]);
         AddPress(12, [Key.Z], [JoyButton.RightStick]);
-        AddTurn(0, JoyAxis.RightX, -1);
-        AddTurn(1, JoyAxis.RightX, 1);
-        AddTurn(2, JoyAxis.RightY, -1);
-        AddTurn(3, JoyAxis.RightY, 1);
+        AddTurn(0, Key.A, JoyAxis.RightX, -1);
+        AddTurn(1, Key.D, JoyAxis.RightX, 1);
+        AddTurn(2, Key.W, JoyAxis.RightY, -1);
+        AddTurn(3, Key.S, JoyAxis.RightY, 1);
 
         foreach (var action in GodotNavigation)
         {
@@ -159,18 +161,20 @@ public sealed class NavInput
     /// <param name="shift">The keys with Shift held (Shift+F5).</param>
     private static void AddPress(int index, Key[] keys, JoyButton[] buttons, bool shift = false) => Register(Presses[index], keys, buttons, null, shift);
 
-    private static void AddTurn(int index, JoyAxis axis, float direction)
+    private static void AddTurn(int index, Key key, JoyAxis axis, float direction)
     {
         if (!InputMap.HasAction(Turn[index]))
         {
             InputMap.AddAction(Turn[index], TurnDeadzone);
+            InputMap.ActionAddEvent(Turn[index], new InputEventKey { PhysicalKeycode = key });
             InputMap.ActionAddEvent(Turn[index], new InputEventJoypadMotion { Axis = axis, AxisValue = direction, Device = -1 });
         }
     }
 
     /// <summary>
     /// Main thread: the right stick, for turning the focused item, each axis -1 to 1 (right and down positive), past a
-    /// round deadzone and rescaled from its edge. Not a command: it's read every frame while it's held, and doesn't repeat.
+    /// round deadzone and rescaled from its edge; a held W, A, S or D is the stick at full tilt that way. Not a command:
+    /// it's read every frame while it's held, and doesn't repeat.
     /// </summary>
     public static Vector2 ReadTurn() => Godot.Input.GetVector(Turn[0], Turn[1], Turn[2], Turn[3]);
 

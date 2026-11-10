@@ -12,6 +12,7 @@ it releases, and the Release workflow puts it on the release page (tools/release
 
 ### New
 
+- W, A, S and D turn the focused game or system on the keyboard, as the right stick does, including a game you've brought up close with Z. In a system's details they turn its model, and on a zoomed manual page W and S scroll it.
 - The Console theme has a card for the Nintendo Switch 2: when you move to it, it takes a Joy-Con 2 off and uses it on the table as a mouse to play a game on its screen. It shows for a system you add yourself with the id `switch2`, as the launcher doesn't have a Switch 2 system of its own yet.
 
 ### Changed

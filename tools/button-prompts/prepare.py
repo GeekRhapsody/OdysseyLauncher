@@ -83,6 +83,7 @@ GLYPHS = {
         "page_up": "keyboard_page_up", "page_down": "keyboard_page_down",
         "bracket_open": "keyboard_bracket_open", "bracket_close": "keyboard_bracket_close",
         "arrows_vertical": "keyboard_arrows_vertical", "arrows_horizontal": "keyboard_arrows_horizontal",
+        "w": "keyboard_w", "a": "keyboard_a", "s": "keyboard_s", "d": "keyboard_d",
     }),
 }
 

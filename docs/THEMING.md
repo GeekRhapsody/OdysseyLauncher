@@ -303,7 +303,7 @@ The user's own models (1 and 3) use the default slot chains, and a chosen templa
 3. Your theme's `[defaults] system_model`.
 4. Memory Card's generic card: a memory card slab with the system's name, in its colour.
 
-The system's details screen (Y on the system) shows its card large, plays its `focused` clip, and lets the user turn it with the right stick, so its back and underside show. That's why system models have a bigger budget than game templates.
+The system's details screen (Y on the system) shows its card large, plays its `focused` clip, and lets the user turn it with the right stick (or W, A, S and D), so its back and underside show. That's why system models have a bigger budget than game templates.
 
 In a grid, each row is as tall as its tallest model, and shorter models are centred in that height. The exception is boxes with `shape = "media"`, which stand on the row's floor.
 
@@ -361,7 +361,7 @@ A model can have up to three clips. Clip names are matched like slot names (case
 - Clips can move, rotate and scale nodes, so split the model into objects to animate its parts (like the sample's aerials). Armatures and shape keys work too, but haven't been tested on a real model yet: if you try one, check it in the launcher. Other clips are logged as ignored.
 - The grid always lifts the focused item towards the viewer and grows it a little. For any state without a clip, it also adds its own motion: a gentle bob while idle, a sway while focused, and a spin on launch. So a `focused` clip replaces the sway, and a `launch` clip replaces the spin. Your theme's `[motion]` (section 3) sets how far the sway and bob go.
 - While a clip plays, the focused item is drawn on its own copy of the model, and then blended back to its rest pose. Clips should start and end near the rest pose.
-- When the user inspects a game (R3, or Z on a keyboard), it fills about 75% of the window's height, plays its `focused` clip and can be turned with the right stick. Make sure your templates' textures hold up at that size.
+- When the user inspects a game (R3, or Z on a keyboard), it fills about 75% of the window's height, plays its `focused` clip and can be turned with the right stick (or W, A, S and D). Make sure your templates' textures hold up at that size.
 
 ## 9. Making models in Blender
 
