@@ -38,7 +38,8 @@ public sealed class MenuPaletteTests
     {
         var palette = MenuPalette.Derive(background, NearWhite, LightGrey);
 
-        Assert.True(palette.RowPlain.Luminance < palette.RowHover.Luminance);
+        // A plain row is transparent, so it shows the panel.
+        Assert.True(palette.Panel.Luminance < palette.RowHover.Luminance);
         Assert.True(palette.RowHover.Luminance < palette.RowFocus.Luminance);
         Assert.True(palette.RowFocus.Luminance < palette.RowPressed.Luminance);
         Assert.True(palette.Frame.Luminance <= palette.Panel.Luminance);
@@ -56,7 +57,7 @@ public sealed class MenuPaletteTests
     {
         var palette = MenuPalette.Derive(DarkGrey, NearWhite, LightGrey);
 
-        foreach (var colour in new[] { palette.Panel, palette.RowFocus, palette.PanelBorder, palette.Glow, palette.Fill, palette.Dim, palette.Scrim })
+        foreach (var colour in new[] { palette.Panel, palette.RowFocus, palette.FieldBorder, palette.RowHover, palette.Fill, palette.Dim, palette.Scrim })
         {
             Assert.Equal(colour.R, colour.G);
             Assert.Equal(colour.G, colour.B);

@@ -22,8 +22,6 @@ public sealed class OverlayPaletteTests
         Assert.Equal(new Rgba(0xC9 / 255f, 0xD0 / 255f, 0xE6 / 255f), OverlayPalette.Legacy.ListPlain);
         Assert.Equal(new Rgba(0x8E / 255f, 0x9C / 255f, 0xC6 / 255f), OverlayPalette.Legacy.ListSystem);
         Assert.Equal(new Rgba(0.16f, 0.24f, 0.62f, 0.7f), OverlayPalette.Legacy.ListFocusBox);
-        Assert.Equal(new Rgba(0x8F / 255f, 0xB2 / 255f, 0xFF / 255f), OverlayPalette.Legacy.ListFocusBorder);
-        Assert.Equal(new Rgba(0.35f, 0.5f, 1.0f, 0.4f), OverlayPalette.Legacy.ListFocusShadow);
     }
 
     [Fact]
@@ -34,9 +32,7 @@ public sealed class OverlayPaletteTests
         var menus = MenuPalette.For(menu);
 
         Assert.NotSame(OverlayPalette.Legacy, overlay);
-        Assert.Equal(menus.Glow, overlay.Glow);
         Assert.Equal(menus.Dim, overlay.Hint);
-        Assert.Equal(menus.Accent, overlay.ListFocusBorder);
     }
 
     [Fact]
@@ -44,7 +40,7 @@ public sealed class OverlayPaletteTests
     {
         var overlay = OverlayPalette.Derive(DarkGrey, NearWhite, LightGrey);
 
-        foreach (var colour in new[] { overlay.Glow, overlay.Subtitle, overlay.Hint, overlay.ListPlain, overlay.ListSystem, overlay.ListFocusBox, overlay.ListFocusBorder, overlay.ListFocusShadow })
+        foreach (var colour in new[] { overlay.Glow, overlay.Subtitle, overlay.Hint, overlay.ListPlain, overlay.ListSystem, overlay.ListFocusBox })
         {
             Assert.Equal(colour.R, colour.G);
             Assert.Equal(colour.G, colour.B);
