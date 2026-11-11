@@ -23,7 +23,7 @@ public sealed partial class PowerMenu : ListPanel
     private readonly Action _quit;
 
     public PowerMenu(IPowerControl power, MainThreadQueue queue, Action quit)
-        : base("Power", new Vector2(720, 400), dimBelow: true)
+        : base("Power", new Vector2(720, 0), dimBelow: true, scrolls: false)
     {
         _power = power;
         _queue = queue;

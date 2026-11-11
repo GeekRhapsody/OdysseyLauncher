@@ -26,13 +26,18 @@ public abstract partial class ListPanel : UiPanel
     private ulong _scrollFromFrame = ulong.MaxValue;
     private int _rebuildScroll;
 
-    protected ListPanel(string title, Vector2? size = null, bool dimBelow = false)
+    /// <param name="scrolls">
+    /// False for a short, fixed list (the power menu): the column never scrolls and the panel grows to fit every row,
+    /// since a disabled scroll's minimum height is its content's.
+    /// </param>
+    protected ListPanel(string title, Vector2? size = null, bool dimBelow = false, bool scrolls = true)
         : base(title, size ?? PageSize, PanelPlacement.Centre, dimBelow)
     {
         _scroll = new ScrollContainer
         {
             FollowFocus = true,
             HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
+            VerticalScrollMode = scrolls ? ScrollContainer.ScrollMode.Auto : ScrollContainer.ScrollMode.Disabled,
             SizeFlagsVertical = SizeFlags.ExpandFill,
         };
         Body.AddChild(_scroll);
