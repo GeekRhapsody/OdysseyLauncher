@@ -857,6 +857,64 @@ public sealed class LibraryServiceTests : IAsyncLifetime
         Assert.Equal([new GameKey("snes", "game b.sfc")], Assert.Single(changes)!);
     }
 
+    // ---- One game's media, after the art and model services change a file (2026-11-11) ------------------
+
+    private async Task<string?> MediaPath(string pathKey, string kind)
+    {
+        var game = (await _library.GetGameAsync(new GameKey("snes", pathKey), Ct))!;
+        return (await _library.GetGameMediaInfoAsync(game.GameId, Ct)).FirstOrDefault(m => m.Kind == kind)?.Media.Path;
+    }
+
+    [Fact]
+    public async Task Refreshing_one_games_media_indexes_every_game_sharing_its_name_as_a_full_refresh_would()
+    {
+        Rom("snes/Game.sfc");
+        Rom("snes/Game.smc");
+        Rom("snes/Game.zip");
+        var shared = Art("snes/covers/Game.png", TestImages.Png(10, 10));
+        Art("snes/covers/Game.smc.png", TestImages.Png(10, 10));
+        Art("snes/backcovers/Game.png", TestImages.Png(10, 10));
+        await _library.RescanAsync("snes", null, Ct);
+        Assert.Equal("media/snes/covers/Game.png", await MediaPath("game.zip", "cover"));
+        var changes = new List<IReadOnlyList<GameKey>?>();
+        _library.MediaChanged += (_, e) => changes.Add(e.Games);
+
+        // The shared cover goes; Game.sfc gets its own, in two formats (the first in a listing's order wins).
+        File.Delete(shared);
+        Art("snes/covers/Game.sfc.png", TestImages.Png(20, 10));
+        Art("snes/covers/Game.sfc.jpg", TestImages.Jpeg(30, 10));
+        var changed = await _library.RefreshGameMediaAsync(new GameKey("snes", "game.sfc"), "cover", Ct);
+
+        Assert.Equal(["game.sfc", "game.zip"], changed.Select(g => g.PathKey).Order(StringComparer.Ordinal));
+        Assert.Equal(changed, Assert.Single(changes)!);
+        Assert.Equal("media/snes/covers/Game.sfc.jpg", await MediaPath("game.sfc", "cover"));
+        Assert.Equal("media/snes/covers/Game.smc.png", await MediaPath("game.smc", "cover"));
+        Assert.Null(await MediaPath("game.zip", "cover"));
+        Assert.Equal("media/snes/backcovers/Game.png", await MediaPath("game.zip", "back"));
+
+        // A full refresh finds nothing left to change.
+        Assert.Empty(await _library.RefreshMediaAsync("snes", Ct));
+    }
+
+    [Fact]
+    public async Task Refreshing_one_games_media_leaves_other_games_and_kinds_alone()
+    {
+        Rom("snes/Game.sfc");
+        Rom("snes/Other.sfc");
+        await _library.RescanAsync("snes", null, Ct);
+        Art("snes/covers/Game.png", TestImages.Png(10, 10));
+        Art("snes/covers/Other.png", TestImages.Png(10, 10));
+        Art("snes/backcovers/Game.png", TestImages.Png(10, 10));
+
+        var changed = await _library.RefreshGameMediaAsync(new GameKey("snes", "game.sfc"), "cover", Ct);
+
+        Assert.Equal([new GameKey("snes", "game.sfc")], changed);
+        Assert.Equal("media/snes/covers/Game.png", await MediaPath("game.sfc", "cover"));
+        Assert.Null(await MediaPath("game.sfc", "back"));
+        Assert.Null(await MediaPath("other.sfc", "cover"));
+        Assert.Empty(await _library.RefreshGameMediaAsync(new GameKey("snes", "gone.sfc"), "cover", Ct));
+    }
+
     // ---- "Rescan the library": media only where there are new games (2026-10-18) ---------------------
 
     private const RescanMedia Quick = RescanMedia.SystemsWithNewGames;

@@ -101,22 +101,14 @@ public static class MediaScanner
                 int? width = null, height = null;
                 if (image)
                 {
-                    if (cache is not null && cache.TryGetValue(stored, out var known) && known.SizeBytes == size && known.MtimeMs == mtime)
+                    if (!TryReadSize(mediaDir, stored, size, mtime, cache, out var w, out var h, ref headersRead))
                     {
-                        (width, height) = (known.Width, known.Height);
+                        diagnostics.Add(new Diagnostic(Severity.Warning, MediaFolder.FullPath(mediaDir, stored), 0, 0, string.Empty,
+                            "isn't a PNG, JPEG or WebP image the launcher can read, so it's ignored"));
+                        continue;
                     }
-                    else
-                    {
-                        headersRead++;
-                        if (!ImageHeaders.TryReadSize(MediaFolder.FullPath(mediaDir, stored), out var w, out var h))
-                        {
-                            diagnostics.Add(new Diagnostic(Severity.Warning, MediaFolder.FullPath(mediaDir, stored), 0, 0, string.Empty,
-                                "isn't a PNG, JPEG or WebP image the launcher can read, so it's ignored"));
-                            continue;
-                        }
 
-                        (width, height) = (w, h);
-                    }
+                    (width, height) = (w, h);
                 }
 
                 keys.Add(matchKey, relPath);
@@ -125,6 +117,90 @@ public static class MediaScanner
         }
 
         return new MediaScan(files, diagnostics, headersRead);
+    }
+
+    /// <summary>
+    /// The files of one <paramref name="kind"/> that could be these games' (named after a game's <c>rel_path</c>, with or
+    /// without the ROM's extension, in any of the kind's formats), as <see cref="Scan"/> would index them, found by
+    /// asking for each name instead of listing the kind's folder: on a share, a big system's listing can take seconds
+    /// and a few lookups take milliseconds (docs/ARCHITECTURE.md decisions log, 2026-11-11). A name is looked up as
+    /// the game's <c>rel_path</c> writes it, so where file names are case-sensitive (Linux) a file whose case differs
+    /// isn't found, as <see cref="MediaStore.FilesOf(string, string, string)"/> doesn't find it.
+    /// </summary>
+    /// <param name="relPaths">The games' <c>rel_path</c>s.</param>
+    /// <param name="cache">The games' indexed images of the kind, by <see cref="MediaFile.Path"/>.</param>
+    public static IReadOnlyList<MediaFile> Probe(
+        string mediaDir, string systemId, string kind, IEnumerable<string> relPaths, IReadOnlyDictionary<string, MediaEntry>? cache)
+    {
+        ArgumentNullException.ThrowIfNull(relPaths);
+        var names = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var relPath in relPaths)
+        {
+            names.Add(relPath);
+            names.Add(MediaStore.NameOf(relPath));
+        }
+
+        var candidates = new List<string>();
+        foreach (var extension in MediaKinds.ExtensionsOf(kind))
+        {
+            foreach (var name in names)
+            {
+                candidates.Add(name + extension);
+            }
+        }
+
+        // In the order a scan lists them, so the same file wins where two share a match key.
+        candidates.Sort(string.CompareOrdinal);
+        var folder = MediaKinds.FolderOf(kind);
+        var image = MediaKinds.Images.Contains(kind);
+        var found = new HashSet<string>(StringComparer.Ordinal);
+        var files = new List<MediaFile>();
+        var headersRead = 0;
+        foreach (var relPath in candidates)
+        {
+            var matchKey = PathKeys.ToPathKey(relPath[..^System.IO.Path.GetExtension(relPath).Length]);
+            var stored = $"{FolderName}/{systemId}/{folder}/{relPath}";
+            var info = new FileInfo(MediaFolder.FullPath(mediaDir, stored));
+            if (found.Contains(matchKey) || !info.Exists || (info.Attributes & (FileAttributes.System | FileAttributes.Hidden)) != 0)
+            {
+                continue;
+            }
+
+            var mtime = new DateTimeOffset(info.LastWriteTimeUtc).ToUnixTimeMilliseconds();
+            int? width = null, height = null;
+            if (image)
+            {
+                if (!TryReadSize(mediaDir, stored, info.Length, mtime, cache, out var w, out var h, ref headersRead))
+                {
+                    continue;
+                }
+
+                (width, height) = (w, h);
+            }
+
+            found.Add(matchKey);
+            files.Add(new MediaFile(kind, stored, matchKey, info.Length, mtime, width, height));
+        }
+
+        return files;
+    }
+
+    /// <summary>
+    /// An image's size: the cache's when its size and time are the ones indexed, else from its header (counted in
+    /// <paramref name="headersRead"/>). False if the header can't be read.
+    /// </summary>
+    private static bool TryReadSize(
+        string mediaDir, string stored, long size, long mtime, IReadOnlyDictionary<string, MediaEntry>? cache,
+        out int width, out int height, ref int headersRead)
+    {
+        if (cache is not null && cache.TryGetValue(stored, out var known) && known.SizeBytes == size && known.MtimeMs == mtime)
+        {
+            (width, height) = (known.Width, known.Height);
+            return true;
+        }
+
+        headersRead++;
+        return ImageHeaders.TryReadSize(MediaFolder.FullPath(mediaDir, stored), out width, out height);
     }
 
     /// <summary>

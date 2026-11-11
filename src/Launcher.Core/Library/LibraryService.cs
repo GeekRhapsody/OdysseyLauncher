@@ -491,6 +491,53 @@ public sealed class LibraryService : ILibrary, IPlayHistory, IDisposable
         }
     }
 
+    /// <summary>
+    /// Indexes one game's files of one <paramref name="kind"/> again (the art and model services, after they write or
+    /// remove one), with every game sharing their name (<see cref="MediaStore.NameOf"/>), by looking up the names the
+    /// files can have instead of listing the system's media folder (<see cref="MediaScanner.Probe"/>), and raises
+    /// <see cref="MediaChanged"/> for the games whose rows changed. Needs <see cref="IndexMedia"/>. Returns those games.
+    /// </summary>
+    public async Task<IReadOnlyList<GameKey>> RefreshGameMediaAsync(GameKey game, string kind, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(kind);
+        if (!IndexMedia)
+        {
+            throw new InvalidOperationException("IndexMedia is off, so there's no media to index.");
+        }
+
+        await _jobLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            var (games, cache) = await _readers.RunAsync(c =>
+            {
+                var sharing = LibraryStore.LoadGamesSharingMedia(c, game);
+                return (sharing, LibraryStore.LoadMediaOf(c, sharing, kind));
+            }, cancellationToken).ConfigureAwait(false);
+            if (games.Count == 0)
+            {
+                return [];
+            }
+
+            var files = await Task.Run(() => MediaScanner.Probe(MediaDir, game.SystemId, kind, games.Select(g => g.RelPath), cache), cancellationToken).ConfigureAwait(false);
+            var changed = await _writer.RunAsync(c =>
+            {
+                var keys = new List<GameKey>();
+                LibraryStore.ApplyGameMedia(c, game.SystemId, kind, games, files, keys);
+                return keys;
+            }, cancellationToken).ConfigureAwait(false);
+            if (changed.Count > 0)
+            {
+                RaiseMediaChanged(changed);
+            }
+
+            return changed;
+        }
+        finally
+        {
+            _jobLock.Release();
+        }
+    }
+
     public async Task<ScanSummary> RebuildAsync(IProgress<JobProgress>? progress, CancellationToken cancellationToken)
     {
         var config = Config;

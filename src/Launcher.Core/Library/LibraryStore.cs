@@ -65,6 +65,48 @@ internal static class LibraryStore
         return keys;
     }
 
+    /// <summary>
+    /// The games a file named after <paramref name="game"/> (its <c>path_key</c>, or that without the ROM's extension)
+    /// can be media for, as <see cref="WriteMedia"/> matches files: a game with either key, and every game whose key is
+    /// either plus an extension. For <see cref="ApplyGameMedia"/>.
+    /// </summary>
+    public static List<MediaGame> LoadGamesSharingMedia(SqliteConnection connection, GameKey game)
+    {
+        var name = MediaStore.NameOf(game.PathKey);
+        using var command = connection.CreateCommand();
+
+        // '/' sorts straight after '.', so [x + '.', x + '/') is every key that's x plus something after a dot.
+        command.CommandText = """
+            SELECT game_id, path_key, rel_path FROM games WHERE system_id = $system
+              AND (path_key IN ($key, $name)
+                OR (path_key >= $key || '.' AND path_key < $key || '/')
+                OR (path_key >= $name || '.' AND path_key < $name || '/'))
+            """;
+        command.Parameters.AddWithValue("$system", game.SystemId);
+        command.Parameters.AddWithValue("$key", game.PathKey);
+        command.Parameters.AddWithValue("$name", name);
+        var games = new List<MediaGame>();
+        ReadMediaGames(command, games);
+        games.RemoveAll(g => g.PathKey != game.PathKey && g.PathKey != name
+            && MediaStore.NameOf(g.PathKey) is var stem && stem != game.PathKey && stem != name);
+        return games;
+    }
+
+    /// <summary>The indexed images of <paramref name="kind"/> of these games, by stored path, for <see cref="MediaScanner.Probe"/>'s cache.</summary>
+    public static Dictionary<string, MediaEntry> LoadMediaOf(SqliteConnection connection, IReadOnlyList<MediaGame> games, string kind)
+    {
+        var entries = new Dictionary<string, MediaEntry>(StringComparer.Ordinal);
+        foreach (var row in LoadMediaRows(connection, null, games, kind).Values)
+        {
+            if (row is { SizeBytes: { } size, MtimeMs: { } mtime, Width: { } width, Height: { } height })
+            {
+                entries.TryAdd(row.Path, new MediaEntry(size, mtime, width, height));
+            }
+        }
+
+        return entries;
+    }
+
     public static List<SystemSummary> GetSystems(SqliteConnection connection, AppConfig config)
     {
         var rows = new Dictionary<string, (int Count, long? ScannedAt)>(StringComparer.Ordinal);
@@ -996,6 +1038,20 @@ internal static class LibraryStore
         transaction.Commit();
     }
 
+    /// <summary>
+    /// The media rows of one <paramref name="kind"/> of <paramref name="games"/> (<see cref="LoadGamesSharingMedia"/>),
+    /// made to match <paramref name="files"/> (<see cref="MediaScanner.Probe"/>), in a transaction of their own. Every
+    /// other row stays as it is.
+    /// </summary>
+    public static void ApplyGameMedia(
+        SqliteConnection connection, string systemId, string kind, IReadOnlyList<MediaGame> games, IReadOnlyList<MediaFile> files, List<GameKey> changed)
+    {
+        using var transaction = connection.BeginTransaction();
+        var existing = LoadMediaRows(connection, transaction, games, kind);
+        WriteMedia(connection, transaction, systemId, files, games, existing, changed);
+        transaction.Commit();
+    }
+
     private static void ApplyPlaylists(
         SqliteConnection connection, SqliteTransaction transaction, Statements s, string system, IReadOnlyList<PlaylistEntry> playlists)
     {
@@ -1036,11 +1092,10 @@ internal static class LibraryStore
 
     private readonly record struct MediaRow(string Path, long? SizeBytes, long? MtimeMs, int? Width, int? Height);
 
-    /// <summary>
-    /// Makes the system's media rows match the media folder. A file matches the game whose <c>path_key</c> is its match
-    /// key; otherwise every game whose <c>path_key</c> is its match key plus an extension. Every kind (images, videos,
-    /// per-game models) is matched the same way, whether a scrape or the user put the file there.
-    /// </summary>
+    /// <summary>A game, as media is matched to it: <c>rel_path</c> for the names its files may have.</summary>
+    public readonly record struct MediaGame(long GameId, string PathKey, string RelPath);
+
+    /// <summary>Makes the system's media rows match the media folder (<see cref="WriteMedia"/>).</summary>
     private static void ApplyMedia(
         SqliteConnection connection, SqliteTransaction transaction, string system, MediaScan media, List<GameKey>? changed)
     {
@@ -1054,16 +1109,7 @@ internal static class LibraryStore
                 WHERE g.system_id = $system
                 """;
             select.Parameters.AddWithValue("$system", system);
-            using var reader = select.ExecuteReader();
-            while (reader.Read())
-            {
-                existing[(reader.GetInt64(0), reader.GetString(1))] = new MediaRow(
-                    reader.GetString(2),
-                    reader.IsDBNull(3) ? null : reader.GetInt64(3),
-                    reader.IsDBNull(4) ? null : reader.GetInt64(4),
-                    reader.IsDBNull(5) ? null : reader.GetInt32(5),
-                    reader.IsDBNull(6) ? null : reader.GetInt32(6));
-            }
+            ReadMediaRows(select, existing);
         }
 
         if (media.Files.Count == 0 && existing.Count == 0)
@@ -1071,37 +1117,96 @@ internal static class LibraryStore
             return;
         }
 
+        var games = new List<MediaGame>();
+        using (var select = connection.CreateCommand())
+        {
+            select.Transaction = transaction;
+            select.CommandText = "SELECT game_id, path_key, rel_path FROM games WHERE system_id = $system";
+            select.Parameters.AddWithValue("$system", system);
+            ReadMediaGames(select, games);
+        }
+
+        WriteMedia(connection, transaction, system, media.Files, games, existing, changed);
+    }
+
+    /// <summary>The media rows of one kind of these games, by game and kind.</summary>
+    private static Dictionary<(long GameId, string Kind), MediaRow> LoadMediaRows(
+        SqliteConnection connection, SqliteTransaction? transaction, IReadOnlyList<MediaGame> games, string kind)
+    {
+        var rows = new Dictionary<(long GameId, string Kind), MediaRow>();
+        using var select = connection.CreateCommand();
+        select.Transaction = transaction;
+        select.CommandText = "SELECT game_id, kind, path, size_bytes, mtime_ms, width, height FROM media WHERE game_id = $id AND kind = $kind";
+        foreach (var game in games)
+        {
+            select.Parameters.Clear();
+            select.Parameters.AddWithValue("$id", game.GameId);
+            select.Parameters.AddWithValue("$kind", kind);
+            ReadMediaRows(select, rows);
+        }
+
+        return rows;
+    }
+
+    /// <summary>Reads <c>game_id, kind, path, size_bytes, mtime_ms, width, height</c> rows.</summary>
+    private static void ReadMediaRows(SqliteCommand select, Dictionary<(long GameId, string Kind), MediaRow> rows)
+    {
+        using var reader = select.ExecuteReader();
+        while (reader.Read())
+        {
+            rows[(reader.GetInt64(0), reader.GetString(1))] = new MediaRow(
+                reader.GetString(2),
+                reader.IsDBNull(3) ? null : reader.GetInt64(3),
+                reader.IsDBNull(4) ? null : reader.GetInt64(4),
+                reader.IsDBNull(5) ? null : reader.GetInt32(5),
+                reader.IsDBNull(6) ? null : reader.GetInt32(6));
+        }
+    }
+
+    /// <summary>Reads <c>game_id, path_key, rel_path</c> rows.</summary>
+    private static void ReadMediaGames(SqliteCommand select, List<MediaGame> games)
+    {
+        using var reader = select.ExecuteReader();
+        while (reader.Read())
+        {
+            games.Add(new MediaGame(reader.GetInt64(0), reader.GetString(1), reader.GetString(2)));
+        }
+    }
+
+    /// <summary>
+    /// Makes <paramref name="existing"/>, the media rows of <paramref name="games"/>, match <paramref name="files"/>. A
+    /// file matches the game whose <c>path_key</c> is its match key; otherwise every game whose <c>path_key</c> is its
+    /// match key plus an extension. Every kind (images, videos, per-game models) is matched the same way, whether a
+    /// scrape or the user put the file there.
+    /// </summary>
+    private static void WriteMedia(
+        SqliteConnection connection, SqliteTransaction transaction, string system, IReadOnlyList<MediaFile> files,
+        IReadOnlyList<MediaGame> games, Dictionary<(long GameId, string Kind), MediaRow> existing, List<GameKey>? changed)
+    {
         var byKey = new Dictionary<string, long>(StringComparer.Ordinal);
         var keyOf = new Dictionary<long, string>();
         var byStem = new Dictionary<string, List<long>>(StringComparer.Ordinal);
-        using (var games = connection.CreateCommand())
+        foreach (var game in games)
         {
-            games.Transaction = transaction;
-            games.CommandText = "SELECT game_id, path_key FROM games WHERE system_id = $system";
-            games.Parameters.AddWithValue("$system", system);
-            using var reader = games.ExecuteReader();
-            while (reader.Read())
+            byKey[game.PathKey] = game.GameId;
+            keyOf[game.GameId] = game.PathKey;
+            var stem = MediaStore.NameOf(game.PathKey);
+            if (stem.Length == game.PathKey.Length)
             {
-                var key = reader.GetString(1);
-                byKey[key] = reader.GetInt64(0);
-                keyOf[reader.GetInt64(0)] = key;
-                var dot = key.LastIndexOf('.');
-                if (dot > key.LastIndexOf('/') + 1)
-                {
-                    var stem = key[..dot];
-                    if (!byStem.TryGetValue(stem, out var ids))
-                    {
-                        byStem[stem] = ids = [];
-                    }
-
-                    ids.Add(reader.GetInt64(0));
-                }
+                continue;
             }
+
+            if (!byStem.TryGetValue(stem, out var ids))
+            {
+                byStem[stem] = ids = [];
+            }
+
+            ids.Add(game.GameId);
         }
 
         // Exact matches first, so they win over a stem match of the same kind.
         var wanted = new Dictionary<(long GameId, string Kind), MediaFile>();
-        foreach (var file in media.Files)
+        foreach (var file in files)
         {
             if (byKey.TryGetValue(file.MatchKey, out var id))
             {
@@ -1109,7 +1214,7 @@ internal static class LibraryStore
             }
         }
 
-        foreach (var file in media.Files)
+        foreach (var file in files)
         {
             if (byStem.TryGetValue(file.MatchKey, out var ids))
             {

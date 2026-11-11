@@ -36,7 +36,7 @@ public sealed record UserArtResult(UserArtStatus Status, string? Path, string? M
 /// <c>&lt;media folder&gt;/&lt;system&gt;/&lt;folder&gt;/&lt;name&gt;.&lt;ext&gt;</c> (the ROM's name without its extension, as
 /// ES-DE names media, so every ROM of that name shares it; A4), replacing the game's files of that kind (a scraped
 /// one too: there's one file per kind), bakes its derivative, and indexes it without a ROM scan
-/// (<see cref="LibraryService.RefreshMediaAsync"/>, which raises <c>MediaChanged</c>, so the grid shows it at once).
+/// (<see cref="LibraryService.RefreshGameMediaAsync"/>, which raises <c>MediaChanged</c>, so the grid shows it at once).
 /// Scraping never replaces it.
 /// </para>
 /// <para>
@@ -189,7 +189,7 @@ public sealed class UserArtService(LibraryService library, DerivativeService? de
             await derivatives.BakeAsync(written.Path!, info.Length, new DateTimeOffset(info.LastWriteTimeUtc).ToUnixTimeMilliseconds(), cancellationToken).ConfigureAwait(false);
         }
 
-        await _library.RefreshMediaAsync(game.SystemId, cancellationToken).ConfigureAwait(false);
+        await _library.RefreshGameMediaAsync(game, kind, cancellationToken).ConfigureAwait(false);
         return written;
     }
 
@@ -219,7 +219,7 @@ public sealed class UserArtService(LibraryService library, DerivativeService? de
             return new UserArtResult(UserArtStatus.None, null);
         }
 
-        await _library.RefreshMediaAsync(game.SystemId, cancellationToken).ConfigureAwait(false);
+        await _library.RefreshGameMediaAsync(game, kind, cancellationToken).ConfigureAwait(false);
         return new UserArtResult(UserArtStatus.Removed, removed);
     }
 

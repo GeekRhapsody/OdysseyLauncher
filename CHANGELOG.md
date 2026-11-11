@@ -10,6 +10,10 @@ it releases, and the Release workflow puts it on the release page (tools/release
 
 ## Unreleased
 
+### Fixed
+
+- Removing or replacing a game's art, video, manual or model is now quick when the media folder is on a network drive. It could take several seconds, because the launcher looked through every media file of the game's system.
+
 ## 1.2.0 (2026-11-10)
 
 ### New

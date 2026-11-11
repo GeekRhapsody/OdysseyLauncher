@@ -60,7 +60,7 @@ public sealed record ModelRemoveResult(ModelRemoveStatus Status);
 /// <c>&lt;media folder&gt;/&lt;system&gt;/models/&lt;name&gt;.glb</c> (the ROM's name without its extension, so every ROM of
 /// that name shares it, as the rest of its media), atomically, removing the game's other model file (named after its
 /// whole ROM name), which would win over it; primes the processed-model cache so
-/// the app doesn't process it again; indexes it (<see cref="LibraryService.RefreshMediaAsync"/>, which raises
+/// the app doesn't process it again; indexes it (<see cref="LibraryService.RefreshGameMediaAsync"/>, which raises
 /// <c>MediaChanged</c>, so a running grid swaps the game's model in place); and logs the outcome to the model log.
 /// Clearing a game's metadata (<c>ScrapeService.ClearGameAsync</c>) removes its model too.
 /// </summary>
@@ -114,7 +114,7 @@ public sealed class ModelImportService
                     }
                 }
             }, cancellationToken).ConfigureAwait(false);
-            await _library.RefreshMediaAsync(game.SystemId, cancellationToken).ConfigureAwait(false);
+            await _library.RefreshGameMediaAsync(game, MediaKinds.Model, cancellationToken).ConfigureAwait(false);
         }
 
         return result;
@@ -148,7 +148,7 @@ public sealed class ModelImportService
             return new ModelRemoveResult(ModelRemoveStatus.None);
         }
 
-        await _library.RefreshMediaAsync(game.SystemId, cancellationToken).ConfigureAwait(false);
+        await _library.RefreshGameMediaAsync(game, MediaKinds.Model, cancellationToken).ConfigureAwait(false);
         return new ModelRemoveResult(ModelRemoveStatus.Removed);
     }
 
