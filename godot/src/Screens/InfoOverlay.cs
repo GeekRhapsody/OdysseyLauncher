@@ -6,12 +6,9 @@ using Launcher.Core.Theming;
 
 namespace Launcher.App.Screens;
 
-/// <summary>What the overlay shows of the focused game, read off the main thread: whether it's a favourite.</summary>
-public sealed record OverlayDetails(long Key, bool Favourite);
-
 /// <summary>
-/// The PS2-style text over the grid: the focused item's title top left, what it belongs to under it, "Favourite" top
-/// right on a favourite game, and the controls bottom right. A system's and a game's details are on their details
+/// The PS2-style text over the grid: the focused item's title top left and under it a subtitle (a game's system, then
+/// "Favourite" after a separator for a favourite), and the controls bottom right. A system's and a game's details are on their details
 /// screens (Y: <see cref="SystemDetailsPanel"/>, <see cref="GameDetailsPanel"/>). 2D, at the project's base size
 /// (1280×800) and stretched, so it's native resolution at 4K. Its colours are the theme's (<see cref="OverlayPalette"/>,
 /// from <c>[ui.menu]</c>): the launcher's own blue unless the theme sets menu colours.
@@ -20,7 +17,7 @@ public sealed partial class InfoOverlay : CanvasLayer
 {
     private const float Margin = 44;
 
-    /// <summary>Kept clear of the title, top right: the status indicators (<see cref="StatusBar"/>), and "Favourite" under them.</summary>
+    /// <summary>Kept clear of the title, top right: the status indicators (<see cref="StatusBar"/>).</summary>
     private const float StatusBarRoom = 250;
 
     private Control _root = null!;
@@ -33,10 +30,10 @@ public sealed partial class InfoOverlay : CanvasLayer
     private TextureRect _bottomScrim = null!;
     private Label _title = null!;
     private Label _subtitle = null!;
+    private Label _favouriteSeparator = null!;
     private Label _favourite = null!;
     private HintBar _hints = null!;
     private Label _status = null!;
-    private long _detailsKey = -1;
     private OverlayPalette _palette = OverlayPalette.Legacy;
 
     public InfoOverlay()
@@ -166,22 +163,22 @@ public sealed partial class InfoOverlay : CanvasLayer
         };
         heading.AddChild(_title);
 
-        _subtitle = new Label
+        // The subtitle's parts share one LabelSettings, so Paint colours them together; "Favourite" keeps its own gold.
+        var subtitleRow = new HBoxContainer { MouseFilter = Control.MouseFilterEnum.Ignore };
+        subtitleRow.AddThemeConstantOverride("separation", 0);
+        heading.AddChild(subtitleRow);
+        var subtitleSettings = new LabelSettings { FontSize = 18, ShadowColor = new Color(0, 0, 0, 0.6f), ShadowSize = 4, ShadowOffset = Vector2.Zero };
+        _subtitle = new Label { LabelSettings = subtitleSettings, MouseFilter = Control.MouseFilterEnum.Ignore };
+        _favouriteSeparator = new Label { LabelSettings = subtitleSettings, Text = " · ", MouseFilter = Control.MouseFilterEnum.Ignore };
+        _favourite = new Label
         {
-            LabelSettings = new LabelSettings { FontSize = 18, ShadowColor = new Color(0, 0, 0, 0.6f), ShadowSize = 4, ShadowOffset = Vector2.Zero },
+            LabelSettings = new LabelSettings { FontSize = 18, FontColor = new Color("#FFD66B"), ShadowColor = new Color(1, 0.7f, 0.2f, 0.5f), ShadowSize = 6, ShadowOffset = Vector2.Zero },
+            Text = "Favourite",
             MouseFilter = Control.MouseFilterEnum.Ignore,
         };
-        heading.AddChild(_subtitle);
-
-        _favourite = AddLabel(new LabelSettings { FontSize = 18, FontColor = new Color("#FFD66B"), ShadowColor = new Color(1, 0.7f, 0.2f, 0.5f), ShadowSize = 6, ShadowOffset = Vector2.Zero });
-        _favourite.Text = "Favourite";
-        _favourite.Visible = false;
-        _favourite.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.TopRight);
-        _favourite.OffsetLeft = -Margin - 150;
-        _favourite.OffsetRight = -Margin;
-        _favourite.OffsetTop = 56;
-        _favourite.OffsetBottom = 82;
-        _favourite.HorizontalAlignment = HorizontalAlignment.Right;
+        subtitleRow.AddChild(_subtitle);
+        subtitleRow.AddChild(_favouriteSeparator);
+        subtitleRow.AddChild(_favourite);
 
         _hints = new HintBar(new LabelSettings { FontSize = UiStyle.ControlsSize });
         _root.AddChild(_hints);
@@ -202,7 +199,7 @@ public sealed partial class InfoOverlay : CanvasLayer
         _status.Visible = false;
 
         Paint();
-        ClearDetails();
+        ShowFavourite(false);
     }
 
     /// <summary>
@@ -252,28 +249,11 @@ public sealed partial class InfoOverlay : CanvasLayer
         }
     }
 
-    /// <summary>The details belong to the item keyed <paramref name="key"/>; they're dropped if focus has moved on.</summary>
-    public void ShowDetails(OverlayDetails details, long focusedKey)
+    /// <summary>Main thread: "Favourite" at the end of the subtitle, or not.</summary>
+    public void ShowFavourite(bool favourite)
     {
-        if (details.Key != focusedKey)
-        {
-            return;
-        }
-
-        _detailsKey = details.Key;
-        _favourite.Visible = details.Favourite;
-    }
-
-    /// <summary>Hides the details (focus moved; new ones are on their way).</summary>
-    public void ClearDetails()
-    {
-        if (_detailsKey == -2)
-        {
-            return;
-        }
-
-        _detailsKey = -2;
-        _favourite.Visible = false;
+        _favouriteSeparator.Visible = favourite;
+        _favourite.Visible = favourite;
     }
 
     /// <summary>Main thread: the controls' hints, bottom right (nothing happens when they're the ones shown).</summary>

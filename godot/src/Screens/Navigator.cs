@@ -519,7 +519,7 @@ public sealed partial class Navigator : Node
 
     private void OnFocusChanged()
     {
-        _overlay.ClearDetails();
+        _overlay.ShowFavourite(false);
         _focusedGame = null;
         if (_screen == Screen.Systems || _games is null)
         {
@@ -547,6 +547,7 @@ public sealed partial class Navigator : Node
         var row = _games.Row(_focusedIndex);
         _focusKey = row.GameId;
         _overlay.ShowHeading(row.Title, _games.SystemName(_focusedIndex));
+        _overlay.ShowFavourite(row.IsFavourite);
 
         // Details wait until the focus rests, so holding a direction doesn't query every step.
         _detailsDue = _clock + DetailsDelay;
@@ -562,7 +563,10 @@ public sealed partial class Navigator : Node
         }
     }
 
-    /// <summary>The focused game's details: whether it's a favourite, and the game to launch.</summary>
+    /// <summary>
+    /// The focused game's details: the game to launch, and whether it's a favourite, which corrects the lists' rows
+    /// after a favourite changes (L3 here or on its details screen reads the details again).
+    /// </summary>
     private void RequestDetails()
     {
         var key = _focusKey;
@@ -585,15 +589,17 @@ public sealed partial class Navigator : Node
                     return;
                 }
 
-                // A game's metadata is on its details screen (Y); the overlay keeps its title and whether it's a favourite.
-                var details = new OverlayDetails(key, game.IsFavourite);
                 var shown = showcase ? new ShowcaseDetails(key, game.Metadata?.Description ?? string.Empty, DetailsFormatter.ShowcaseFields(game.Metadata)) : null;
                 _queue.Post(() =>
                 {
                     if (_focusKey == key && _screen is Screen.Games or Screen.Launching)
                     {
                         _focusedGame = game;
-                        _overlay.ShowDetails(details, _focusKey);
+                        if (_games is { } games && games.Row(_focusedIndex).IsFavourite != game.IsFavourite)
+                        {
+                            UpdateFavourite(games, key, game.IsFavourite);
+                        }
+
                         if (shown is not null)
                         {
                             _overlay.Showcase.ShowDetails(shown, _focusKey);
@@ -614,6 +620,18 @@ public sealed partial class Navigator : Node
                 GD.PushError($"Details: {e.Message}");
             }
         }, token);
+    }
+
+    /// <summary>A game's favourite changed: its row in the shown list and the cached lists, and the overlay.</summary>
+    private void UpdateFavourite(GamesSource shown, long gameId, bool favourite)
+    {
+        shown.SetFavourite(gameId, favourite);
+        foreach (var list in _cache)
+        {
+            list.SetFavourite(gameId, favourite);
+        }
+
+        _overlay.ShowFavourite(favourite);
     }
 
     /// <summary>The focused item's details are read again now (its favourite changed on its details screen).</summary>
@@ -659,7 +677,7 @@ public sealed partial class Navigator : Node
         _entering = entry.Id;
         _systemsAnimation.Start(Shown, SystemsHidden, TransitionSeconds);
         Sounds?.Whoosh();
-        _overlay.ClearDetails();
+        _overlay.ShowFavourite(false);
         _stage.Show(_theme.LookFor(entry.Virtual == VirtualKind.None ? entry.Id : null), _theme.TransitionSeconds);
 
         var ordering = GamesSort(entry.Id);

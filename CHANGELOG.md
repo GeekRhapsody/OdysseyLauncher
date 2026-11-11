@@ -10,6 +10,10 @@ it releases, and the Release workflow puts it on the release page (tools/release
 
 ## Unreleased
 
+### Changed
+
+- "Favourite" now shows in a favourite game's line under its title, after its system: for example "DOS · Favourite". It was on its own at the top right.
+
 ### Fixed
 
 - Removing or replacing a game's art, video, manual or model is now quick when the media folder is on a network drive. It could take several seconds, because the launcher looked through every media file of the game's system.

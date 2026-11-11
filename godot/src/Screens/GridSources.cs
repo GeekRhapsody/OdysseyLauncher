@@ -491,6 +491,19 @@ public sealed class GamesSource : IGridSource
         return changed;
     }
 
+    /// <summary>Main thread: the game's row says whether it's a favourite, when the list holds it.</summary>
+    public void SetFavourite(long gameId, bool favourite)
+    {
+        for (var i = 0; i < _rows.Length; i++)
+        {
+            if (_rows[i].GameId == gameId)
+            {
+                _rows[i] = _rows[i] with { IsFavourite = favourite };
+                return;
+            }
+        }
+    }
+
     public void Describe(int index, out CellInfo cell)
     {
         ref readonly var row = ref _rows[index];
