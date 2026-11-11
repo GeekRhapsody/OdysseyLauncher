@@ -159,7 +159,10 @@ jobs:
           tools/write-built-in-accounts.ps1 -Required:($env:REF_TYPE -eq 'tag')
           "present=$((Test-Path src/Launcher.Core/Scraping/BuiltInAccounts.Release.g.cs).ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
 
+      # A hung test once held v1.2.0's run here for over 30 minutes with no output (the tests take under a minute):
+      # --long-running names a test still running after 60 s, and --timeout ends the session, so it fails instead.
       - name: Build and test
+        timeout-minutes: 20
         env:
           # BuiltInAccountsTests then checks the generated file was compiled in.
           ODYSSEY_EXPECT_BUILT_IN_ACCOUNTS: ${{ steps.accounts.outputs.present }}
@@ -167,7 +170,7 @@ jobs:
           $PSNativeCommandUseErrorActionPreference = $true
           dotnet build
           # The scan benchmarks' budgets were set on the Steam Deck; a shared runner's timings aren't comparable.
-          dotnet test --no-build --filter-not-trait "Category=Benchmark"
+          dotnet test --no-build --filter-not-trait "Category=Benchmark" --long-running 60 --timeout 10m
 
       - name: Godot C# build and import
         run: |
@@ -282,8 +285,10 @@ jobs:
       - name: Linux tools
         run: bash tools/linux/setup.sh
 
+      # The same hang guards as the Windows job's tests.
       - name: Build and test
-        run: bash tools/linux/test.sh
+        timeout-minutes: 20
+        run: bash tools/linux/test.sh --long-running 60 --timeout 10m
 
       # Validates the AppStream metadata with appstreamcli, checks every ELF file against glibc 2.34, and writes the
       # .sha256 and the .zsync.
