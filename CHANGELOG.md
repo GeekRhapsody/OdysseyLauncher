@@ -10,6 +10,8 @@ it releases, and the Release workflow puts it on the release page (tools/release
 
 ## Unreleased
 
+## 1.2.1 (2026-11-11)
+
 ### Changed
 
 - "Favourite" now shows in a favourite game's line under its title, after its system: for example "DOS · Favourite". It was on its own at the top right.
